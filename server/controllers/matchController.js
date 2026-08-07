@@ -1,6 +1,7 @@
 import Script from "../models/Script.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
+import { asObjectId } from "../utils/requestValue.js";
 
 // Get smart matches for the current user
 export const getSmartMatches = async (req, res) => {
@@ -47,7 +48,8 @@ export const updatePreferences = async (req, res) => {
 // Record a script view (for tracking and matching)
 export const recordScriptView = async (req, res) => {
   try {
-    const { scriptId } = req.body;
+    const scriptId = asObjectId(req.body.scriptId);
+    if (!scriptId) return res.status(404).json({ message: "Script not found" });
     const script = await Script.findById(scriptId);
     if (!script) return res.status(404).json({ message: "Script not found" });
     if (script.isDeleted) return res.status(404).json({ message: "Script not found" });
@@ -91,9 +93,12 @@ export const recordScriptView = async (req, res) => {
 // Swipe-style matching: Like / Pass on a script
 export const swipeScript = async (req, res) => {
   try {
-    const { scriptId, action } = req.body; // action: "like" | "pass"
-    
+    const { action } = req.body; // action: "like" | "pass"
+    const scriptId = asObjectId(req.body.scriptId);
+
     if (action === "like") {
+      // Checked inside the branch: a "pass" never reads the id, and must stay a 200 either way.
+      if (!scriptId) return res.status(404).json({ message: "Script not found" });
       const script = await Script.findById(scriptId).populate("creator", "name");
       if (!script) return res.status(404).json({ message: "Script not found" });
       if (script.isDeleted) return res.status(404).json({ message: "Script not found" });

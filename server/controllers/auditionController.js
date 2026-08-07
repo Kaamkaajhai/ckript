@@ -2,6 +2,7 @@ import Audition from "../models/Audition.js";
 import Script from "../models/Script.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
+import { asObjectId, asTrimmedString } from "../utils/requestValue.js";
 
 // Submit an audition for a role
 export const submitAudition = async (req, res) => {
@@ -13,21 +14,27 @@ export const submitAudition = async (req, res) => {
       return res.status(403).json({ message: "Only actors can submit auditions" });
     }
 
-    const script = await Script.findById(scriptId);
+    // Both ids reach a query, and findById with an operator object matches "any script but this one"
+    // rather than failing, so they have to be real ids before they get there.
+    const scriptObjectId = asObjectId(scriptId);
+    if (!scriptObjectId) return res.status(404).json({ message: "Script not found" });
+
+    const script = await Script.findById(scriptObjectId);
     if (!script) return res.status(404).json({ message: "Script not found" });
 
-    const role = script.roles.id(roleId);
+    const roleObjectId = asObjectId(roleId);
+    const role = roleObjectId ? script.roles.id(roleObjectId) : null;
     if (!role) return res.status(404).json({ message: "Role not found" });
 
     // Check if already auditioned
-    const existing = await Audition.findOne({ script: scriptId, role: roleId, actor: req.user._id });
+    const existing = await Audition.findOne({ script: scriptObjectId, role: role._id, actor: req.user._id });
     if (existing) {
       return res.status(400).json({ message: "You have already auditioned for this role" });
     }
 
     const audition = await Audition.create({
-      script: scriptId,
-      role: roleId,
+      script: scriptObjectId,
+      role: role._id,
       actor: req.user._id,
       videoUrl,
       thumbnailUrl,
@@ -148,8 +155,12 @@ export const getAvailableRoles = async (req, res) => {
       isSold: { $ne: true },
       isDeleted: { $ne: true },
     };
-    if (genre) query.genre = genre;
-    if (contentType) query.contentType = contentType;
+    // Each facet is an equality match, so it has to reach the query as a string. An object here would
+    // be read by Mongo as an operator rather than as a value to compare.
+    const genreFilter = asTrimmedString(genre);
+    const contentTypeFilter = asTrimmedString(contentType);
+    if (genreFilter) query.genre = genreFilter;
+    if (contentTypeFilter) query.contentType = contentTypeFilter;
 
     const scripts = await Script.find(query)
       .populate("creator", "name profileImage")

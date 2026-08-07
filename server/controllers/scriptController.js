@@ -49,6 +49,7 @@ import {
   verifyRemoteAssetGrant,
 } from "../utils/remoteAssetPolicy.js";
 import { parseMongoObjectId } from "../utils/mongoId.js";
+import { asTrimmedString, asInt, asSearchRegex } from "../utils/requestValue.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import { resolveCurrency, convertInrToCurrency, toSubunits } from "../utils/currencyFx.js";
@@ -3205,9 +3206,14 @@ export const getScripts = async (req, res) => {
 
     const { genre, contentType, budget, sort, search, premium, minPrice, maxPrice } = req.query;
     const query = { ...PUBLIC_SCRIPT_FILTER };
-    if (genre) query.genre = genre;
-    if (contentType) query.contentType = contentType;
-    if (budget) query.budget = budget;
+    // Each facet is an equality match, so it has to reach the query as a string. An object here would
+    // be read by Mongo as an operator rather than as a value to compare.
+    const genreFilter = asTrimmedString(genre);
+    const contentTypeFilter = asTrimmedString(contentType);
+    const budgetFilter = asTrimmedString(budget);
+    if (genreFilter) query.genre = genreFilter;
+    if (contentTypeFilter) query.contentType = contentTypeFilter;
+    if (budgetFilter) query.budget = budgetFilter;
     if (premium === "true") query.premium = true;
     else if (premium === "false") query.premium = { $ne: true };
     if (minPrice || maxPrice) {
@@ -3215,8 +3221,8 @@ export const getScripts = async (req, res) => {
       if (minPrice) query.price.$gte = Number(minPrice);
       if (maxPrice) query.price.$lte = Number(maxPrice);
     }
-    if (search) {
-      const searchRegex = new RegExp(escapeRegExp(search), "i");
+    const searchRegex = asSearchRegex(search);
+    if (searchRegex) {
       query.$or = [
         { sid: searchRegex },
         { title: searchRegex },
@@ -4098,7 +4104,11 @@ export const getPublicScriptById = async (req, res) => {
 
 export const unlockScript = async (req, res) => {
   try {
-    const script = await Script.findById(req.body.scriptId);
+    const scriptObjectId = parseMongoObjectId(req.body.scriptId);
+    if (!scriptObjectId) {
+      return res.status(400).json({ message: "Invalid script ID." });
+    }
+    const script = await Script.findById(scriptObjectId);
     if (!script) return res.status(404).json({ message: "Script not found" });
     if (script.isDeleted) {
       return res.status(410).json({ message: "This project was deleted by creator and is no longer available for new purchases." });
@@ -4141,7 +4151,12 @@ export const requestScriptPurchase = async (req, res) => {
       return res.status(403).json({ message: "Only investors and industry professionals can request script purchases." });
     }
 
-    const script = await Script.findById(scriptId).populate("creator", "name email");
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) {
+      return res.status(400).json({ message: "Invalid script ID." });
+    }
+
+    const script = await Script.findById(scriptObjectId).populate("creator", "name email");
     if (!script) return res.status(404).json({ message: "Script not found" });
     if (script.isDeleted) {
       return res.status(410).json({ message: "This project was deleted by creator and is no longer available for new purchases." });
@@ -4165,7 +4180,7 @@ export const requestScriptPurchase = async (req, res) => {
 
     // Prevent duplicate active request flows for same investor/script.
     const existing = await ScriptPurchaseRequest.findOne({
-      script: scriptId,
+      script: scriptObjectId,
       investor: req.user._id,
       $or: [
         { status: "pending" },
@@ -4185,7 +4200,7 @@ export const requestScriptPurchase = async (req, res) => {
     const sanitizedNote = String(note || defaultRequestNote).trim() || defaultRequestNote;
 
     const purchaseRequest = await ScriptPurchaseRequest.create({
-      script: scriptId,
+      script: scriptObjectId,
       investor: req.user._id,
       writer: script.creator._id,
       amount,
@@ -4778,7 +4793,11 @@ export const getMyPurchaseRequests = async (req, res) => {
 export const holdScript = async (req, res) => {
   try {
     const { scriptId } = req.body;
-    const script = await Script.findById(scriptId);
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) {
+      return res.status(400).json({ message: "Invalid script ID." });
+    }
+    const script = await Script.findById(scriptObjectId);
 
     if (!script) return res.status(404).json({ message: "Script not found" });
     if (script.isDeleted) {
@@ -4804,7 +4823,7 @@ export const holdScript = async (req, res) => {
 
     // Create option record
     const option = await ScriptOption.create({
-      script: scriptId,
+      script: scriptObjectId,
       holder: req.user._id,
       fee,
       platformCut,
@@ -4850,7 +4869,11 @@ export const holdScript = async (req, res) => {
 export const releaseHold = async (req, res) => {
   try {
     const { scriptId } = req.body;
-    const script = await Script.findById(scriptId);
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) {
+      return res.status(400).json({ message: "Invalid script ID." });
+    }
+    const script = await Script.findById(scriptObjectId);
 
     if (!script) return res.status(404).json({ message: "Script not found" });
     if (script.heldBy?.toString() !== req.user._id.toString()) {
@@ -4865,7 +4888,7 @@ export const releaseHold = async (req, res) => {
 
     // Update option
     await ScriptOption.findOneAndUpdate(
-      { script: scriptId, holder: req.user._id, status: "active" },
+      { script: scriptObjectId, holder: req.user._id, status: "active" },
       { status: "cancelled" }
     );
 
@@ -4896,7 +4919,11 @@ export const getMyHolds = async (req, res) => {
 export const addRoles = async (req, res) => {
   try {
     const { scriptId, roles } = req.body;
-    const script = await Script.findById(scriptId);
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) {
+      return res.status(400).json({ message: "Invalid script ID." });
+    }
+    const script = await Script.findById(scriptObjectId);
 
     if (!script) return res.status(404).json({ message: "Script not found" });
     if (script.creator.toString() !== req.user._id.toString()) {
@@ -5081,18 +5108,23 @@ export const searchScriptsReader = async (req, res) => {
     if (blockedUserIds.length > 0) {
       query.creator = { $nin: blockedUserIds };
     }
-    if (q) {
-      const regex = new RegExp(escapeRegExp(q), "i");
+    const regex = asSearchRegex(q);
+    if (regex) {
       query.$or = [{ sid: regex }, { title: regex }, { description: regex }, { logline: regex }, { tags: regex }];
     }
-    if (category) query.contentType = category;
-    if (genre) query.genre = genre;
+    // Equality facets must arrive as strings; an object would be read by Mongo as an operator.
+    const categoryFilter = asTrimmedString(category);
+    const genreFilter = asTrimmedString(genre);
+    if (categoryFilter) query.contentType = categoryFilter;
+    if (genreFilter) query.genre = genreFilter;
+    const pageNumber = asInt(page, { min: 1, fallback: 1 });
+    const pageSize = asInt(limit, { min: 1, max: 100, fallback: 20 });
     const total = await Script.countDocuments(query);
     const scripts = await Script.find(query)
       .populate("creator", "name profileImage role")
       .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
+      .skip((pageNumber - 1) * pageSize)
+      .limit(pageSize);
 
     await Promise.all(
       scripts.map(async (doc) => {
@@ -5102,7 +5134,7 @@ export const searchScriptsReader = async (req, res) => {
       })
     );
 
-    res.json({ scripts, totalPages: Math.ceil(total / limit), page: parseInt(page), total });
+    res.json({ scripts, totalPages: Math.ceil(total / pageSize), page: pageNumber, total });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -5228,8 +5260,6 @@ export const getCategories = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
-const escapeRegExp = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const normalizeGenre = (value = "") => {
   const raw = String(value || "").toLowerCase().trim();
@@ -5597,7 +5627,12 @@ export const createScriptPurchaseOrder = async (req, res) => {
       acceptedLegalDisclaimer,
     } = req.body;
 
-    const script = await Script.findById(scriptId).populate("creator", "name");
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) {
+      return res.status(400).json({ message: "Invalid script ID." });
+    }
+
+    const script = await Script.findById(scriptObjectId).populate("creator", "name");
     if (!script) {
       return res.status(404).json({ message: "Script not found" });
     }
@@ -5624,7 +5659,7 @@ export const createScriptPurchaseOrder = async (req, res) => {
     const now = new Date();
     const activeApprovedClause = getApprovedUnpaidActiveClause(now);
     const purchaseRequest = await ScriptPurchaseRequest.findOne({
-      script: scriptId,
+      script: scriptObjectId,
       investor: req.user._id,
       $or: [{ status: "pending" }, activeApprovedClause],
     }).sort({ createdAt: -1 });
@@ -5825,7 +5860,9 @@ const buildCurrencyQuote = async (pricing, currency) => {
 export const getScriptPurchaseQuote = async (req, res) => {
   try {
     const { scriptId } = req.body;
-    const script = await Script.findById(scriptId).select("price title");
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) return res.status(400).json({ message: "Invalid script ID." });
+    const script = await Script.findById(scriptObjectId).select("price title");
     if (!script) return res.status(404).json({ message: "Script not found" });
     const pricing = getScriptPurchasePricing(Math.max(0, Number(script.price || 0)));
     const currency = resolveCurrency(req.body?.currency, req.user?.preferredCurrency);
@@ -5842,7 +5879,9 @@ export const getScriptPurchaseQuote = async (req, res) => {
 export const getScriptHoldQuote = async (req, res) => {
   try {
     const { scriptId } = req.body;
-    const script = await Script.findById(scriptId).select("holdFee title");
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) return res.status(400).json({ message: "Invalid script ID." });
+    const script = await Script.findById(scriptObjectId).select("holdFee title");
     if (!script) return res.status(404).json({ message: "Script not found" });
     const pricing = getScriptPurchasePricing(Number(script.holdFee || 200));
     const currency = resolveCurrency(req.body?.currency, req.user?.preferredCurrency);
@@ -5870,8 +5909,13 @@ export const activateProjectSpotlight = async (req, res) => {
       return res.status(400).json({ message: "Script ID is required" });
     }
 
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) {
+      return res.status(400).json({ message: "Invalid script ID" });
+    }
+
     await session.withTransaction(async () => {
-      script = await Script.findById(scriptId).session(session);
+      script = await Script.findById(scriptObjectId).session(session);
       if (!script) {
         const error = new Error("Script not found");
         error.statusCode = 404;
@@ -6021,7 +6065,15 @@ export const verifyScriptPurchase = async (req, res) => {
       });
     }
 
-    const script = await Script.findById(scriptId).populate("creator", "name email");
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) {
+      return res.status(400).json({
+        message: "Invalid script id.",
+        success: false,
+      });
+    }
+
+    const script = await Script.findById(scriptObjectId).populate("creator", "name email");
     if (!script) {
       console.error("Script not found:", scriptId);
       return res.status(404).json({
@@ -6613,8 +6665,12 @@ export const createScriptHoldOrder = async (req, res) => {
     }
 
     const { scriptId } = req.body;
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) {
+      return res.status(400).json({ message: "Invalid script ID." });
+    }
 
-    const script = await Script.findById(scriptId).populate("creator", "name");
+    const script = await Script.findById(scriptObjectId).populate("creator", "name");
     if (!script) {
       return res.status(404).json({ message: "Script not found" });
     }
@@ -6718,8 +6774,16 @@ export const verifyScriptHold = async (req, res) => {
       });
     }
 
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) {
+      return res.status(400).json({
+        message: "Invalid script id.",
+        success: false
+      });
+    }
+
     // Payment verified successfully, place hold on script
-    const script = await Script.findById(scriptId).populate("creator", "name email");
+    const script = await Script.findById(scriptObjectId).populate("creator", "name email");
     if (!script) {
       console.error("Script not found:", scriptId);
       return res.status(404).json({
@@ -6745,7 +6809,7 @@ export const verifyScriptHold = async (req, res) => {
 
     // Create option record
     const option = await ScriptOption.create({
-      script: scriptId,
+      script: scriptObjectId,
       holder: req.user._id,
       fee,
       platformCut,

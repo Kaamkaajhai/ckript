@@ -1,6 +1,7 @@
 import ProducerRating from "../models/ProducerRating.js";
 import Script from "../models/Script.js";
 import { isFilmIndustryProfessionalRole } from "../utils/industryAccess.js";
+import { asObjectId } from "../utils/requestValue.js";
 
 // Industry professionals (producer / director / professional / industry / investor) may give a producer
 // rating — the credibility signal. Reuses the shared role list so it stays in lockstep with the rest of
@@ -18,10 +19,15 @@ export const rateScript = async (req, res) => {
       return res.status(403).json({ message: "Only producers and industry professionals can rate scripts." });
     }
 
-    const { script: scriptId, rating, review } = req.body;
+    const { script: rawScriptId, rating, review } = req.body;
     const score = Number(rating);
     if (!Number.isFinite(score) || score < 1 || score > 5) {
       return res.status(400).json({ message: "Rating must be a number from 1 to 5." });
+    }
+
+    const scriptId = asObjectId(rawScriptId);
+    if (!scriptId) {
+      return res.status(400).json({ message: "A valid script id is required." });
     }
 
     const scriptDoc = await Script.findById(scriptId).select("creator status isDeleted");

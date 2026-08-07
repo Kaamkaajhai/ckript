@@ -1,5 +1,6 @@
 import Review from "../models/Review.js";
 import Script from "../models/Script.js";
+import { asObjectId } from "../utils/requestValue.js";
 
 const isReaderReviewer = (role) => String(role || "").toLowerCase() === "reader";
 
@@ -11,7 +12,12 @@ export const createReview = async (req, res) => {
       return res.status(403).json({ message: "Only readers can submit reviews." });
     }
 
-    const scriptDoc = await Script.findById(script).select("creator status isDeleted");
+    const scriptId = asObjectId(script);
+    if (!scriptId) {
+      return res.status(400).json({ message: "A valid script id is required" });
+    }
+
+    const scriptDoc = await Script.findById(scriptId).select("creator status isDeleted");
     if (!scriptDoc) {
       return res.status(404).json({ message: "Script not found" });
     }
@@ -28,10 +34,10 @@ export const createReview = async (req, res) => {
       return res.status(400).json({ message: "You cannot review your own project." });
     }
 
-    const existing = await Review.findOne({ user: req.user._id, script });
+    const existing = await Review.findOne({ user: req.user._id, script: scriptId });
     if (existing) return res.status(400).json({ message: "You already reviewed this script" });
 
-    const review = await Review.create({ user: req.user._id, script, rating, comment });
+    const review = await Review.create({ user: req.user._id, script: scriptId, rating, comment });
     const populated = await review.populate("user", "name profileImage role");
     res.status(201).json(populated);
   } catch (error) {

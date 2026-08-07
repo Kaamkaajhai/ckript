@@ -3,6 +3,7 @@ import AnonymousVisitor from "../models/AnonymousVisitor.js";
 import UserActivity from "../models/UserActivity.js";
 import User from "../models/User.js";
 import Script from "../models/Script.js";
+import { asObjectId, asTrimmedString } from "../utils/requestValue.js";
 
 const SESSION_LIMIT = 40;
 const EVENT_LIMIT_PER_SESSION = 400;
@@ -219,13 +220,17 @@ const getOrCreateUserSession = (activity, sessionId, startedAt) => {
 };
 
 const getOrCreateUserActivityDoc = async ({ userId, anonymousId, email, phone }) => {
-  if (!userId) return null;
+  // Callers reach here with an id that may have started life in the request body, so what keys the
+  // query is a validated ObjectId rather than whatever shape arrived. String() bridges the trusted
+  // case, where the caller passes the ObjectId instance the verified token produced.
+  const ownerId = asObjectId(String(userId ?? ""));
+  if (!ownerId) return null;
 
   let activity = await UserActivity.findOneAndUpdate(
-    { userId },
+    { userId: ownerId },
     {
       $setOnInsert: {
-        userId,
+        userId: ownerId,
         anonymousId: anonymousId || "",
         email: email || "",
         phone: phone || "",
@@ -543,7 +548,7 @@ export const getCurrencyForRequest = async (req, res) => {
 export const trackEvent = async (req, res) => {
   try {
     const {
-      anonymousId,
+      anonymousId: rawAnonymousId,
       sessionId,
       eventType,
       path,
@@ -572,6 +577,12 @@ export const trackEvent = async (req, res) => {
     if (consent !== true) {
       return res.status(400).json({ message: "Consent is required before tracking." });
     }
+
+    // anonymousId is the key the visitor document is looked up and inserted by, so it enters the
+    // handler as a bounded string and nothing else — a non-string collapses to "" and is answered by
+    // the required-fields check below rather than reaching the query. 160 matches the cap
+    // getVisitorProfile already applies to the same field.
+    const anonymousId = asTrimmedString(rawAnonymousId, 160);
 
     if (!anonymousId || !sessionId || !eventType) {
       return res.status(400).json({ message: "anonymousId, sessionId, and eventType are required." });
@@ -632,7 +643,12 @@ export const trackEvent = async (req, res) => {
 
     await visitor.save();
 
-    const effectiveUserId = authUser?._id || userContext?.userId;
+    // authUser is the verified token's user, so its _id is trusted as-is. userContext is a block the
+    // caller put in the request body, so its id only counts once it validates as an ObjectId.
+    const effectiveUserId = authUser?._id || asObjectId(userContext?.userId);
+    if (!effectiveUserId && userContext?.userId) {
+      return res.status(400).json({ message: "userContext.userId is not a valid id." });
+    }
     const effectiveEmail = authUser?.email || userContext?.email || "";
     const effectivePhone = authUser?.phone || userContext?.phone || "";
     const authEventType = resolveAuthEventType({ eventType, action });
@@ -718,7 +734,7 @@ export const trackEvent = async (req, res) => {
 export const trackSession = async (req, res) => {
   try {
     const {
-      anonymousId,
+      anonymousId: rawAnonymousId,
       sessionId,
       action,
       startedAt,
@@ -736,6 +752,9 @@ export const trackSession = async (req, res) => {
     if (consent !== true) {
       return res.status(400).json({ message: "Consent is required before tracking." });
     }
+
+    // Same reason as trackEvent: this value keys the visitor lookup and insert below.
+    const anonymousId = asTrimmedString(rawAnonymousId, 160);
 
     if (!anonymousId || !sessionId) {
       return res.status(400).json({ message: "anonymousId and sessionId are required." });
@@ -800,7 +819,11 @@ export const trackSession = async (req, res) => {
       visitor.isReturning = true;
     }
 
-    const effectiveUserId = authUser?._id || userContext?.userId;
+    // As in trackEvent: the token's id is trusted, the body's id has to validate first.
+    const effectiveUserId = authUser?._id || asObjectId(userContext?.userId);
+    if (!effectiveUserId && userContext?.userId) {
+      return res.status(400).json({ message: "userContext.userId is not a valid id." });
+    }
     const effectiveEmail = authUser?.email || userContext?.email || "";
     const effectivePhone = authUser?.phone || userContext?.phone || "";
 

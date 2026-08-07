@@ -15,6 +15,12 @@ on:
       - "server/middleware/authMiddleware.js"
       - ".github/**"
 
+# Checkout is the only step that uses the token. The guard blocks a PR by exiting non-zero, which
+# the runner reports as a failed check on its own — the workflow never writes a status itself, so
+# it needs no checks/pull-requests scope.
+permissions:
+  contents: read
+
 jobs:
   check-admin-branch:
     name: Verify Admin Code Change Source

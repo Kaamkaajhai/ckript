@@ -6,6 +6,7 @@ import multer from "multer";
 import path from "path";
 import { uploadToCloudinary } from "../config/cloudinary.js";
 import { sendAdminMessageEmail, sendNewMessageEmail } from "../utils/emailService.js";
+import { asObjectId } from "../utils/requestValue.js";
 
 const detectFileType = (mimetype = "") => {
   if (mimetype.startsWith("image/")) return "image";
@@ -92,10 +93,15 @@ export const sendMessage = async (req, res) => {
     if (!receiverId) return res.status(400).json({ message: "receiverId is required." });
     if (!text?.trim() && !fileUrl) return res.status(400).json({ message: "Message cannot be empty." });
 
+    // The recipient reaches a findById and the purchase lookup below, so it has to arrive as an id and
+    // not as an object Mongo would read as an operator.
+    const receiverObjectId = asObjectId(receiverId);
+    if (!receiverObjectId) return res.status(400).json({ message: "receiverId is not a valid user id." });
+
     const sender = await User.findById(req.user._id).select("_id role name blockedUsers subscription");
     if (!sender) return res.status(404).json({ message: "Sender not found." });
 
-    const receiver = await User.findById(receiverId).select("_id role name email blockedUsers");
+    const receiver = await User.findById(receiverObjectId).select("_id role name email blockedUsers");
     if (!receiver) return res.status(404).json({ message: "Recipient not found." });
 
     const blockedBySender = hasBlockedUser(sender.blockedUsers, receiver._id);
@@ -129,8 +135,8 @@ export const sendMessage = async (req, res) => {
           return res.status(403).json({ message: "Conversations can only be started between writers and investors." });
         }
 
-        const investorId = isInvestor ? sender._id : receiverId;
-        const writerId = isWriter ? sender._id : receiverId;
+        const investorId = isInvestor ? sender._id : receiverObjectId;
+        const writerId = isWriter ? sender._id : receiverObjectId;
 
         const hasPurchased = await Script.exists({ creator: writerId, unlockedBy: investorId });
         if (!hasPurchased) {
@@ -178,7 +184,7 @@ export const sendMessage = async (req, res) => {
     const messageData = {
       chatId,
       sender: sender._id,
-      receiver: receiverId,
+      receiver: receiverObjectId,
       text: text?.trim() || "",
     };
     if (fileUrl) messageData.fileUrl = fileUrl;

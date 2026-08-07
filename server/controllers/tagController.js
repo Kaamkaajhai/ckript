@@ -1,4 +1,5 @@
 import Tag from "../models/Tag.js";
+import { asTrimmedString, asSearchRegex, escapeRegex } from "../utils/requestValue.js";
 
 // @desc    Get all tags (with optional filtering by type)
 // @route   GET /api/tags
@@ -9,14 +10,31 @@ export const getTags = async (req, res) => {
     
     let query = {};
     
-    if (type) {
-      query.type = type;
+    // `type` must reach the query as a string or a list of them; an object would be read by Mongo as
+    // an operator rather than as a value to compare.
+    //
+    // The ARRAY form is deliberate and has to be kept: "?type=GENRE&type=TONE" arrives as
+    // ["GENRE","TONE"], which Mongoose casts to $in on a scalar String path — a working multi-type
+    // filter. Coercing that to a plain string yields "", which drops the facet and answers with EVERY
+    // tag of every type: a silent widening, no error and no empty set, just the wrong rows. Mapping
+    // each element through the same coercion keeps the filter operator-free without losing it.
+    if (Array.isArray(type)) {
+      const types = type.map((value) => asTrimmedString(value, 40)).filter(Boolean);
+      if (types.length) query.type = { $in: types };
+    } else {
+      const typeFilter = asTrimmedString(type, 40);
+      if (typeFilter) query.type = typeFilter;
     }
-    
-    if (search) {
-      query.name = { $regex: search, $options: 'i' };
+
+    // Escaped and length-bounded: a raw $regex lets the caller supply the pattern the engine runs.
+    //
+    // Escaped from the RAW string rather than a trimmed one. asSearchRegex trims first, so a search
+    // of " " becomes empty and drops the name facet entirely — widening a filtered request to the
+    // whole list. A search that was asked for must never return more than one that was not.
+    if (typeof search === "string" && search !== "") {
+      query.name = new RegExp(escapeRegex(search.slice(0, 120)), "i");
     }
-    
+
     const tags = await Tag.find(query).sort({ usageCount: -1, name: 1 });
     
     res.json({ success: true, tags });
@@ -32,13 +50,30 @@ export const getTags = async (req, res) => {
 export const createTag = async (req, res) => {
   try {
     const { name, type, description } = req.body;
-    
+
+    // The duplicate check interpolates the name into a pattern, so it has to be a string literal:
+    // unescaped, a name like ".*" matches every tag and "(a+)+$" is a pattern to run.
+    //
+    // The cap is generous rather than tight. A 200-char cap silently TRUNCATED longer names — stored
+    // a prefix and still answered 201, so the caller could not tell its data had been altered. The
+    // Tag model sets no maxlength, so nothing else was enforcing one; a bound this far above any real
+    // tag name stops an absurd payload without rewriting anybody's input.
+    const tagName = asTrimmedString(name, 2000);
+    const tagType = asTrimmedString(type, 40);
+
+    if (!tagName || !tagType) {
+      return res.status(400).json({
+        success: false,
+        message: "Tag name and type are required"
+      });
+    }
+
     // Check if tag already exists
-    const existingTag = await Tag.findOne({ 
-      name: { $regex: new RegExp(`^${name}$`, 'i') },
-      type 
+    const existingTag = await Tag.findOne({
+      name: { $regex: new RegExp(`^${escapeRegex(tagName)}$`, 'i') },
+      type: tagType
     });
-    
+
     if (existingTag) {
       return res.status(400).json({ 
         success: false, 
@@ -46,7 +81,7 @@ export const createTag = async (req, res) => {
       });
     }
     
-    const tag = await Tag.create({ name, type, description });
+    const tag = await Tag.create({ name: tagName, type: tagType, description });
     
     res.status(201).json({ success: true, tag });
   } catch (error) {

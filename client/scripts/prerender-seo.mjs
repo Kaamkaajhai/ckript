@@ -26,7 +26,7 @@ function escapeText(value = "") {
     .replace(/>/g, "&gt;");
 }
 
-function cleanExistingSeo(html) {
+function cleanSeoTagsOnce(html) {
   return html
     .replace(/<title>[\s\S]*?<\/title>/i, "")
     .replace(/<meta\s+name="(?:description|keywords|robots|author|application-name|apple-mobile-web-app-title|theme-color)"[^>]*>\s*/gi, "")
@@ -34,6 +34,31 @@ function cleanExistingSeo(html) {
     .replace(/<meta\s+name="twitter:[^"]+"[^>]*>\s*/gi, "")
     .replace(/<link\s+rel="canonical"[^>]*>\s*/gi, "")
     .replace(/<script\s+type="application\/ld\+json"[\s\S]*?<\/script>\s*/gi, "");
+}
+
+/**
+ * Remove the template's own SEO tags, repeating until the HTML stops changing.
+ *
+ * One sweep is not enough. Each pattern above consumes a whole tag, so a tag nested inside another —
+ * `<met<meta name="description" content="x">a name="description" content="y">` — has its inner tag
+ * eaten while the outer halves are left behind, and they rejoin into a live tag at a position the
+ * sweep has already walked past. The `<title>` replace is also non-global, so a second title would
+ * survive a single pass outright.
+ *
+ * That matters more here than in a runtime sanitiser: whatever this returns is written to disk as the
+ * static HTML for a public route, so a stale <title> or description left in place ships as that
+ * page's real SEO and is what crawlers index. Every pass either shortens the string or returns it
+ * unchanged, so this terminates; the counter is a backstop, not an expected path. A normal
+ * vite-built index.html reaches its fixpoint on the second pass with nothing left to remove.
+ */
+function cleanExistingSeo(html) {
+  let text = String(html ?? "");
+  for (let pass = 0; pass < 20; pass += 1) {
+    const next = cleanSeoTagsOnce(text);
+    if (next === text) return next;
+    text = next;
+  }
+  return text;
 }
 
 function buildSeoHead(seo) {

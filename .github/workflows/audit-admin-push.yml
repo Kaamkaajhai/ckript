@@ -13,6 +13,11 @@ on:
       - "client/src/pages/AdminDashboard.jsx"
       - "server/middleware/authMiddleware.js"
 
+# Checkout is the only step that uses the token; the rest is local grep/echo. Nothing here
+# comments, uploads, or calls the API, so read access to the code is the whole requirement.
+permissions:
+  contents: read
+
 jobs:
   audit-admin-files:
     name: Audit Admin File Integrity

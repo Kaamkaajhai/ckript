@@ -4,6 +4,30 @@ import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 
+const URL_SCHEME = /^[a-z][a-z0-9+.-]*:/;
+
+// Every media type these previews legitimately carry. The video element shares this guard, so an
+// image-only allowlist here rejected "data:video/mp4;…" — a valid, playable source — and the preview
+// then reported "Invalid video URL" for something the submit handler went on to post anyway.
+const FETCHABLE_MEDIA_SCHEME = /^(?:https?:|blob:|data:(?:image|video|audio)\/)/;
+
+/**
+ * The preview drops whatever is typed in the URL fields straight into an element's src, so only
+ * schemes a browser fetches as media get through. The probe is checked with every character at or
+ * below a space removed, because the URL parser strips those too — otherwise "java\tscript:" reads
+ * as scheme-less. A URL that passes is returned byte-for-byte, never a normalised rewrite.
+ */
+const safeMediaSrc = (url) => {
+  if (typeof url !== "string") return "";
+  const probe = Array.from(url)
+    .filter((char) => char.charCodeAt(0) > 0x20)
+    .join("")
+    .toLowerCase();
+  // No scheme of its own (relative or protocol-relative), so it inherits the page's and cannot be javascript:.
+  if (!URL_SCHEME.test(probe)) return url;
+  return FETCHABLE_MEDIA_SCHEME.test(probe) ? url : "";
+};
+
 const CreatePostModal = ({ onClose, onPostCreated }) => {
   const { user } = useContext(AuthContext);
   const { isDarkMode: dark } = useDarkMode();
@@ -120,7 +144,7 @@ const CreatePostModal = ({ onClose, onPostCreated }) => {
               <p className="text-sm text-gray-600 mb-2">Preview:</p>
               {image && (
                 <img
-                  src={image}
+                  src={safeMediaSrc(image)}
                   alt="Preview"
                   className="max-h-48 rounded-lg mb-2"
                   onError={(e) => {
@@ -131,7 +155,7 @@ const CreatePostModal = ({ onClose, onPostCreated }) => {
               )}
               {video && (
                 <video
-                  src={video}
+                  src={safeMediaSrc(video)}
                   controls
                   className="max-h-48 rounded-lg"
                   onError={(e) => {
