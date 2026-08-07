@@ -534,6 +534,7 @@ export const getUsers = async (req, res) => {
             filter["subscription.accessTier"] = { $in: ["writer_silver", "writer_gold", "standard"] };
         }
         if (isSwaApproved === 'true') {
+            filter.role = { $in: ["writer", "creator"] };
             filter.$and = filter.$and || [];
             filter.$and.push({
                 $or: [
