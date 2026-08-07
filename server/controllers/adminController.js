@@ -519,7 +519,7 @@ export const getStats = async (req, res) => {
 // ─── User Lists by Role ───
 export const getUsers = async (req, res) => {
     try {
-        const { role, search, page = 1, limit = 20, isPremium, hasActiveWriterPlan } = req.query;
+        const { role, search, page = 1, limit = 20, isPremium, hasActiveWriterPlan, isSwaApproved } = req.query;
         const pageNumber = Math.max(Number(page) || 1, 1);
         const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
         const filter = { role: { $ne: "admin" }, isDeactivated: { $ne: true } };
@@ -533,9 +533,24 @@ export const getUsers = async (req, res) => {
             filter["subscription.accessStatus"] = "active";
             filter["subscription.accessTier"] = { $in: ["writer_silver", "writer_gold", "standard"] };
         }
+        if (isSwaApproved === 'true') {
+            filter.role = { $in: ["writer", "creator"] };
+            filter.$and = filter.$and || [];
+            filter.$and.push({
+                $or: [
+                    { "writerProfile.membershipVerification.swa.status": "approved" },
+                    { "writerProfile.membershipVerification.wga.status": "approved" },
+                    { "writerProfile.wgaMember": true },
+                    { "writerProfile.sgaMember": true }
+                ]
+            });
+        }
 
         const searchFilter = buildAdminUserSearchQuery(search);
-        if (searchFilter) Object.assign(filter, searchFilter);
+        if (searchFilter) {
+            filter.$and = filter.$and || [];
+            filter.$and.push(searchFilter);
+        }
 
         const total = await User.countDocuments(filter);
         const users = await User.find(filter)

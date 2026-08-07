@@ -63,6 +63,7 @@ import InvoicesSection from "./admin/sections/InvoicesSection";
 import TrailerApprovalsSection from "./admin/sections/TrailerApprovalsSection";
 import MessagesSection from "./admin/sections/MessagesSection";
 import MembershipReviewsSection from "./admin/sections/MembershipReviewsSection";
+import SwaApprovedSection from "./admin/sections/SwaApprovedSection";
 import BankReviewsSection from "./admin/sections/BankReviewsSection";
 import DeletedUsersSection from "./admin/sections/DeletedUsersSection";
 import UsersSection from "./admin/sections/UsersSection";
@@ -497,11 +498,13 @@ const AdminDashboard = () => {
             case "writers":
             case "readers":
             case "premium-professionals":
+            case "swa-approved":
                 const sectionTitleByTab = {
                     investors: "Film Professionals",
                     writers: "Writers",
                     readers: "Readers",
                     "premium-professionals": "Premium Professionals",
+                    "swa-approved": "SWA Approved Members"
                 };
                 return {
                     title: `${sectionTitleByTab[activeTab] || activeTab} (${users.length})`,
@@ -859,6 +862,11 @@ const AdminDashboard = () => {
                     const { data } = await adminApi.get(`/admin/users?role=writer&page=${page}&search=${encodeURIComponent(activeSearch)}`);
                     const { data: data2 } = await adminApi.get(`/admin/users?role=creator&page=${page}&search=${encodeURIComponent(activeSearch)}`);
                     setUsers([...data.users, ...data2.users]); setTotalPages(Math.max(data.totalPages, data2.totalPages)); setTotal(data.total + data2.total);
+                    break;
+                }
+                case "swa-approved": {
+                    const { data } = await adminApi.get(`/admin/users?role=writer&isSwaApproved=true&page=${page}&search=${encodeURIComponent(activeSearch)}`);
+                    setUsers(data.users); setTotalPages(data.totalPages); setTotal(data.total);
                     break;
                 }
                 case "readers": {
@@ -2202,6 +2210,9 @@ const AdminDashboard = () => {
             case "writers":
             case "readers":
                 return <UsersSection />;
+
+            case "swa-approved":
+                return <SwaApprovedSection />;
 
             case "projects":
                 return <ProjectsSection />;

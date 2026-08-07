@@ -12,7 +12,7 @@ export const ADMIN_NAV_GROUPS = [
   { title: "", keys: ["overview", "analytics"] },
   {
     title: "People",
-    keys: ["writers", "investors", "premium-professionals", "membership-reviews"],
+    keys: ["writers", "investors", "premium-professionals", "membership-reviews", "swa-approved"],
   },
   {
     title: "Content",
