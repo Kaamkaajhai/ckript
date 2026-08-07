@@ -17,7 +17,7 @@ const SwaApprovedSection = () => {
         <div>
             <div className="flex items-center justify-between mb-5">
                 <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>
-                    SWA Approved Members
+                    SWA/WGA Approved Members
                     <span className={`ml-2 text-sm font-medium ${isDark ? "text-gray-500" : "text-gray-400"}`}>
                         ({hasSearch ? filteredUsers.length : total})
                     </span>
@@ -32,7 +32,7 @@ const SwaApprovedSection = () => {
                         </svg>
                     </div>
                     <p className={`text-sm font-semibold ${isDark ? "text-gray-400" : "text-gray-600"}`}>
-                        No SWA approved members found
+                        No SWA/WGA approved members found
                     </p>
                 </div>
             ) : (
@@ -42,12 +42,15 @@ const SwaApprovedSection = () => {
                             <thead>
                                 <tr className={isDark ? "bg-[#221d1d]" : "bg-gray-50"}>
                                     <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Name</th>
-                                    <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>SWA Certificate</th>
+                                    <th className={`text-left px-5 py-3 text-xs font-bold uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Certificate</th>
                                 </tr>
                             </thead>
                             <tbody className={`divide-y ${isDark ? "divide-[#2e2828]" : "divide-gray-100"}`}>
                                 {filteredUsers.map((user) => {
-                                    const proofUrl = user.writerProfile?.membershipVerification?.swa?.proofUrl;
+                                    const swaProof = user.writerProfile?.membershipVerification?.swa?.proofUrl;
+                                    const wgaProof = user.writerProfile?.membershipVerification?.wga?.proofUrl;
+                                    const proofUrl = swaProof || wgaProof;
+                                    const proofType = swaProof ? "swa" : "wga";
                                     
                                     return (
                                         <tr key={user._id} className={`align-top transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
@@ -61,7 +64,15 @@ const SwaApprovedSection = () => {
                                                         </div>
                                                     )}
                                                     <div>
-                                                        <p className={`text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>{user.name || "-"}</p>
+                                                        <p className={`text-sm font-semibold ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+                                                            {user.name || "-"}
+                                                            {(user.writerProfile?.wgaMember || user.writerProfile?.membershipVerification?.wga?.status === "approved") && (
+                                                                <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-100 text-purple-800">WGA</span>
+                                                            )}
+                                                            {(user.writerProfile?.sgaMember || user.writerProfile?.membershipVerification?.swa?.status === "approved") && (
+                                                                <span className="ml-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-800">SWA</span>
+                                                            )}
+                                                        </p>
                                                         <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>{user.email || "-"}</p>
                                                     </div>
                                                 </div>
@@ -73,7 +84,7 @@ const SwaApprovedSection = () => {
                                                         href={proofUrl}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        onClick={(event) => handleOpenMembershipProof(event, user._id, "swa", proofUrl)}
+                                                        onClick={(event) => handleOpenMembershipProof(event, user._id, proofType, proofUrl)}
                                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
                                                     >
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">

@@ -534,11 +534,22 @@ export const getUsers = async (req, res) => {
             filter["subscription.accessTier"] = { $in: ["writer_silver", "writer_gold", "standard"] };
         }
         if (isSwaApproved === 'true') {
-            filter["writerProfile.membershipVerification.swa.status"] = "approved";
+            filter.$and = filter.$and || [];
+            filter.$and.push({
+                $or: [
+                    { "writerProfile.membershipVerification.swa.status": "approved" },
+                    { "writerProfile.membershipVerification.wga.status": "approved" },
+                    { "writerProfile.wgaMember": true },
+                    { "writerProfile.sgaMember": true }
+                ]
+            });
         }
 
         const searchFilter = buildAdminUserSearchQuery(search);
-        if (searchFilter) Object.assign(filter, searchFilter);
+        if (searchFilter) {
+            filter.$and = filter.$and || [];
+            filter.$and.push(searchFilter);
+        }
 
         const total = await User.countDocuments(filter);
         const users = await User.find(filter)
