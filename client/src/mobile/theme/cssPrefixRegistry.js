@@ -46,41 +46,32 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
   },
 
   // --- Shared components ------------------------------------------------
-  "ckm-topbar": {
-    kind: SHARED_COMPONENT,
-    owner: "components/TopBar.css",
-    note: "Legacy writer-only top bar. Superseded by ckm-appbar on 2026-08-07; retire with the last caller.",
-  },
-  "ckm-bottomnav": {
-    kind: SHARED_COMPONENT,
-    owner: "components/BottomNav.css",
-    note: "Legacy two-item provisional tab bar. Superseded by ckm-navbar on 2026-08-07; retire with the last caller.",
-  },
+  // ckm-topbar / ckm-bottomnav were retired on 2026-08-07 (Phase 2). Their last
+  // caller went away when Dashboard moved to ckm-appbar / ckm-navbar, and both
+  // component files are now deleted rather than left registered-but-dead.
   "ckm-tabs": { kind: SHARED_COMPONENT, owner: "components/SectionTabs.css" },
-  "ckm-sheet": {
-    kind: SHARED_COMPONENT,
-    owner: "components/BottomSheet.css",
-    note: "Legacy dashboard sheet with no focus trap. Superseded by ckm-bottom-sheet for new screens; Phase 2 migrates the four dashboard overlays and retires it.",
-  },
+  // ckm-sheet was retired on 2026-08-07 (Phase 2) with components/BottomSheet.*,
+  // once AiDetailSheet and AllProjectsSheet — its only two callers — moved onto
+  // ckm-bottom-sheet and gained the focus trap it never had.
   "ckm-empty": { kind: SHARED_COMPONENT, owner: "components/EmptyState.css" },
   "ckm-skel": {
     kind: SHARED_COMPONENT,
     owner: "components/Skeleton.css, components/feedback/Skeletons.css",
     note: "Two owners by design: Skeleton.css holds the dashboard's fixed boot drawing, Skeletons.css the composable shapes. Neither uses the other's element names.",
   },
-  "ckm-island": { kind: SHARED_COMPONENT, owner: "components/DynamicIsland.css" },
+  // ckm-island was retired on 2026-08-07 (Phase 2) with
+  // components/DynamicIsland.*. Its one production caller was
+  // notify.desktopOnly(), which §2.8 requires gone; ckm-toast succeeds it.
   "ckm-statusbar": { kind: SHARED_COMPONENT, owner: "components/StatusBar.css" },
-  "ckm-btn": {
-    kind: SHARED_COMPONENT,
-    owner: "theme/primitives.css",
-    note: "Legacy 40px dashboard button. Superseded by ckm-button for new screens; retire in Phase 2.",
-  },
+  // ckm-btn was retired on 2026-08-07 (Phase 2): a 40px control under the touch
+  // floor with no link form, fully superseded by ckm-button.
   "ckm-chip": {
     kind: SHARED_COMPONENT,
     owner: "theme/primitives.css, components/chips/Chip.css",
     note: "One chip family: primitives.css owns the base pill, Chip.css adds the interactive and removable forms.",
   },
-  "ckm-viewmore": { kind: SHARED_COMPONENT, owner: "theme/primitives.css" },
+  // ckm-viewmore was retired on 2026-08-07 (Phase 2), superseded by
+  // ckm-load-more, which names the cost and announces the new count.
 
   // --- Phase 1 native-style system --------------------------------------
   "ckm-button": {
@@ -158,7 +149,7 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
   "ckm-bottom-sheet": {
     kind: SHARED_COMPONENT,
     owner: "components/overlays/Sheet.css",
-    note: "Supersedes the dashboard-era ckm-sheet, which stays untouched as a Phase 0 baseline until Phase 2.",
+    note: "The one bottom sheet. Superseded and replaced the dashboard-era ckm-sheet on 2026-08-07 (Phase 2).",
   },
   "ckm-dialog": {
     kind: SHARED_COMPONENT,
@@ -217,7 +208,8 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
   "ckm-aid": { kind: PAGE_COMPONENT, owner: "screens/overlays/AiDetailSheet.css", family: "dashboard" },
   "ckm-allp": { kind: PAGE_COMPONENT, owner: "screens/overlays/AllProjectsSheet.css", family: "dashboard" },
   "ckm-noti": { kind: PAGE_COMPONENT, owner: "screens/overlays/NotificationsPanel.css", family: "dashboard" },
-  "ckm-acct": { kind: PAGE_COMPONENT, owner: "screens/overlays/AccountMenu.css", family: "dashboard" },
+  // ckm-acct was retired on 2026-08-07 (Phase 2): AccountMenu is now composed
+  // from ckm-action-sheet + ckm-confirm and has no CSS of its own.
 });
 
 /*

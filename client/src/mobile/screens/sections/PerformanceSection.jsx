@@ -1,14 +1,21 @@
-import Icon from "../../components/Icon";
 import EmptyState from "../../components/EmptyState";
 import "./PerformanceSection.css";
 
 /*
- * PerformanceSection — script analytics: headline stats, a "Views by script"
- * bar chart (bars grow on mount) and a details list. Falls back to the
- * zero-state when there is nothing published yet.
+ * PerformanceSection — script analytics: headline stats and a "Views by
+ * script" bar chart (bars grow on mount). Falls back to the zero-state when
+ * there is nothing published yet.
+ *
+ * 2026-08-07 (plan §11 Phase 2): the "Details" list below the chart was
+ * removed. It held two rows — "Avg watch time" and "Saves" — whose values were
+ * the literal string "—" because no endpoint supplies either, and whose chevron
+ * opened a `desktopOnly()` toast. A row that reports nothing and goes nowhere
+ * is not a placeholder for a feature; it is an invitation to tap a dead end.
+ * Desktop shows the three stats and the chart, and nothing else, so this is
+ * also the parity-correct shape.
  */
-export default function PerformanceSection({ onDetail, data }) {
-  const { stats, chart, details } = data;
+export default function PerformanceSection({ data }) {
+  const { stats, chart } = data;
 
   if (!chart.bars.length) {
     return (
@@ -56,8 +63,10 @@ export default function PerformanceSection({ onDetail, data }) {
               <span className="ckm-perf__grid" style={{ top: "75%" }} />
               <span className="ckm-perf__axis" />
               <div className="ckm-perf__bars">
+                {/* Keyed by position, not by label: two untitled or identically
+                    truncated scripts produce the same label. */}
                 {chart.bars.map((b, i) => (
-                  <div key={b.label} className="ckm-perf__bar-slot">
+                  <div key={i} className="ckm-perf__bar-slot">
                     <div
                       className={`ckm-perf__bar${b.accent ? " is-accent" : ""}`}
                       style={{
@@ -71,31 +80,12 @@ export default function PerformanceSection({ onDetail, data }) {
               </div>
             </div>
             <div className="ckm-perf__xlabels">
-              {chart.bars.map((b) => (
-                <span key={b.label}>{b.label}</span>
+              {chart.bars.map((b, i) => (
+                <span key={i}>{b.label}</span>
               ))}
             </div>
           </div>
         </div>
-      </div>
-
-      <div className="ckm-perf__kicker">Details</div>
-      <div className="ckm-perf__details">
-        {details.map((d, i) => (
-          <button
-            key={d.label}
-            type="button"
-            className={`ckm-perf__detail${i > 0 ? " has-divider" : ""}`}
-            onClick={() => onDetail?.(d)}
-          >
-            <span className="ckm-perf__detail-icon">
-              <Icon name={d.icon} size={18} />
-            </span>
-            <span className="ckm-perf__detail-label">{d.label}</span>
-            <span className="ckm-perf__detail-value">{d.value}</span>
-            <Icon name="chevron_right" size={18} color="#cfc8bd" />
-          </button>
-        ))}
       </div>
     </div>
   );

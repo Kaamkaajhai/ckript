@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Icon from "../../components/Icon";
 import EmptyState from "../../components/EmptyState";
+import LoadMore from "../../components/lists/LoadMore";
 import { PAGE_SIZE } from "../../data/dashboardData";
 import "./ReviewsSection.css";
 
@@ -10,6 +11,15 @@ import "./ReviewsSection.css";
  * Insights (human/platform grades + reviewer feedback). Each list paginates
  * with a "View more" pill. View-state is local, so leaving and returning
  * resets to the first page — the expected mobile behaviour.
+ *
+ * 2026-08-07 (plan §11 Phase 2): the numbers and words on these cards are now
+ * the server's. They used to come from a mapping that read `review.score` and
+ * `review.summary`, neither of which the payload has — so every card scored
+ * 0/100 with four identical empty bars and one hardcoded sentence, about real
+ * scripts. The mapping now lives in `data/dashboardModel.js` and reads the
+ * fields the controller actually sends (`rating`, `overall`, `scores`,
+ * `feedback`). Desktop shows one card at a time in a carousel; a list that
+ * grows is the phone equivalent, so that difference is kept.
  */
 export default function ReviewsSection({ onOpenAiDetail, aiReviews, platformReviews }) {
   const [rtab, setRtab] = useState("ai");
@@ -100,9 +110,11 @@ function AiList({ shown, onMore, onOpenDetail, aiReviews }) {
                 </span>
               </div>
             </div>
-            <ScoreBars bars={rev.bars} />
+            {rev.bars.length > 0 && <ScoreBars bars={rev.bars} />}
             <div className="ckm-rev__card-foot">
-              <span className="ckm-rev__excerpt">{rev.excerpt}</span>
+              {/* An analysis without written feedback is possible; an empty
+                  quotation mark pretending otherwise is not. */}
+              {rev.excerpt && <span className="ckm-rev__excerpt">{rev.excerpt}</span>}
               <button type="button" className="ckm-rev__details" onClick={() => onOpenDetail?.(rev)}>
                 Details
                 <Icon name="chevron_right" size={16} />
@@ -112,10 +124,13 @@ function AiList({ shown, onMore, onOpenDetail, aiReviews }) {
         ))}
       </div>
       {hasMore && (
-        <button type="button" className="ckm-viewmore" onClick={onMore}>
-          View more
-          <Icon name="expand_more" size={18} />
-        </button>
+        <LoadMore
+          loaded={list.length}
+          total={aiReviews.length}
+          pageSize={PAGE_SIZE}
+          noun="analyses"
+          onLoadMore={onMore}
+        />
       )}
     </>
   );
@@ -154,19 +169,24 @@ function PlatformList({ shown, onMore, platformReviews }) {
                 </span>
               </div>
             </div>
-            <ScoreBars bars={rev.bars} />
-            <div className="ckm-rev__feedback">
-              <div className="ckm-rev__feedback-kicker">Reviewer feedback</div>
-              <p className="ckm-rev__feedback-body">{rev.feedback}</p>
-            </div>
+            {rev.bars.length > 0 && <ScoreBars bars={rev.bars} />}
+            {rev.feedback && (
+              <div className="ckm-rev__feedback">
+                <div className="ckm-rev__feedback-kicker">Reviewer feedback</div>
+                <p className="ckm-rev__feedback-body">{rev.feedback}</p>
+              </div>
+            )}
           </article>
         ))}
       </div>
       {hasMore && (
-        <button type="button" className="ckm-viewmore" onClick={onMore}>
-          View more
-          <Icon name="expand_more" size={18} />
-        </button>
+        <LoadMore
+          loaded={list.length}
+          total={platformReviews.length}
+          pageSize={PAGE_SIZE}
+          noun="reviews"
+          onLoadMore={onMore}
+        />
       )}
     </>
   );

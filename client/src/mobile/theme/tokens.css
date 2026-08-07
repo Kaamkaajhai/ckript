@@ -50,6 +50,12 @@
   --ckm-red-bg: #fdeeec;
   --ckm-danger: #dc2626;
   --ckm-live: #34c759;
+  /* The middle grade band (C). Added 2026-08-07, Phase 2: the platform score
+   * runs A–F and the three warm semantic colours above cover only four of the
+   * five bands, so C was the one grade with no token to name it. 7.4:1 on its
+   * own tint. */
+  --ckm-info: #2b557f;
+  --ckm-info-bg: #e9f0f8;
 
   /* Type families */
   --ckm-display: "Spectral", Georgia, "Times New Roman", serif;
