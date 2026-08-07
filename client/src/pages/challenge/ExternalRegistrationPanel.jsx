@@ -180,9 +180,12 @@ export default function ExternalRegistrationPanel({
       body.append("acceptCopyright", String(Boolean(acceptCopyright)));
       if (screenshot) body.append("screenshot", screenshot);
 
-      const { data } = await api.post(`/competitions/${competitionId}/external-registration`, body, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      // NO Content-Type header. Setting "multipart/form-data" by hand omits the boundary parameter,
+      // and the boundary is what marks where each part starts — without it the server cannot parse
+      // the body at all, so the claim never arrives and the screenshot takes the whole submission
+      // down with it. Left alone, axios reads the FormData and sets
+      // "multipart/form-data; boundary=----WebKitFormBoundary…" itself.
+      const { data } = await api.post(`/competitions/${competitionId}/external-registration`, body);
       setRequest(data?.request || null);
       clearScreenshot();
     } catch (err) {
