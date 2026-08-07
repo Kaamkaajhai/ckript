@@ -21,6 +21,28 @@ const normalizePublicShareUrl = (rawUrl = "", fallbackUrl = "") => {
     .replace(/\/script\/([^/?#]+)/i, "/share/project/$1");
 };
 
+const URL_SCHEME = /^[a-z][a-z0-9+.-]*:/;
+const FETCHABLE_IMAGE_SCHEME = /^(?:https?:|blob:|data:image\/)/;
+
+/**
+ * An avatar URL that a browser will fetch as an image, or "".
+ *
+ * profileImage is stored text: it reaches this page from another account's profile, so the scheme is
+ * only ever as trustworthy as whoever typed it. The probe is checked with every character at or below
+ * a space removed, because the URL parser strips those too — otherwise "java\tscript:" reads as
+ * scheme-less. A URL that passes is returned byte-for-byte, never a normalised rewrite.
+ */
+const safeImageSrc = (url) => {
+  if (typeof url !== "string") return "";
+  const probe = Array.from(url)
+    .filter((char) => char.charCodeAt(0) > 0x20)
+    .join("")
+    .toLowerCase();
+  // No scheme of its own (relative or protocol-relative), so it inherits the page's and cannot be javascript:.
+  if (!URL_SCHEME.test(probe)) return url;
+  return FETCHABLE_IMAGE_SCHEME.test(probe) ? url : "";
+};
+
 /* ── Edit Profile Modal ─────────────────────────────── */
 const EditProfileModal = ({ profile, onClose, onSaved }) => {
   const { isDarkMode: dark } = useDarkMode();
@@ -142,7 +164,7 @@ const EditProfileModal = ({ profile, onClose, onSaved }) => {
             <div className="relative group">
               {currentImage ? (
                 <img
-                  src={currentImage}
+                  src={safeImageSrc(currentImage)}
                   alt="Profile"
                   className="w-20 h-20 rounded-2xl object-cover ring-2 ring-gray-100"
                 />
@@ -500,7 +522,7 @@ const ReaderProfile = () => {
                   <div className="relative shrink-0">
                     {profile.profileImage ? (
                       <img
-                        src={resolveImage(profile.profileImage)}
+                        src={safeImageSrc(resolveImage(profile.profileImage))}
                         alt={profile.name}
                         className={`w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover ring-[3px] shadow-xl ${dark ? "ring-white/[0.12] bg-[#0d1520]" : "ring-white bg-white"}`}
                       />
@@ -749,7 +771,7 @@ const ReaderProfile = () => {
                     >
                       {connection.profileImage ? (
                         <img
-                          src={resolveImage(connection.profileImage)}
+                          src={safeImageSrc(resolveImage(connection.profileImage))}
                           alt={connection.name}
                           className="w-10 h-10 rounded-full object-cover shrink-0"
                         />

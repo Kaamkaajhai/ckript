@@ -1,6 +1,7 @@
 import Post from "../models/Post.js";
 import Comment from "../models/Comment.js";
 import Notification from "../models/Notification.js";
+import { asObjectId } from "../utils/requestValue.js";
 
 export const createPost = async (req, res) => {
   try {
@@ -25,7 +26,12 @@ export const getFeed = async (req, res) => {
 
 export const likePost = async (req, res) => {
   try {
-    const post = await Post.findById(req.body.postId);
+    const postId = asObjectId(req.body.postId);
+    if (!postId) {
+      return res.status(400).json({ message: "A valid postId is required" });
+    }
+
+    const post = await Post.findById(postId);
     if (!post.likes.includes(req.user._id)) {
       post.likes.push(req.user._id);
       await post.save();
@@ -49,8 +55,14 @@ export const likePost = async (req, res) => {
 
 export const commentPost = async (req, res) => {
   try {
-    const comment = await Comment.create({ user: req.user._id, post: req.body.postId, text: req.body.text });
-    const post = await Post.findById(req.body.postId);
+    // Validated before the comment is written, so a bad id cannot leave an orphaned Comment behind.
+    const postId = asObjectId(req.body.postId);
+    if (!postId) {
+      return res.status(400).json({ message: "A valid postId is required" });
+    }
+
+    const comment = await Comment.create({ user: req.user._id, post: postId, text: req.body.text });
+    const post = await Post.findById(postId);
     post.comments.push(comment._id);
     await post.save();
 

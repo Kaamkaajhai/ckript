@@ -102,6 +102,102 @@ const formatDateTime = (value) => {
   });
 };
 
+const isAsciiLetter = (ch) => ch !== undefined && ((ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z"));
+
+/**
+ * Remove one layer of tags, scanning the string exactly once.
+ *
+ * NOT a regex. `/<[^>]*>/g` looks linear \u2014 `[^>]*` cannot cross a ">" \u2014 but it is not: on "<a<a<a\u2026"
+ * with no ">" anywhere the engine restarts at every "<", scans to the end for a ">", fails, and moves
+ * on. That is O(n\u00b2) over a whole uploaded screenplay, i.e. the admin's tab frozen. Both indexes below
+ * only move forward, and the early exit when no ">" remains is what makes that true: once the rest of
+ * the string holds no closing bracket, no later position can contain a tag either.
+ *
+ * A tag is "<" or "</" followed immediately by a letter, or a "<!" declaration \u2014 narrower than
+ * `<[^>]*>`, which matches "< 7 and 9 >" in "5 < 7 and 9 > 3" and deletes the middle of the sentence.
+ * Mirrors server/utils/htmlText.js and CreateProject/lib/preview.js; keep the three in step.
+ */
+const stripTagsOnce = (text) => {
+  let out = "";
+  let i = 0;
+
+  while (i < text.length) {
+    const lt = text.indexOf("<", i);
+    if (lt < 0) return out + text.slice(i);
+
+    let nameAt = lt + 1;
+    if (text[nameAt] === "/") nameAt += 1;
+    const opensTag = isAsciiLetter(text[nameAt]) || text[lt + 1] === "!";
+
+    if (!opensTag) {
+      out += text.slice(i, lt + 1);
+      i = lt + 1;
+      continue;
+    }
+
+    const gt = text.indexOf(">", nameAt);
+    if (gt < 0) return out + text.slice(i);
+
+    out += text.slice(i, lt);
+    i = gt + 1;
+  }
+
+  return out;
+};
+
+/**
+ * Strip tags until the text stops changing.
+ *
+ * A single sweep is not enough: "<<script>script>x" leaves "script>x" behind, and with the right
+ * nesting a whole tag reassembles out of what the sweep already walked past. Each pass strictly
+ * shortens the string or leaves it identical, so this terminates.
+ */
+const stripTagsCompletely = (value) => {
+  let text = value;
+  for (let pass = 0; pass < 20; pass += 1) {
+    const next = stripTagsOnce(text);
+    if (next === text) return next;
+    text = next;
+  }
+  return text.split("<").join("");
+};
+
+const NAMED_ENTITIES = {
+  nbsp: " ",
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  "#39": "'",
+  "#x27": "'",
+};
+
+/** A code point String.fromCodePoint will accept \u2014 outside this range it throws, blanking the page. */
+const isCodePoint = (code) => Number.isFinite(code) && code >= 0 && code <= 0x10ffff;
+
+/**
+ * Decode HTML entities in ONE pass.
+ *
+ * A chain of `.replace()` calls is not one pass: `.replace(/&amp;/g, "&")` turns "&amp;lt;" into
+ * "&lt;", which the next replace turns into "<" \u2014 text the writer typed becomes markup. A single
+ * regex with a callback consumes each entity exactly once and cannot feed its output back in.
+ */
+const decodeEntitiesOnce = (text) =>
+  text.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (match, name) => {
+    const key = String(name).toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(NAMED_ENTITIES, key)) return NAMED_ENTITIES[key];
+    if (key.startsWith("#x")) {
+      const code = Number.parseInt(key.slice(2), 16);
+      return isCodePoint(code) ? String.fromCodePoint(code) : match;
+    }
+    if (key.startsWith("#")) {
+      const code = Number.parseInt(key.slice(1), 10);
+      return isCodePoint(code) ? String.fromCodePoint(code) : match;
+    }
+    return match;
+  });
+
 const getPlainTextFromScriptContent = (content) => {
   const source = String(content || "");
   if (!source) return "";
@@ -109,11 +205,15 @@ const getPlainTextFromScriptContent = (content) => {
   const maybeHtml = source.trimStart().startsWith("<");
   if (!maybeHtml) return source;
 
-  // Convert common HTML boundaries to line breaks, then strip tags.
-  return source
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/(p|div|section|article|li|h1|h2|h3|h4|h5|h6)>/gi, "\n")
-    .replace(/<[^>]*>/g, "")
+  // Decode, then turn HTML boundaries into line breaks, then strip repeatedly. The order is the whole
+  // point: decoding after stripping lets this BUILD the markup it exists to remove, because
+  // "&lt;img src=x onerror=\u2026&gt;" holds no tag at all while the stripper is running. Decoding also
+  // matches the server's htmlToPlainText, which is what fills scriptPreviewPageTexts.
+  return stripTagsCompletely(
+    decodeEntitiesOnce(source)
+      .replace(/<br\s*\/?>/gi, "\n")
+      .replace(/<\/(p|div|section|article|li|h1|h2|h3|h4|h5|h6)>/gi, "\n"),
+  )
     .replace(/\u00a0/g, " ")
     .replace(/\r\n/g, "\n");
 };

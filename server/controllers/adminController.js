@@ -32,6 +32,7 @@ import {
 } from "../utils/emailService.js";
 import { extractTextFromPdfUrl } from "../utils/pdfTextExtraction.js";
 import { fetchTrustedPdfAsset, getCloudinaryResourceTypeFromUrl } from "../utils/remoteAssetPolicy.js";
+import { asTrimmedString } from "../utils/requestValue.js";
 
 const buildChatId = (idA, idB) => {
     const sorted = [idA.toString(), idB.toString()].sort();
@@ -1439,7 +1440,17 @@ export const getInvestorPurchases = async (req, res) => {
 // ─── Payments Data ───
 export const getPayments = async (req, res) => {
     try {
-        const { type, status, page = 1, limit = 20 } = req.query;
+        const { type: rawType, status: rawStatus, page = 1, limit = 20 } = req.query;
+
+        // A filter that arrives as an object or an array is never a transaction type or status. Refusing it
+        // is what keeps a malformed filter from being answered with the unfiltered list.
+        const isMalformedFilter = (value) => value !== undefined && typeof value !== "string";
+        if (isMalformedFilter(rawType) || isMalformedFilter(rawStatus)) {
+            return res.status(400).json({ message: "Invalid transaction filter" });
+        }
+
+        const type = asTrimmedString(rawType, 40);
+        const status = asTrimmedString(rawStatus, 40);
         const filter = {};
         if (type) filter.type = type;
         if (status) filter.status = status;

@@ -2,17 +2,26 @@ import ScriptPitch from "../models/ScriptPitch.js";
 import Script from "../models/Script.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
+import { asObjectId } from "../utils/requestValue.js";
+
+const PITCH_STATUSES = ["approved", "rejected"];
 
 export const sendPitch = async (req, res) => {
   try {
     const writerId = req.user._id;
-    const { scriptId, investorId, note } = req.body;
+    const { note } = req.body;
+    const scriptId = asObjectId(req.body.scriptId);
+    const investorId = asObjectId(req.body.investorId);
 
     // Validate Script
+    if (!scriptId) return res.status(404).json({ message: "Script not found or unauthorized." });
     const script = await Script.findOne({ _id: scriptId, creator: writerId });
     if (!script) return res.status(404).json({ message: "Script not found or unauthorized." });
 
     // Validate Investor
+    if (!investorId) {
+      return res.status(400).json({ message: "Invalid investor selected." });
+    }
     const investor = await User.findById(investorId);
     if (!investor || investor.role !== "investor") {
       return res.status(400).json({ message: "Invalid investor selected." });
@@ -68,12 +77,16 @@ export const getPitchesForInvestor = async (req, res) => {
 export const updatePitchStatus = async (req, res) => {
   try {
     const investorId = req.user._id;
-    const { pitchId } = req.params;
-    const { status } = req.body; // 'approved', 'rejected'
+    const pitchId = asObjectId(req.params.pitchId);
+    // Bind the update to the matched literal rather than to req.body, so nothing the whitelist did
+    // not produce can reach the update document.
+    const status = PITCH_STATUSES.find((allowed) => allowed === req.body.status);
 
-    if (!["approved", "rejected"].includes(status)) {
+    if (!status) {
       return res.status(400).json({ message: "Invalid status." });
     }
+
+    if (!pitchId) return res.status(404).json({ message: "Pitch not found." });
 
     const pitch = await ScriptPitch.findOneAndUpdate(
       { _id: pitchId, investor: investorId },

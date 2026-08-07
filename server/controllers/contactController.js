@@ -1,8 +1,21 @@
 import ContactSubmission from "../models/ContactSubmission.js";
 import { notifyAdminWorkflowEvent } from "../utils/adminWorkflowAlerts.js";
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const WHITESPACE = /\s/;
 const VALID_REASONS = new Set(["doubt", "team", "general", "email", "other"]);
+
+// Accepts exactly what /^[^\s@]+@[^\s@]+\.[^\s@]+$/ accepted — no whitespace, exactly one "@" with at
+// least one character before it, and a dot in the domain with at least one character on either side —
+// but in single scans. That regex was quadratic: on "a@" + "a.".repeat(50000) + "@" the engine retries
+// the domain split at every dot and rescans to the end each time, and this endpoint is unauthenticated.
+const isValidEmail = (value) => {
+  if (WHITESPACE.test(value)) return false;
+  const at = value.indexOf("@");
+  if (at < 1 || value.indexOf("@", at + 1) !== -1) return false;
+  const domain = value.slice(at + 1);
+  const dot = domain.indexOf(".", 1); // from 1: the dot needs a character before it
+  return dot !== -1 && dot < domain.length - 1;
+};
 
 export const getContactSubmissions = async (req, res) => {
   try {
@@ -36,7 +49,7 @@ export const createContactSubmission = async (req, res) => {
     const trimmedMessage = String(message).trim();
     const trimmedOtherReason = String(otherReason || "").trim();
 
-    if (!EMAIL_REGEX.test(normalizedEmail)) {
+    if (!isValidEmail(normalizedEmail)) {
       return res.status(400).json({ message: "Please enter a valid email" });
     }
 

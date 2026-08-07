@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import { diff_match_patch } from "diff-match-patch";
 import { applyThreeWayMerge } from "../utils/contentMerge.js";
 import { addWriterCredit } from "../utils/writerCredits.js";
+import { decodeEntitiesOnce, stripTagsCompletely } from "../utils/htmlText.js";
 import { uploadToCloudinary } from "../config/cloudinary.js";
 import Script from "../models/Script.js";
 import User from "../models/User.js";
@@ -67,22 +68,25 @@ const getScriptRoom = (scriptId) => `script:${scriptId}`;
 
 const sanitizeMessage = (value, maxLength = 1500) => String(value || "").trim().slice(0, maxLength);
 const sanitizeTitle = (value, maxLength = 200) => String(value || "").trim().slice(0, maxLength);
+// Both security-relevant steps now come from utils/htmlText.js; only the block-tag presentation is
+// local, because this helper's plain text keeps list bullets and blank lines between paragraphs.
+// The two bugs that were here: entities were decoded AFTER stripping, which MANUFACTURED markup
+// ("&lt;img src=x onerror=alert(1)&gt;" carried no tag past the stripper and came out live) and
+// unescaped twice (`&amp;` before `&lt;` turned the literal text "&amp;lt;" into "<"); and
+// `/<[^>]+>/g` is one sweep, so "<<p>p>" leaves "p>" behind and nesting reassembles a whole tag.
+// The old open-`<p>`/`<div>` removals are dropped, not moved — stripTagsCompletely already deletes
+// them, so keeping them would just be a second, weaker copy of the same rule.
 const stripHtmlToPlainText = (value = "") =>
-  String(value || "")
-    .replace(/<\s*br\s*\/?>/gi, "\n")
-    .replace(/<\s*\/p\s*>/gi, "\n\n")
-    .replace(/<\s*p[^>]*>/gi, "")
-    .replace(/<\s*\/div\s*>/gi, "\n")
-    .replace(/<\s*div[^>]*>/gi, "")
-    .replace(/<li[^>]*>/gi, "- ")
-    .replace(/<\/li>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">")
-    .replace(/&quot;/gi, "\"")
-    .replace(/&#39;/gi, "'")
+  stripTagsCompletely(
+    // `String(value || "")` and not decodeEntitiesOnce's own `?? ""`: this helper has always turned
+    // 0/false/NaN into "", and that is a coercion rule, not a sanitising one, so it stays here.
+    decodeEntitiesOnce(String(value || ""))
+      .replace(/<\s*br\s*\/?>/gi, "\n")
+      .replace(/<\s*\/p\s*>/gi, "\n\n")
+      .replace(/<\s*\/div\s*>/gi, "\n")
+      .replace(/<li[^>]*>/gi, "- ")
+      .replace(/<\/li>/gi, "\n")
+  )
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 const normalizeAccessLevel = (value) => {
