@@ -71,6 +71,22 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
   "ckm-icon-button": { kind: SHARED_COMPONENT, owner: "components/buttons/IconButton.css" },
   "ckm-back": { kind: SHARED_COMPONENT, owner: "components/navigation/BackButton.css" },
   "ckm-page-header": { kind: SHARED_COMPONENT, owner: "components/app-bars/PageHeader.css" },
+
+  // --- Phase 1 form family ----------------------------------------------
+  "ckm-field": {
+    kind: SHARED_COMPONENT,
+    owner: "components/forms/Field.css",
+    note: "Label / hint / error column shared by every labelled control, including the choice controls.",
+  },
+  "ckm-control": {
+    kind: SHARED_COMPONENT,
+    owner: "components/forms/Control.css",
+    note: "The one text-control box: input, textarea and select share it so a screen cannot invent a second shape.",
+  },
+  "ckm-checkbox": { kind: SHARED_COMPONENT, owner: "components/forms/Checkbox.css" },
+  "ckm-radio": { kind: SHARED_COMPONENT, owner: "components/forms/RadioGroup.css" },
+  "ckm-switch": { kind: SHARED_COMPONENT, owner: "components/forms/Switch.css" },
+  "ckm-file-picker": { kind: SHARED_COMPONENT, owner: "components/forms/FilePicker.css" },
   "ckm-gallery": {
     kind: PAGE_FAMILY,
     owner: "dev/PrimitiveGallery.css",

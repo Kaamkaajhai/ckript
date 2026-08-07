@@ -426,6 +426,7 @@ Register the prefix before implementing a page — in this table **and** in `cli
 | Dashboard sections and overlays (one family, one prefix per file) | `ckm-ov`, `ckm-perf`, `ckm-rev`, `ckm-proj`, `ckm-pc`, `ckm-aid`, `ckm-allp`, `ckm-noti`, `ckm-acct` |
 | Shared mobile components | `ckm-topbar`, `ckm-bottomnav`, `ckm-tabs`, `ckm-sheet`, `ckm-empty`, `ckm-skel`, `ckm-island`, `ckm-statusbar`, `ckm-btn` (legacy dashboard button; superseded by `ckm-button`), `ckm-chip`, `ckm-viewmore` |
 | Phase 1 action primitives | `ckm-button` (`components/buttons/Button.css`), `ckm-icon-button` (`components/buttons/IconButton.css`), `ckm-back` (`components/navigation/BackButton.css`), `ckm-page-header` (`components/app-bars/PageHeader.css`) |
+| Phase 1 form family | `ckm-field` (`components/forms/Field.css`), `ckm-control` (`components/forms/Control.css` — one box shared by input/textarea/select), `ckm-checkbox`, `ckm-radio`, `ckm-switch`, `ckm-file-picker` |
 | Development harness | `ckm-gallery` (`dev/PrimitiveGallery.css`, `/__mobile-primitives`, never mounted in production) |
 | Root surface and utilities | `ckm-root`, `ckm-html-lock`, `ckm-scroll`, `ckm-sr-only` |
 | Search | `ckm-search` |
@@ -737,7 +738,7 @@ Phases are ordered to minimize architectural rework. Implement vertical slices: 
 - [x] Standard/detail/immersive/flow/public/admin shells. *(shell-mode contract landed in Phase 0; `detail` is now exercised by a real screen.)*
 - [ ] Role-aware top app bars and bottom navigation.
 - [x] Page header, back button, icon button, primary/secondary/destructive buttons. *(2026-08-05: `ckm-button` (primary/secondary/tertiary/destructive × md/lg, pending, disabled, link forms), `ckm-icon-button` (44px hit region at every size, badge folded into the accessible name), `ckm-back` + `hooks/useMobileBack.js` (§8.3 history-vs-parent rule), `ckm-page-header`.)*
-- [ ] Form field, textarea, select/combobox, checkbox, radio, switch, file picker.
+- [x] Form field, textarea, select, checkbox, radio, switch, file picker. *(2026-08-05: `ckm-field` + `ckm-control` + `ckm-checkbox` / `ckm-radio` / `ckm-switch` / `ckm-file-picker`. **Combobox is deliberately not built** — a searchable combobox is only worth its cost where a list must be filtered, so it is deferred to the first screen that needs one, most likely Search filters in Phase 4.)*
 - [ ] List row, card, chip, badge, segmented control, tabs, pagination/load-more.
 - [ ] Bottom sheet, full-screen dialog, confirm dialog, context menu.
 - [ ] Toast/status, inline error, retry, skeleton, empty state, offline state.
@@ -1076,9 +1077,9 @@ This is the section future agents update continuously. Keep newest session entri
 ```yaml
 plan_status: IN_PROGRESS
 current_phase: 1
-current_work_item: "Phase 1 action primitives + demo harness COMPLETE; next slice is the form-field family"
-last_completed_work_item: "Button / IconButton / BackButton (+ useMobileBack) / PageHeader, the ckm-sr-only utility, the SC 2.4.11 scroll-padding on the shell, and the /__mobile-primitives gallery"
-next_action: "Continue Phase 1 with the form family (field, textarea, select/combobox, checkbox, radio, switch, file picker) in client/src/mobile/components/forms/. Each needs: a registered prefix in theme/cssPrefixRegistry.js, a label programmatically tied to its control, error text tied by aria-describedby + aria-invalid, >=16px rendered input text (tokens: --ckm-text-body) so mobile Safari does not zoom on focus, a 44px hit region, a render test, and a states row added to dev/PrimitiveGallery.jsx. Verify with the keyboard open, not only at rest."
+current_work_item: "Phase 1 form family COMPLETE (combobox deliberately deferred); next slice is the collection/display primitives"
+last_completed_work_item: "Field / TextField / TextArea / SelectField / Checkbox / RadioGroup / Switch / FilePicker, plus the scroll-margin fix that keeps a field's error visible with the keyboard open"
+next_action: "Continue Phase 1 with the collection and feedback primitives — list row, card, chip, badge, segmented control, tabs, load-more, then bottom sheet / full-screen dialog / confirm dialog / context menu and the toast+offline states. Start with list row and card in client/src/mobile/components/lists/ and components/cards/, because every Phase 4 discovery screen depends on them. Reuse the existing ckm-chip from theme/primitives.css rather than minting a second chip. Each needs a registered prefix, a render test and a gallery row; verify the sheet/dialog work against focus trapping and restoration (Phase 1 bullet 8), which is still unbuilt."
 active_files: []
 known_blockers: []
 last_updated: "2026-08-05"
@@ -1090,7 +1091,7 @@ updated_by: "Claude Phase 1 primitives session"
 | Phase | Status | Owner | Started | Completed | Evidence |
 |---|---|---|---|---|---|
 | 0. Foundation and route safety | COMPLETE | Codex, Claude | 2026-08-05 | 2026-08-05 | Route manifest/policy + 87-route coverage contract, stable preview fixture, shell-mode contract, route suspense/error boundary, expanded tokens, `.ckm` scoping + prefix registry contract, mobile analytics contract. 41 mobile tests in 7 files; full suite 583/585 (2 pre-existing AppShell failures); lint clean on all touched files; build + 53-route prerender pass; five-width CDP verification with a before/after computed-style diff |
-| 1. Shared system and chrome | IN PROGRESS | Claude | 2026-08-05 | — | Action primitives (`ckm-button`, `ckm-icon-button`, `ckm-back`, `ckm-page-header`) + `useMobileBack` + `/__mobile-primitives` harness. 68 mobile tests in 15 files; full suite 610/612 (same 2 pre-existing AppShell failures); lint clean on touched files; build + 53-route prerender pass; CDP sweep at 320/360/375/390/412/430/480/768 with all 32 controls ≥44×44 and no horizontal page scroll |
+| 1. Shared system and chrome | IN PROGRESS | Claude | 2026-08-05 | — | Form family (`ckm-field`, `ckm-control`, `ckm-checkbox`, `ckm-radio`, `ckm-switch`, `ckm-file-picker`): 99 mobile tests in 12 files; full suite 640/642; build passes; CDP sweep at 320–768 with 18 controls, none under 16px text or 44px touch, every invalid control's error reachable via `aria-describedby`; virtual-keyboard proxy passes. Action primitives (`ckm-button`, `ckm-icon-button`, `ckm-back`, `ckm-page-header`) + `useMobileBack` + `/__mobile-primitives` harness. 68 mobile tests in 15 files; full suite 610/612 (same 2 pre-existing AppShell failures); lint clean on touched files; build + 53-route prerender pass; CDP sweep at 320/360/375/390/412/430/480/768 with all 32 controls ≥44×44 and no horizontal page scroll |
 | 2. Writer navigation/dashboard | NOT STARTED | — | — | — | — |
 | 3. Creation/upload/editor | NOT STARTED | — | — | — | — |
 | 4. Discovery/project consumption | NOT STARTED | — | — | — | — |
@@ -1102,6 +1103,61 @@ updated_by: "Claude Phase 1 primitives session"
 | 10. Hardening/release | NOT STARTED | — | — | — | — |
 
 ### 19.3 Session log template
+
+#### 2026-08-05 17:20 +05:30 — Claude (Claude Code) — Phase 1 (form family)
+
+**Requested continuation:** "continue in native app implementation".
+
+**Starting checkpoint:** Phase 1 action primitives landed and shipped as PR #502 on `feat/mobile-native-app-phase-1`. The ledger's `next_action` named the form family.
+
+**Work item claimed:** Field, text field, textarea, select, checkbox, radio group, switch, file picker — with the keyboard-open verification the previous session recorded as owed.
+
+**Research performed**
+- Sources fetched: [W3C Understanding SC 3.3.3 Error Suggestion](https://www.w3.org/WAI/WCAG22/Understanding/error-suggestion.html) (an error must suggest the correction, not just report failure — hence messages like "Enter a valid email address, like name@example.com" rather than "Invalid"); [MDN `inputmode`](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Global_attributes/inputmode) (the full value list, and the rule that `inputmode` hints the keyboard while `type` is what validates — so both are set, never one); [MDN `<input type="text">`](https://developer.mozilla.org/en-US/docs/Web/HTML/Reference/Elements/input/text) (explicit warning against using `placeholder` as a label).
+- Repository research mattered more than the web here: `client/src/pages/admin/ui/fields.jsx` already implements a `Field` render-prop with id wiring, "error replaces help", and `role="alert"`. The mobile family adopts that same contract deliberately, so the two halves of the codebase read the same way (plan §5.4: share the behaviour, not the CSS).
+- Decisions adopted: `purpose` sets `type` + `inputMode` + `autoComplete` together, because setting one and forgetting the others is the usual bug; native `<select>`, never a custom listbox; a switch is `role="switch"` and means "takes effect now", a checkbox means "commits on save".
+- Patterns rejected and why: a searchable combobox (only earns its cost where a list must be *filtered* — deferred to the screen that needs it rather than built speculatively); `type="number"` for page counts (drops leading zeros, gives a phone a spinner) — `inputMode="numeric"` on a text input instead; `display: none` on the real checkbox/radio inputs (removes them from the accessibility tree) — `opacity: 0` with the drawn indicator as a sibling.
+
+**Desktop parity inventory**
+- Desktop files inspected: `pages/admin/ui/fields.jsx` (read for its contract, not modified). No desktop file changed this session.
+- Data/services/hooks: none. Validation stays with the caller — `FilePicker` reports a selection and renders the error it is handed, so the desktop upload's existing rules remain the single source of truth.
+- Roles/permissions/quotas, routes/query/navigation: unchanged.
+- Page states and child overlays: unchanged.
+
+**Wireframe/design decision**
+- Shell/top bar/bottom nav/back behaviour: unchanged; this slice adds no screen.
+- Scroll hierarchy: unchanged, but the field now participates in it — see the keyboard finding below.
+- Primary/secondary actions: unchanged.
+
+**Changes made**
+- Files added: `components/forms/` — `Field.{jsx,css}`, `Control.css`, `TextField.jsx`, `TextArea.jsx`, `SelectField.jsx`, `Checkbox.{jsx,css}`, `RadioGroup.{jsx,css}`, `Switch.{jsx,css}`, `FilePicker.{jsx,css}`, `formatFileSize.js`, `forms.test.jsx`.
+- Files modified: `theme/cssPrefixRegistry.js` (6 prefixes), `dev/PrimitiveGallery.jsx` (six new rows with live state, plus a deliberate last-field-on-the-page fixture for the keyboard case), and this plan.
+- Shared logic extracted: one control box (`ckm-control`) for input/textarea/select, so a screen cannot produce a second field shape; one label/hint/error column (`ckm-field`) reused even by the choice controls' error rows.
+- Route/prefix registration: `ckm-field`, `ckm-control`, `ckm-checkbox`, `ckm-radio`, `ckm-switch`, `ckm-file-picker`.
+
+**Verification**
+- Automated: `npx vitest run src/mobile` → 12 files / 99 tests (was 15 files / 68 — the form suite is one file). Full `npx vitest run` → 640 passed / 2 failed, the same pre-existing `AppShell.render.test.jsx` failures. ESLint clean on the new files (the 4 unused-`motion` errors elsewhere in `src/mobile` are pre-existing at HEAD). `npm run build` → passed, 53 routes prerendered.
+- Viewports/devices/browsers: CDP sweep at 320×720, 360×800, 390×844, 430×932, 768×1024. Across 18 form controls at every width: **no typed control renders below 16px**, **no control's hit region is under 44px** (measured on the row that owns the target, since checkbox/radio/file inputs are transparent overlays), **no control lacks an accessible name**, **every `aria-invalid` control's error text is reachable through `aria-describedby`**, and no element exceeds the viewport.
+- Accessibility checks: the above, plus `role="switch"`/`aria-checked` on the switch and `fieldset`/`legend` grouping with the error attached to the group rather than to one radio.
+- Performance checks: no new dependency; no runtime cost beyond the controls themselves.
+
+**Decisions or deviations**
+- Finding (the reason the keyboard check was worth doing): with the visual viewport collapsed to 390px — roughly what a keyboard leaves on a 390×844 device — the browser scrolled the focused input into view and left **its error message below the fold**. The user was being told something was wrong by text they could not see. Fixed with `scroll-margin-block` on `.ckm-control`, sized to a two-line message plus a counter; re-measured, and the field (274–318) and its error (326–342) are now both inside the 390px viewport. This is the field-level half of the pair whose surface-level half (`scroll-padding`) landed last session.
+- Finding: the character counter rendered *above* the hint, because anything the render-prop returns precedes the wrapper's own text. `Field` gained a `meta` slot rendered beside the hint — and `meta` survives an error, since a count still matters while you are fixing one.
+- Finding: `SelectField`'s placeholder never appeared. A disabled first option is not enough — the browser selects the first *enabled* option, so an untouched select read as "Drama" and would have submitted it. It now also sets `defaultValue=""`, but only when the caller is not driving the value.
+- Decision: no combobox. Reason: recorded above; the plan's Phase 1 bullet is marked with that deviation rather than silently ticked.
+- User approval, if required: none — covered by the canonical plan.
+
+**Open issues/blockers**
+- The virtual-keyboard result is a **proxy**: a resized headless viewport, not a real soft keyboard. iOS Safari's behaviour differs (the visual viewport moves rather than resizing the layout viewport), so §16.4 still owes this on a physical device.
+- 200% text zoom remains unexercised; still owed.
+- The two `AppShell.render.test.jsx` failures and the four unused-`motion` lint errors remain pre-existing debt in their own workstreams.
+- The safe-area-top change from Phase 0 is still unverified on a notched device.
+
+**Exact next action**
+- Continue Phase 1 with the collection and feedback primitives — list row and card first (`components/lists/`, `components/cards/`), since every Phase 4 discovery screen depends on them — then segmented control, tabs, load-more, and the overlay set (bottom sheet, full-screen dialog, confirm dialog, context menu) together with focus trapping and restoration, which is still unbuilt. Reuse the existing `ckm-chip` rather than minting a second chip.
+
+---
 
 #### 2026-08-05 16:55 +05:30 — Claude (Claude Code) — Phase 1 (opening slice)
 

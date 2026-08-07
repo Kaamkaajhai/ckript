@@ -1,0 +1,126 @@
+/*
+ * Ckript Mobile — file picker (prefix: ckm-file-picker)
+ * ------------------------------------------------------------------
+ * Scoped under `.ckm` (plan §7.1). The <label> is the trigger; the input keeps
+ * its place in the accessibility tree and takes focus.
+ */
+
+.ckm .ckm-file-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+  min-width: 0;
+}
+
+.ckm .ckm-file-picker__trigger {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ckm-space-2);
+  min-height: var(--ckm-control-h-lg);
+  padding: var(--ckm-space-3) var(--ckm-space-4);
+  border: 1px dashed var(--ckm-control-border);
+  border-radius: var(--ckm-r-md);
+  background: var(--ckm-bg-fill);
+  color: var(--ckm-text);
+  font-size: var(--ckm-text-support);
+  font-weight: var(--ckm-weight-semibold);
+  cursor: pointer;
+  text-align: center;
+  transition:
+    background-color var(--ckm-duration-feedback) var(--ckm-ease),
+    border-color var(--ckm-duration-feedback) var(--ckm-ease);
+}
+
+.ckm .ckm-file-picker__trigger:active {
+  background: var(--ckm-track);
+}
+
+/* Invisible but present: it is what the label points at, what receives focus
+   and what the form submits. Sized to the trigger so a stray tap still lands
+   on the real input rather than nothing. */
+.ckm .ckm-file-picker__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.ckm .ckm-file-picker__input:focus-visible {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: var(--ckm-focus-ring-offset);
+  border-radius: var(--ckm-r-md);
+}
+
+.ckm .ckm-file-picker__input:disabled {
+  cursor: default;
+}
+
+.ckm .ckm-file-picker__trigger-icon {
+  flex: none;
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-file-picker__trigger-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* --- Selected files ----------------------------------------------------- */
+
+.ckm .ckm-file-picker__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ckm .ckm-file-picker__item {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-2);
+  min-height: var(--ckm-touch-target);
+  padding: var(--ckm-space-1) var(--ckm-space-1) var(--ckm-space-1) var(--ckm-space-3);
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-md);
+  background: var(--ckm-bg);
+}
+
+.ckm .ckm-file-picker__item-icon {
+  flex: none;
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-file-picker__item-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+/* A file name is one long unbroken token; it truncates rather than pushing the
+   remove control off the row, and the full name stays in that control's label. */
+.ckm .ckm-file-picker__item-name {
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  color: var(--ckm-text);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ckm .ckm-file-picker__item-size {
+  font-size: var(--ckm-text-micro);
+  line-height: var(--ckm-leading-micro);
+  color: var(--ckm-muted);
+}
+
+.ckm .ckm-file-picker.is-invalid .ckm-file-picker__trigger {
+  border-color: var(--ckm-red);
+}
