@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import multer from "multer";
+import crypto from "crypto";
 import Competition from "../models/Competition.js";
 import CompetitionEntry from "../models/CompetitionEntry.js";
 import ExternalRegistration from "../models/ExternalRegistration.js";
@@ -30,6 +31,16 @@ import { sendExternalRegistrationDecisionEmail } from "../utils/emailService.js"
 const REGISTRATION_FEE_MINOR = { INR: 9800, USD: 200 };
 
 const clean = (value, max = 200) => String(value ?? "").trim().slice(0, max);
+
+/**
+ * A booking reference reduced to what actually identifies it.
+ *
+ * The same Luma ticket arrives as "EVT-8841XY", "evt 8841xy" and "EVT8841XY" because people read
+ * it off a screen and retype it. Comparing raw strings meant a second claimant defeated the
+ * one-ticket rule by typing it slightly differently — usually without meaning to, which is worse,
+ * because then nobody notices the duplicate at all.
+ */
+const refKey = (value) => String(value ?? "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
 /**
  * The optional proof screenshot.
@@ -178,10 +189,15 @@ export const submitExternalRegistration = async (req, res) => {
     let screenshotPublicId = "";
     if (req.file?.buffer) {
       try {
+        // The public_id used to be `ext-<competitionId>-<userId>-<attempt>`. Every part of that is
+        // knowable — competition ids are in URLs, user ids appear across the API — so the delivery
+        // URL of somebody else's proof could simply be constructed, and these images are a ticket
+        // holder's name, booking reference and often a partial payment record. A random suffix makes
+        // the path unguessable, which is the control Cloudinary actually gives us on public delivery.
         const uploaded = await uploadToCloudinary(req.file.buffer, {
           folder: "scriptbridge/external-registrations",
           resource_type: "image",
-          public_id: `ext-${competition._id}-${req.user._id}-${existing ? existing.attempt + 1 : 1}`,
+          public_id: `ext-${competition._id}-${crypto.randomBytes(16).toString("hex")}`,
           originalFilename: req.file.originalname,
           mimeType: req.file.mimetype,
         });
@@ -198,6 +214,7 @@ export const submitExternalRegistration = async (req, res) => {
       fullName: cleanName,
       phone: cleanPhone,
       externalRef: cleanRef,
+      externalRefKey: refKey(cleanRef),
       registration: {
         country: cleanCountry,
         language: cleanLanguage,
@@ -224,6 +241,13 @@ export const submitExternalRegistration = async (req, res) => {
         provider: existing.provider,
         externalRef: existing.externalRef,
       });
+      // A resubmission with a NEW reference but no new screenshot must not keep the old image — the
+      // reviewer would otherwise be looking at proof of a reference that no longer exists on the
+      // claim, and approving it on that basis.
+      if (!screenshotUrl && refKey(cleanRef) !== existing.externalRefKey) {
+        existing.screenshotUrl = "";
+        existing.screenshotPublicId = "";
+      }
       Object.assign(existing, payload);
       existing.attempt += 1;
       request = await existing.save();
@@ -302,19 +326,23 @@ export const listExternalRegistrations = async (req, res) => {
     // Which of these references has ALREADY been approved for somebody else. One third-party ticket
     // admitting two people is the abuse this flow is most exposed to, and a reviewer can only catch it
     // if the clash is on screen — every claim looks ordinary in isolation.
-    const refs = requests.map((doc) => doc.externalRef).filter(Boolean);
+    const refs = requests.map((doc) => doc.externalRefKey).filter(Boolean);
     const approvedElsewhere = refs.length
       ? await ExternalRegistration.find({
-        externalRef: { $in: refs },
+        externalRefKey: { $in: refs },
         status: "approved",
-      }).select("externalRef provider competition user").populate("user", "name email")
+      }).select("externalRefKey competition user").populate("user", "name email")
       : [];
-    const clashKey = (doc) => `${doc.competition}|${doc.provider}|${doc.externalRef}`;
+    // Same rules as the approval guard: normalised, and not scoped by the platform the claimant chose.
+    const clashKey = (doc) => `${doc.competition}|${doc.externalRefKey}`;
     const approvedBy = new Map(approvedElsewhere.map((doc) => [clashKey(doc), doc]));
 
     return res.json({
       requests: requests.map((doc) => {
-        const clash = approvedBy.get(clashKey({ ...doc.toObject(), competition: doc.competition?._id || doc.competition }));
+        const clash = approvedBy.get(clashKey({
+          competition: doc.competition?._id || doc.competition,
+          externalRefKey: doc.externalRefKey,
+        }));
         return {
           ...publicShape(doc),
           user: doc.user,
@@ -363,8 +391,10 @@ export const approveExternalRegistration = async (req, res) => {
     const duplicate = await ExternalRegistration.findOne({
       _id: { $ne: request._id },
       competition: request.competition?._id || request.competition,
-      provider: request.provider,
-      externalRef: request.externalRef,
+      // Matched on the NORMALISED key, and deliberately not on `provider`. The platform is picked by
+      // the claimant from a radio group and nothing verifies the reference came from it, so scoping
+      // by provider would let the same reference through byte-for-byte under a different platform.
+      externalRefKey: request.externalRefKey || refKey(request.externalRef),
       status: "approved",
     }).populate("user", "name email");
 
@@ -408,34 +438,48 @@ export const approveExternalRegistration = async (req, res) => {
         },
       });
       await entry.save();
-    }
 
-    // The books. An entry that appeared with no money and no record against it is precisely the hole
-    // the ledger exists to close; the list price is the revenue foregone.
-    await recordGrant({
-      kind: "competition_registration",
-      user: request.user._id,
-      listPriceMinor: REGISTRATION_FEE_MINOR.INR,
-      currency: "INR",
-      grantedBy: req.user._id,
-      reason: `registered via ${providerName(request.provider)}`,
-      subjectType: "Competition",
-      subjectId: competition._id,
-      label: competition.name,
-      source: "externalRegistrationController.approveExternalRegistration",
-      metadata: {
-        provider: request.provider,
-        externalRef: request.externalRef,
-        eventId: entry.eventId || "",
-      },
-    });
+      // Inside this branch on purpose. When the entrant already has an entry — because they gave up
+      // waiting and paid — no access is being granted here, and recording ₹98 of foregone revenue
+      // would invent a loss against a sale that actually happened. Approving then only settles the
+      // paperwork.
+      await recordGrant({
+        kind: "competition_registration",
+        user: request.user._id,
+        listPriceMinor: REGISTRATION_FEE_MINOR.INR,
+        currency: "INR",
+        grantedBy: req.user._id,
+        reason: `registered via ${providerName(request.provider)}`,
+        subjectType: "Competition",
+        subjectId: competition._id,
+        label: competition.name,
+        source: "externalRegistrationController.approveExternalRegistration",
+        metadata: {
+          provider: request.provider,
+          externalRef: request.externalRef,
+          eventId: entry.eventId || "",
+        },
+      });
+    }
 
     request.status = "approved";
     request.reviewedBy = req.user._id;
     request.reviewedAt = now;
     request.reviewNote = String(req.body?.note || "").trim().slice(0, 1000);
     request.entry = entry._id;
-    await request.save();
+    try {
+      await request.save();
+    } catch (saveError) {
+      // The partial unique index on (competition, externalRefKey) over approved claims. Two admins
+      // approving two claims on the same ticket at the same instant both pass the read above; this is
+      // what actually stops the second one.
+      if (saveError?.code === 11000) {
+        return res.status(409).json({
+          message: "That reference was approved for another entrant a moment ago. Reload the queue.",
+        });
+      }
+      throw saveError;
+    }
 
     await createNotification({
       userId: request.user._id,

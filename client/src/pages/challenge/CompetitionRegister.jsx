@@ -500,16 +500,22 @@ const CompetitionRegister = () => {
             </Link>
           </div>
 
-          {/* The other way in: somebody who already paid to enter on Luma, BookMyShow or FilmFreeway
-              sends the details instead of paying twice, and an admin confirms it by hand. */}
-          <ExternalRegistrationPanel
-            competitionId={competition?._id}
-            form={form}
-            acceptRules={acceptRules}
-            acceptCopyright={acceptCopyright}
-            validateRegistration={validate}
-          />
         </form>
+
+        {/* The other way in: somebody who already paid to enter on Luma, BookMyShow or FilmFreeway
+            sends the details instead of paying twice, and an admin confirms it by hand.
+            OUTSIDE the form above, deliberately. The panel carries its own <form>, and HTML forbids
+            nesting one inside another: the browser closes the outer form at the inner tag, so a
+            submit from in here never reached React at all — neither handler ran, the browser did a
+            native GET, and the page reloaded with every field blank and the ?c=<slug> param gone.
+            The claim was never sent. Rendering it as a sibling is what makes the button work. */}
+        <ExternalRegistrationPanel
+          competitionId={competition?._id}
+          form={form}
+          acceptRules={acceptRules}
+          acceptCopyright={acceptCopyright}
+          validateRegistration={validate}
+        />
       </div>
 
       {showCurrencyModal && (

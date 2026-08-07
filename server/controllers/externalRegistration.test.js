@@ -41,7 +41,10 @@ const validClaim = {
   provider: "luma",
   fullName: "Aditi Rao",
   phone: "+91 98765 43210",
-  externalRef: "evt-8841XY",
+  externalRef: "EVT-8841XY",
+  // Required: the one-ticket rule compares this, not the raw string, so a claim without it would
+  // silently sit outside the guard.
+  externalRefKey: "evt8841xy",
   registration: {
     country: "India",
     language: "Hindi",
@@ -248,5 +251,38 @@ describe("one third-party ticket cannot admit two people", () => {
     assert.match(body, /duplicateOf/, "the queue does not surface a clash");
     // Only when it is a DIFFERENT entrant — someone correcting their own typo is not a duplicate.
     assert.match(body, /String\(clash\.user\?\._id\) !== String\(doc\.user\?\._id\)/);
+  });
+});
+
+describe("fixes from the adversarial review", () => {
+  test("the grant is written only when an entry was actually created", () => {
+    // Outside the branch, approving a claim from somebody who gave up waiting and PAID would record
+    // ₹98 of foregone revenue against a sale that really happened.
+    const body = handler("approveExternalRegistration");
+    const branch = body.slice(body.indexOf("if (!entry) {"), body.indexOf('request.status = "approved"'));
+    assert.match(branch, /recordGrant\(/, "the grant is not scoped to entry creation");
+  });
+
+  test("the proof screenshot's storage path is not guessable", () => {
+    // It used to be `ext-<competitionId>-<userId>-<attempt>`, every part of which is knowable, so
+    // another entrant's ticket — name, booking reference, often a partial payment record — could be
+    // fetched by constructing the URL.
+    const body = handler("submitExternalRegistration");
+    assert.match(body, /crypto\.randomBytes\(/, "the screenshot path is still derived from known ids");
+    assert.doesNotMatch(body, /public_id: `ext-\$\{competition\._id\}-\$\{req\.user\._id\}/);
+  });
+
+  test("a resubmission with a changed reference drops the old screenshot", () => {
+    // Otherwise the reviewer approves proof of a reference the claim no longer carries.
+    const body = handler("submitExternalRegistration");
+    assert.match(body, /refKey\(cleanRef\) !== existing\.externalRefKey/);
+  });
+
+  test("the queue's clash key matches the approval guard's", () => {
+    // Two different rules would mean the warning shown to the reviewer and the rule that blocks them
+    // disagree — the worst of both.
+    const body = handler("listExternalRegistrations");
+    assert.match(body, /externalRefKey/, "the queue still compares raw references");
+    assert.doesNotMatch(body.slice(body.indexOf("const clashKey")), /\$\{doc\.provider\}/);
   });
 });

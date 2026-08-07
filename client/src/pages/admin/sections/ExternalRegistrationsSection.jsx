@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge, Button, Card, DataTable, SectionHeader, StatusPill } from "../ui";
 import { EXTERNAL_EVENT_PROVIDERS, providerName } from "../../../data/externalEventProviders";
 import ProviderMark from "../../../components/ProviderMark";
@@ -24,6 +24,8 @@ export default function ExternalRegistrationsSection() {
   const [provider, setProvider] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [total, setTotal] = useState(0);
   const [busy, setBusy] = useState("");
   const [token, setToken] = useState(0);
   const [notes, setNotes] = useState({});
@@ -38,6 +40,7 @@ export default function ExternalRegistrationsSection() {
         });
         if (cancelled) return;
         setRows(Array.isArray(data?.requests) ? data.requests : []);
+        setTotal(Number(data?.total) || 0);
         setError("");
       } catch (err) {
         if (!cancelled) setError(err?.response?.data?.message || "Could not load registration claims.");
@@ -50,20 +53,37 @@ export default function ExternalRegistrationsSection() {
 
   const refresh = useCallback(() => { setLoading(true); setToken((t) => t + 1); }, []);
 
+  // Escape closes the proof dialog and focus returns to where it was. Declaring aria-modal without
+  // this is a promise to assistive tech that the rest of the page is inert, while it stays reachable.
+  const closeButtonRef = useRef(null);
+  const openerRef = useRef(null);
+
+  useEffect(() => {
+    if (!preview) return undefined;
+    openerRef.current = document.activeElement;
+    closeButtonRef.current?.focus();
+    const onKeyDown = (event) => { if (event.key === "Escape") setPreview(null); };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      if (openerRef.current instanceof HTMLElement) openerRef.current.focus();
+    };
+  }, [preview]);
+
   const decide = async (row, decision) => {
     const note = (notes[row._id] || "").trim();
     if (decision === "reject" && !note) {
-      setError("Write a reason before rejecting — the entrant needs to know what to fix.");
+      setActionError("Write a reason before rejecting — the entrant needs to know what to fix.");
       return;
     }
     setBusy(`${decision}-${row._id}`);
     try {
       await api.put(`/admin/external-registrations/${row._id}/${decision}`, { note });
       setNotes((n) => ({ ...n, [row._id]: "" }));
-      setError("");
+      setActionError("");
       refresh();
     } catch (err) {
-      setError(err?.response?.data?.message || "That action could not be completed.");
+      setActionError(err?.response?.data?.message || "That action could not be completed.");
     } finally {
       setBusy("");
     }
@@ -170,6 +190,7 @@ export default function ExternalRegistrationsSection() {
               size="sm"
               variant="ghost"
               loading={busy === `approve-${r._id}`}
+              disabled={Boolean(busy)}
               onClick={() => decide(r, "approve")}
             >
               Approve
@@ -179,6 +200,7 @@ export default function ExternalRegistrationsSection() {
               variant="ghost"
               className="adtb-danger"
               loading={busy === `reject-${r._id}`}
+              disabled={Boolean(busy)}
               onClick={() => decide(r, "reject")}
             >
               Reject
@@ -191,7 +213,7 @@ export default function ExternalRegistrationsSection() {
 
   return (
     <div>
-      <SectionHeader title="Third-party registrations" count={rows.length}>
+      <SectionHeader title="Third-party registrations" count={total || rows.length}>
         <label className="adf-selectwrap" style={{ minWidth: 150 }}>
           <span className="ckad-sr-only">Status</span>
           <select
@@ -221,6 +243,19 @@ export default function ExternalRegistrationsSection() {
           <span className="adf-selectcaret" aria-hidden="true">▾</span>
         </label>
       </SectionHeader>
+
+      {actionError ? (
+        <div className="ade" role="alert" style={{ marginBottom: "var(--ad-s3)" }}>
+          <p className="ade-body">{actionError}</p>
+        </div>
+      ) : null}
+
+      {total > rows.length ? (
+        // Never silently: a queue that stops at 100 while 140 wait is a queue that loses people.
+        <p className="adst-label" style={{ marginBottom: "var(--ad-s3)" }}>
+          Showing the {rows.length} most recent of {total}. Filter by status or platform to narrow it.
+        </p>
+      ) : null}
 
       <Card flush>
         <DataTable
@@ -257,7 +292,7 @@ export default function ExternalRegistrationsSection() {
                     {providerName(preview.provider)} · <span className="ckad-mono">{preview.externalRef}</span>
                   </p>
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => setPreview(null)}>Close</Button>
+                <Button ref={closeButtonRef} size="sm" variant="ghost" onClick={() => setPreview(null)}>Close</Button>
               </div>
               <div className="adc-body">
                 <img

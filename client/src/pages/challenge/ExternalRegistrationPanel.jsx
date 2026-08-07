@@ -109,6 +109,24 @@ export default function ExternalRegistrationPanel({
     if (isApproved && onApprovedAlready) onApprovedAlready(request);
   }, [isApproved, request, onApprovedAlready]);
 
+  // Roving tabindex: arrows move between platforms, Home/End jump to the ends, and only the
+  // selected option (or the first, before anything is chosen) sits in the tab order.
+  const onPlatformKeyDown = (event) => {
+    const keys = ["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp", "Home", "End"];
+    if (!keys.includes(event.key)) return;
+    event.preventDefault();
+    const index = EXTERNAL_EVENT_PROVIDERS.findIndex((p) => p.slug === fields.provider);
+    const last = EXTERNAL_EVENT_PROVIDERS.length - 1;
+    let next;
+    if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = last;
+    else if (event.key === "ArrowRight" || event.key === "ArrowDown") next = index < 0 ? 0 : (index + 1) % (last + 1);
+    else next = index <= 0 ? last : index - 1;
+    const slug = EXTERNAL_EVENT_PROVIDERS[next].slug;
+    setFields((f) => ({ ...f, provider: slug }));
+    document.getElementById(`ext-platform-${slug}`)?.focus();
+  };
+
   const pickScreenshot = (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -249,15 +267,20 @@ export default function ExternalRegistrationPanel({
               style={{ gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 150px), 1fr))" }}
               role="radiogroup"
               aria-label="Platform"
+              aria-required="true"
+              onKeyDown={onPlatformKeyDown}
             >
               {EXTERNAL_EVENT_PROVIDERS.map((p) => {
                 const selected = fields.provider === p.slug;
                 return (
                   <button
                     key={p.slug}
+                    id={`ext-platform-${p.slug}`}
                     type="button"
                     role="radio"
                     aria-checked={selected}
+                    /* One tab stop for the whole group, as a native radio group behaves. */
+                    tabIndex={selected || (!fields.provider && p.slug === EXTERNAL_EVENT_PROVIDERS[0].slug) ? 0 : -1}
                     onClick={() => setFields((f) => ({ ...f, provider: p.slug }))}
                     className="flex items-center gap-2.5 px-3 py-2.5 text-left"
                     style={{

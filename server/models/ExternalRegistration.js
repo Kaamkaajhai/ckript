@@ -45,6 +45,16 @@ const externalRegistrationSchema = new mongoose.Schema(
     phone: { type: String, required: true, trim: true, maxlength: 30 },
     externalRef: { type: String, required: true, trim: true, maxlength: 120 },
 
+    /**
+     * `externalRef` reduced to lowercase alphanumerics — the value the one-ticket rule compares.
+     *
+     * Booking IDs get read off a screen and retyped, so the same ticket arrives as "EVT-8841XY",
+     * "evt 8841xy" and "EVT8841XY". Comparing the raw strings meant a second claimant defeated the
+     * duplicate check by typing it slightly differently, without even meaning to. Stored rather than
+     * computed at query time so the unique index below can enforce it.
+     */
+    externalRefKey: { type: String, required: true, index: true },
+
     // Optional. Most claims are decided on the reference alone; a screenshot settles the rest.
     screenshotUrl: { type: String, default: "" },
     screenshotPublicId: { type: String, default: "" },
@@ -90,5 +100,26 @@ const externalRegistrationSchema = new mongoose.Schema(
 // which is what keeps the history in one place and the queue free of duplicates.
 externalRegistrationSchema.index({ competition: 1, user: 1 }, { unique: true });
 externalRegistrationSchema.index({ status: 1, createdAt: -1 });
+
+/**
+ * ONE TICKET, ONE ENTRY — enforced by the database, not by a check.
+ *
+ * A partial unique index over APPROVED claims only: any number of people may CLAIM the same booking
+ * ID (honest mistakes happen, and the reviewer should see the clash), but only one of those claims
+ * can ever be approved.
+ *
+ * This has to be an index rather than a read-then-write in the controller. Two admins approving two
+ * claims on the same ticket at the same moment both read "no approved duplicate" and both write —
+ * the check passes twice and the ticket admits two people. An index is the only thing that holds
+ * under that race.
+ *
+ * Deliberately NOT scoped by provider. The platform is chosen by the claimant from a radio group and
+ * nothing verifies the reference actually came from it, so scoping by provider would let a second
+ * claimant reuse the same reference byte-for-byte just by picking a different platform from the list.
+ */
+externalRegistrationSchema.index(
+  { competition: 1, externalRefKey: 1 },
+  { unique: true, partialFilterExpression: { status: "approved" } },
+);
 
 export default mongoose.model("ExternalRegistration", externalRegistrationSchema);
