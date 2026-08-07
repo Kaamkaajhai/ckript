@@ -188,7 +188,19 @@ const escapeHTML = (str) => {
 
 const compileText = (block) => {
   const align = block.align || "left";
-  const formattedContent = escapeHTML(block.content).replace(/\n/g, "<br />");
+  
+  // Split by double newline (or more) into paragraphs for professional spacing
+  const paragraphs = escapeHTML(block.content || "").split(/\n\s*\n/);
+  
+  const formattedContent = paragraphs
+    .filter(p => p.trim() !== '')
+    .map(p => {
+      // Single newlines become <br /> and double spaces are preserved
+      const pContent = p.replace(/\n/g, "<br />").replace(/  /g, ' &nbsp;');
+      return `<p style="margin: 0 0 16px 0;">${pContent}</p>`;
+    })
+    .join('');
+
   return `
 <tr>
   <td class="px-mobile" align="${align}" style="padding: 12px 40px; text-align: ${align}; font-size: 16px; line-height: 1.6; color: #3f3f46;">
