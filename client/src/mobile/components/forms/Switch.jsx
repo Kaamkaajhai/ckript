@@ -20,6 +20,7 @@ export default function Switch({
   checked = false,
   onChange = undefined,
   disabled = false,
+  srOnlyLabel = false,
   className = "",
   ...rest
 }) {
@@ -28,7 +29,10 @@ export default function Switch({
 
   return (
     <div className={["ckm-switch", className].filter(Boolean).join(" ")}>
-      <span className="ckm-switch__text">
+      {/* Inside a ListRow the row's own title is the visible label, so showing
+          it again here would read it twice. It stays in the accessibility tree
+          either way — the control is still named by it. */}
+      <span className={srOnlyLabel ? "ckm-sr-only" : "ckm-switch__text"}>
         <span className="ckm-switch__label" id={`${id}-label`}>{label}</span>
         {description && <span className="ckm-switch__description" id={descriptionId}>{description}</span>}
       </span>

@@ -11,6 +11,27 @@ import Checkbox from "../components/forms/Checkbox";
 import RadioGroup from "../components/forms/RadioGroup";
 import Switch from "../components/forms/Switch";
 import FilePicker from "../components/forms/FilePicker";
+import List from "../components/lists/List";
+import ListRow from "../components/lists/ListRow";
+import LoadMore from "../components/lists/LoadMore";
+import Card, {
+  CardActions,
+  CardBody,
+  CardEyebrow,
+  CardFooter,
+  CardMedia,
+  CardTags,
+  CardText,
+  CardTitle,
+} from "../components/cards/Card";
+import Badge from "../components/badges/Badge";
+import Chip, { ChipRow } from "../components/chips/Chip";
+import SegmentedControl from "../components/tabs/SegmentedControl";
+import Tabs, { TabPanel } from "../components/tabs/Tabs";
+import Sheet from "../components/overlays/Sheet";
+import Dialog from "../components/overlays/Dialog";
+import ConfirmDialog from "../components/overlays/ConfirmDialog";
+import ActionSheet from "../components/overlays/ActionSheet";
 import "./PrimitiveGallery.css";
 
 /*
@@ -52,6 +73,19 @@ const FORMATS = [
 ];
 const SAMPLE_FILE = { name: "the-final-draft-v7-REVISED-clean.pdf", size: 2_411_724 };
 
+const FILTERS = ["Drama", "Thriller", "Documentary", "Short film", "Regional language"];
+const SORTS = [
+  { value: "recent", label: "Recent" },
+  { value: "rated", label: "Top rated" },
+  { value: "price", label: "Price" },
+];
+const PROJECT_TABS = [
+  { id: "overview", label: "Overview" },
+  { id: "reviews", label: "Reviews", count: 12 },
+  { id: "collaborators", label: "Collaborators", count: 3 },
+  { id: "versions", label: "Version history" },
+];
+
 export default function PrimitiveGallery() {
   const [width, setWidth] = useState(() => (typeof window === "undefined" ? 0 : window.innerWidth));
   const [pending, setPending] = useState(false);
@@ -63,6 +97,19 @@ export default function PrimitiveGallery() {
   const [format, setFormat] = useState("series");
   const [notify, setNotify] = useState(true);
   const [files, setFiles] = useState([SAMPLE_FILE]);
+  const [genres, setGenres] = useState(["Drama"]);
+  const [sort, setSort] = useState("recent");
+  const [tab, setTab] = useState("reviews");
+  const [loaded, setLoaded] = useState(20);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // Overlays. `overlay` holds at most one of the three surfaces; `confirm` is
+  // separate because it must be able to stack *on top of* the action sheet —
+  // that pairing is the one the stacking rules exist for.
+  const [overlay, setOverlay] = useState(null);
+  const [confirm, setConfirm] = useState(null);
+  const [confirmPending, setConfirmPending] = useState(false);
+  const [sheetNote, setSheetNote] = useState("");
 
   useEffect(() => {
     const onResize = () => setWidth(window.innerWidth);
@@ -75,6 +122,31 @@ export default function PrimitiveGallery() {
     setPending(true);
     const t = setTimeout(() => setPending(false), 1600);
     return () => clearTimeout(t);
+  };
+
+  const toggleGenre = (genre) => setGenres((list) => (
+    list.includes(genre) ? list.filter((g) => g !== genre) : [...list, genre]
+  ));
+
+  // Deliberately slow, so the pending label and the focus rescue at the end of
+  // the list can both be observed rather than inferred.
+  const loadMore = () => {
+    setLoadingMore(true);
+    setTimeout(() => {
+      setLoaded((n) => Math.min(64, n + 20));
+      setLoadingMore(false);
+    }, 900);
+  };
+
+  // A confirmation that resolves slowly, so the dialog can be seen holding
+  // focus and staying open while the work it confirmed is still in flight.
+  const runConfirm = () => {
+    setConfirmPending(true);
+    setTimeout(() => {
+      setConfirmPending(false);
+      setConfirm(null);
+      setOverlay(null);
+    }, 1400);
   };
 
   return (
@@ -96,6 +168,94 @@ export default function PrimitiveGallery() {
             </>
           )}
         />
+      )}
+      overlays={(
+        <>
+          <Sheet
+            open={overlay === "sheet"}
+            onClose={() => setOverlay(null)}
+            title="Filter scripts"
+            description="Narrow the list without leaving it."
+            footer={(
+              <>
+                <Button fullWidth onClick={() => setOverlay(null)}>Show 24 results</Button>
+                <Button fullWidth variant="tertiary" onClick={() => setGenres([])}>Clear all</Button>
+              </>
+            )}
+          >
+            <div className="ckm-gallery__stack">
+              <ChipRow label="Genre">
+                {FILTERS.map((filter) => (
+                  <Chip
+                    key={filter}
+                    selected={genres.includes(filter)}
+                    onSelect={() => toggleGenre(filter)}
+                  >
+                    {filter}
+                  </Chip>
+                ))}
+              </ChipRow>
+              {/* A field inside a sheet: focus it on a device, and the footer
+                  staying above the keyboard is what useKeyboardInset is for. */}
+              <TextField label="Maximum price" purpose="numeric" hint="In rupees" />
+              <Switch
+                label="Only scripts I can afford"
+                checked={notify}
+                onChange={(event) => setNotify(event.target.checked)}
+              />
+            </div>
+          </Sheet>
+
+          <Dialog
+            open={overlay === "dialog"}
+            onClose={() => setOverlay(null)}
+            title="Edit logline"
+            description="Autosaved to this draft"
+            action={<Button variant="tertiary" onClick={() => setOverlay(null)}>Save</Button>}
+            footer={<Button fullWidth onClick={() => setOverlay(null)}>Done</Button>}
+          >
+            <div className="ckm-gallery__stack">
+              <TextArea
+                label="Logline"
+                value={logline}
+                maxLength={180}
+                onChange={(event) => setLogline(event.target.value)}
+              />
+              <p className="ckm-gallery__note">
+                A full-screen dialog covers the frame and slides in from the trailing
+                edge. It dismisses with a close icon, never a back chevron — the
+                app&rsquo;s history did not move.
+              </p>
+            </div>
+          </Dialog>
+
+          <ActionSheet
+            open={overlay === "actions"}
+            onClose={() => setOverlay(null)}
+            title="An Unreasonable Man"
+            description="Draft 7 · 118 pages"
+            items={[
+              { id: "share", label: "Share", icon: "share", hint: "Anyone with the link", onSelect: () => setSheetNote("Shared.") },
+              { id: "duplicate", label: "Duplicate", icon: "content_copy", onSelect: () => setSheetNote("Duplicated.") },
+              { id: "export", label: "Export as PDF", icon: "picture_as_pdf", onSelect: () => setSheetNote("Exported.") },
+              { id: "archive", label: "Archive", icon: "archive", disabled: true, hint: "Not while a review is open" },
+              { id: "delete", label: "Delete", icon: "delete", destructive: true, onSelect: () => setConfirm("destructive") },
+            ]}
+          />
+
+          <ConfirmDialog
+            open={confirm != null}
+            destructive={confirm === "destructive"}
+            pending={confirmPending}
+            onCancel={() => { setConfirm(null); setConfirmPending(false); }}
+            onConfirm={runConfirm}
+            title={confirm === "destructive" ? "Delete this script?" : "Publish to the marketplace?"}
+            message={confirm === "destructive"
+              ? "This removes An Unreasonable Man and its 12 reviews. It cannot be undone."
+              : "Producers will be able to find and read this script immediately."}
+            confirmLabel={confirm === "destructive" ? "Delete script" : "Publish"}
+          />
+        </>
       )}
     >
       <div className="ckm-gallery__page">
@@ -260,6 +420,213 @@ export default function PrimitiveGallery() {
         </Row>
 
         <Row
+          title="Badge — status, never a target"
+          note="Text colour is the darkened *-ink token: --ckm-green on --ckm-green-bg measures ~3.88:1 and fails AA."
+        >
+          <Badge>Draft</Badge>
+          <Badge tone="success" dot>Published</Badge>
+          <Badge tone="warning" icon="schedule">In review</Badge>
+          <Badge tone="danger" dot>Payment failed</Badge>
+          <Badge tone="accent" variant="solid">New</Badge>
+          <Badge tone="success" variant="solid">Winner</Badge>
+          <Badge tone="neutral" variant="outline">Optioned</Badge>
+          <Badge tone="accent" size="sm">Featured</Badge>
+          <Badge tone="danger" srLabel="3 unread messages">3</Badge>
+        </Row>
+
+        <Row
+          title="Chip — filters that scroll"
+          note="One chip family: the base pill is the dashboard's, and only the interactive forms are added. Selection is aria-pressed, not a class."
+        >
+          <div className="ckm-gallery__stack">
+            <ChipRow label="Filter by genre">
+              {FILTERS.map((genre) => (
+                <Chip
+                  key={genre}
+                  selected={genres.includes(genre)}
+                  onSelect={() => toggleGenre(genre)}
+                >
+                  {genre}
+                </Chip>
+              ))}
+            </ChipRow>
+            <ChipRow label="Applied filters" wrap>
+              {genres.map((genre) => (
+                <Chip key={genre} selected onSelect={() => toggleGenre(genre)} onRemove={() => toggleGenre(genre)}>
+                  {genre}
+                </Chip>
+              ))}
+              <Chip icon="tune" onSelect={() => {}}>All filters</Chip>
+              <Chip disabled onSelect={() => {}}>Unavailable</Chip>
+            </ChipRow>
+            <div className="ckm-gallery__specimens">
+              <Chip>Drama</Chip>
+              <Chip tone="green">Published</Chip>
+              <Chip tone="gold">Pending</Chip>
+            </div>
+          </div>
+        </Row>
+
+        <Row
+          title="Segmented control — a radio group, not tabs"
+          note="It changes what one list shows, so it is a real radio group: arrow keys and 'Sort, Recent, 1 of 3' come free."
+        >
+          <div className="ckm-gallery__stack">
+            <SegmentedControl label="Sort scripts by" name="gallery-sort" options={SORTS} value={sort} onChange={setSort} />
+            <SegmentedControl
+              label="Availability"
+              name="gallery-availability"
+              options={[
+                { value: "all", label: "Everything" },
+                { value: "free", label: "Free to read" },
+                { value: "paid", label: "Paid, including long labels" },
+              ]}
+              value="free"
+              onChange={() => {}}
+            />
+          </div>
+        </Row>
+
+        <Row
+          title="Tabs — one Tab stop, arrow keys, real panels"
+          note="Focus the bar and press Left/Right/Home/End. Six tabs built as six buttons would cost a keyboard user six presses to get past."
+        >
+          <div className="ckm-gallery__stack">
+            <div className="ckm-gallery__bleed">
+              <Tabs tabsId="gallery" label="Project sections" tabs={PROJECT_TABS} value={tab} onChange={setTab} />
+            </div>
+            {PROJECT_TABS.map((t) => (
+              <TabPanel key={t.id} tabsId="gallery" id={t.id} value={tab}>
+                <p className="ckm-gallery__note">{`The ${t.label} panel. It is focusable, so Tab from the bar lands here rather than skipping past it.`}</p>
+              </TabPanel>
+            ))}
+            <Tabs
+              tabsId="gallery-fitted"
+              label="Two sections"
+              tabs={[{ id: "mine", label: "My scripts" }, { id: "shared", label: "Shared with me" }]}
+              value="mine"
+              onChange={() => {}}
+              fitted
+            />
+          </div>
+        </Row>
+
+        <Row
+          title="List — real <ul>, real <li>"
+          note="A row can navigate and still carry its own switch: the link's ::after covers the row, and the action sits above it."
+        >
+          <div className="ckm-gallery__stack">
+            <div className="ckm-gallery__bleed">
+              <List heading="Recent activity" inset>
+                <ListRow
+                  leading="description"
+                  title="The Last Scene"
+                  subtitle="Draft · 118 pages · edited 2 hours ago"
+                  trailing={<Badge tone="warning">In review</Badge>}
+                  chevron
+                  to="/dashboard"
+                />
+                <ListRow
+                  leading="group"
+                  title="Arshad Rahman wants to collaborate on a screenplay with an unreasonably long title"
+                  subtitle="Sent you a request 4 days ago"
+                  chevron
+                  to="/dashboard"
+                />
+                <ListRow
+                  leading="notifications"
+                  title="Email notifications"
+                  subtitle="A weekly digest of producer activity"
+                  action={<Switch label="Email notifications" srOnlyLabel checked={notify} onChange={setNotify} />}
+                />
+                <ListRow leading="payments" title="Payouts" trailing="₹24,000" chevron current to="/dashboard" />
+                <ListRow leading="lock" title="Archived scripts" subtitle="Not available on this plan" disabled chevron />
+                <ListRow leading="delete" title="Delete account" tone="danger" onClick={() => {}} />
+              </List>
+            </div>
+
+            <div className="ckm-gallery__bleed">
+              <List label="Compact settings" inset bordered>
+                <ListRow size="compact" title="Language" trailing="English" chevron onClick={() => {}} />
+                <ListRow size="compact" title="Currency" trailing="INR ₹" chevron onClick={() => {}} />
+                <ListRow size="compact" title="App version" trailing="2.14.0" />
+              </List>
+            </div>
+          </div>
+        </Row>
+
+        <Row
+          title="Card — whole surface tappable, one accessible name"
+          note="The title is the only link; its ::after covers the card. The bookmark button sits above that overlay with its own name."
+        >
+          <div className="ckm-gallery__stack">
+            <Card>
+              <CardMedia
+                overlay={(
+                  <>
+                    <Badge tone="accent" variant="solid" size="sm">Featured</Badge>
+                    <Badge tone="neutral" variant="outline" size="sm">4.6 ★</Badge>
+                  </>
+                )}
+              />
+              <CardBody>
+                <CardEyebrow>Feature film · Drama</CardEyebrow>
+                <CardTitle to="/dashboard">The Last Scene</CardTitle>
+                <CardText>
+                  A screenwriter discovers the producer who optioned her script has been dead for a year.
+                </CardText>
+                <CardTags>
+                  <Chip>Drama</Chip>
+                  <Chip>118 pages</Chip>
+                  <Chip tone="green">Available</Chip>
+                </CardTags>
+              </CardBody>
+              <CardFooter>
+                <span>₹2,400 · 18 reads</span>
+                <CardActions>
+                  <IconButton icon="bookmark" label="Save The Last Scene" size="sm" />
+                  <IconButton icon="share" label="Share The Last Scene" size="sm" />
+                </CardActions>
+              </CardFooter>
+            </Card>
+
+            <Card>
+              <CardBody>
+                <CardTitle to="/dashboard">
+                  An Unreasonably Long Screenplay Title That Has To Clamp At Two Lines Or It Pushes The Price Below The Fold
+                </CardTitle>
+                <CardText>No cover image: the placeholder holds the shape so a list of cards does not reflow as it loads.</CardText>
+              </CardBody>
+            </Card>
+          </div>
+        </Row>
+
+        <Row
+          title="Load more — a count, not an infinite scroll"
+          note="'Showing 20 of 64' is a status message (SC 4.1.3): announced on change, and it never takes focus. Tap until the end to see the focus rescue."
+        >
+          <div className="ckm-gallery__stack">
+            <LoadMore
+              loaded={loaded}
+              total={64}
+              pageSize={20}
+              pending={loadingMore}
+              noun="scripts"
+              endMessage="That is every script in this list."
+              onLoadMore={loadMore}
+            />
+            <LoadMore
+              loaded={20}
+              total={64}
+              pageSize={20}
+              noun="scripts"
+              error="We could not load the next page. Check your connection and try again."
+              onRetry={() => {}}
+            />
+          </div>
+        </Row>
+
+        <Row
           title="Destructive adjacency"
           note="§7.4: a destructive action never sits within a thumb-slip of the primary one."
         >
@@ -282,6 +649,47 @@ export default function PrimitiveGallery() {
               purpose="tel"
               error="This error must remain visible with the keyboard open."
             />
+          </div>
+        </Row>
+
+        <Row
+          title="Overlays"
+          note="Open each and press Tab repeatedly: focus must never leave the surface, and Escape must return it to the button you opened it with."
+        >
+          <div className="ckm-gallery__stack">
+            <Button fullWidth variant="secondary" onClick={() => setOverlay("sheet")}>
+              Bottom sheet — short contextual task
+            </Button>
+            <Button fullWidth variant="secondary" onClick={() => setOverlay("dialog")}>
+              Full-screen dialog — replaces the screen
+            </Button>
+            <Button fullWidth variant="secondary" onClick={() => setConfirm("plain")}>
+              Confirm dialog — non-destructive
+            </Button>
+            <Button fullWidth variant="secondary" onClick={() => setConfirm("destructive")}>
+              Confirm dialog — destructive (focus lands on Cancel)
+            </Button>
+            <Button
+              fullWidth
+              variant="secondary"
+              aria-haspopup="dialog"
+              aria-expanded={overlay === "actions"}
+              onClick={() => setOverlay("actions")}
+            >
+              Action sheet — the mobile &ldquo;context menu&rdquo;
+            </Button>
+            {sheetNote && <p className="ckm-gallery__note" role="status">{sheetNote}</p>}
+          </div>
+        </Row>
+
+        <Row
+          title="Overlay — stacked"
+          note="An action sheet whose destructive item opens a confirm dialog over it. Only the top surface takes Escape; the sheet below it is inert until the confirmation is answered."
+        >
+          <div className="ckm-gallery__stack">
+            <Button fullWidth variant="secondary" onClick={() => setOverlay("actions")}>
+              Open, then tap Delete
+            </Button>
           </div>
         </Row>
       </div>

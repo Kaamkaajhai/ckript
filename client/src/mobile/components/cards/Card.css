@@ -1,0 +1,194 @@
+/*
+ * Ckript Mobile — card (prefix: ckm-card)
+ * ------------------------------------------------------------------
+ * Scoped under `.ckm` (plan §7.1). The card is the positioned ancestor the
+ * title link's ::after overlay stretches inside; nothing else here may create
+ * a containing block above it, or the whole card stops being tappable.
+ */
+
+.ckm .ckm-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  border: 1px solid var(--ckm-line-strong);
+  border-radius: var(--ckm-r-xl);
+  background: var(--ckm-bg);
+  box-shadow: var(--ckm-shadow-card);
+  overflow: hidden;
+}
+
+.ckm .ckm-card--elevated {
+  box-shadow: var(--ckm-shadow-raised);
+}
+
+/* Edge-to-edge on a phone: no border, no radius, just the page width. */
+.ckm .ckm-card--flush {
+  border-left: none;
+  border-right: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* --- Media --------------------------------------------------------------- */
+
+.ckm .ckm-card__media {
+  position: relative;
+  width: 100%;
+  background: var(--ckm-bg-soft);
+  overflow: hidden;
+}
+
+.ckm .ckm-card__image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ckm .ckm-card__placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--ckm-bg-warm), var(--ckm-track));
+  color: var(--ckm-faint);
+  font-size: 34px;
+}
+
+/* Chips and badges laid over the image. `position: relative` keeps anything
+   interactive here above the card overlay, same rule as the actions row. */
+.ckm .ckm-card__media-overlay {
+  position: absolute;
+  top: var(--ckm-space-3);
+  left: var(--ckm-space-3);
+  right: var(--ckm-space-3);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ckm-space-2);
+  pointer-events: none;
+}
+
+.ckm .ckm-card__media-overlay > * {
+  pointer-events: auto;
+}
+
+/* --- Body ---------------------------------------------------------------- */
+
+.ckm .ckm-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+  padding: var(--ckm-space-4);
+  min-width: 0;
+}
+
+.ckm .ckm-card__eyebrow {
+  font-size: var(--ckm-text-micro);
+  line-height: var(--ckm-leading-micro);
+  font-weight: var(--ckm-weight-bold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ckm-muted);
+}
+
+.ckm .ckm-card__title {
+  font-family: var(--ckm-display);
+  font-size: var(--ckm-text-title-sm);
+  line-height: var(--ckm-leading-title-sm);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-text);
+  min-width: 0;
+  /* Two lines, then ellipsis: a five-line title pushes the price and the
+     rating below the fold on a 320px screen. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-card__link {
+  color: inherit;
+  text-decoration: none;
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* The overlay that makes the whole card tappable while the link's accessible
+   name stays "the title". */
+.ckm .ckm-card__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+/* The focus ring belongs to the card, not to the two words of the title —
+   the card is what the pointer target actually is. */
+.ckm .ckm-card__link:focus-visible {
+  outline: none;
+}
+
+.ckm .ckm-card:has(.ckm-card__link:focus-visible) {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: var(--ckm-focus-ring-offset);
+}
+
+/* :has() is universally supported in the browsers this app targets, but the
+   fallback below still keeps the focus visible if it is ever missing. */
+@supports not selector(:has(a)) {
+  .ckm .ckm-card__link:focus-visible {
+    outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+    outline-offset: var(--ckm-focus-ring-offset);
+  }
+}
+
+.ckm .ckm-card:active:has(.ckm-card__link) {
+  background: var(--ckm-bg-fill);
+}
+
+.ckm .ckm-card__text {
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  color: var(--ckm-text-3);
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ckm-space-2);
+  min-width: 0;
+}
+
+/* --- Footer and actions --------------------------------------------------- */
+
+.ckm .ckm-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ckm-space-3);
+  flex-wrap: wrap;
+  padding: var(--ckm-space-3) var(--ckm-space-4);
+  border-top: 1px solid var(--ckm-line-3);
+  background: var(--ckm-bg-fill);
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+  min-width: 0;
+}
+
+.ckm .ckm-card__actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-2);
+  flex: none;
+}

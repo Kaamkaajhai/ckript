@@ -90,6 +90,15 @@
   overscroll-behavior: contain;
 }
 
+/* Held still while a modal overlay is open (hooks/useScrollLock.js). The
+   document is already locked by `ckm-html-lock`, so this — not `body` — is the
+   surface that would otherwise scroll underneath a sheet. `touch-action` is
+   what stops a touch drag: `overflow: hidden` alone does not always. */
+.ckm .ckm-scroll.is-scroll-locked {
+  overflow: hidden;
+  touch-action: none;
+}
+
 /* Hide scrollbars for the native-app feel (content still scrolls). */
 .ckm .ckm-scroll::-webkit-scrollbar {
   width: 0;
