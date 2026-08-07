@@ -4,6 +4,7 @@ import { formatScreenplayLikeText } from "../utils/screenplayParser.js";
 import { serializeTitlePage, hasTitlePage } from "../utils/classify.js";
 import { formatScriptCredit } from "../utils/writerCredits.js";
 import { stripPdfPageFurniture } from "../utils/screenplayImportClean.js";
+import { htmlToPlainText } from "../utils/htmlText.js";
 
 // Map (mongoose) | Map | plain → plain object of title-page fields, or null when empty.
 const titlePageToObject = (tp) => {
@@ -12,14 +13,10 @@ const titlePageToObject = (tp) => {
   return obj && Object.keys(obj).length ? obj : null;
 };
 
-const stripHtml = (value = "") =>
-  String(value || "")
-    .replace(/<\s*(br|p|div|h[1-6])\b[^>]*>/gi, "\n")
-    .replace(/<[^>]*>/g, "")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&lt;/gi, "<")
-    .replace(/&gt;/gi, ">");
+// Delegated to utils/htmlText.js. The version that used to live here stripped tags in a single pass
+// and then decoded entities, which meant it MANUFACTURED markup: "&lt;img src=x onerror=alert(1)&gt;"
+// carried no tag when the stripper ran and came out the far side as a live element.
+const stripHtml = (value = "") => htmlToPlainText(value);
 
 const sanitizeFileName = (name = "script") =>
   String(name || "script")

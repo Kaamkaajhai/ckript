@@ -47,7 +47,11 @@ export const derivePreviewPageTexts = (script) => {
     || String(script?.textContent || "").trim();
   if (!source) return [];
   // Prose/HTML content is not a screenplay — pagination would be meaningless.
-  if (/<\/?[a-z][\s\S]*>/i.test(source) && !String(script?.fountainContent || "").trim()) return [];
+  // [^>]* rather than [\s\S]*: the latter scans the entire screenplay and then backtracks hunting
+  // for a ">", which is quadratic on input that contains none — and this input is a whole uploaded
+  // document. [^>]* cannot cross a ">", so the match is linear. For deciding "does this look like
+  // HTML?" the two are equivalent.
+  if (/<\/?[a-z][^>]*>/i.test(source) && !String(script?.fountainContent || "").trim()) return [];
   return splitScreenplayIntoPages(source);
 };
 

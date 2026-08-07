@@ -34,8 +34,14 @@ const write = async (doc, context) => {
   } catch (error) {
     // A duplicate key means a concurrent callback already recorded this payment — the desired
     // outcome, not a failure. Return the entry that won.
+    //
+    // Coerced to a string before it becomes a query. The id originates in a payment callback body,
+    // and an object arriving here would make this "find any ledger entry" rather than "find the one
+    // with this payment id" — returning someone else's entry to the caller. The request sanitiser
+    // strips operators globally; this is the second lock on a query that decides who a payment
+    // belongs to.
     if (error?.code === 11000 && doc.providerPaymentId) {
-      return LedgerEntry.findOne({ providerPaymentId: doc.providerPaymentId });
+      return LedgerEntry.findOne({ providerPaymentId: String(doc.providerPaymentId) });
     }
     console.error(`[ledger] failed to record ${context}:`, error?.message || error);
     return null;

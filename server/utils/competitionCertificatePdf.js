@@ -3,6 +3,7 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import { Writable } from "stream";
 import PDFDocument from "pdfkit";
+import { LOGO } from "./brandAssets.js";
 import { CONTACTS } from "./companyContacts.js";
 
 // Participation / achievement certificate for a judged competition entry.
@@ -20,11 +21,6 @@ const __dirname = path.dirname(__filename);
 
 // Real files, checked against client/public. invoicePdf.js points at two names that do not exist,
 // which is why every invoice silently falls back to plain text — don't inherit that.
-const LOGO_CANDIDATES = [
-  path.join(__dirname, "..", "..", "client", "public", "ckript-logo-official-nobg.png"),
-  path.join(__dirname, "..", "..", "client", "public", "ckript_logo_no_bg.png"),
-  path.join(__dirname, "..", "..", "client", "public", "ckript-logo-landscape-nobg.png"),
-];
 
 const COMPANY_NAME = process.env.COMPANY_NAME || "CKRIPT";
 // Read at RENDER time via CONTACTS rather than captured here — see the note in companyContacts.js:
@@ -43,9 +39,7 @@ const AWARD_TITLES = {
   none: "Certificate of Participation",
 };
 
-const pickLogo = () => LOGO_CANDIDATES.find((p) => {
-  try { return fs.existsSync(p); } catch { return false; }
-});
+const pickLogo = () => LOGO.path;
 
 const safe = (value, fallback = "") => {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
@@ -97,8 +91,11 @@ export const generateCompetitionCertificate = async ({
     const logo = pickLogo();
     if (logo) {
       try {
-        doc.image(logo, W / 2 - 55, y, { fit: [110, 40], align: "center" });
-        y += 50;
+        // Width from the mark's real aspect, so it is centred on its ink rather than on the box a
+        // `fit` would have letterboxed it inside.
+        const [logoW, logoH] = LOGO.boxForHeight(40);
+        doc.image(logo, W / 2 - logoW / 2, y, { width: logoW, height: logoH });
+        y += logoH + 10;
       } catch {
         // A missing or unreadable image must never take the certificate down.
         doc.font("Helvetica-Bold").fontSize(18).fillColor(INK)

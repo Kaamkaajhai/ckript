@@ -17,10 +17,18 @@ import {
   createRegistrationOrder,
   verifyRegistrationPayment,
 } from "../controllers/competitionController.js";
+import {
+  listExternalProviders,
+  submitExternalRegistration,
+  getMyExternalRegistration,
+  uploadExternalRegistrationScreenshot,
+} from "../controllers/externalRegistrationController.js";
 
 const router = express.Router();
 
 // Public. These sit above the `/:id/...` block so they are never captured as an id.
+// Above the `/:id/...` block so "external-providers" is never captured as a competition id.
+router.get("/external-providers", listExternalProviders);
 router.get("/active", getActiveCompetition);
 router.get("/list", listCompetitions);
 router.get("/completed", getCompletedCompetitions);
@@ -38,5 +46,15 @@ router.get("/:id/referrals", protect, getMyCompetitionReferrals);
 router.get("/:id/certificate", protect, getCompetitionCertificate);
 router.post("/:id/open-editor", protect, openCompetitionEditor);
 router.post("/:id/submit", protect, submitCompetitionEntry);
+
+// Entrants who already paid on Luma, BookMyShow, FilmFreeway and the rest: a claim for a human to
+// review rather than a checkout. Multipart, because the proof is an optional screenshot.
+router.get("/:id/external-registration", protect, getMyExternalRegistration);
+router.post(
+  "/:id/external-registration",
+  protect,
+  uploadExternalRegistrationScreenshot,
+  submitExternalRegistration,
+);
 
 export default router;

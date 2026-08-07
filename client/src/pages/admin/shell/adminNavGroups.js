@@ -5,6 +5,9 @@
  * truth until stage 5 splits that file. Grouping here means the shell can reorganise navigation
  * without touching the 5,000-line page, and the page can rename a tab without touching the shell.
  *
+ * Payments are NOT here: every money surface moved to /finance, which the shell links to as a
+ * pointer item built in AdminDashboard rather than a tab, because it is a route and not a section.
+ *
  * Every key in AdminDashboard.TABS appears exactly once below; `groupNavItems` throws in dev if
  * that ever stops being true, so a new tab cannot silently vanish from the sidebar.
  */
@@ -12,7 +15,10 @@ export const ADMIN_NAV_GROUPS = [
   { title: "", keys: ["overview", "analytics"] },
   {
     title: "People",
-    keys: ["writers", "investors", "premium-professionals", "membership-reviews", "swa-approved"],
+    // Both sides of the merge, kept: master's new "swa-approved" section stays, and
+    // "premium-professionals" stays gone — it moved to /finance with the rest of the payment
+    // surfaces, and there is no longer a tab of that key for groupNavItems to resolve.
+    keys: ["writers", "investors", "membership-reviews", "swa-approved"],
   },
   {
     title: "Content",
@@ -23,12 +29,8 @@ export const ADMIN_NAV_GROUPS = [
     keys: ["trailers", "ai-trailers", "ai-usage"],
   },
   {
-    title: "Revenue",
-    keys: ["payments", "invoices", "investor-purchases", "writer-plans", "bank-reviews"],
-  },
-  {
     title: "Competitions",
-    keys: ["competitions", "referrals"],
+    keys: ["competitions", "external-registrations", "referrals"],
   },
   {
     title: "Communication",

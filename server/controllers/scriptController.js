@@ -8,6 +8,9 @@ import Review from "../models/Review.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import Transaction from "../models/Transaction.js";
+import { recordPayment, recordGrant, recordReversal } from "../utils/ledger.js";
+import { issueInvoice, totalRow, gatewayRow, formatInvoiceMoney } from "../utils/invoiceIssue.js";
+import LedgerEntry from "../models/LedgerEntry.js";
 import Invoice from "../models/Invoice.js";
 import Agreement from "../models/Agreement.js";
 import AuditLog from "../models/AuditLog.js";
@@ -102,7 +105,7 @@ const readOrderCharge = async (orderId, inrTotal) => {
     if (!order) return fallback;
     return {
       currency: String(order.currency || "INR").toUpperCase(),
-      chargedTotal: (Number(order.amount) || 0) / 100,
+      chargedTotal: (Number(order.amount_paid) || Number(order.amount) || 0) / 100,
       fxRate: Number(order.notes?.fxRate) || 1,
     };
   } catch {
@@ -4615,6 +4618,28 @@ export const rejectScriptPurchase = async (req, res) => {
         });
         gatewayRefundId = refund?.id || "";
 
+        // A refund is a NEW entry pointing at the original, never an edit of it — both rows survive,
+        // so the history shows a sale that was refunded rather than a sale that vanished. With no
+        // original on file (a purchase captured before the ledger existed) there is nothing to
+        // reverse, and inventing a standalone negative row would corrupt the totals instead.
+        const originalEntry = await LedgerEntry.findOne({
+          providerPaymentId: purchaseRequest.paymentGatewayPaymentId,
+        });
+        if (originalEntry) {
+          await recordReversal({
+            original: originalEntry,
+            amountMinor: Math.round(amountToRefund * 100),
+            reason: "purchase request denied by writer",
+            providerPaymentId: gatewayRefundId || undefined,
+            source: "scriptController.rejectScriptPurchase",
+          });
+        } else {
+          console.warn(
+            "[ledger] refund for a payment with no ledger entry:",
+            purchaseRequest.paymentGatewayPaymentId,
+          );
+        }
+
         await Transaction.create({
           user: investor._id,
           type: "refund",
@@ -6222,6 +6247,9 @@ export const verifyScriptPurchase = async (req, res) => {
       };
     }
 
+    // Hoisted: both the buyer's Transaction row below and the ledger entry further down read it.
+    let charge = null;
+
     if (!isFreeAccessRequest) {
       const writerBalanceBefore = writerDoc.wallet.balance || 0;
       writerDoc.wallet.balance = writerBalanceBefore + pricing.baseAmount;
@@ -6229,7 +6257,7 @@ export const verifyScriptPurchase = async (req, res) => {
       await writerDoc.save();
 
       // What the buyer was actually charged (their currency); the writer payout below stays INR.
-      const charge = await readOrderCharge(razorpay_order_id, pricing.totalAmount);
+      charge = await readOrderCharge(razorpay_order_id, pricing.totalAmount);
 
       await Transaction.create([
         {
@@ -6299,6 +6327,46 @@ export const verifyScriptPurchase = async (req, res) => {
     purchaseRequest.paymentGatewaySignature = isFreeAccessRequest ? undefined : razorpay_signature;
     purchaseRequest.settledAt = new Date();
     await purchaseRequest.save();
+
+    // The books. A free-access request is still recorded — as a grant carrying the list price, so
+    // the revenue foregone is visible without ever being counted as revenue. Both calls are
+    // non-fatal by design: a ledger outage must not fail a purchase the buyer already paid for.
+    if (isFreeAccessRequest) {
+      await recordGrant({
+        kind: "script_purchase",
+        user: req.user._id,
+        listPriceMinor: Math.round(Number(script.price || 0) * 100),
+        subjectType: "Script",
+        subjectId: script._id,
+        label: script.title,
+        reason: "free access request approved by writer",
+        source: "scriptController.verifyScriptPurchase",
+        metadata: { purchaseRequestId: String(purchaseRequest._id), writerId: String(purchaseRequest.writer) },
+      });
+    } else {
+      // `charge` is what Razorpay says the buyer was charged in their own currency; `pricing` is the
+      // INR list side. Recording the provider's figure is the whole point — a USD order that fell
+      // back to INR must not be booked at the USD price.
+      await recordPayment({
+        kind: "script_purchase",
+        user: req.user._id,
+        amountMinor: Math.round(charge.chargedTotal * 100),
+        currency: charge.currency,
+        listPriceMinor: Math.round(pricing.totalAmount * 100),
+        providerOrderId: razorpay_order_id,
+        providerPaymentId: razorpay_payment_id,
+        subjectType: "Script",
+        subjectId: script._id,
+        label: script.title,
+        source: "scriptController.verifyScriptPurchase",
+        metadata: {
+          purchaseRequestId: String(purchaseRequest._id),
+          writerId: String(purchaseRequest.writer),
+          writerPayoutInr: pricing.baseAmount,
+          platformCommissionInr: pricing.platformTaxAmount,
+        },
+      });
+    }
 
     let agreementRecord = null;
     try {
@@ -6453,6 +6521,44 @@ export const verifyScriptPurchase = async (req, res) => {
         : `${investorDoc?.name || "A buyer"} completed payment for "${script.title}". Payout of ₹${pricing.baseAmount.toLocaleString("en-IN")} has been credited to your wallet.`,
     });
 
+    // Free access still gets a document. It is not a tax invoice — nothing was charged — but it is
+    // the record of what was granted, to whom and when, which is exactly what a buyer needs when
+    // the writer later asks on what basis they hold the script.
+    if (isFreeAccessRequest && !purchaseInvoice) {
+      purchaseInvoice = await issueInvoice({
+        kind: "script",
+        user: investorDoc || req.user,
+        paymentReference: `FREE-${purchaseRequest._id}`,
+        currency: "INR",
+        amountCharged: 0,
+        accessType: "free",
+        script: script._id,
+        scriptSid: script.sid || "",
+        detailLines: [
+          script.title,
+          `SID ${script.sid || "-"}`,
+          "Access: Free (approved by writer)",
+          `Request: ${purchaseRequest._id}`,
+        ],
+        rows: [
+          {
+            item: "Script Access",
+            type: "Grant",
+            detail: `Free full access to "${script.title}", approved by the writer.`,
+            amountLabel: "INR 0.00",
+            amountValue: 0,
+          },
+          {
+            item: "Total Paid",
+            type: "Total",
+            detail: "No payment was required for this project.",
+            amountLabel: "INR 0.00",
+            amountValue: 0,
+          },
+        ],
+        source: "scriptController.verifyScriptPurchase (free access)",
+      });
+    }
     console.log("Script purchase settled:", {
       scriptId,
       buyerId: req.user._id,
@@ -6465,7 +6571,7 @@ export const verifyScriptPurchase = async (req, res) => {
     res.json({
       success: true,
       message: isFreeAccessRequest
-        ? "Access granted. This project is free, so no payment or invoice was required."
+        ? "Access granted. This project is free — your access record is available as a document."
         : "Payment successful. Full script access granted.",
       purchaseRequest: {
         id: purchaseRequest._id,
@@ -6724,6 +6830,64 @@ export const verifyScriptHold = async (req, res) => {
       message: `${user.name} has placed a hold on "${script.title}" for ₹${pricing.totalAmount.toFixed(2)} (includes 5% platform commission, 30 days). You earn ₹${creatorPayout.toFixed(2)}.`,
     });
 
+    await recordPayment({
+      kind: "script_hold",
+      user: req.user._id,
+      amountMinor: Math.round(charge.chargedTotal * 100),
+      currency: charge.currency,
+      listPriceMinor: Math.round(pricing.totalAmount * 100),
+      providerOrderId: razorpay_order_id,
+      providerPaymentId: razorpay_payment_id,
+      subjectType: "Script",
+      subjectId: script._id,
+      label: script.title,
+      source: "scriptController.verifyScriptHold",
+      metadata: {
+        creatorId: String(script.creator?._id || script.creator || ""),
+        creatorPayoutInr: creatorPayout,
+        platformCommissionInr: platformCut,
+        holdEndDate: endDate,
+      },
+    });
+
+    // A hold is a real purchase — thirty days of exclusivity, paid for — and it produced no
+    // document at all. Non-fatal: the money is captured, so a missing invoice is something to fix
+    // later, never a reason to tell the buyer their payment failed.
+    await issueInvoice({
+      kind: "script_hold",
+      user: req.user,
+      paymentReference: `RZP-HOLD-${razorpay_payment_id}`,
+      currency: charge.currency,
+      amountCharged: charge.chargedTotal,
+      script: script._id,
+      scriptSid: script.sid || "",
+      scriptPrice: pricing.baseAmount,
+      detailLines: [
+        script.title,
+        `SID ${script.sid || "-"}`,
+        `Hold until: ${new Date(endDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`,
+        `Payment Ref: ${razorpay_payment_id}`,
+      ],
+      rows: [
+        {
+          item: "Script Hold (30 days)",
+          type: "Payment",
+          detail: `Exclusive hold on "${script.title}".`,
+          amountLabel: formatInvoiceMoney(pricing.baseAmount, "INR"),
+          amountValue: pricing.baseAmount,
+        },
+        {
+          item: "Platform Commission (5%)",
+          type: "Tax",
+          detail: "Buyer-side commission charged on the hold fee.",
+          amountLabel: formatInvoiceMoney(platformCut, "INR"),
+          amountValue: platformCut,
+        },
+        totalRow(charge.chargedTotal, charge.currency),
+        gatewayRow(razorpay_payment_id),
+      ],
+      source: "scriptController.verifyScriptHold",
+    });
     console.log("Script hold completed:", { scriptId, holderId: req.user._id, fee });
 
     res.json({
@@ -7111,6 +7275,60 @@ export const verifyScriptTrailerPayment = async (req, res) => {
     };
     await script.save();
 
+    // The ledger reads the ORDER, not the request body. `paymentAmount` above falls back to a
+    // client-supplied `amount`, which must never become a revenue figure — what Razorpay captured is
+    // the only number an accountant can rely on.
+    const trailerCharge = await readOrderCharge(razorpay_order_id, pricing.inr);
+    await recordPayment({
+      kind: "ai_trailer",
+      user: req.user._id,
+      amountMinor: Math.round(trailerCharge.chargedTotal * 100),
+      currency: trailerCharge.currency,
+      listPriceMinor: Math.round(Number(pricing.inr || 0) * 100),
+      providerOrderId: razorpay_order_id,
+      providerPaymentId: razorpay_payment_id,
+      subjectType: "Script",
+      subjectId: script._id,
+      label: script.title,
+      source: "scriptController.verifyScriptTrailerPayment",
+      metadata: {
+        duration: selectedDuration,
+        quality: selectedQuality,
+        format: selectedFormat,
+        claimedAmount: paymentAmount,
+        claimedCurrency: paymentCurrency,
+      },
+    });
+
+    // The writer paid for this trailer; until now the only trace was a Transaction row they cannot
+    // see. Same non-fatal contract as every other invoice call.
+    await issueInvoice({
+      kind: "ai_trailer",
+      user: req.user,
+      paymentReference: `RZP-TRL-${razorpay_payment_id}`,
+      currency: trailerCharge.currency,
+      amountCharged: trailerCharge.chargedTotal,
+      script: script._id,
+      scriptSid: script.sid || "",
+      detailLines: [
+        script.title,
+        `SID ${script.sid || "-"}`,
+        `${selectedDuration}s · ${selectedQuality}px · ${normalizeTrailerLayout(selectedFormat) === "portrait" ? "Portrait" : "Landscape"}`,
+        `Payment Ref: ${razorpay_payment_id}`,
+      ],
+      rows: [
+        {
+          item: "AI Trailer Generation",
+          type: "Payment",
+          detail: `${selectedDuration}s at ${selectedQuality}px for "${script.title}".`,
+          amountLabel: formatInvoiceMoney(trailerCharge.chargedTotal, trailerCharge.currency),
+          amountValue: trailerCharge.chargedTotal,
+        },
+        totalRow(trailerCharge.chargedTotal, trailerCharge.currency),
+        gatewayRow(razorpay_payment_id),
+      ],
+      source: "scriptController.verifyScriptTrailerPayment",
+    });
     await notifyAdminWorkflowEvent({
       title: "AI Trailer Approval Request",
       section: "trailers",

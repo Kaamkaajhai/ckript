@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import BrandLogo from "../components/BrandLogo";
 import PasswordInput from "../components/PasswordInput";
@@ -15,6 +16,7 @@ import { Icon, StatCard } from "../components/AdminUI";
 import AdminAnalyticsPanel from "../components/AdminAnalyticsPanel";
 import AdminCompetitions from "./admin/AdminCompetitions";
 import AdminReferrals from "./admin/AdminReferrals";
+import ExternalRegistrationsSection from "./admin/sections/ExternalRegistrationsSection";
 import DirectEmailSection from "./admin/sections/DirectEmailSection";
 import {
     API_BASE_URL,
@@ -57,22 +59,16 @@ import { AdminDashboardContext } from "./admin/dashboardContext";
 import AdminShell from "./admin/shell/AdminShell";
 import { ADMIN_NAV_GROUPS, groupNavItems } from "./admin/shell/adminNavGroups";
 import OverviewSection from "./admin/sections/OverviewSection";
-import PremiumProfessionalsSection from "./admin/sections/PremiumProfessionalsSection";
-import WriterPlansSection from "./admin/sections/WriterPlansSection";
-import InvoicesSection from "./admin/sections/InvoicesSection";
 import TrailerApprovalsSection from "./admin/sections/TrailerApprovalsSection";
 import MessagesSection from "./admin/sections/MessagesSection";
 import MembershipReviewsSection from "./admin/sections/MembershipReviewsSection";
 import SwaApprovedSection from "./admin/sections/SwaApprovedSection";
-import BankReviewsSection from "./admin/sections/BankReviewsSection";
 import DeletedUsersSection from "./admin/sections/DeletedUsersSection";
 import UsersSection from "./admin/sections/UsersSection";
 import ProjectsSection from "./admin/sections/ProjectsSection";
 import DeletedScriptsSection from "./admin/sections/DeletedScriptsSection";
 import AiUsageSection from "./admin/sections/AiUsageSection";
 import EvaluationsSection from "./admin/sections/EvaluationsSection";
-import InvestorPurchasesSection from "./admin/sections/InvestorPurchasesSection";
-import PaymentsSection from "./admin/sections/PaymentsSection";
 import ScoresSection from "./admin/sections/ScoresSection";
 import ApprovalsSection from "./admin/sections/ApprovalsSection";
 import AiTrailersSection from "./admin/sections/AiTrailersSection";
@@ -84,6 +80,16 @@ import DiscountCodesSection from "./admin/sections/DiscountCodesSection";
 // Re-exported for AdminCompetitions, AdminReferrals and the competitions editor, which import
 // the shared admin API client from this module — and for the tests that mock this module path.
 export { adminApi };
+
+/**
+ * The sidebar's pointer at /finance. A route rather than a tab: every payment surface moved out of
+ * this console, so TABS — which means "sections this page renders" — must not claim it.
+ */
+const FINANCE_LINK = {
+    key: "finance-route",
+    label: "Payments",
+    icon: "M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z",
+};
 
 const AdminDashboard = () => {
     const isDark = true;
@@ -100,8 +106,6 @@ const AdminDashboard = () => {
     const [stats, setStats] = useState(null);
     const [users, setUsers] = useState([]);
     const [scripts, setScripts] = useState([]);
-    const [transactions, setTransactions] = useState([]);
-    const [invoices, setInvoices] = useState([]);
     const [meetings, setMeetings] = useState([]);
     const [totalPages, setTotalPages] = useState(1);
     const [page, setPage] = useState(1);
@@ -112,7 +116,6 @@ const AdminDashboard = () => {
     const [total, setTotal] = useState(0);
     const [pendingInvestors, setPendingInvestors] = useState([]);
     const [membershipReviews, setMembershipReviews] = useState([]);
-    const [bankReviews, setBankReviews] = useState([]);
     const [rejectModal, setRejectModal] = useState(null); // investor object
     const [selectedUserDetail, setSelectedUserDetail] = useState(null);
     const [userActionLoading, setUserActionLoading] = useState("");
@@ -349,6 +352,12 @@ const AdminDashboard = () => {
     };
 
     const handleTabChange = async (nextTab) => {
+        // Payments are a destination, not a section: /finance shows the same figures to an accountant
+        // with the finance role, and the control actions only to an admin.
+        if (nextTab === FINANCE_LINK.key) {
+            navigate("/finance");
+            return;
+        }
         if (nextTab === activeTab) return;
 
         if (isAdminScriptProtectedTab(nextTab)) {
@@ -411,6 +420,8 @@ const AdminDashboard = () => {
         }
     };
 
+    const navigate = useNavigate();
+
     const getBadgeCountForTab = (tabKey) => {
         if (!BADGE_WATCH_KEYS.includes(tabKey)) return 0;
         const count = Number(alertSummary?.[tabKey] || 0);
@@ -424,11 +435,10 @@ const AdminDashboard = () => {
 
     const sourceUsers = isGlobalSearchMode ? globalResults.users : users;
     const sourceScripts = isGlobalSearchMode ? globalResults.scripts : scripts;
-    const sourceTransactions = isGlobalSearchMode ? globalResults.transactions : transactions;
-    const sourceInvoices = isGlobalSearchMode ? globalResults.invoices : invoices;
+    const sourceTransactions = globalResults.transactions;
+    const sourceInvoices = globalResults.invoices;
     const sourcePendingInvestors = isGlobalSearchMode ? globalResults.pendingInvestors : pendingInvestors;
     const sourceMembershipReviews = membershipReviews;
-    const sourceBankReviews = isGlobalSearchMode ? globalResults.bankReviews : bankReviews;
     const sourceContacts = isGlobalSearchMode ? globalResults.contacts : contacts;
     const sourceDeletedAccounts = deletedAccounts;
     const sourceMessageUsers = messageUsers;
@@ -479,7 +489,6 @@ const AdminDashboard = () => {
                 : ""
         )
     );
-    const filteredBankReviews = sourceBankReviews.filter((review) => matchesSearch(review.name, review.email, review.sid, review.requestedDetails?.bankName, review.status));
     const filteredContacts = sourceContacts.filter((c) => matchesSearch(c.name, c.email, c.reason, c.message, c.createdAt));
     const deletedFilmProfessionals = sourceDeletedAccounts.filter((item) => String(item?.role || "").toLowerCase() === "investor");
     const deletedWriters = sourceDeletedAccounts.filter((item) => PROJECT_CREATOR_ROLES.has(String(item?.role || "").toLowerCase()));
@@ -497,14 +506,12 @@ const AdminDashboard = () => {
             case "investors":
             case "writers":
             case "readers":
-            case "premium-professionals":
             case "swa-approved":
                 const sectionTitleByTab = {
                     investors: "Film Professionals",
                     writers: "Writers",
                     readers: "Readers",
-                    "premium-professionals": "Premium Professionals",
-                    "swa-approved": "SWA Approved Members"
+                    "swa-approved": "SWA Approved Members",
                 };
                 return {
                     title: `${sectionTitleByTab[activeTab] || activeTab} (${users.length})`,
@@ -514,23 +521,12 @@ const AdminDashboard = () => {
             case "deleted-scripts":
             case "ai-usage":
             case "evaluations":
-            case "investor-purchases":
             case "scores":
             case "approvals":
             case "trailers":
                 return {
                     title: `${TABS.find((tab) => tab.key === activeTab)?.label || "Scripts"} (${scripts.length})`,
                     lines: scripts.map((s, idx) => `${idx + 1}. ${s.title || "-"} | SID: ${s.sid || "-"} | Creator: ${getScriptCreatorName(s)} | Genre: ${s.genre || s.primaryGenre || "-"} | Completion: ${getScriptCompletionSummary(s)} | Status: ${s.status || "-"} | Score: ${s.scriptScore?.overall || s.platformScore?.overall || s.rating || "-"} | Date: ${formatExportDate(s.createdAt)}`),
-                };
-            case "payments":
-                return {
-                    title: `Payments (${transactions.length})`,
-                    lines: transactions.map((t, idx) => `${idx + 1}. ${t.user?.name || "-"} | ${t.type || "-"} | ${formatCurrency(t.amount || 0, t.currency || "INR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} | ${t.status || "-"} | ${t.description || "-"} | Txn: ${getTransactionIdLabel(t) || "-"} | Pay ID: ${getPaymentIdLabel(t) || "-"} | ${formatExportDate(t.createdAt)}`),
-                };
-            case "invoices":
-                return {
-                    title: `Invoices (${invoices.length})`,
-                    lines: invoices.map((inv, idx) => `${idx + 1}. ${inv.invoiceNumber || "-"} | Creator: ${inv.creator?.name || "-"} (${inv.creatorSid || inv.creator?.sid || "-"}) | Project: ${inv.script?.title || "-"} (${inv.scriptSid || inv.script?.sid || "-"}) | Access: ${inv.accessType || "-"} | Credits: ${inv.totalCreditsRequired || 0} | Date: ${formatExportDate(inv.invoiceDate || inv.createdAt)}`),
                 };
             case "pending-investors":
                 return {
@@ -541,11 +537,6 @@ const AdminDashboard = () => {
                 return {
                     title: `SWA/WGA Reviews (${membershipReviews.length})`,
                     lines: membershipReviews.map((review, idx) => `${idx + 1}. ${review.name || "-"} | ${review.email || "-"} | SID: ${review.sid || "-"} | Pending: ${(review.pendingMemberships || []).map((item) => `${item.label}:${item.status}`).join(", ") || "-"}`),
-                };
-            case "bank-reviews":
-                return {
-                    title: `Bank Detail Reviews (${bankReviews.length})`,
-                    lines: bankReviews.map((review, idx) => `${idx + 1}. ${review.name || "-"} | ${review.email || "-"} | Bank: ${review.requestedDetails?.bankName || "-"} | Status: ${review.status || "-"} | Attempts: ${review.bankSecurity?.invalidAttempts || 0} | Locked: ${review.bankSecurity?.isLocked ? "Yes" : "No"} | Submitted: ${formatExportDate(review.submittedAt)}`),
                 };
             case "queries":
                 return {
@@ -848,16 +839,6 @@ const AdminDashboard = () => {
                     setUsers(data.users); setTotalPages(data.totalPages); setTotal(data.total);
                     break;
                 }
-                case "premium-professionals": {
-                    const { data } = await adminApi.get(`/admin/users?isPremium=true&role=investor&page=${page}&search=${encodeURIComponent(activeSearch)}`);
-                    setUsers(data.users); setTotalPages(data.totalPages); setTotal(data.total);
-                    break;
-                }
-                case "writer-plans": {
-                    const { data } = await adminApi.get(`/admin/users?hasActiveWriterPlan=true&page=${page}&search=${encodeURIComponent(activeSearch)}`);
-                    setUsers(data.users); setTotalPages(data.totalPages); setTotal(data.total);
-                    break;
-                }
                 case "writers": {
                     const { data } = await adminApi.get(`/admin/users?role=writer&page=${page}&search=${encodeURIComponent(activeSearch)}`);
                     const { data: data2 } = await adminApi.get(`/admin/users?role=creator&page=${page}&search=${encodeURIComponent(activeSearch)}`);
@@ -897,24 +878,9 @@ const AdminDashboard = () => {
                     setScripts(evaluationScripts); setTotalPages(data.totalPages); setTotal(data.total);
                     break;
                 }
-                case "investor-purchases": {
-                    const { data } = await adminApi.get(`/admin/scripts/investor-purchases?page=${page}`);
-                    setScripts(data.scripts); setTotalPages(data.totalPages); setTotal(data.total);
-                    break;
-                }
-                case "payments": {
-                    const { data } = await adminApi.get(`/admin/payments?page=${page}`);
-                    setTransactions(data.transactions); setTotalPages(data.totalPages); setTotal(data.total);
-                    break;
-                }
                 case "meetings": {
                     const { data } = await adminApi.get(`/meetings`);
                     setMeetings(data); setTotalPages(1); setTotal(data.length);
-                    break;
-                }
-                case "invoices": {
-                    const { data } = await adminApi.get(`/admin/invoices?page=${page}&search=${encodeURIComponent(activeSearch)}`);
-                    setInvoices(data.invoices); setTotalPages(data.totalPages); setTotal(data.total);
                     break;
                 }
                 case "scores": {
@@ -956,11 +922,6 @@ const AdminDashboard = () => {
                 case "membership-reviews": {
                     const { data } = await adminApi.get(`/admin/writer-membership/pending?page=${page}&search=${encodeURIComponent(activeSearch)}`);
                     setMembershipReviews(data.reviews); setTotalPages(data.totalPages); setTotal(data.total);
-                    break;
-                }
-                case "bank-reviews": {
-                    const { data } = await adminApi.get(`/admin/bank-details/reviews?page=${page}&status=pending&search=${encodeURIComponent(activeSearch)}`);
-                    setBankReviews(data.reviews); setTotalPages(data.totalPages); setTotal(data.total);
                     break;
                 }
                 case "queries": {
@@ -1578,48 +1539,8 @@ const AdminDashboard = () => {
         }
     };
 
-    const handleApproveBankReview = async (id) => {
-        try {
-            await adminApi.put(`/admin/bank-details/reviews/${id}/approve`);
-            showToast("Bank details approved and activated");
-            fetchData();
-        } catch (err) {
-            console.error(err);
-            showToast(err?.response?.data?.message || "Failed to approve bank details", "error");
-        }
-    };
 
-    const handleRejectBankReview = async (id) => {
-        const note = await openAdminDialog({
-            type: "prompt",
-            title: "Reject bank details",
-            message: "Add an optional rejection reason.",
-            confirmText: "Reject",
-            cancelText: "Cancel",
-            placeholder: "Rejection reason (optional)",
-            multiline: true,
-        });
-        if (note === null) return;
-        try {
-            await adminApi.put(`/admin/bank-details/reviews/${id}/reject`, { note });
-            showToast("Bank details request rejected");
-            fetchData();
-        } catch (err) {
-            console.error(err);
-            showToast(err?.response?.data?.message || "Failed to reject bank details", "error");
-        }
-    };
 
-    const handleUnblockBankReview = async (id) => {
-        try {
-            await adminApi.put(`/admin/bank-details/reviews/${id}/unblock`);
-            showToast("User bank-detail lock removed");
-            fetchData();
-        } catch (err) {
-            console.error(err);
-            showToast(err?.response?.data?.message || "Failed to unblock user", "error");
-        }
-    };
 
     const handleReviewWriterMembership = async (userId, membershipType, decision) => {
         if (!userId || userActionLoading) return;
@@ -1994,44 +1915,6 @@ const AdminDashboard = () => {
         }
     };
 
-    const handleRemoveWriterPlan = async (user) => {
-        if (!user?._id || userActionLoading) return;
-        if (user.isDeactivated) {
-            showToast("Cannot modify a deleted account", "error");
-            return;
-        }
-
-        const confirmed = await openAdminDialog({
-            type: "confirm",
-            title: "Remove Writer Plan",
-            message: `Remove the ${user.subscription?.plan || "active"} plan from ${user.name || user.email}?`,
-            confirmText: "Remove",
-            cancelText: "Cancel",
-        });
-
-        if (!confirmed) return;
-
-        const loadingKey = `remove-writer-plan-${user._id}`;
-        try {
-            setUserActionLoading(loadingKey);
-            const { data } = await adminApi.post(`/admin/users/${user._id}/remove-writer-plan`);
-            showToast(data?.message || "Writer plan removed successfully");
-
-            if (data?.user?._id) {
-                setSelectedUserDetail((prev) => {
-                    if (!prev || String(prev._id) !== String(data.user._id)) return prev;
-                    return { ...prev, ...data.user };
-                });
-            }
-
-            fetchData(search);
-        } catch (err) {
-            console.error(err);
-            showToast(err?.response?.data?.message || "Failed to remove writer plan", "error");
-        } finally {
-            setUserActionLoading("");
-        }
-    };
 
     const handleDeleteUserAccount = async (user) => {
         if (!user?._id || userActionLoading) return;
@@ -2071,32 +1954,6 @@ const AdminDashboard = () => {
         }
     };
 
-    const handleInvoicePdfAction = async (invoice, action = "open") => {
-        try {
-            const { data } = await adminApi.get(`/invoices/${invoice._id}/pdf`, {
-                params: action === "download" ? { download: 1 } : {},
-                responseType: "blob",
-            });
-            const blobUrl = URL.createObjectURL(new Blob([data], { type: "application/pdf" }));
-
-            if (action === "download") {
-                const link = document.createElement("a");
-                link.href = blobUrl;
-                link.download = `${invoice.invoiceNumber || "invoice"}.pdf`;
-                document.body.appendChild(link);
-                link.click();
-                link.remove();
-                setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-                return;
-            }
-
-            window.open(blobUrl, "_blank", "noopener,noreferrer");
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
-        } catch (err) {
-            console.error(err);
-            showToast("Failed to open invoice PDF", "error");
-        }
-    };
 
     const handleCodeSubmit = async (e) => {
         e.preventDefault();
@@ -2200,11 +2057,6 @@ const AdminDashboard = () => {
             case "direct-email":
                 return <DirectEmailSection />;
 
-            case "premium-professionals":
-                return <PremiumProfessionalsSection />;
-
-            case "writer-plans":
-                return <WriterPlansSection />;
 
             case "investors":
             case "writers":
@@ -2225,15 +2077,6 @@ const AdminDashboard = () => {
 
             case "evaluations":
                 return <EvaluationsSection />;
-
-            case "investor-purchases":
-                return <InvestorPurchasesSection />;
-
-            case "payments":
-                return <PaymentsSection />;
-
-            case "invoices":
-                return <InvoicesSection />;
 
             case "scores":
                 return <ScoresSection />;
@@ -2256,11 +2099,11 @@ const AdminDashboard = () => {
             case "membership-reviews":
                 return <MembershipReviewsSection />;
 
-            case "bank-reviews":
-                return <BankReviewsSection />;
-
             case "competitions":
                 return <AdminCompetitions isDark={isDark} />;
+
+            case "external-registrations":
+                return <ExternalRegistrationsSection />;
 
             case "referrals":
                 return <AdminReferrals isDark={isDark} />;
@@ -2690,17 +2533,29 @@ const AdminDashboard = () => {
     // Sidebar model for AdminShell: the real TABS with live badge counts. Recomputed per render
     // so a pending-approvals badge updates the moment its count does — exactly as the old
     // hand-rolled sidebar behaved.
-    const navGroups = groupNavItems(ADMIN_NAV_GROUPS, TABS.map((tab) => ({
-        ...tab,
-        badge: getBadgeCountForTab(tab.key) > 0 ? formatBadgeCount(getBadgeCountForTab(tab.key)) : null,
-    })));
+    const navGroups = [
+        ...groupNavItems(ADMIN_NAV_GROUPS, TABS.map((tab) => ({
+            ...tab,
+            badge: getBadgeCountForTab(tab.key) > 0 ? formatBadgeCount(getBadgeCountForTab(tab.key)) : null,
+        }))),
+        // The pending-bank-review badge stays HERE even though the section left, so an admin still sees
+        // the signal where they already watch for it — and the link lands them where they can act.
+        {
+            title: "Money",
+            items: [{
+                ...FINANCE_LINK,
+                badge: getBadgeCountForTab("bank-reviews") > 0
+                    ? formatBadgeCount(getBadgeCountForTab("bank-reviews"))
+                    : null,
+            }],
+        },
+    ];
 
     const dashboardContextValue = {
         search,
         activeMessageUser,
         activeTab,
         adminConversations,
-        filteredBankReviews,
         filteredContacts,
         filteredDeletedFilmProfessionals,
         filteredDeletedWriters,
@@ -2714,19 +2569,14 @@ const AdminDashboard = () => {
         handleAdminAttachmentChange,
         handleAdminMessageScroll,
         handleAdminTrailerFileChange,
-        handleApproveBankReview,
         handleGrantWriterPlan,
-        handleInvoicePdfAction,
         handleOpenMembershipProof,
         handleOpenTrailerUpload,
         handlePickMessageAttachment,
-        handleRejectBankReview,
         handleRemovePremiumFromUser,
-        handleRemoveWriterPlan,
         handleReviewWriterMembership,
         handleSendAdminMessage,
         handleSendTrailerToWriter,
-        handleUnblockBankReview,
         directBroadcastAttachments,
         directBroadcastContent,
         directBroadcastLink,

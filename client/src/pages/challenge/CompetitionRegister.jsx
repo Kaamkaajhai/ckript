@@ -10,6 +10,7 @@ import TagSelect from "../../components/TagSelect";
 import { genres as GENRE_OPTIONS, CP_FILM_LANGUAGE_OPTIONS } from "../CreateProject/constants";
 import { COUNTRIES, EXPERIENCE_LEVELS } from "./constants";
 import useIsMobile from "../../mobile/hooks/useIsMobile";
+import ExternalRegistrationPanel from "./ExternalRegistrationPanel";
 import "./challenge.css";
 
 // A form field is labelled in the slug-line voice, like every other label on these pages.
@@ -498,7 +499,23 @@ const CompetitionRegister = () => {
               Back to the competition
             </Link>
           </div>
+
         </form>
+
+        {/* The other way in: somebody who already paid to enter on Luma, BookMyShow or FilmFreeway
+            sends the details instead of paying twice, and an admin confirms it by hand.
+            OUTSIDE the form above, deliberately. The panel carries its own <form>, and HTML forbids
+            nesting one inside another: the browser closes the outer form at the inner tag, so a
+            submit from in here never reached React at all — neither handler ran, the browser did a
+            native GET, and the page reloaded with every field blank and the ?c=<slug> param gone.
+            The claim was never sent. Rendering it as a sibling is what makes the button work. */}
+        <ExternalRegistrationPanel
+          competitionId={competition?._id}
+          form={form}
+          acceptRules={acceptRules}
+          acceptCopyright={acceptCopyright}
+          validateRegistration={validate}
+        />
       </div>
 
       {showCurrencyModal && (

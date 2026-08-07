@@ -1,4 +1,7 @@
 import User from "../models/User.js";
+import { recordGrant } from "../utils/ledger.js";
+import { planAmountMinor } from "../utils/planCheckout.js";
+import { WRITER_PLAN_KEY } from "../config/pricing.js";
 import Script from "../models/Script.js";
 import ScriptOption from "../models/ScriptOption.js";
 import ScriptPurchaseRequest from "../models/ScriptPurchaseRequest.js";
@@ -877,6 +880,21 @@ export const grantPremiumModelToUser = async (req, res) => {
 
         await targetUser.save();
 
+        // On the user record a granted plan is indistinguishable from a bought one: it writes the
+        // same checkoutProvider and checkoutMode. This entry is the only thing that separates them,
+        // and it carries the revenue foregone rather than any revenue.
+        await recordGrant({
+            kind: "plan_subscription",
+            user: targetUser._id,
+            listPriceMinor: planAmountMinor("film_industry_professional", "INR", "monthly") || 0,
+            grantedBy: req.user?._id,
+            reason: "admin grant",
+            subjectType: "Plan",
+            label: "Film Industry Professional (30 days)",
+            source: "adminController.grantPremiumModelToUser",
+            metadata: { planKey: "film_industry_professional", cycle: "monthly", expiresAt: expiresAt.toISOString() },
+        });
+
         let emailResult = await sendAdminPremiumGrantedEmail(targetUser.email, targetUser.name, {
             adminName: req.user?.name || "Admin",
             clientBaseUrl: resolveClientOriginFromRequest(req),
@@ -1012,6 +1030,20 @@ export const grantWriterPlanToUser = async (req, res) => {
             }
         );
 
+        await recordGrant({
+            kind: "plan_subscription",
+            user: targetUser._id,
+            // The cycle decides the price, exactly as it does at checkout — an annual grant gives
+            // away twelve discounted months, not one.
+            listPriceMinor: planAmountMinor(WRITER_PLAN_KEY[plan], "INR", cycle) || 0,
+            grantedBy: req.user?._id,
+            reason: "admin grant",
+            subjectType: "Plan",
+            label: `Writer ${plan} (${cycle})`,
+            source: "adminController.grantWriterPlanToUser",
+            metadata: { planKey: WRITER_PLAN_KEY[plan], cycle, expiresAt: expiresAt.toISOString() },
+        });
+
         // Send email
         await sendWriterPlanGrantedEmail(targetUser.email, {
             writerName: targetUser.name || "Writer",
@@ -1059,6 +1091,18 @@ export const grantFipPlanToUser = async (req, res) => {
                 }
             }
         );
+
+        await recordGrant({
+            kind: "plan_subscription",
+            user: targetUser._id,
+            listPriceMinor: planAmountMinor("film_industry_professional", "INR", "annual") || 0,
+            grantedBy: req.user?._id,
+            reason: "admin grant",
+            subjectType: "Plan",
+            label: "Film Industry Professional Diamond (1 year)",
+            source: "adminController.grantFipPlanToUser",
+            metadata: { planKey: "film_industry_professional", cycle: "annual", expiresAt: expiresAt.toISOString() },
+        });
 
         await Notification.create({
             user: targetUser._id,
@@ -1165,7 +1209,11 @@ export const sendAudienceBroadcast = async (req, res) => {
             emailFailed,
         });
     } catch (error) {
-        require('fs').writeFileSync('last_broadcast_error.txt', error.stack || error.message);
+        // This was `require('fs').writeFileSync('last_broadcast_error.txt', ...)`. In an ESM module
+        // `require` is not defined, so the line threw a ReferenceError from inside the catch — losing
+        // the broadcast's real error and replacing it with a confusing one. It also wrote debug state
+        // into the server's working directory on every failure.
+        console.error("[admin] broadcast failed:", error?.stack || error?.message || error);
         return res.status(500).json({ message: error.message || "Failed to send broadcast" });
     }
 };
