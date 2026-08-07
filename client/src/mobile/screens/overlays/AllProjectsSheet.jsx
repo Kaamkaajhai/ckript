@@ -1,7 +1,7 @@
 import { useState } from "react";
 import Icon from "../../components/Icon";
 import BottomSheet from "../../components/BottomSheet";
-import { ALL_PROJECTS, ALL_PROJECTS_PAGE_SIZE } from "../../data/dashboardData";
+import { ALL_PROJECTS_PAGE_SIZE } from "../../data/dashboardData";
 import "./AllProjectsSheet.css";
 
 /*
@@ -23,11 +23,12 @@ const STATE_TONE = {
   review: "gold",
 };
 
-export default function AllProjectsSheet({ open, onClose, onOpenProject }) {
+export default function AllProjectsSheet({ open, onClose, onOpenProject, allProjects }) {
   const [page, setPage] = useState(0);
-  const totalPages = Math.max(1, Math.ceil(ALL_PROJECTS.length / ALL_PROJECTS_PAGE_SIZE));
+  const projectsList = allProjects || [];
+  const totalPages = Math.max(1, Math.ceil(projectsList.length / ALL_PROJECTS_PAGE_SIZE));
   const start = page * ALL_PROJECTS_PAGE_SIZE;
-  const slice = ALL_PROJECTS.slice(start, start + ALL_PROJECTS_PAGE_SIZE);
+  const slice = projectsList.slice(start, start + ALL_PROJECTS_PAGE_SIZE);
 
   const go = (p) => setPage(Math.max(0, Math.min(totalPages - 1, p)));
 
@@ -37,7 +38,7 @@ export default function AllProjectsSheet({ open, onClose, onOpenProject }) {
         <div className="ckm-allp__head">
           <div>
             <div className="ckm-allp__eyebrow">My Projects</div>
-            <h3 className="ckm-allp__title">{ALL_PROJECTS.length} projects</h3>
+            <h3 className="ckm-allp__title">{projectsList.length} projects</h3>
           </div>
           <button type="button" className="ckm-allp__close" onClick={onClose} aria-label="Close">
             <Icon name="close" size={20} color="var(--ckm-text-3)" />

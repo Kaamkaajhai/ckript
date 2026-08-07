@@ -522,7 +522,7 @@ export const getStats = async (req, res) => {
 // ─── User Lists by Role ───
 export const getUsers = async (req, res) => {
     try {
-        const { role, search, page = 1, limit = 20, isPremium, hasActiveWriterPlan } = req.query;
+        const { role, search, page = 1, limit = 20, isPremium, hasActiveWriterPlan, isSwaApproved } = req.query;
         const pageNumber = Math.max(Number(page) || 1, 1);
         const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
         const filter = { role: { $ne: "admin" }, isDeactivated: { $ne: true } };
@@ -536,9 +536,24 @@ export const getUsers = async (req, res) => {
             filter["subscription.accessStatus"] = "active";
             filter["subscription.accessTier"] = { $in: ["writer_silver", "writer_gold", "standard"] };
         }
+        if (isSwaApproved === 'true') {
+            filter.role = { $in: ["writer", "creator"] };
+            filter.$and = filter.$and || [];
+            filter.$and.push({
+                $or: [
+                    { "writerProfile.membershipVerification.swa.status": "approved" },
+                    { "writerProfile.membershipVerification.wga.status": "approved" },
+                    { "writerProfile.wgaMember": true },
+                    { "writerProfile.sgaMember": true }
+                ]
+            });
+        }
 
         const searchFilter = buildAdminUserSearchQuery(search);
-        if (searchFilter) Object.assign(filter, searchFilter);
+        if (searchFilter) {
+            filter.$and = filter.$and || [];
+            filter.$and.push(searchFilter);
+        }
 
         const total = await User.countDocuments(filter);
         const users = await User.find(filter)
@@ -1107,7 +1122,25 @@ export const grantFipPlanToUser = async (req, res) => {
 
 export const sendAudienceBroadcast = async (req, res) => {
     try {
-        const audienceConfig = buildBroadcastAudienceConfig(req.params.audience);
+        const audience = req.params.audience;
+        let audienceConfig = null;
+
+        if (audience === "direct-user") {
+            const targetEmail = String(req.body?.targetEmail || "").trim();
+            if (!targetEmail) return res.status(400).json({ message: "Target email is required for direct-user broadcast." });
+            
+            audienceConfig = {
+                key: "direct-user",
+                audienceLabel: `specific user (${targetEmail})`,
+                getRecipients: async () => {
+                    const user = await User.findOne({ email: targetEmail.toLowerCase() }).select("_id name email").lean();
+                    return user ? [user] : [];
+                }
+            };
+        } else {
+            audienceConfig = buildBroadcastAudienceConfig(audience);
+        }
+
         if (!audienceConfig) {
             return res.status(400).json({ message: "Invalid audience. Use 'writers', 'film-professionals', or 'script-uploaders'." });
         }
@@ -1115,6 +1148,12 @@ export const sendAudienceBroadcast = async (req, res) => {
         const title = String(req.body?.title || "").trim();
         const content = String(req.body?.content || "").trim();
         const actionUrl = String(req.body?.actionUrl || "").trim();
+        const attachments = req.files ? req.files.map((file) => ({
+            filename: file.originalname,
+            content: file.buffer,
+            contentType: file.mimetype,
+        })) : [];
+
         if (!title) {
             return res.status(400).json({ message: "Title is required" });
         }
@@ -1153,6 +1192,7 @@ export const sendAudienceBroadcast = async (req, res) => {
                     audienceLabel: audienceConfig.audienceLabel,
                     adminName: req.user?.name || "ckript Admin",
                     clientBaseUrl: resolveClientOriginFromRequest(req),
+                    attachments,
                 })
             )
         );
@@ -1169,6 +1209,11 @@ export const sendAudienceBroadcast = async (req, res) => {
             emailFailed,
         });
     } catch (error) {
+        // This was `require('fs').writeFileSync('last_broadcast_error.txt', ...)`. In an ESM module
+        // `require` is not defined, so the line threw a ReferenceError from inside the catch — losing
+        // the broadcast's real error and replacing it with a confusing one. It also wrote debug state
+        // into the server's working directory on every failure.
+        console.error("[admin] broadcast failed:", error?.stack || error?.message || error);
         return res.status(500).json({ message: error.message || "Failed to send broadcast" });
     }
 };

@@ -1,0 +1,90 @@
+/*
+ * Ckript Mobile — page header / app bar (prefix: ckm-page-header)
+ * ------------------------------------------------------------------
+ * Scoped under `.ckm` (plan §7.1). The shell already applies the safe-area top
+ * inset to its app-bar slot, so this file must not add it again.
+ */
+
+.ckm .ckm-page-header {
+  background: var(--ckm-bg);
+  border-bottom: 1px solid var(--ckm-line);
+}
+
+.ckm .ckm-page-header--flush {
+  border-bottom-color: transparent;
+}
+
+.ckm .ckm-page-header__bar {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ckm-space-2);
+  min-height: var(--ckm-app-bar-h);
+  padding: var(--ckm-space-2) var(--ckm-space-4-5);
+  padding-left: max(var(--ckm-space-4-5), var(--ckm-safe-left));
+  padding-right: max(var(--ckm-space-4-5), var(--ckm-safe-right));
+}
+
+/* The back control is the first thing a thumb reaches for; it stays put while
+   the title column absorbs whatever length the screen gives it. */
+.ckm .ckm-page-header__back {
+  margin-top: 2px;
+}
+
+.ckm .ckm-page-header__titles {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  /* Optical centring against a 44px control without forcing the whole bar to
+     a fixed height that a two-line title would then break out of. */
+  padding-top: var(--ckm-space-1);
+}
+
+.ckm .ckm-page-header__eyebrow {
+  font-size: var(--ckm-text-micro);
+  line-height: var(--ckm-leading-micro);
+  font-weight: var(--ckm-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ckm-muted);
+}
+
+.ckm .ckm-page-header__title {
+  font-family: var(--ckm-display);
+  font-size: var(--ckm-text-title-sm);
+  line-height: var(--ckm-leading-title-sm);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-text);
+  /* Two lines, then ellipsis — long screenplay titles must not push the row
+     of actions off a 320px screen. The full value stays in `title`. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+/* At the reflow floor the display face costs more than it earns: a 22px
+   Spectral title clamped to two lines fits ~24 characters at 320px. Dropping
+   to the section size buys most of a word per line and keeps the same voice. */
+@media (max-width: 359px) {
+  .ckm .ckm-page-header__title {
+    font-size: var(--ckm-text-section);
+    line-height: var(--ckm-leading-section);
+  }
+}
+
+.ckm .ckm-page-header__subtitle {
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-page-header__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-1);
+  flex: none;
+}

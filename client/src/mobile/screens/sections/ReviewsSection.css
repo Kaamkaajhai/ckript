@@ -1,23 +1,23 @@
-.ckm-rev {
+.ckm .ckm-rev {
   animation: ckm-fade-up 0.28s var(--ckm-ease);
 }
 
-.ckm-rev__head {
+.ckm .ckm-rev__head {
   display: flex;
   align-items: center;
   gap: 10px;
 }
-.ckm-rev__title {
+.ckm .ckm-rev__title {
   font: 500 21px/1 var(--ckm-display);
 }
 
-.ckm-rev__subtabs {
+.ckm .ckm-rev__subtabs {
   display: flex;
   gap: 26px;
   margin-top: 16px;
   border-bottom: 1px solid #ece6da;
 }
-.ckm-rev__subtab {
+.ckm .ckm-rev__subtab {
   border: none;
   background: transparent;
   cursor: pointer;
@@ -30,78 +30,78 @@
   color: var(--ckm-muted-3);
   transition: color 0.15s ease, border-color 0.15s ease;
 }
-.ckm-rev__subtab.is-active {
+.ckm .ckm-rev__subtab.is-active {
   color: var(--ckm-ink);
   border-bottom-color: var(--ckm-accent);
 }
 
-.ckm-rev__count-row {
+.ckm .ckm-rev__count-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-top: 16px;
 }
-.ckm-rev__count-kicker {
+.ckm .ckm-rev__count-kicker {
   font: 700 10.5px/1 var(--ckm-body);
   letter-spacing: 1.3px;
   text-transform: uppercase;
   color: var(--ckm-muted);
 }
-.ckm-rev__count {
+.ckm .ckm-rev__count {
   font: 600 11px/1 var(--ckm-body);
   color: var(--ckm-muted-2);
 }
 
-.ckm-rev__list {
+.ckm .ckm-rev__list {
   display: flex;
   flex-direction: column;
   gap: 12px;
   margin-top: 12px;
 }
 
-.ckm-rev__card {
+.ckm .ckm-rev__card {
   border: 1px solid #eee7db;
   border-radius: var(--ckm-r-lg);
   padding: 17px 17px 15px;
   background: #fff;
   box-shadow: 0 1px 3px rgba(28, 26, 23, 0.04);
 }
-.ckm-rev__card-top {
+.ckm .ckm-rev__card-top {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 12px;
 }
-.ckm-rev__card-heading {
+.ckm .ckm-rev__card-heading {
   min-width: 0;
   padding-top: 1px;
 }
-.ckm-rev__eyebrow {
+.ckm .ckm-rev__eyebrow {
   font: 700 8.5px/1 var(--ckm-body);
   letter-spacing: 1.5px;
   text-transform: uppercase;
   color: var(--ckm-muted-3);
   margin-bottom: 7px;
 }
-.ckm-rev__card-title {
+.ckm .ckm-rev__card-title {
   font: 600 20px/1.12 var(--ckm-display);
 }
-.ckm-rev__card-score {
+.ckm .ckm-rev__card-score {
   flex: none;
   text-align: right;
 }
-.ckm-rev__score-num {
+.ckm .ckm-rev__score-num {
   display: flex;
   align-items: baseline;
   gap: 2px;
   justify-content: flex-end;
   font: 500 32px/1 var(--ckm-display);
 }
-.ckm-rev__score-out {
+.ckm .ckm-rev__score-out {
   font: 600 10px/1 var(--ckm-body);
   color: var(--ckm-faint);
 }
-.ckm-rev__verdict {
+.ckm .ckm-rev__verdict {
   display: inline-block;
   margin-top: 9px;
   font: 700 8px/1 var(--ckm-body);
@@ -111,18 +111,18 @@
   border-radius: 999px;
 }
 
-.ckm-rev__bars {
+.ckm .ckm-rev__bars {
   margin-top: 16px;
   display: flex;
   flex-direction: column;
   gap: 11px;
 }
-.ckm-rev__bar-row {
+.ckm .ckm-rev__bar-row {
   display: flex;
   align-items: center;
   gap: 12px;
 }
-.ckm-rev__bar-label {
+.ckm .ckm-rev__bar-label {
   font: 600 9px/1 var(--ckm-body);
   letter-spacing: 0.6px;
   text-transform: uppercase;
@@ -130,7 +130,7 @@
   width: 88px;
   flex: none;
 }
-.ckm-rev__bar-track {
+.ckm .ckm-rev__bar-track {
   flex: 1;
   height: 5px;
   border-radius: 3px;
@@ -138,7 +138,7 @@
   position: relative;
   overflow: hidden;
 }
-.ckm-rev__bar-fill {
+.ckm .ckm-rev__bar-fill {
   position: absolute;
   left: 0;
   top: 0;
@@ -148,7 +148,7 @@
   animation: ckm-grow-x 0.6s var(--ckm-ease) both;
   transform-origin: left;
 }
-.ckm-rev__bar-val {
+.ckm .ckm-rev__bar-val {
   font: 400 14px/1 var(--ckm-display);
   width: 24px;
   text-align: right;
@@ -156,7 +156,7 @@
   flex: none;
 }
 
-.ckm-rev__card-foot {
+.ckm .ckm-rev__card-foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -165,7 +165,7 @@
   padding-top: 13px;
   border-top: 1px solid var(--ckm-line-3);
 }
-.ckm-rev__excerpt {
+.ckm .ckm-rev__excerpt {
   font: italic 400 12.5px/1.3 var(--ckm-display);
   color: var(--ckm-text-3);
   overflow: hidden;
@@ -173,7 +173,7 @@
   white-space: nowrap;
   min-width: 0;
 }
-.ckm-rev__details {
+.ckm .ckm-rev__details {
   display: flex;
   align-items: center;
   gap: 2px;
@@ -186,19 +186,19 @@
   flex: none;
 }
 
-.ckm-rev__feedback {
+.ckm .ckm-rev__feedback {
   margin-top: 14px;
   padding-top: 13px;
   border-top: 1px solid var(--ckm-line-3);
 }
-.ckm-rev__feedback-kicker {
+.ckm .ckm-rev__feedback-kicker {
   font: 700 8.5px/1 var(--ckm-body);
   letter-spacing: 1.2px;
   text-transform: uppercase;
   color: var(--ckm-muted-2);
   margin-bottom: 6px;
 }
-.ckm-rev__feedback-body {
+.ckm .ckm-rev__feedback-body {
   font: 400 12px/1.55 var(--ckm-body);
   color: var(--ckm-text-3);
 }

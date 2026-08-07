@@ -30,7 +30,6 @@ import { AuthContext } from "../../context/AuthContext";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import NavRail from "./components/NavRail";
 import NavDrawer from "./components/NavDrawer";
-import NavMobileBar from "./components/NavMobileBar";
 import ShellTopbar from "./components/ShellTopbar";
 import NotificationToasts from "./components/NotificationToasts";
 import { buildNav } from "./navigation/buildNav";
@@ -226,8 +225,6 @@ const AppShell = ({ children, variant = "page" }) => {
             : <div className={contentClassName}>{children}</div>}
         </div>
       </div>
-
-      <NavMobileBar items={nav.mobile} isActive={isActive} />
 
       <NotificationToasts
         toasts={notifications.toasts}

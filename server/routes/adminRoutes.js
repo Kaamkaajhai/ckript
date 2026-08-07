@@ -1,4 +1,5 @@
 import express from "express";
+import multer from "multer";
 import protect from "../middleware/authMiddleware.js";
 import adminOnly from "../middleware/adminMiddleware.js";
 import {
@@ -105,7 +106,11 @@ router.post("/users/:id/grant-writer-plan", grantWriterPlanToUser);
 router.post("/users/:id/remove-writer-plan", removeWriterPlanFromUser);
 router.post("/users/:id/grant-fip-plan", grantFipPlanToUser);
 router.post("/users/:id/finance-role", setFinanceRole);
-router.post("/broadcast/:audience", sendAudienceBroadcast);
+const broadcastUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 250 * 1024 * 1024 } // 250MB limit to match MAX_ATTACHMENT_SIZE_BYTES
+});
+router.post("/broadcast/:audience", broadcastUpload.array("attachments", 10), sendAudienceBroadcast);
 
 // Scripts (admin auth from router.use(protect, adminOnly) above is the only gate — the extra
 // script-section password has been removed)

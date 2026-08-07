@@ -7,6 +7,7 @@
 import { Link } from "react-router-dom";
 import { resolveMediaUrl } from "../../../utils/mediaUrl";
 import SaveButton from "./SaveButton";
+import FeaturedIcon from "./FeaturedIcon";
 import {
   getLoglineLabel,
   getMetaLine,
@@ -32,7 +33,7 @@ const SpotlightCard = ({ script, scriptPath, onOpenProject, onDetails, onTrailer
 
         {script.verifiedBadge && (
           <span className="fbp-card__verified">
-            <span className="fbp-icon" aria-hidden="true">verified</span>
+            <FeaturedIcon name="verified" />
             VERIFIED
           </span>
         )}

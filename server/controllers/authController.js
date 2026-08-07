@@ -951,8 +951,12 @@ export const login = async (req, res) => {
           });
         }
 
-        const requiredAdminCode = String(process.env.ADMIN_PANEL_CODE || "24062004").trim();
-        if (String(adminCode || "").trim() !== requiredAdminCode) {
+        const requiredAdminCode = process.env.ADMIN_PANEL_CODE;
+        if (!requiredAdminCode) {
+          console.error("ADMIN_PANEL_CODE is not set in environment variables.");
+          return res.status(500).json({ message: "Admin authentication is not configured properly." });
+        }
+        if (String(adminCode || "").trim() !== String(requiredAdminCode).trim()) {
           return res.status(403).json({ message: "Invalid admin access code" });
         }
       }

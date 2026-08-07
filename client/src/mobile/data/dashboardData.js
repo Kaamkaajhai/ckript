@@ -297,3 +297,18 @@ export function aiDetailFor(review) {
     audience: "Matched to readers of comparable titles in this genre.",
   };
 }
+
+/*
+ * Stable, development-only visual fixture used by /__mobile-preview. Keeping
+ * it beside the source mock data means the preview exercises the real mobile
+ * dashboard component without calling authenticated APIs or expiring the
+ * browser session. Production Dashboard instances never opt into this value.
+ */
+export const DASHBOARD_PREVIEW_DATA = Object.freeze({
+  overview: OVERVIEW,
+  performance: PERFORMANCE,
+  projects: PROJECTS,
+  allProjects: ALL_PROJECTS,
+  aiReviews: AI_REVIEWS,
+  platformReviews: PLATFORM_REVIEWS,
+});

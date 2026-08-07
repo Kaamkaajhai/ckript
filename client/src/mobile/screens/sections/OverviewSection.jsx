@@ -1,5 +1,4 @@
 import Icon from "../../components/Icon";
-import { OVERVIEW } from "../../data/dashboardData";
 import heroImg from "../../assets/hero-last-scene.jpg";
 import "./OverviewSection.css";
 
@@ -9,8 +8,8 @@ import "./OverviewSection.css";
  * completion nudge + the editorial hero, then Avg Score / Biggest Mover and
  * a Top Scripts leaderboard. `onFullAnalytics` jumps to the Performance tab.
  */
-export default function OverviewSection({ onCreate, onUpload, onEditProfile, onFullAnalytics }) {
-  const { profileCompletion, hero, glance, avgScore, biggestMover, topScripts } = OVERVIEW;
+export default function OverviewSection({ onCreate, onUpload, onEditProfile, onFullAnalytics, data }) {
+  const { profileCompletion, hero, glance, avgScore, biggestMover, topScripts } = data;
   const r = 16;
   const circ = 2 * Math.PI * r;
   const dashOffset = circ * (1 - profileCompletion / 100);

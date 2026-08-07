@@ -1,0 +1,129 @@
+/*
+ * Ckript Mobile — inline message (prefix: ckm-message)
+ * ------------------------------------------------------------------
+ * Text colours come from the `*-ink` tokens, never the shape colours: the
+ * shape colours were measured at 2.95–4.47:1 on their own soft backgrounds and
+ * fail SC 1.4.3 as body text. The shape colours are still correct for the
+ * border, which only owes 3:1 as a non-text boundary.
+ */
+
+.ckm .ckm-message {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--ckm-space-3);
+  border: 1px solid;
+  border-radius: var(--ckm-r-md);
+  padding: var(--ckm-space-3) var(--ckm-space-4) var(--ckm-space-3) var(--ckm-space-3);
+}
+
+.ckm .ckm-message__icon {
+  display: flex;
+  align-items: center;
+  min-height: var(--ckm-leading-support);
+}
+
+.ckm .ckm-message__body {
+  min-width: 0;
+}
+
+.ckm .ckm-message__title {
+  font: var(--ckm-weight-semibold) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-message__text {
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+  color: var(--ckm-text-2);
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-message__title + .ckm-message__text {
+  margin-top: 2px;
+}
+
+.ckm .ckm-message__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ckm-space-2);
+  margin-top: var(--ckm-space-3);
+}
+
+/* --- Tones -------------------------------------------------------------- */
+
+.ckm .ckm-message--error {
+  border-color: var(--ckm-red);
+  background: var(--ckm-red-bg);
+}
+.ckm .ckm-message--error .ckm-message__icon,
+.ckm .ckm-message--error .ckm-message__title {
+  color: var(--ckm-red-ink);
+}
+
+.ckm .ckm-message--warning {
+  border-color: var(--ckm-gold);
+  background: var(--ckm-gold-bg);
+}
+.ckm .ckm-message--warning .ckm-message__icon,
+.ckm .ckm-message--warning .ckm-message__title {
+  color: var(--ckm-gold-ink);
+}
+
+.ckm .ckm-message--success {
+  border-color: var(--ckm-green);
+  background: var(--ckm-green-bg);
+}
+.ckm .ckm-message--success .ckm-message__icon,
+.ckm .ckm-message--success .ckm-message__title {
+  color: var(--ckm-green-ink);
+}
+
+/* Info is deliberately neutral rather than terracotta: the brand colour reads
+   as "this is the thing to do next", and a neutral note is not that. */
+.ckm .ckm-message--info {
+  border-color: var(--ckm-line-strong);
+  background: var(--ckm-bg-fill);
+}
+.ckm .ckm-message--info .ckm-message__icon {
+  color: var(--ckm-text-3);
+}
+.ckm .ckm-message--info .ckm-message__title {
+  color: var(--ckm-text);
+}
+
+/* --- Panel form --------------------------------------------------------- */
+
+/* The whole region's content, replacing what could not be loaded. Centred and
+   single-column, mirroring EmptyState's geometry so a screen that sometimes
+   shows one and sometimes the other does not jump. */
+.ckm .ckm-message--panel {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  text-align: center;
+  padding: var(--ckm-space-7) var(--ckm-space-5);
+}
+
+.ckm .ckm-message--panel .ckm-message__icon {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--ckm-r-xl);
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.ckm .ckm-message--panel .ckm-message__body {
+  width: 100%;
+  max-width: 320px;
+}
+
+.ckm .ckm-message--panel .ckm-message__title {
+  font: var(--ckm-weight-medium) var(--ckm-text-title-sm) / var(--ckm-leading-title-sm) var(--ckm-display);
+}
+
+.ckm .ckm-message--panel .ckm-message__text {
+  margin-top: var(--ckm-space-2);
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-message--panel .ckm-message__actions {
+  margin-top: var(--ckm-space-5);
+}

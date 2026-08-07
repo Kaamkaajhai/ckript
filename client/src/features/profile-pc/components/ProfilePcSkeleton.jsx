@@ -6,30 +6,23 @@ const Bone = ({ className = "" }) => (
 
 function IdentitySkeleton() {
   return (
-    <div className="profile-pc-skeleton__identity" aria-hidden="true">
-      <Bone className="profile-pc-skeleton__avatar" />
-      <Bone className="profile-pc-skeleton__name" />
-      <Bone className="profile-pc-skeleton__username" />
-      <div className="profile-pc-skeleton__badges">
+    <div className="profile-workspace-identity profile-pc-skeleton__identity" aria-hidden="true">
+      <Bone className="profile-workspace-identity__avatar profile-pc-skeleton__avatar" />
+      <Bone className="profile-workspace-identity__name profile-pc-skeleton__name" />
+      <Bone className="profile-workspace-identity__username profile-pc-skeleton__username" />
+      <div className="profile-workspace-identity__badges profile-pc-skeleton__badges">
         <Bone /><Bone /><Bone />
       </div>
-      <Bone className="profile-pc-skeleton__representation" />
-      <Bone className="profile-pc-skeleton__representation profile-pc-skeleton__representation--short" />
+      <Bone className="profile-workspace-identity__representation profile-pc-skeleton__representation" />
 
-      <div className="profile-pc-skeleton__stats">
+      <div className="profile-workspace-stats profile-pc-skeleton__stats">
         {Array.from({ length: 3 }, (_, index) => (
           <div key={index}><Bone /><Bone /></div>
         ))}
       </div>
 
-      <Bone className="profile-pc-skeleton__button" />
-      <Bone className="profile-pc-skeleton__button profile-pc-skeleton__button--secondary" />
+      <div className="profile-workspace-actions"><Bone className="profile-pc-skeleton__button" /><Bone className="profile-pc-skeleton__button profile-pc-skeleton__button--secondary" /></div>
 
-      <div className="profile-pc-skeleton__contact">
-        <Bone className="profile-pc-skeleton__contact-label" />
-        <Bone className="profile-pc-skeleton__contact-line" />
-        <Bone className="profile-pc-skeleton__contact-line profile-pc-skeleton__contact-line--short" />
-      </div>
     </div>
   );
 }
@@ -50,17 +43,12 @@ function SkeletonCard({ wide = false, lines = 3 }) {
 export default function ProfilePcSkeleton({ isDark = false }) {
   return (
     <ProfilePcPage isDark={isDark} identity={<IdentitySkeleton />}>
-      <div className="profile-pc-skeleton" aria-busy="true">
-        <p className="profile-pc-skeleton__sr" role="status" aria-live="polite">Loading profile…</p>
+      <div className="profile-workspace-tabs profile-pc-skeleton__tabs" aria-hidden="true">
         <Bone className="profile-pc-skeleton__breadcrumb" />
-
-        <div className="profile-pc-skeleton__tabs" aria-hidden="true">
-          <Bone className="profile-pc-skeleton__tab profile-pc-skeleton__tab--active" />
-          <Bone className="profile-pc-skeleton__tab" />
-          <Bone className="profile-pc-skeleton__tab profile-pc-skeleton__tab--wide" />
-          <Bone className="profile-pc-skeleton__tab" />
-        </div>
-
+        {Array.from({ length: 8 }, (_, index) => <Bone key={index} className="profile-pc-skeleton__tab" />)}
+      </div>
+      <div className="profile-workspace-panel profile-pc-skeleton" aria-busy="true">
+        <p className="profile-pc-skeleton__sr" role="status" aria-live="polite">Loading profile…</p>
         <div className="profile-pc-skeleton__content" aria-hidden="true">
           <SkeletonCard wide lines={4} />
           <div className="profile-pc-skeleton__grid">

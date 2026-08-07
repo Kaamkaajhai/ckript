@@ -1,4 +1,4 @@
-.ckm-topbar {
+.ckm .ckm-topbar {
   display: flex;
   align-items: center;
   gap: 11px;
@@ -7,14 +7,14 @@
   flex: none;
 }
 
-.ckm-topbar__logo {
+.ckm .ckm-topbar__logo {
   height: 26px;
   width: auto;
   object-fit: contain;
   flex: none;
 }
 
-.ckm-topbar__search {
+.ckm .ckm-topbar__search {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -28,7 +28,7 @@
   cursor: pointer;
 }
 
-.ckm-topbar__search span {
+.ckm .ckm-topbar__search-label {
   font: 400 12.5px/1 var(--ckm-body);
   color: #b3ac9f;
   white-space: nowrap;
@@ -36,7 +36,7 @@
   text-overflow: ellipsis;
 }
 
-.ckm-topbar__bell {
+.ckm .ckm-topbar__bell {
   position: relative;
   width: 38px;
   height: 38px;
@@ -49,7 +49,7 @@
   flex: none;
 }
 
-.ckm-topbar__badge {
+.ckm .ckm-topbar__badge {
   position: absolute;
   top: 2px;
   right: 2px;
@@ -64,7 +64,7 @@
   border: 1.5px solid #fff;
 }
 
-.ckm-topbar__avatar {
+.ckm .ckm-topbar__avatar {
   width: 34px;
   height: 34px;
   border-radius: 50%;
@@ -82,6 +82,6 @@
   outline-offset: 2px;
 }
 
-.ckm-topbar__avatar.is-active {
+.ckm .ckm-topbar__avatar.is-active {
   outline-color: var(--ckm-accent);
 }

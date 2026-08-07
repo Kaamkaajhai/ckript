@@ -113,8 +113,24 @@ describe("shellPolicy — which shell", () => {
 
 describe("shellPolicy — content variant", () => {
   it("gives an ordinary page the padded column", () => {
-    expect(resolveShell({ role: "producer", pathname: "/writers" }).contentVariant)
+    expect(resolveShell({ role: "producer", pathname: "/search" }).contentVariant)
       .toBe(CONTENT_VARIANT.PAGE);
+  });
+
+  /*
+   * /writers is the roster desk: a facet rail, a register and a detail pane,
+   * each scrolling independently inside a bounded area. The shell's padded
+   * single-scroll column would give it nothing to bound itself against.
+   */
+  it("treats /writers as full-bleed for every audience that reaches it", () => {
+    expect(isFullBleedRoute("/writers", "producer")).toBe(true);
+    expect(isFullBleedRoute("/writers", "reader")).toBe(true);
+    expect(resolveShell({ role: "producer", pathname: "/writers" }).contentVariant)
+      .toBe(CONTENT_VARIANT.FILL);
+  });
+
+  it("does not let /writers match a route that merely starts with it", () => {
+    expect(isFullBleedRoute("/writers-report", "producer")).toBe(false);
   });
 
   it("lets messages, script detail and profile own the area for everyone", () => {

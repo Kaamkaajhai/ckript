@@ -11,15 +11,7 @@ import {
   markReturnEventSentForSession,
   wasReturnEventSentForSession,
 } from "./storage";
-
-const getUserContext = (user) => {
-  if (!user?._id) return undefined;
-  return {
-    userId: user._id,
-    email: user.email || "",
-    phone: user.phone || "",
-  };
-};
+import { getUserContext } from "./userContext";
 
 export const usePageTracking = ({ user, enabled = false } = {}) => {
   const location = useLocation();

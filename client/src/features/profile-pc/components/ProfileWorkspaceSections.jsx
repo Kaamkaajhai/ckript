@@ -95,6 +95,7 @@ export function ProfileWorkspaceIdentity({
   onBlock,
   onEdit,
   onMessage,
+  onPitch,
   onFollowers,
   onFollowing,
   canViewContactDetails,
@@ -109,11 +110,16 @@ export function ProfileWorkspaceIdentity({
   onToggleContact,
   onRevealContact,
   revealedContact,
-  contactLinks,
+  contactLinks = [],
 }) {
   const writer = profile?.writerProfile || {};
-  const username = writer.username ? `@${writer.username}` : "";
-  const representation = `${getRepresentationLabel(writer)}${writer.agencyName ? ` · ${writer.agencyName}` : ""}`;
+  const isWriterProfile = ["writer", "creator"].includes(String(profile?.role || "").toLowerCase());
+  const roleLabel = titleCase(profile?.role || "Member");
+  const username = isWriterProfile && writer.username ? `@${writer.username}` : "";
+  const industryProfile = profile?.industryProfile || {};
+  const representation = isWriterProfile
+    ? `${getRepresentationLabel(writer)}${writer.agencyName ? ` · ${writer.agencyName}` : ""}`
+    : [industryProfile.jobTitle, industryProfile.company].filter(Boolean).join(" · ") || roleLabel;
   const wgaVerified = writer.membershipVerification?.wga?.status === "approved";
   const swaVerified = writer.membershipVerification?.swa?.status === "approved";
   const planLabel = hasActiveFilmIndustryProfessionalAccess(profile)
@@ -123,12 +129,11 @@ export function ProfileWorkspaceIdentity({
       : "";
   const revealProgress = Math.min(100, (Number(contactsUsed || 0) / Math.max(Number(contactsLimit || 1), 1)) * 100);
   const visibleContact = isOwnProfile || (contactAlreadyRevealed && showContactDetails);
-  const email = isOwnProfile ? profile.email : revealedContact?.email || profile.email;
-  const phone = isOwnProfile ? profile.phone : revealedContact?.phone || profile.phone;
+  const email = isOwnProfile ? profile?.email : revealedContact?.email || profile?.email;
+  const phone = isOwnProfile ? profile?.phone : revealedContact?.phone || profile?.phone;
   const visibleLinks = isOwnProfile || contactAlreadyRevealed ? contactLinks : [];
-
   return (
-    <aside className="profile-workspace-identity" aria-label="Writer identity">
+    <aside className="profile-workspace-identity" aria-label={`${roleLabel} identity`}>
       {profile.profileImage ? (
         <img className="profile-workspace-identity__avatar" src={resolvedImage} alt={profile.name} />
       ) : (
@@ -139,10 +144,10 @@ export function ProfileWorkspaceIdentity({
       {username && <div className="profile-workspace-identity__username">{username}</div>}
 
       <div className="profile-workspace-identity__badges" aria-label="Profile credentials">
-        <span className="profile-workspace-identity__role">Writer</span>
+        <span className="profile-workspace-identity__role">{roleLabel}</span>
         {planLabel && <><span aria-hidden="true">·</span><span className="profile-workspace-identity__plan">{planLabel}</span></>}
-        {(writer.wgaMember || wgaVerified) && <><span aria-hidden="true">·</span><span className="profile-workspace-identity__guild"><VerifiedMark active={wgaVerified} label="WGA" />WGA</span></>}
-        {(writer.sgaMember || swaVerified) && <><span aria-hidden="true">·</span><span className="profile-workspace-identity__guild"><VerifiedMark active={swaVerified} label="SWA" />SWA</span></>}
+        {isWriterProfile && (writer.wgaMember || wgaVerified) && <><span aria-hidden="true">·</span><span className="profile-workspace-identity__guild"><VerifiedMark active={wgaVerified} label="WGA" />WGA</span></>}
+        {isWriterProfile && (writer.sgaMember || swaVerified) && <><span aria-hidden="true">·</span><span className="profile-workspace-identity__guild"><VerifiedMark active={swaVerified} label="SWA" />SWA</span></>}
       </div>
 
       <p className="profile-workspace-identity__representation">
@@ -151,7 +156,7 @@ export function ProfileWorkspaceIdentity({
       </p>
 
       <div className="profile-workspace-stats" aria-label="Profile statistics">
-        <div className="profile-workspace-stat"><strong>{scriptsCount}</strong><span>Projects</span></div>
+        {isWriterProfile && <div className="profile-workspace-stat"><strong>{scriptsCount}</strong><span>Projects</span></div>}
         <button type="button" className="profile-workspace-stat" onClick={onFollowers}>
           <strong>{profile.followers?.length || 0}</strong><span>Followers</span>
         </button>
@@ -178,6 +183,11 @@ export function ProfileWorkspaceIdentity({
           {!isOwnProfile && onMessage && (
             <button type="button" className="profile-workspace-btn profile-workspace-btn--primary" onClick={onMessage} disabled={isBlockedByCurrent || blockedByProfile}>
               Message
+            </button>
+          )}
+          {!isOwnProfile && onPitch && (
+            <button type="button" className="profile-workspace-btn profile-workspace-btn--primary" onClick={onPitch} disabled={isBlockedByCurrent || blockedByProfile}>
+              Pitch script
             </button>
           )}
           <SocialShareButton share={profileShare} buttonLabel="Share" className="profile-workspace-btn" />
@@ -217,7 +227,7 @@ export function ProfileWorkspaceIdentity({
           </p>
         ) : (
           <p className="profile-workspace-contact__copy">
-            {isOwnProfile ? "Your contact details are visible here." : "Contact details are available to eligible film-industry accounts."}
+            {isOwnProfile ? "Your contact details are visible here." : isWriterProfile ? "Available to eligible film-industry accounts when the writer opts in." : "Contact information is protected by this member's privacy settings."}
           </p>
         )}
 
@@ -227,28 +237,31 @@ export function ProfileWorkspaceIdentity({
           contactAlreadyRevealed ? (
             <button type="button" className="profile-workspace-btn" onClick={onToggleContact}>{showContactDetails ? "Hide contact" : "View contact"}</button>
           ) : contactRevealBlocked ? (
-            <button type="button" className="profile-workspace-btn" disabled>Monthly limit reached</button>
+            <button type="button" className="profile-workspace-btn" disabled aria-describedby="contact-limit-reason">Monthly limit reached</button>
           ) : (
-            <button type="button" className="profile-workspace-btn profile-workspace-btn--accent" onClick={onRevealContact} disabled={contactRevealLoading}>
-              {contactRevealLoading ? "Revealing…" : "Reveal contact · uses 1 credit"}
+            <button type="button" className="profile-workspace-btn profile-workspace-btn--accent" onClick={onRevealContact} disabled={contactRevealLoading || isBlockedByCurrent}>
+              {contactRevealLoading ? "Revealing…" : "Reveal contact · uses 1 reveal"}
             </button>
           )
         )}
+        {contactRevealBlocked && <span id="contact-limit-reason" className="profile-workspace-sr-only">Your monthly contact reveal limit has been reached.</span>}
       </section>
 
       {visibleLinks.length > 0 && (
         <nav className="profile-workspace-identity__links" aria-label="External profile links">
-          {visibleLinks.map((item) => (
-            <a key={item.key} href={item.href} target="_blank" rel="noopener noreferrer">{item.label} ↗</a>
-          ))}
+          {visibleLinks.map((item) => <a key={item.key} href={item.href} target="_blank" rel="noopener noreferrer">{item.label} ↗</a>)}
         </nav>
       )}
+
     </aside>
   );
 }
 
 function ProfileDetails({ profile }) {
   const writer = profile?.writerProfile || {};
+  const industry = profile?.industryProfile || {};
+  const isWriterProfile = ["writer", "creator"].includes(String(profile?.role || "").toLowerCase());
+  const mandates = industry.mandates || {};
   const membershipRows = [
     {
       key: "wga",
@@ -261,12 +274,79 @@ function ProfileDetails({ profile }) {
       status: writer.membershipVerification?.swa?.status || "not_submitted",
     },
   ];
-  const genres = Array.from(new Set([...(writer.genres || []), ...(writer.specializedTags || [])].filter(Boolean)));
+  const genres = Array.from(new Set((isWriterProfile
+    ? [...(writer.genres || []), ...(writer.specializedTags || [])]
+    : mandates.genres || []).filter(Boolean)));
   const skills = Array.from(new Set((profile.skills || []).filter(Boolean)));
+
+  if (!isWriterProfile) {
+    const mandateGroups = [
+      { label: "Preferred genres", values: mandates.genres || [] },
+      { label: "Formats", values: mandates.formats || [] },
+      { label: "Looking for", values: mandates.specificHooks || [] },
+      { label: "Not considering", values: mandates.excludeGenres || [], muted: true },
+    ];
+
+    return (
+      <div className="profile-workspace-overview__grid profile-workspace-overview__grid--industry">
+        <section className="profile-workspace-card" aria-labelledby="professional-profile-heading">
+          <span className="profile-workspace-card__index" aria-hidden="true">01</span>
+          <h2 id="professional-profile-heading">Professional profile</h2>
+          <dl className="profile-workspace-facts">
+            <div><dt>Role</dt><dd>{titleCase(profile?.role || "Member")}</dd></div>
+            <div><dt>Company</dt><dd>{industry.company || "Not set"}</dd></div>
+            <div><dt>Title</dt><dd>{industry.jobTitle || "Not set"}</dd></div>
+            <div><dt>Specialism</dt><dd>{titleCase(industry.subRoleOther || industry.subRole || "Not set")}</dd></div>
+            <div><dt>Based in</dt><dd>{getLocationLabel(profile)}</dd></div>
+          </dl>
+        </section>
+
+        <section className="profile-workspace-card" aria-labelledby="investment-brief-heading">
+          <span className="profile-workspace-card__index" aria-hidden="true">02</span>
+          <h2 id="investment-brief-heading">Investment brief</h2>
+          <p className="profile-workspace-card__lede">
+            {industry.investmentThesis || industry.bio || "Open to discovering distinctive projects and creative partnerships."}
+          </p>
+          <dl className="profile-workspace-facts profile-workspace-facts--compact">
+            <div><dt>Investment range</dt><dd>{industry.investmentRange || "Open"}</dd></div>
+            <div><dt>Portfolio focus</dt><dd>{mandates.genres?.length ? mandates.genres.join(" · ") : "Broad"}</dd></div>
+          </dl>
+        </section>
+
+        <section className="profile-workspace-card profile-workspace-card--wide profile-workspace-card--mandates" aria-labelledby="mandates-heading">
+          <span className="profile-workspace-card__index" aria-hidden="true">03</span>
+          <h2 id="mandates-heading">Mandates & interests</h2>
+          <div className="profile-workspace-mandates">
+            {mandateGroups.map((group) => (
+              <div key={group.label} className={group.muted ? "is-muted" : undefined}>
+                <h3>{group.label}</h3>
+                {group.values.length > 0 ? (
+                  <div className="profile-workspace-chips">
+                    {group.values.map((item) => <span key={item}>{titleCase(item)}</span>)}
+                  </div>
+                ) : <p className="profile-workspace-card__empty">No preferences set.</p>}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="profile-workspace-card profile-workspace-card--wide" aria-labelledby="industry-skills-heading">
+          <span className="profile-workspace-card__index" aria-hidden="true">04</span>
+          <h2 id="industry-skills-heading">Skills & expertise</h2>
+          {skills.length > 0 ? (
+            <div className="profile-workspace-skill-list">
+              {skills.map((skill) => <span key={skill}><b aria-hidden="true">✓</b>{skill}</span>)}
+            </div>
+          ) : <p className="profile-workspace-card__empty">No skills added yet.</p>}
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="profile-workspace-overview__grid">
       <section className="profile-workspace-card" aria-labelledby="writer-profile-heading">
+        <span className="profile-workspace-card__index" aria-hidden="true">01</span>
         <h2 id="writer-profile-heading">Writer profile</h2>
         <dl className="profile-workspace-facts">
           <div><dt>Username</dt><dd>{writer.username ? `@${writer.username}` : "Not set"}</dd></div>
@@ -277,6 +357,7 @@ function ProfileDetails({ profile }) {
       </section>
 
       <section className="profile-workspace-card" aria-labelledby="guild-memberships-heading">
+        <span className="profile-workspace-card__index" aria-hidden="true">02</span>
         <h2 id="guild-memberships-heading">Guild memberships</h2>
         <div className="profile-workspace-memberships">
           {membershipRows.map((membership) => {
@@ -298,6 +379,7 @@ function ProfileDetails({ profile }) {
       </section>
 
       <section className="profile-workspace-card" aria-labelledby="genres-heading">
+        <span className="profile-workspace-card__index" aria-hidden="true">03</span>
         <h2 id="genres-heading">Genres · Tags</h2>
         {genres.length > 0 ? (
           <div className="profile-workspace-chips">
@@ -307,6 +389,7 @@ function ProfileDetails({ profile }) {
       </section>
 
       <section className="profile-workspace-card profile-workspace-card--wide" aria-labelledby="skills-heading">
+        <span className="profile-workspace-card__index" aria-hidden="true">04</span>
         <h2 id="skills-heading">Skills & expertise</h2>
         {skills.length > 0 ? (
           <div className="profile-workspace-skill-list">
@@ -319,23 +402,38 @@ function ProfileDetails({ profile }) {
 }
 
 export function ProfileWorkspaceOverview({ profile, scripts, isOwnProfile, navigate, renderDelete, onViewAll }) {
+  const isWriterProfile = ["writer", "creator"].includes(String(profile?.role || "").toLowerCase());
+
   return (
     <div className="profile-workspace-overview">
+      <header className="profile-workspace-overview__header">
+        <div>
+          <span className="profile-workspace-overview__eyebrow">Profile overview</span>
+          <h2>{isWriterProfile ? "The work, practice & credentials" : "Professional brief & investment focus"}</h2>
+        </div>
+        <p>{isWriterProfile
+          ? "A concise view of this writer’s voice, professional standing, and published work."
+          : "A clear view of this member’s professional background, mandate, and areas of interest."}</p>
+      </header>
+
       <section className="profile-workspace-card profile-workspace-card--wide" aria-labelledby="about-heading">
+        <span className="profile-workspace-card__index" aria-hidden="true">00</span>
         <h2 id="about-heading">About</h2>
         <p className="profile-workspace-about-copy">{profile.bio || "No bio added yet."}</p>
       </section>
       <ProfileDetails profile={profile} />
-      <ProfileWorkspaceProjects
-        scripts={scripts}
-        profile={profile}
-        isOwnProfile={isOwnProfile}
-        navigate={navigate}
-        renderDelete={renderDelete}
-        limit={5}
-        showToolbar={false}
-        onViewAll={onViewAll}
-      />
+      {isWriterProfile && (
+        <ProfileWorkspaceProjects
+          scripts={scripts}
+          profile={profile}
+          isOwnProfile={isOwnProfile}
+          navigate={navigate}
+          renderDelete={renderDelete}
+          limit={5}
+          showToolbar={false}
+          onViewAll={onViewAll}
+        />
+      )}
     </div>
   );
 }

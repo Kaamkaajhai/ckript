@@ -8,9 +8,7 @@ import "./BottomNav.css";
  */
 const ITEMS = [
   { id: "dashboard", icon: "dashboard", label: "Dashboard", implemented: true },
-  { id: "create", icon: "add_circle", label: "Create" },
-  { id: "messages", icon: "chat", label: "Messages", badge: 5 },
-  { id: "profile", icon: "person", label: "Profile" },
+  { id: "challenge", icon: "emoji_events", label: "Challenge", implemented: true },
 ];
 
 export default function BottomNav({ active = "dashboard", onSelect }) {

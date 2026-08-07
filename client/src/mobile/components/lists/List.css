@@ -1,0 +1,59 @@
+/*
+ * Ckript Mobile — list container (prefix: ckm-list)
+ * ------------------------------------------------------------------
+ * Scoped under `.ckm` (plan §7.1). Owns the stack, its optional heading and
+ * the separator geometry; the row owns everything inside itself.
+ */
+
+.ckm .ckm-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.ckm .ckm-list__section {
+  min-width: 0;
+}
+
+/* A section heading is the list's label, so it is a real heading rather than
+   a styled paragraph — "list of 8, Recent projects" is what should be heard. */
+.ckm .ckm-list__heading {
+  font-family: var(--ckm-display);
+  font-size: var(--ckm-text-section);
+  line-height: var(--ckm-leading-section);
+  font-weight: var(--ckm-weight-medium);
+  color: var(--ckm-text);
+  margin-bottom: var(--ckm-space-2);
+}
+
+/* Hairline separators, drawn on the row so the last row never trails one.
+   `left: var(--ckm-row-inset)` is the iOS convention: the rule starts where
+   the text starts, so the leading column reads as a column. */
+.ckm .ckm-list--inset .ckm-row + .ckm-row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: var(--ckm-row-inset);
+  right: 0;
+  height: 1px;
+  background: var(--ckm-line);
+}
+
+/* The card-shaped list: one hairline box around the whole stack. */
+.ckm .ckm-list--bordered {
+  border: 1px solid var(--ckm-line-strong);
+  border-radius: var(--ckm-r-lg);
+  background: var(--ckm-bg);
+  overflow: hidden;
+}
+
+.ckm .ckm-list--bordered .ckm-row + .ckm-row::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: var(--ckm-row-inset);
+  right: 0;
+  height: 1px;
+  background: var(--ckm-line);
+}

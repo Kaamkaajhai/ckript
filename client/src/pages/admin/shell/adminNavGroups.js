@@ -15,7 +15,10 @@ export const ADMIN_NAV_GROUPS = [
   { title: "", keys: ["overview", "analytics"] },
   {
     title: "People",
-    keys: ["writers", "investors", "membership-reviews"],
+    // Both sides of the merge, kept: master's new "swa-approved" section stays, and
+    // "premium-professionals" stays gone — it moved to /finance with the rest of the payment
+    // surfaces, and there is no longer a tab of that key for groupNavItems to resolve.
+    keys: ["writers", "investors", "membership-reviews", "swa-approved"],
   },
   {
     title: "Content",
@@ -31,7 +34,7 @@ export const ADMIN_NAV_GROUPS = [
   },
   {
     title: "Communication",
-    keys: ["messages", "queries", "meetings"],
+    keys: ["messages", "queries", "meetings", "direct-email"],
   },
   {
     title: "Archive",

@@ -13,6 +13,7 @@ import { Link } from "react-router-dom";
 import { resolveMediaUrl } from "../../../utils/mediaUrl";
 import { getProfileCanonicalPath } from "../../../utils/profilePath";
 import SaveButton from "./SaveButton";
+import FeaturedIcon from "./FeaturedIcon";
 import {
   getCompletionLabel,
   getCraftRows,
@@ -100,7 +101,7 @@ const DetailSheet = ({
               </div>
             </div>
             <button type="button" className="fbp-sheet__close" onClick={onClose} aria-label="Close details">
-              <span className="fbp-icon" aria-hidden="true">close</span>
+              <FeaturedIcon name="close" />
             </button>
           </div>
           <div className="fbp-sheet__tabs" role="tablist">
@@ -170,7 +171,7 @@ const DetailSheet = ({
               <div className="fbp-sheet__label">WHY THIS IS FEATURED</div>
               {serviceRows.map((row) => (
                 <div key={row} className="fbp-sheet__service">
-                  <span className="fbp-icon fbp-sheet__service-icon" aria-hidden="true">check_circle</span>
+                  <FeaturedIcon name="checkCircle" className="fbp-sheet__service-icon" />
                   {row}
                 </div>
               ))}

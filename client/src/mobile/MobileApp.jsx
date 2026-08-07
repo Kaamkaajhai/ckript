@@ -1,8 +1,9 @@
 import { useContext, useEffect, useMemo, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { DynamicIslandProvider } from "./components/DynamicIsland";
+import ToastProvider from "./components/feedback/ToastProvider";
 import Skeleton from "./components/Skeleton";
-import Dashboard from "./screens/Dashboard";
+import MobileRoutes from "./routes/MobileRoutes";
 import useClock from "./hooks/useClock";
 import "./theme/tokens.css";
 import "./theme/base.css";
@@ -36,10 +37,12 @@ function firstName(user) {
   return String(source).trim().split(/\s+/)[0] || "";
 }
 
-export default function MobileApp() {
+export default function MobileApp({ preview = false, devScreen = null }) {
   const { user, logout } = useContext(AuthContext);
   const time = useClock();
-  const [booting, setBooting] = useState(true);
+  // A development harness is opened to be looked at, not to be introduced —
+  // it skips the boot skeleton so a resize/reload lands straight on the work.
+  const [booting, setBooting] = useState(!devScreen);
 
   const initials = useMemo(() => initialsFrom(user), [user]);
   const userName = useMemo(() => firstName(user), [user]);
@@ -47,9 +50,10 @@ export default function MobileApp() {
   // Brief boot skeleton — long enough to read as an intentional load, short
   // enough to never feel like a stall.
   useEffect(() => {
+    if (devScreen) return undefined;
     const t = setTimeout(() => setBooting(false), 650);
     return () => clearTimeout(t);
-  }, []);
+  }, [devScreen]);
 
   // Give the browser chrome (address bar / status bar) the app's dark nav
   // colour while mounted, then restore it on unmount for the desktop app.
@@ -67,13 +71,29 @@ export default function MobileApp() {
   return (
     <div className="ckm">
       <div className="ckm-root">
-        <DynamicIslandProvider>
-          {booting ? (
-            <Skeleton time={time} />
-          ) : (
-            <Dashboard time={time} initials={initials} userName={userName} onLogout={() => logout()} />
-          )}
-        </DynamicIslandProvider>
+        {/* Two transient-message surfaces coexist during migration, exactly as
+            ckm-sheet and ckm-bottom-sheet do: the Island is the dashboard's
+            verified Phase 0 baseline and serves `notify.desktopOnly()`, which
+            §2.8 removes by completion. New screens use ToastProvider. Phase 2
+            migrates the dashboard and retires the Island. No single screen may
+            use both — §13 forbids stacking transient surfaces. */}
+        <ToastProvider>
+          <DynamicIslandProvider>
+            {booting ? (
+              <Skeleton time={time} />
+            ) : (
+              <MobileRoutes
+                time={time}
+                initials={initials}
+                userName={userName}
+                onLogout={() => logout()}
+                user={user}
+                preview={preview}
+                devScreen={devScreen}
+              />
+            )}
+          </DynamicIslandProvider>
+        </ToastProvider>
       </div>
     </div>
   );

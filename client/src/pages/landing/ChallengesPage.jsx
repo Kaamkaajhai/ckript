@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { useAuthModal } from "../../context/AuthModalContext";
 import CountdownTimer from "../../components/competition/CountdownTimer";
+import CompetitionCard from "../../components/competition/CompetitionCard";
 import useReveal from "./_shared/useReveal";
 import useChallenge, { countdownFor } from "./_shared/useChallenge";
 import LandingNav from "./_shared/LandingNav";
@@ -152,6 +153,28 @@ export default function ChallengesPage() {
             )}
           </div>
         </div>
+
+        {/* Live challenge card added as requested */}
+        {competition ? (
+          <div 
+            className="ckc" 
+            style={{ 
+              marginTop: "40px", 
+              marginBottom: "40px", 
+              maxWidth: "380px", 
+              marginInline: "auto",
+              background: "transparent",
+              animation: "ckl-fadeUp 0.85s 0.15s cubic-bezier(0.2, 0.7, 0.2, 1) both"
+            }}
+          >
+            <CompetitionCard 
+              item={competition} 
+              variant={phase === "announced" ? "upcoming" : "live"} 
+              to={`/challenge/c/${competition.slug}`} 
+              serverNow={serverNow} 
+            />
+          </div>
+        ) : null}
 
         {/* ── How it works ──────────────────────────────────────────────────────────────────────*/}
         <section className="ckl-chalp-sec ckl-chalp-sec--alt" aria-labelledby="chalp-how">

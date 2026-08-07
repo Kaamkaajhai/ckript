@@ -55,6 +55,106 @@
   --ckm-display: "Spectral", Georgia, "Times New Roman", serif;
   --ckm-body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 
+  /* Spacing — 4px base (plan §7.3). Use these instead of literal pixels. */
+  --ckm-space-1: 4px;
+  --ckm-space-2: 8px;
+  --ckm-space-3: 12px;
+  --ckm-space-4: 16px;
+  --ckm-space-4-5: 18px; /* the dashboard's established page gutter */
+  --ckm-space-5: 20px;
+  --ckm-space-6: 24px;
+  --ckm-space-7: 32px;
+  --ckm-space-8: 40px;
+  --ckm-space-9: 48px;
+
+  /* Type ramp — size + matching line height. Inputs must never render below
+     --ckm-text-body, or mobile browsers zoom on focus. */
+  --ckm-text-micro: 11px;
+  --ckm-leading-micro: 14px;
+  --ckm-text-caption: 12px;
+  --ckm-leading-caption: 16px;
+  --ckm-text-support: 14px;
+  --ckm-leading-support: 20px;
+  --ckm-text-body: 16px;
+  --ckm-leading-body: 24px;
+  --ckm-text-card: 17px;
+  --ckm-leading-card: 22px;
+  --ckm-text-section: 20px;
+  --ckm-leading-section: 26px;
+  --ckm-text-title-sm: 22px;
+  --ckm-leading-title-sm: 28px;
+  --ckm-text-title: 28px;
+  --ckm-leading-title: 34px;
+
+  --ckm-weight-regular: 400;
+  --ckm-weight-medium: 500;
+  --ckm-weight-semibold: 600;
+  --ckm-weight-bold: 700;
+
+  /* Touch — Ckript targets 44px; WCAG 2.2's 24px is a floor, not the goal. */
+  --ckm-touch-target: 44px;
+  --ckm-touch-min: 44px;
+  --ckm-touch-floor: 24px;
+
+  /* Control geometry. A control may *look* smaller than --ckm-touch-target,
+     but its hit region never is: the small sizes below expand their touch
+     region with a transparent ::after (the web analogue of React Native's
+     HitRect/hitSlop) instead of shrinking the target. */
+  --ckm-control-h-sm: 36px;
+  --ckm-control-h-md: 44px;
+  --ckm-control-h-lg: 52px;
+  --ckm-control-pad-md: 18px;
+  --ckm-control-pad-lg: 22px;
+
+  /* Interaction states shared by every control. */
+  --ckm-press-scale: 0.97;
+  --ckm-disabled-opacity: 0.42;
+  --ckm-focus-ring: var(--ckm-accent);
+  --ckm-focus-ring-width: 2px;
+  --ckm-focus-ring-offset: 2px;
+
+  /* Ink-on-dark. Measured (WCAG 2.x relative luminance) against this palette:
+       #fff on --ckm-ink   -> ~16.6:1   ✓ AA/AAA body text
+       #fff on --ckm-red   -> ~5.05:1   ✓ AA body text (filled destructive)
+       #fff on --ckm-accent-> ~4.35:1   ✗ AA body text — the terracotta is a
+     focus/decoration colour, never a filled button behind small label text.
+     That is why `primary` is ink, not accent. */
+  --ckm-on-dark: #ffffff;
+
+  /* The same terracotta, darkened only as far as white 11–13px text needs to
+     clear 4.5:1 (measured ~4.72:1 vs ~4.35:1 for --ckm-accent). Use it wherever
+     small white text sits on brand colour — badges, counters, pills. */
+  --ckm-accent-strong: #c9482f;
+
+  /* The terracotta for text and icons on the app's DARK chrome (#0f0f0f — the
+     bottom tab bar). --ckm-accent measures ~4.35:1 there, so the selected tab's
+     11px label would have failed SC 1.4.3 by the same hair that
+     --ckm-accent-strong fixes in the other direction. Lightened only as far as
+     4.5:1 requires (measured ~5.09:1 on #0f0f0f). */
+  --ckm-accent-on-dark: #dd5a42;
+
+  /* Semantic *text* colours. --ckm-green / --ckm-gold / --ckm-red are the
+     colours of the *shapes* (dots, bars, icons, fills behind large glyphs).
+     None of them clears 4.5:1 as small text on its own soft background:
+       #2f8a52 on --ckm-green-bg -> ~3.88:1   ✗
+       #b7871f on --ckm-gold-bg  -> ~2.95:1   ✗
+       #c0453a on --ckm-red-bg   -> ~4.47:1   ✗ (fails by a hair)
+       #d14d37 on --ckm-accent-soft -> ~3.93:1 ✗
+     These are the same hues darkened only as far as 4.5:1 requires, measured
+     both ways so one token serves both uses:
+       on its soft background  ->  4.76 / 4.90 / 4.81 / 5.50 : 1
+       as a fill under #fff    ->  5.28 / 5.37 / 5.42 / 6.09 : 1
+     Use these for any status text, badge or pill; never the shape colours. */
+  --ckm-green-ink: #2a7a48;
+  --ckm-gold-ink: #8a6414;
+  --ckm-red-ink: #ba4034;
+  --ckm-accent-ink: #b03a22;
+
+  /* The lightest border that still identifies a control's boundary at the
+     3:1 required by WCAG 2.2 SC 1.4.11 on --ckm-bg (measured ~3.56:1).
+     --ckm-line* are decorative hairlines and must not be used for this. */
+  --ckm-control-border: #8d877e;
+
   /* Radii */
   --ckm-r-sm: 9px;
   --ckm-r-md: 12px;
@@ -67,11 +167,43 @@
   --ckm-shadow-pop: 0 16px 40px -10px rgba(0, 0, 0, 0.25);
   --ckm-shadow-sheet: 0 -20px 50px -12px rgba(0, 0, 0, 0.35);
 
-  /* Motion */
+  /* Elevation ramp — chrome sits flat; only overlays lift off the page. */
+  --ckm-shadow-chrome: 0 1px 0 rgba(28, 26, 23, 0.06);
+  --ckm-shadow-raised: 0 4px 14px -6px rgba(28, 26, 23, 0.18);
+
+  /* Motion — feedback stays under 200ms, screen/sheet motion under 350ms.
+     Every consumer must still honour prefers-reduced-motion (base.css). */
   --ckm-ease: cubic-bezier(0.32, 0.72, 0, 1);
+  --ckm-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ckm-duration-press: 120ms;
+  --ckm-duration-feedback: 180ms;
+  --ckm-duration-sheet: 280ms;
+  --ckm-duration-screen: 320ms;
 
   /* Layout — safe areas keep the app clear of the notch / home indicator */
   --ckm-safe-top: env(safe-area-inset-top, 0px);
   --ckm-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --ckm-safe-left: env(safe-area-inset-left, 0px);
+  --ckm-safe-right: env(safe-area-inset-right, 0px);
   --ckm-nav-h: 76px;
+
+  /* Chrome heights — screens reserve space with these, never with magic
+     numbers copied from a component's own padding. */
+  --ckm-app-bar-h: 56px;
+  --ckm-tabs-h: 52px;
+  --ckm-bottom-nav-h: var(--ckm-nav-h);
+
+  /* Z-index layer contract (plan §13). One scale, no ad-hoc values: a screen
+     that needs to sit above chrome is a design decision, not a `z-index: 9999`.
+     `.ckm` itself is z-index 1000 in the desktop document; these are local. */
+  --ckm-z-base: 0;
+  --ckm-z-raised: 1;
+  --ckm-z-sticky: 5;
+  --ckm-z-chrome: 10;
+  --ckm-z-menu: 20;
+  --ckm-z-scrim: 30;
+  --ckm-z-sheet: 40;
+  --ckm-z-dialog: 50;
+  --ckm-z-toast: 60;
+  --ckm-z-alert: 70;
 }
