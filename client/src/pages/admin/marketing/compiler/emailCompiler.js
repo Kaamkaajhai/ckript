@@ -156,7 +156,9 @@ const compileHeroImage = (block) => {
   return `
 <tr>
   <td align="center" style="padding: 0;">
-    <img src="${block.imageUrl}" alt="Hero Image" width="640" style="width:100%; max-width:640px; height:auto; display:block; border:0;" />
+    <a href="https://ckript.com" target="_blank" style="text-decoration:none; display:block;">
+      <img src="${block.imageUrl}" alt="Hero Image" width="640" style="width:100%; max-width:640px; height:auto; display:block; border:0;" />
+    </a>
   </td>
 </tr>
 `;
@@ -174,12 +176,35 @@ const compileHeading = (block) => {
 `;
 };
 
+const escapeHTML = (str) => {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+};
+
 const compileText = (block) => {
   const align = block.align || "left";
+  
+  // Split by double newline (or more) into paragraphs for professional spacing
+  const paragraphs = escapeHTML(block.content || "").split(/\n\s*\n/);
+  
+  const formattedContent = paragraphs
+    .filter(p => p.trim() !== '')
+    .map(p => {
+      // Single newlines become <br /> and double spaces are preserved
+      const pContent = p.replace(/\n/g, "<br />").replace(/  /g, ' &nbsp;');
+      return `<p style="margin: 0 0 16px 0;">${pContent}</p>`;
+    })
+    .join('');
+
   return `
 <tr>
   <td class="px-mobile" align="${align}" style="padding: 12px 40px; text-align: ${align}; font-size: 16px; line-height: 1.6; color: #3f3f46;">
-    ${block.content}
+    ${formattedContent}
   </td>
 </tr>
 `;
