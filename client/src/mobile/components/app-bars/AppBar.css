@@ -1,0 +1,165 @@
+/*
+ * ckm-appbar — the role-aware top app bar for `standard` screens (plan §8.2).
+ *
+ * Visually this is the Phase 0 top bar, so adopting it is not a redesign. What
+ * changed are the measurements the old bar got wrong: the bell was a 38px
+ * target and the avatar 34px (the Ckript standard in §7.4 is 44), and the badge
+ * text was 9.5px (§7.3's floor is 11).
+ */
+
+.ckm .ckm-appbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 14px 12px;
+  background: var(--ckm-bg);
+  flex: none;
+}
+
+.ckm .ckm-appbar__home {
+  flex: none;
+  display: flex;
+  align-items: center;
+  /* The logo is 26px tall; the link is padded out to a 44px target rather than
+     being a 26px tap area in the corner of the screen. */
+  min-height: 44px;
+  padding: 0 4px;
+  margin-left: -4px;
+  border-radius: 10px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ckm .ckm-appbar__logo {
+  height: 26px;
+  width: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.ckm .ckm-appbar__search {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  /* 44px, not the old 38px: it is the largest control in the bar and the one a
+     thumb reaches for most often. */
+  height: 44px;
+  padding: 0 12px;
+  background: var(--ckm-bg-fill);
+  border: 1px solid var(--ckm-line);
+  border-radius: 12px;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.ckm .ckm-appbar__search:active {
+  background: var(--ckm-bg);
+  border-color: var(--ckm-muted-2);
+}
+
+.ckm .ckm-appbar__search-label {
+  /* The old bar drew this at 12.5px in a literal #b3ac9f — roughly 2.2:1 on the
+     fill, a straight SC 1.4.3 failure for the only text that says what the
+     control does. --ckm-text-3 is the muted token that still clears 4.5:1 on
+     --ckm-bg-fill (measured ~5.3:1 in the Phase 1 collection sweep). */
+  font: 400 12px/1 var(--ckm-body);
+  color: var(--ckm-text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ckm .ckm-appbar__actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ckm .ckm-appbar__action {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  border: none;
+  background: transparent;
+  color: var(--ckm-text-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: none;
+  border-radius: 50%;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.ckm .ckm-appbar__action:active {
+  background: var(--ckm-bg-fill);
+}
+
+.ckm .ckm-appbar__action.is-active {
+  color: var(--ckm-accent);
+}
+
+.ckm .ckm-appbar__badge {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  background: var(--ckm-accent-strong);
+  color: #fff;
+  font: 700 11px/18px var(--ckm-body);
+  text-align: center;
+  border: 1.5px solid var(--ckm-bg);
+}
+
+.ckm .ckm-appbar__avatar {
+  /* The drawn circle stays 34px — the bar's proportions depend on it — while
+     the ::after below grows the TARGET to 44px without moving anything. */
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--ckm-ink);
+  color: #fff;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 600 12px/1 var(--ckm-body);
+  cursor: pointer;
+  flex: none;
+  margin-left: 3px;
+  -webkit-tap-highlight-color: transparent;
+  transition: outline-color 0.15s ease;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+.ckm .ckm-appbar__avatar::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+}
+
+.ckm .ckm-appbar__avatar.is-active {
+  outline-color: var(--ckm-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ckm .ckm-appbar__search,
+  .ckm .ckm-appbar__action,
+  .ckm .ckm-appbar__avatar {
+    transition: none;
+  }
+}

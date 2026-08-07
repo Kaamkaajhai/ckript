@@ -1,0 +1,67 @@
+/*
+ * Ckript Mobile — offline banner (prefix: ckm-offline)
+ * ------------------------------------------------------------------
+ * In the shell's flow rather than overlaid: it pushes the screen down instead
+ * of covering its first row, so nothing is hidden by a condition the user did
+ * not ask for. The empty region collapses to nothing when connectivity is fine.
+ */
+
+.ckm .ckm-offline {
+  flex: none;
+}
+
+.ckm .ckm-offline__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-3);
+  padding: var(--ckm-space-3) var(--ckm-space-4);
+  border-bottom: 1px solid;
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+}
+
+.ckm .ckm-offline__icon {
+  display: flex;
+  flex: none;
+}
+
+.ckm .ckm-offline__text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* Offline is a warning, not an error: nothing has failed yet, and the red ramp
+   is reserved for something that actually went wrong. */
+.ckm .ckm-offline__bar--offline {
+  background: var(--ckm-gold-bg);
+  border-bottom-color: var(--ckm-gold);
+  color: var(--ckm-gold-ink);
+}
+
+.ckm .ckm-offline__bar--recovered {
+  background: var(--ckm-green-bg);
+  border-bottom-color: var(--ckm-green);
+  color: var(--ckm-green-ink);
+}
+
+.ckm .ckm-offline__action {
+  flex: none;
+  margin-left: auto;
+  min-height: var(--ckm-touch-target);
+  min-width: var(--ckm-touch-target);
+  padding: 0 var(--ckm-space-3);
+  border: 1px solid var(--ckm-green);
+  border-radius: var(--ckm-r-sm);
+  background: transparent;
+  color: var(--ckm-green-ink);
+  font: var(--ckm-weight-semibold) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+  cursor: pointer;
+}
+
+.ckm .ckm-offline__action:active {
+  background: rgba(42, 122, 72, 0.12);
+}
+
+.ckm .ckm-offline__action:focus-visible {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: var(--ckm-focus-ring-offset);
+}

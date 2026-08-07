@@ -126,6 +126,13 @@
      small white text sits on brand colour — badges, counters, pills. */
   --ckm-accent-strong: #c9482f;
 
+  /* The terracotta for text and icons on the app's DARK chrome (#0f0f0f — the
+     bottom tab bar). --ckm-accent measures ~4.35:1 there, so the selected tab's
+     11px label would have failed SC 1.4.3 by the same hair that
+     --ckm-accent-strong fixes in the other direction. Lightened only as far as
+     4.5:1 requires (measured ~5.09:1 on #0f0f0f). */
+  --ckm-accent-on-dark: #dd5a42;
+
   /* Semantic *text* colours. --ckm-green / --ckm-gold / --ckm-red are the
      colours of the *shapes* (dots, bars, icons, fills behind large glyphs).
      None of them clears 4.5:1 as small text on its own soft background:

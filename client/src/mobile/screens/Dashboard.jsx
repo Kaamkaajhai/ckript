@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import TopBar from "../components/TopBar";
+import AppBar, { AppBarAction, AppBarAvatar } from "../components/app-bars/AppBar";
 import SectionTabs from "../components/SectionTabs";
-import BottomNav from "../components/BottomNav";
+import NavBar from "../components/navigation/NavBar";
 import MobileShell from "../shell/MobileShell";
 import { MOBILE_SHELL_MODE } from "../shell/mobileShellModes";
 import { MobileRoutePending } from "../shell/MobileRouteBoundary";
@@ -22,9 +22,19 @@ import { useDashboardData } from "../hooks/useDashboardData";
 /*
  * Dashboard — the only fully-built mobile screen. Owns the active section,
  * every overlay's open state and the notifications model (so the bell badge
- * stays truthful). Anything not yet built on mobile — search, create, upload,
- * opening a project, the other bottom-nav tabs — is funnelled to the Dynamic
- * Island as a "use desktop" hint, so there are no dead ends.
+ * stays truthful).
+ *
+ * NAVIGATION IS REAL (2026-08-07, plan §8.2). The app bar and tab bar now come
+ * from `AppBar`/`NavBar`, which read the viewer's audience preset and take the
+ * current tab from the URL. Their destinations are ordinary links, so tapping
+ * Messages goes to /messages — where the route policy (§5.1) deliberately
+ * serves the existing responsive desktop page until that screen is built. That
+ * is the sanctioned migration fallback, and it is a better answer than the
+ * "use desktop" hint it replaces, which was a dead end on a real destination.
+ *
+ * What is still funnelled to the Dynamic Island is the in-page work that has no
+ * route of its own yet — filters, sharing, opening a project, collaborations.
+ * Phase 2 removes those.
  */
 export default function Dashboard({ initials, userName, onLogout, user, preview = false }) {
   const island = useDynamicIsland();
@@ -63,13 +73,24 @@ export default function Dashboard({ initials, userName, onLogout, user, preview 
       scrollClassName="ckm-dashboard__scroll"
       appBar={(
         <>
-          <TopBar
-            initials={initials}
-            unread={unread}
-            avatarActive={showAccount}
-            onSearch={() => desktopOnly("Search")}
-            onBell={() => setShowNotifications(true)}
-            onAvatar={() => setShowAccount(true)}
+          <AppBar
+            user={user}
+            actions={(
+              <>
+                <AppBarAction
+                  glyph="notifications"
+                  label="Notifications"
+                  badge={unread}
+                  active={showNotifications}
+                  onClick={() => setShowNotifications(true)}
+                />
+                <AppBarAvatar
+                  initials={initials}
+                  active={showAccount}
+                  onClick={() => setShowAccount(true)}
+                />
+              </>
+            )}
           />
 
           <SectionTabs active={tab} onChange={(newTab) => {
@@ -81,18 +102,7 @@ export default function Dashboard({ initials, userName, onLogout, user, preview 
           }} />
         </>
       )}
-      bottomNav={(
-        <BottomNav
-          active="dashboard"
-          onSelect={(item) => {
-            if (item.id === "challenge") {
-              navigate("/challenge/c/the-final-draft");
-            } else if (!item.implemented) {
-              desktopOnly(item.label);
-            }
-          }}
-        />
-      )}
+      bottomNav={<NavBar user={user} />}
       overlays={(
         <>
           <AiDetailSheet review={aiReview} open={!!aiReview} onClose={() => setAiReview(null)} />

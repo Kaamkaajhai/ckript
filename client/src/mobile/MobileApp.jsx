@@ -1,6 +1,7 @@
 import { useContext, useEffect, useMemo, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import { DynamicIslandProvider } from "./components/DynamicIsland";
+import ToastProvider from "./components/feedback/ToastProvider";
 import Skeleton from "./components/Skeleton";
 import MobileRoutes from "./routes/MobileRoutes";
 import useClock from "./hooks/useClock";
@@ -70,21 +71,29 @@ export default function MobileApp({ preview = false, devScreen = null }) {
   return (
     <div className="ckm">
       <div className="ckm-root">
-        <DynamicIslandProvider>
-          {booting ? (
-            <Skeleton time={time} />
-          ) : (
-            <MobileRoutes
-              time={time}
-              initials={initials}
-              userName={userName}
-              onLogout={() => logout()}
-              user={user}
-              preview={preview}
-              devScreen={devScreen}
-            />
-          )}
-        </DynamicIslandProvider>
+        {/* Two transient-message surfaces coexist during migration, exactly as
+            ckm-sheet and ckm-bottom-sheet do: the Island is the dashboard's
+            verified Phase 0 baseline and serves `notify.desktopOnly()`, which
+            §2.8 removes by completion. New screens use ToastProvider. Phase 2
+            migrates the dashboard and retires the Island. No single screen may
+            use both — §13 forbids stacking transient surfaces. */}
+        <ToastProvider>
+          <DynamicIslandProvider>
+            {booting ? (
+              <Skeleton time={time} />
+            ) : (
+              <MobileRoutes
+                time={time}
+                initials={initials}
+                userName={userName}
+                onLogout={() => logout()}
+                user={user}
+                preview={preview}
+                devScreen={devScreen}
+              />
+            )}
+          </DynamicIslandProvider>
+        </ToastProvider>
       </div>
     </div>
   );

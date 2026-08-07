@@ -1,0 +1,58 @@
+/*
+ * Ckript Mobile — skeleton primitives (prefix: ckm-skel, second owner)
+ * ------------------------------------------------------------------
+ * `components/Skeleton.css` owns the dashboard's boot skeleton and its
+ * `__topbar` / `__tabs` / `__block` parts. This file owns the composable
+ * shapes and never touches those names, so two owner files share one prefix
+ * without either being able to restyle the other (the ckm-chip arrangement).
+ *
+ * `ckm-pulse` is declared in theme/base.css, where the reduced-motion block
+ * already stops it — a placeholder must not throb at someone with a vestibular
+ * disorder while they wait.
+ */
+
+.ckm .ckm-skel__group {
+  display: block;
+}
+
+.ckm .ckm-skel__shapes {
+  display: block;
+}
+
+.ckm .ckm-skel__shape {
+  display: block;
+  background: var(--ckm-track);
+  animation: ckm-pulse 1.6s ease-in-out infinite;
+}
+
+.ckm .ckm-skel__shape--circle {
+  flex: none;
+}
+
+.ckm .ckm-skel__lines {
+  display: flex;
+  flex-direction: column;
+}
+
+.ckm .ckm-skel__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-4);
+}
+
+/* Deliberately the geometry of ListRow — a placeholder that resolves into a
+   differently-sized row is a layout shift dressed up as a loading state. */
+.ckm .ckm-skel__row {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-3);
+  min-height: var(--ckm-touch-target);
+}
+
+.ckm .ckm-skel__row-text {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+}

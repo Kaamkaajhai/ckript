@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import MobileShell from "../shell/MobileShell";
 import { MOBILE_SHELL_MODE } from "../shell/mobileShellModes";
 import PageHeader from "../components/app-bars/PageHeader";
+import AppBar, { AppBarAction, AppBarAvatar } from "../components/app-bars/AppBar";
+import NavBar from "../components/navigation/NavBar";
 import Button from "../components/buttons/Button";
 import IconButton from "../components/buttons/IconButton";
 import TextField from "../components/forms/TextField";
@@ -28,6 +30,10 @@ import Badge from "../components/badges/Badge";
 import Chip, { ChipRow } from "../components/chips/Chip";
 import SegmentedControl from "../components/tabs/SegmentedControl";
 import Tabs, { TabPanel } from "../components/tabs/Tabs";
+import EmptyState from "../components/EmptyState";
+import InlineMessage from "../components/feedback/InlineMessage";
+import SkeletonGroup, { SkeletonRows, SkeletonText } from "../components/feedback/Skeletons";
+import { useToast } from "../components/feedback/toastContext";
 import Sheet from "../components/overlays/Sheet";
 import Dialog from "../components/overlays/Dialog";
 import ConfirmDialog from "../components/overlays/ConfirmDialog";
@@ -64,6 +70,18 @@ function Row({ title, note, children }) {
     </section>
   );
 }
+
+/*
+ * One deliberate account per audience. The chrome reads the live AuthContext by
+ * default, so without these the gallery could only ever show the signed-in
+ * developer's own bar — and the whole point of the specimen is to compare four.
+ */
+const AUDIENCE_SPECIMENS = [
+  { label: "Writer", user: { role: "writer", _id: "u1", name: "Ada Lovelace", username: "ada" } },
+  { label: "Industry", user: { role: "producer", _id: "u2", name: "Otto Preminger", username: "otto" } },
+  { label: "Reader", user: { role: "reader", _id: "u3", name: "Rae Ito" } },
+  { label: "Admin", user: { role: "admin", _id: "u4", name: "Sam Ops", username: "samops" } },
+];
 
 const GENRES = ["Drama", "Thriller", "Comedy", "Documentary"];
 const FORMATS = [
@@ -110,6 +128,8 @@ export default function PrimitiveGallery() {
   const [confirm, setConfirm] = useState(null);
   const [confirmPending, setConfirmPending] = useState(false);
   const [sheetNote, setSheetNote] = useState("");
+  const [undone, setUndone] = useState(false);
+  const toast = useToast();
 
   useEffect(() => {
     const onResize = () => setWidth(window.innerWidth);
@@ -690,6 +710,148 @@ export default function PrimitiveGallery() {
             <Button fullWidth variant="secondary" onClick={() => setOverlay("actions")}>
               Open, then tap Delete
             </Button>
+          </div>
+        </Row>
+
+        <Row
+          title="Toast"
+          note="One at a time; the rest queue. Watch the last two: an error and anything carrying an action refuse to auto-dismiss, because when the surface goes so does the chance to read or act on it."
+        >
+          <div className="ckm-gallery__stack">
+            <Button fullWidth variant="secondary" onClick={() => toast.success("Draft saved")}>
+              Success — fades after 5s
+            </Button>
+            <Button
+              fullWidth
+              variant="secondary"
+              onClick={() => toast.info("Two more scripts to review", "You have until Friday to submit your notes.")}
+            >
+              Info with description — fades after 7s
+            </Button>
+            <Button fullWidth variant="secondary" onClick={() => toast.warning("Your plan expires in 3 days")}>
+              Warning
+            </Button>
+            <Button
+              fullWidth
+              variant="secondary"
+              onClick={() => toast.error("Upload failed", "The file was larger than 25 MB.")}
+            >
+              Error — stays until dismissed, announced assertively
+            </Button>
+            <Button
+              fullWidth
+              variant="secondary"
+              onClick={() => toast.show({
+                tone: "success",
+                title: "Project deleted",
+                action: { label: "Undo", onAction: () => setUndone(true) },
+              })}
+            >
+              With an action — stays until dismissed
+            </Button>
+            <Button
+              fullWidth
+              variant="secondary"
+              onClick={() => {
+                toast.success("First");
+                toast.success("Second");
+                toast.error("Third — an error queued behind two acknowledgements");
+              }}
+            >
+              Three at once — queue order
+            </Button>
+            {undone && <p className="ckm-gallery__note" role="status">Undo ran.</p>}
+          </div>
+        </Row>
+
+        <Row
+          title="Inline message"
+          note="The durable half of the pair. A toast says something happened; this says something is still true, so it does not disappear — which is why a toast is never the only place an error is reported."
+        >
+          <div className="ckm-gallery__stack">
+            <InlineMessage tone="error" title="We could not save your changes" onRetry={() => {}}>
+              The server did not respond. Your draft is still on this device.
+            </InlineMessage>
+            <InlineMessage tone="warning" title="This script has no logline">
+              Producers filter by logline, so this one will be missed by most searches.
+            </InlineMessage>
+            <InlineMessage tone="success" title="Payment received" />
+            <InlineMessage tone="info" title="Reviews are hidden until you publish" />
+            <InlineMessage tone="error" title={LONG_LABEL}>
+              A message long enough to wrap on every supported width, to prove the icon column
+              stays aligned with the first line rather than centring on the block.
+            </InlineMessage>
+          </div>
+        </Row>
+
+        <Row
+          title="Failure panel and empty state"
+          note="Same geometry, two different facts about the world: this region failed, versus this region has nothing in it yet. Only one of them is worth a retry."
+        >
+          <div className="ckm-gallery__stack">
+            <InlineMessage
+              variant="panel"
+              tone="error"
+              title="We could not load your projects"
+              onRetry={() => {}}
+            >
+              Check your connection and try again.
+            </InlineMessage>
+            <EmptyState
+              icon="draw"
+              titleAs="h3"
+              title="No projects yet"
+              body="Your scripts will appear here once you create or upload one."
+              actions={<Button icon="add">Create a project</Button>}
+            />
+          </div>
+        </Row>
+
+        <Row
+          title="Skeletons"
+          note="One status message for the whole group — 'Loading your projects' — and every shape hidden from assistive technology. A count is deliberately not announced: it is a guess about layout."
+        >
+          <div className="ckm-gallery__stack">
+            <SkeletonGroup label="Loading your projects">
+              <SkeletonRows rows={3} />
+            </SkeletonGroup>
+            <SkeletonGroup label="Loading the logline">
+              <SkeletonText lines={3} />
+            </SkeletonGroup>
+          </div>
+        </Row>
+
+        <Row
+          title="Role-aware chrome — the four audiences"
+          note="Destinations are NOT declared in mobile code: they come from layouts/app-shell/navigation/presets, the same model the desktop rail reads, so a destination cannot exist in one bar and not the other. The selected tab comes from the URL, never a prop — these specimens are rendered outside their own routes, so none of them shows a selected tab, which is the correct answer for a URL that belongs to no tab."
+        >
+          <div className="ckm-gallery__stack">
+            {AUDIENCE_SPECIMENS.map(({ label, user }) => (
+              <div className="ckm-gallery__chrome" key={label}>
+                <p className="ckm-gallery__note">{label}</p>
+                <AppBar
+                  user={user}
+                  actions={(
+                    <>
+                      <AppBarAction glyph="notifications" label="Notifications" badge={3} />
+                      <AppBarAvatar initials="AL" />
+                    </>
+                  )}
+                />
+                <NavBar user={user} msgCount={label === "Writer" ? 7 : 0} />
+              </div>
+            ))}
+          </div>
+        </Row>
+
+        <Row
+          title="Offline"
+          note="Owned by the shell, so there is no button for it here. Toggle DevTools → Network → Offline: a gold bar appears under the app bar and pushes the screen down rather than covering it, then turns green with a retry when the device reports a network again. The copy says 'appear to be offline' and 'your device is back online' on purpose — navigator.onLine speaks for the network interface, not for whether Ckript can be reached."
+        >
+          <div className="ckm-gallery__stack">
+            <p className="ckm-gallery__note">
+              The banner renders above this scroll surface, not inside it.
+            </p>
           </div>
         </Row>
       </div>

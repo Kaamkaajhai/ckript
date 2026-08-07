@@ -29,10 +29,31 @@ import { useEffect } from "react";
  * Marks this module did not make are never touched, and marks it did make are
  * always removed by it, so an element that was inert for its own unrelated
  * reasons keeps its attribute.
+ *
+ * ---------------------------------------------------------------------------
+ * The one exemption: app-level live regions
+ * ---------------------------------------------------------------------------
+ * `inert` removes a subtree from the accessibility tree, and a live region that
+ * is not in the accessibility tree cannot announce. So the toast layer — which
+ * is a sibling of the shell, and would otherwise be swept up by this walk — must
+ * be left live, or a message raised while a dialog is open would be delivered to
+ * nobody: not shown to assistive technology, not dismissible, not announced.
+ *
+ * The exemption is deliberately narrow and opt-in by attribute. It is a real
+ * trade: an action inside an exempt region stays clickable while a modal is
+ * open, which is not what "modal" promises. That is accepted because the
+ * alternative is an announcement the user can never receive, and it is bounded
+ * by two rules the toast enforces for itself — at most one action, and a toast
+ * is never the only place a message exists (plan §13, and the APG's warning
+ * against alerts that vanish on their own).
  */
 
 const stack = [];
 const marked = new Set();
+
+/* Opt-in, by attribute, so the exemption is visible in the DOM of whatever
+   claims it rather than hidden in a selector list that grows quietly. */
+const LIVE_REGION_SELECTOR = "[data-ckm-live-region]";
 
 function recompute(boundarySelector) {
   for (const element of marked) element.removeAttribute("inert");
@@ -51,6 +72,9 @@ function recompute(boundarySelector) {
       if (sibling === current || sibling.nodeType !== 1) continue;
       // Already inert for someone else's reasons — leave it entirely alone.
       if (sibling.hasAttribute("inert")) continue;
+      // An app-level live region stays in the accessibility tree, or it cannot
+      // announce at all. See the block comment above.
+      if (sibling.matches?.(LIVE_REGION_SELECTOR)) continue;
       sibling.setAttribute("inert", "");
       marked.add(sibling);
     }

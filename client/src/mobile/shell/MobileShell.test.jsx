@@ -70,6 +70,31 @@ describe("MobileShell", () => {
     expect(el.querySelector(".ckm-shell").dataset.shellMode).toBe("standard");
   });
 
+  /*
+   * Connectivity is an app-wide condition, so it is inherited by adopting the
+   * shell rather than remembered by each screen — the contract §5.6 already
+   * uses for scroll-depth analytics. The region is empty while online, but it
+   * must exist: a live region created at the moment its content arrives is
+   * routinely missed by screen readers.
+   */
+  it("gives every mode a connectivity region, above the scroll body", () => {
+    for (const mode of MOBILE_SHELL_MODES) {
+      const el = render(<MobileShell mode={mode} {...chrome}>body</MobileShell>);
+      const region = el.querySelector(".ckm-offline");
+
+      expect(region).toBeTruthy();
+      expect(region.getAttribute("role")).toBe("status");
+      expect(region.textContent).toBe("");
+      expect(region.compareDocumentPosition(el.querySelector("main")))
+        .toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+
+      act(() => root.unmount());
+      container.remove();
+      root = null;
+      container = null;
+    }
+  });
+
   it("appends adopting screen classes so a migrated screen keeps its selectors", () => {
     const el = render(
       <MobileShell className="ckm-dashboard" scrollClassName="ckm-dashboard__scroll" {...chrome}>
