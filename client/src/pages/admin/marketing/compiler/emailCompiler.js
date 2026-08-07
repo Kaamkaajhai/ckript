@@ -156,7 +156,9 @@ const compileHeroImage = (block) => {
   return `
 <tr>
   <td align="center" style="padding: 0;">
-    <img src="${block.imageUrl}" alt="Hero Image" width="640" style="width:100%; max-width:640px; height:auto; display:block; border:0;" />
+    <a href="https://ckript.com" target="_blank" style="text-decoration:none; display:block;">
+      <img src="${block.imageUrl}" alt="Hero Image" width="640" style="width:100%; max-width:640px; height:auto; display:block; border:0;" />
+    </a>
   </td>
 </tr>
 `;
