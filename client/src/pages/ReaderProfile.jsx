@@ -5,6 +5,7 @@ import { BookOpen, Heart, MessageSquare, Pencil, ArrowLeft, X, Camera, Save, Loa
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
+import { safeMediaSrc } from "../utils/safeMediaSrc";
 import ProjectCard from "../components/ProjectCard";
 import ReviewCard from "../components/ReviewCard";
 import SocialShareButton from "../components/SocialShareButton";
@@ -21,27 +22,14 @@ const normalizePublicShareUrl = (rawUrl = "", fallbackUrl = "") => {
     .replace(/\/script\/([^/?#]+)/i, "/share/project/$1");
 };
 
-const URL_SCHEME = /^[a-z][a-z0-9+.-]*:/;
-const FETCHABLE_IMAGE_SCHEME = /^(?:https?:|blob:|data:image\/)/;
-
 /**
- * An avatar URL that a browser will fetch as an image, or "".
+ * An avatar URL a browser will fetch as an image, or "".
  *
- * profileImage is stored text: it reaches this page from another account's profile, so the scheme is
- * only ever as trustworthy as whoever typed it. The probe is checked with every character at or below
- * a space removed, because the URL parser strips those too — otherwise "java\tscript:" reads as
- * scheme-less. A URL that passes is returned byte-for-byte, never a normalised rewrite.
+ * profileImage is stored text that reaches this page from another account's profile, so the scheme is
+ * only ever as trustworthy as whoever typed it. An avatar is always a still, so no other data: media
+ * type is accepted here — the shared helper defaults to images alone.
  */
-const safeImageSrc = (url) => {
-  if (typeof url !== "string") return "";
-  const probe = Array.from(url)
-    .filter((char) => char.charCodeAt(0) > 0x20)
-    .join("")
-    .toLowerCase();
-  // No scheme of its own (relative or protocol-relative), so it inherits the page's and cannot be javascript:.
-  if (!URL_SCHEME.test(probe)) return url;
-  return FETCHABLE_IMAGE_SCHEME.test(probe) ? url : "";
-};
+const safeImageSrc = (url) => safeMediaSrc(url);
 
 /* ── Edit Profile Modal ─────────────────────────────── */
 const EditProfileModal = ({ profile, onClose, onSaved }) => {
