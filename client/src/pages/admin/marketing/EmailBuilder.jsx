@@ -1,9 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { Mail, Type, Image as ImageIcon, Link as LinkIcon, AlignLeft } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { Mail, Type, Image as ImageIcon, Link as LinkIcon, AlignLeft, Upload } from 'lucide-react';
+import { adminApi } from "../../AdminDashboard";
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 export default function EmailBuilder({ blocks, setBlocks }) {
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const fileInputRef = useRef(null);
   // If no blocks are provided, initialize with a beautiful default template
   useEffect(() => {
     if (!blocks || blocks.length === 0) {
@@ -20,6 +23,31 @@ export default function EmailBuilder({ blocks, setBlocks }) {
   // Helper to update a specific block type
   const updateBlock = (type, key, value) => {
     setBlocks(prev => prev.map(b => b.type === type ? { ...b, [key]: value } : b));
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setUploadingImage(true);
+      const formData = new FormData();
+      formData.append("file", file);
+      
+      const { data } = await adminApi.post("/messages/upload", formData);
+      if (data?.fileUrl) {
+        updateBlock("HeroImage", "imageUrl", data.fileUrl);
+      }
+    } catch (error) {
+      console.error("Image upload error:", error);
+      alert(error?.response?.data?.message || "Failed to upload image.");
+    } finally {
+      setUploadingImage(false);
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
   };
 
   // Find blocks for binding to form inputs
@@ -97,13 +125,31 @@ export default function EmailBuilder({ blocks, setBlocks }) {
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1.5 uppercase tracking-wider">Image URL</label>
-              <input 
-                type="url" 
-                value={heroBlock.imageUrl || ''} 
-                onChange={e => updateBlock('HeroImage', 'imageUrl', e.target.value)}
-                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all outline-none"
-                placeholder="https://..."
-              />
+              <div className="flex gap-2">
+                <input 
+                  type="url" 
+                  value={heroBlock.imageUrl || ''} 
+                  onChange={e => updateBlock('HeroImage', 'imageUrl', e.target.value)}
+                  className="flex-1 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all outline-none"
+                  placeholder="https://..."
+                />
+                <button
+                  type="button"
+                  disabled={uploadingImage}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="px-4 py-2.5 bg-blue-50 text-blue-600 border border-blue-100 hover:bg-blue-100 hover:border-blue-200 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center disabled:opacity-50"
+                  title="Upload Image"
+                >
+                  <Upload size={18} />
+                </button>
+                <input 
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageUpload}
+                  accept="image/*"
+                  className="hidden"
+                />
+              </div>
             </div>
           </div>
 
