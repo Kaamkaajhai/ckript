@@ -1,0 +1,95 @@
+/*
+ * Ckript Mobile — overlay base (prefix: ckm-overlay)
+ * ------------------------------------------------------------------
+ * Scoped under `.ckm` (plan §7.1). The layer, the scrim, and the three
+ * placements every modal surface uses. Sheet / Dialog / ConfirmDialog /
+ * ActionSheet each style their own contents and inherit all of this.
+ *
+ * `position: absolute` and not `fixed`: the layer belongs to `.ckm-root`, the
+ * 520px-max phone frame, so on a tablet the overlay covers the app rather than
+ * the whole browser window. That is the same reason a native <dialog> in the
+ * top layer was not used — see the note at the top of Overlay.jsx.
+ */
+
+.ckm .ckm-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: var(--ckm-z-dialog);
+  display: flex;
+  flex-direction: column;
+}
+
+.ckm .ckm-overlay__scrim {
+  position: absolute;
+  inset: 0;
+  z-index: var(--ckm-z-scrim);
+  background: rgba(20, 18, 15, 0.46);
+}
+
+.ckm .ckm-overlay__surface {
+  position: relative;
+  z-index: var(--ckm-z-sheet);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: var(--ckm-bg);
+  color: var(--ckm-text);
+  will-change: transform;
+}
+
+/* The surface takes focus itself when it holds nothing tabbable. That is a
+   programmatic landing, not a Tab stop, so it must not paint a focus ring —
+   :focus-visible is false for a scripted focus() in every current engine, but
+   being explicit here keeps a future browser heuristic from drawing one. */
+.ckm .ckm-overlay__surface:focus {
+  outline: none;
+}
+
+/* --- Placement: bottom (sheets, action sheets) --------------------------- */
+
+.ckm .ckm-overlay--bottom {
+  justify-content: flex-end;
+}
+
+.ckm .ckm-overlay--bottom .ckm-overlay__surface {
+  border-radius: var(--ckm-r-sheet) var(--ckm-r-sheet) 0 0;
+  box-shadow: var(--ckm-shadow-sheet);
+  /* Never taller than the frame minus a thumb's worth of scrim: a sheet that
+     reaches the top edge reads as a screen, and the user loses the visual cue
+     that there is something behind it to go back to. */
+  max-height: calc(100% - var(--ckm-space-9));
+}
+
+/* --- Placement: center (confirm dialogs) --------------------------------- */
+
+.ckm .ckm-overlay--center {
+  justify-content: center;
+  align-items: center;
+  padding: var(--ckm-space-5);
+  padding-left: max(var(--ckm-space-5), var(--ckm-safe-left));
+  padding-right: max(var(--ckm-space-5), var(--ckm-safe-right));
+}
+
+.ckm .ckm-overlay--center .ckm-overlay__surface {
+  width: 100%;
+  max-width: 360px;
+  max-height: calc(100% - var(--ckm-space-8));
+  border-radius: var(--ckm-r-xl);
+  box-shadow: var(--ckm-shadow-pop);
+}
+
+/* --- Placement: full (full-screen dialogs) ------------------------------- */
+
+.ckm .ckm-overlay--full .ckm-overlay__surface {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  border-radius: 0;
+}
+
+/* A full-screen dialog is opaque and covers everything, so a scrim under it is
+   invisible cost — and on a low-end phone it is a second full-screen composited
+   layer animating at the same time as the first. */
+.ckm .ckm-overlay--full .ckm-overlay__scrim {
+  background: none;
+}

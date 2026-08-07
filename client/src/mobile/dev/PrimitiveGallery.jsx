@@ -28,6 +28,10 @@ import Badge from "../components/badges/Badge";
 import Chip, { ChipRow } from "../components/chips/Chip";
 import SegmentedControl from "../components/tabs/SegmentedControl";
 import Tabs, { TabPanel } from "../components/tabs/Tabs";
+import Sheet from "../components/overlays/Sheet";
+import Dialog from "../components/overlays/Dialog";
+import ConfirmDialog from "../components/overlays/ConfirmDialog";
+import ActionSheet from "../components/overlays/ActionSheet";
 import "./PrimitiveGallery.css";
 
 /*
@@ -99,6 +103,14 @@ export default function PrimitiveGallery() {
   const [loaded, setLoaded] = useState(20);
   const [loadingMore, setLoadingMore] = useState(false);
 
+  // Overlays. `overlay` holds at most one of the three surfaces; `confirm` is
+  // separate because it must be able to stack *on top of* the action sheet —
+  // that pairing is the one the stacking rules exist for.
+  const [overlay, setOverlay] = useState(null);
+  const [confirm, setConfirm] = useState(null);
+  const [confirmPending, setConfirmPending] = useState(false);
+  const [sheetNote, setSheetNote] = useState("");
+
   useEffect(() => {
     const onResize = () => setWidth(window.innerWidth);
     window.addEventListener("resize", onResize);
@@ -126,6 +138,17 @@ export default function PrimitiveGallery() {
     }, 900);
   };
 
+  // A confirmation that resolves slowly, so the dialog can be seen holding
+  // focus and staying open while the work it confirmed is still in flight.
+  const runConfirm = () => {
+    setConfirmPending(true);
+    setTimeout(() => {
+      setConfirmPending(false);
+      setConfirm(null);
+      setOverlay(null);
+    }, 1400);
+  };
+
   return (
     <MobileShell
       mode={MOBILE_SHELL_MODE.DETAIL}
@@ -145,6 +168,94 @@ export default function PrimitiveGallery() {
             </>
           )}
         />
+      )}
+      overlays={(
+        <>
+          <Sheet
+            open={overlay === "sheet"}
+            onClose={() => setOverlay(null)}
+            title="Filter scripts"
+            description="Narrow the list without leaving it."
+            footer={(
+              <>
+                <Button fullWidth onClick={() => setOverlay(null)}>Show 24 results</Button>
+                <Button fullWidth variant="tertiary" onClick={() => setGenres([])}>Clear all</Button>
+              </>
+            )}
+          >
+            <div className="ckm-gallery__stack">
+              <ChipRow label="Genre">
+                {FILTERS.map((filter) => (
+                  <Chip
+                    key={filter}
+                    selected={genres.includes(filter)}
+                    onSelect={() => toggleGenre(filter)}
+                  >
+                    {filter}
+                  </Chip>
+                ))}
+              </ChipRow>
+              {/* A field inside a sheet: focus it on a device, and the footer
+                  staying above the keyboard is what useKeyboardInset is for. */}
+              <TextField label="Maximum price" purpose="numeric" hint="In rupees" />
+              <Switch
+                label="Only scripts I can afford"
+                checked={notify}
+                onChange={(event) => setNotify(event.target.checked)}
+              />
+            </div>
+          </Sheet>
+
+          <Dialog
+            open={overlay === "dialog"}
+            onClose={() => setOverlay(null)}
+            title="Edit logline"
+            description="Autosaved to this draft"
+            action={<Button variant="tertiary" onClick={() => setOverlay(null)}>Save</Button>}
+            footer={<Button fullWidth onClick={() => setOverlay(null)}>Done</Button>}
+          >
+            <div className="ckm-gallery__stack">
+              <TextArea
+                label="Logline"
+                value={logline}
+                maxLength={180}
+                onChange={(event) => setLogline(event.target.value)}
+              />
+              <p className="ckm-gallery__note">
+                A full-screen dialog covers the frame and slides in from the trailing
+                edge. It dismisses with a close icon, never a back chevron — the
+                app&rsquo;s history did not move.
+              </p>
+            </div>
+          </Dialog>
+
+          <ActionSheet
+            open={overlay === "actions"}
+            onClose={() => setOverlay(null)}
+            title="An Unreasonable Man"
+            description="Draft 7 · 118 pages"
+            items={[
+              { id: "share", label: "Share", icon: "share", hint: "Anyone with the link", onSelect: () => setSheetNote("Shared.") },
+              { id: "duplicate", label: "Duplicate", icon: "content_copy", onSelect: () => setSheetNote("Duplicated.") },
+              { id: "export", label: "Export as PDF", icon: "picture_as_pdf", onSelect: () => setSheetNote("Exported.") },
+              { id: "archive", label: "Archive", icon: "archive", disabled: true, hint: "Not while a review is open" },
+              { id: "delete", label: "Delete", icon: "delete", destructive: true, onSelect: () => setConfirm("destructive") },
+            ]}
+          />
+
+          <ConfirmDialog
+            open={confirm != null}
+            destructive={confirm === "destructive"}
+            pending={confirmPending}
+            onCancel={() => { setConfirm(null); setConfirmPending(false); }}
+            onConfirm={runConfirm}
+            title={confirm === "destructive" ? "Delete this script?" : "Publish to the marketplace?"}
+            message={confirm === "destructive"
+              ? "This removes An Unreasonable Man and its 12 reviews. It cannot be undone."
+              : "Producers will be able to find and read this script immediately."}
+            confirmLabel={confirm === "destructive" ? "Delete script" : "Publish"}
+          />
+        </>
       )}
     >
       <div className="ckm-gallery__page">
@@ -538,6 +649,47 @@ export default function PrimitiveGallery() {
               purpose="tel"
               error="This error must remain visible with the keyboard open."
             />
+          </div>
+        </Row>
+
+        <Row
+          title="Overlays"
+          note="Open each and press Tab repeatedly: focus must never leave the surface, and Escape must return it to the button you opened it with."
+        >
+          <div className="ckm-gallery__stack">
+            <Button fullWidth variant="secondary" onClick={() => setOverlay("sheet")}>
+              Bottom sheet — short contextual task
+            </Button>
+            <Button fullWidth variant="secondary" onClick={() => setOverlay("dialog")}>
+              Full-screen dialog — replaces the screen
+            </Button>
+            <Button fullWidth variant="secondary" onClick={() => setConfirm("plain")}>
+              Confirm dialog — non-destructive
+            </Button>
+            <Button fullWidth variant="secondary" onClick={() => setConfirm("destructive")}>
+              Confirm dialog — destructive (focus lands on Cancel)
+            </Button>
+            <Button
+              fullWidth
+              variant="secondary"
+              aria-haspopup="dialog"
+              aria-expanded={overlay === "actions"}
+              onClick={() => setOverlay("actions")}
+            >
+              Action sheet — the mobile &ldquo;context menu&rdquo;
+            </Button>
+            {sheetNote && <p className="ckm-gallery__note" role="status">{sheetNote}</p>}
+          </div>
+        </Row>
+
+        <Row
+          title="Overlay — stacked"
+          note="An action sheet whose destructive item opens a confirm dialog over it. Only the top surface takes Escape; the sheet below it is inert until the confirmation is answered."
+        >
+          <div className="ckm-gallery__stack">
+            <Button fullWidth variant="secondary" onClick={() => setOverlay("actions")}>
+              Open, then tap Delete
+            </Button>
           </div>
         </Row>
       </div>

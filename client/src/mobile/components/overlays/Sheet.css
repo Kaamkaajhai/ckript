@@ -1,0 +1,109 @@
+/*
+ * Ckript Mobile — bottom sheet (prefix: ckm-bottom-sheet)
+ * ------------------------------------------------------------------
+ * Scoped under `.ckm` (plan §7.1). Layout only — the layer, scrim, placement
+ * and motion belong to ckm-overlay.
+ *
+ * Named ckm-bottom-sheet rather than ckm-sheet because `ckm-sheet` is the
+ * dashboard's existing sheet, which is a verified Phase 0 baseline this slice
+ * deliberately does not move (same call as ckm-btn -> ckm-button and
+ * ckm-tabs -> ckm-tabbar; Phase 2 owns the migration).
+ *
+ * The three-part column — grab / body / footer — is the whole point: only the
+ * middle scrolls, so the title cannot scroll away from the content it names and
+ * the action cannot scroll away from the thing it acts on.
+ */
+
+.ckm .ckm-bottom-sheet {
+  padding-top: var(--ckm-space-2);
+  padding-left: var(--ckm-safe-left);
+  padding-right: var(--ckm-safe-right);
+}
+
+/* --- Grab region (grip + header) ----------------------------------------- */
+
+/* The drag handle for the flick-down gesture. `touch-action: none` is required:
+   without it the browser claims the vertical gesture for scrolling before
+   framer-motion ever sees a pointer move, and the sheet simply will not drag. */
+.ckm .ckm-bottom-sheet__grab {
+  flex: none;
+  touch-action: none;
+  cursor: grab;
+}
+
+.ckm .ckm-bottom-sheet__grip {
+  width: 40px;
+  height: 5px;
+  margin: 0 auto;
+  border-radius: 3px;
+  background: var(--ckm-line-strong);
+}
+
+.ckm .ckm-bottom-sheet__header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ckm-space-3);
+  padding: var(--ckm-space-4) var(--ckm-space-4-5) var(--ckm-space-3);
+}
+
+.ckm .ckm-bottom-sheet__titles {
+  flex: 1;
+  min-width: 0;
+  /* The header is a drag surface; its text must still be selectable and its
+     controls still tappable, so only the padding area carries the gesture. */
+  cursor: auto;
+}
+
+.ckm .ckm-bottom-sheet__title {
+  font-family: var(--ckm-display);
+  font-size: var(--ckm-text-section);
+  line-height: var(--ckm-leading-section);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-text);
+  letter-spacing: -0.01em;
+}
+
+.ckm .ckm-bottom-sheet__description {
+  margin-top: var(--ckm-space-1);
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-bottom-sheet__close {
+  flex: none;
+  cursor: pointer;
+}
+
+/* --- Body ---------------------------------------------------------------- */
+
+.ckm .ckm-bottom-sheet__body {
+  flex: 1;
+  min-height: 0;
+  padding: 0 var(--ckm-space-4-5) var(--ckm-space-5);
+  /* Restores normal touch handling inside the sheet: the grab region above
+     sets `touch-action: none`, and this is a scroll surface. */
+  touch-action: pan-y;
+}
+
+/* No footer: the body itself must clear the home indicator. */
+.ckm .ckm-bottom-sheet__body:last-child {
+  padding-bottom: calc(var(--ckm-space-6) + var(--ckm-safe-bottom));
+}
+
+/* --- Footer -------------------------------------------------------------- */
+
+/* Sticky in the sense that matters: it is a sibling of the scroll surface, not
+   inside it, so it never moves. The inline paddingBottom the component adds is
+   the measured virtual-keyboard inset (hooks/useKeyboardInset.js) on top of
+   this safe-area padding. */
+.ckm .ckm-bottom-sheet__footer {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+  padding: var(--ckm-space-3) var(--ckm-space-4-5)
+    calc(var(--ckm-space-4) + var(--ckm-safe-bottom));
+  border-top: 1px solid var(--ckm-line);
+  background: var(--ckm-bg);
+}
