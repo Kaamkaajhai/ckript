@@ -139,20 +139,35 @@ function findSearchPath(nav) {
  * /reader/search selects Discover rather than Home even though Home is
  * declared first.
  *
+ * QUERY STRINGS COUNT (added 2026-08-07)
+ * --------------------------------------
+ * A destination may be a query-string tab of a page rather than a page —
+ * `/challenge?tab=mine` was already in the writer preset, and Phase 2 added
+ * `/dashboard?tab=projects`. On path alone those are indistinguishable from
+ * their host page, so Projects could never light and Dashboard would claim the
+ * URL instead. So a pattern's query params, if it has any, must ALL be present
+ * in the current search to match at all, and each one earns a point of
+ * specificity. That ordering is what makes `/dashboard?tab=projects` beat
+ * `/dashboard` on the projects URL while `/dashboard` still wins on its own.
+ *
  * @param {Array} tabs      from buildMobileNav
  * @param {string} pathname current location.pathname
+ * @param {string} [search] current location.search
  * @returns {string|null}   the winning tab's key
  */
-export function resolveActiveTabKey(tabs = [], pathname = "/") {
-  const path = String(pathname || "/").split(/[?#]/, 1)[0] || "/";
+export function resolveActiveTabKey(tabs = [], pathname = "/", search = "") {
+  const raw = String(pathname || "/");
+  // Tolerate a full "path?query" being passed as `pathname`, which is what
+  // callers that only have one string will do.
+  const [pathPart, inlineQuery = ""] = raw.split(/[?#]/);
+  const path = pathPart || "/";
+  const current = new URLSearchParams(String(search || inlineQuery || "").replace(/^[?#]/, ""));
 
   let best = null;
   let bestScore = -1;
 
   for (const tab of tabs) {
-    // A tab's path may carry a query string (`/profile/x?tab=bookmarks`);
-    // matching is on the path alone.
-    const pattern = String(tab.path || "").split(/[?#]/, 1)[0];
+    const [pattern, patternQuery = ""] = String(tab.path || "").split(/[?#]/);
     if (!pattern) continue;
 
     const match = matchPath({ path: pattern, end: Boolean(tab.exact), caseSensitive: false }, path);
@@ -160,7 +175,14 @@ export function resolveActiveTabKey(tabs = [], pathname = "/") {
 
     // Specificity = how much of the URL the pattern actually claimed. "/" would
     // otherwise swallow every URL in the app for an audience whose home is "/".
-    const score = pattern.split("/").filter(Boolean).length;
+    let score = pattern.split("/").filter(Boolean).length;
+
+    const required = [...new URLSearchParams(patternQuery)];
+    // Every param the destination names must be present with that value; a
+    // partial match is not this destination.
+    if (required.some(([key, value]) => current.get(key) !== value)) continue;
+    score += required.length;
+
     if (score > bestScore) {
       best = tab.key;
       bestScore = score;

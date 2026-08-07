@@ -2,7 +2,16 @@
  * writerNav — destinations for the writer / creator audience.
  *
  * Mirrors the "Ckript Dashboard 2B" reference rail:
- *   Dashboard · Create · Upload · Challenge · Messages · Profile
+ *   Dashboard · Projects · Create · Upload · Challenge · Messages · Profile
+ *
+ * Projects and Reviews are query-string tabs of the dashboard, not pages of
+ * their own — the same shape as "My Competitions" (/challenge?tab=mine) below.
+ * Added 2026-08-07 (plan §11 Phase 2): the mobile dashboard's Projects and
+ * Reviews sections were fully built but reachable from nothing after the tab
+ * strip was cut to Overview + Challenge. Declaring the destination here rather
+ * than in mobile code is the §8.2 rule — a destination cannot exist in one bar
+ * and not the other — and a query tab keeps ONE canonical URL for both
+ * platforms, which §5.2 requires and a mobile-only /projects route would break.
  */
 
 /**
@@ -16,6 +25,7 @@ export const writerNav = ({ profilePath, msgCount }) => ({
 
   rail: [
     { key: "dashboard", path: "/dashboard",      label: "Dashboard",      icon: "dashboard", exact: true },
+    { key: "projects",  path: "/dashboard?tab=projects", label: "Projects", icon: "projects" },
     { key: "create",    path: "/create-project", label: "Create",         icon: "create", fresh: true },
     { key: "upload",    path: "/upload",         label: "Upload",         icon: "upload" },
     { key: "challenge", path: "/challenge",      label: "Challenge",      icon: "challenge" },
@@ -27,6 +37,8 @@ export const writerNav = ({ profilePath, msgCount }) => ({
   //   Dashboard · Search | Create · Upload | Challenge · My Competitions | Messages
   drawer: [
     { key: "dashboard",    path: "/dashboard",       label: "Dashboard",       icon: "home", exact: true },
+    { key: "projects",     path: "/dashboard?tab=projects", label: "My Projects", icon: "projects" },
+    { key: "reviews",      path: "/dashboard?tab=reviews",  label: "Reviews & Insights", icon: "sparkles" },
     { key: "search",       path: "/search",          label: "Search Projects", icon: "search" },
     { divider: true },
     { key: "create",       path: "/create-project",  label: "Create Project",  icon: "ideas", fresh: true },
@@ -38,8 +50,16 @@ export const writerNav = ({ profilePath, msgCount }) => ({
     { key: "messages",     path: "/messages",        label: "Messages",        icon: "messages", badge: msgCount },
   ],
 
-  // Selected by key, never by index — see buildNav.
-  mobileKeys: ["dashboard", "create", "messages"],
+  /*
+   * Selected by key, never by index — see buildNav. Profile takes the fourth
+   * slot automatically, so this is three keys.
+   *
+   * 2026-08-07: "create" gave up its slot to "projects". Create is still one
+   * tap away — it is the dashboard hero's primary action on every visit, and it
+   * keeps its place in the rail and drawer — whereas a writer's own project
+   * list had no entry point anywhere in the compact bar.
+   */
+  mobileKeys: ["dashboard", "projects", "messages"],
 
   /*
    * The drawer's contextual list. Writers see the projects they are actively

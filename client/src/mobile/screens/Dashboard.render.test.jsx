@@ -75,14 +75,14 @@ afterEach(() => {
   root = null;
 });
 
-async function mount() {
+async function mount(entry = "/dashboard") {
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
 
   await act(async () => {
     root.render(
-      <MemoryRouter initialEntries={["/dashboard"]}>
+      <MemoryRouter initialEntries={[entry]}>
         <ToastProvider>
           <Dashboard
             initials="AR"
@@ -125,14 +125,37 @@ describe("Dashboard — real destinations replace desktopOnly()", () => {
   });
 
   /*
+   * The section is part of the URL, not component state — which is how Reviews
+   * and Projects became reachable again after the tab strip was cut to Overview
+   * + Challenge. The writer nav's Projects tab is literally a link to
+   * `/dashboard?tab=projects`, so if this stops working the destination goes
+   * back to landing on Overview with no visible sign anything is wrong.
+   */
+  it("opens the section named by ?tab=", async () => {
+    await mount("/dashboard?tab=projects");
+    expect(container.textContent).toContain("My Projects");
+
+    await act(async () => { root.unmount(); });
+    root = null; container.remove(); container = null;
+
+    await mount("/dashboard?tab=reviews");
+    expect(container.textContent).toContain("Reviews & Insights");
+  });
+
+  it("falls back to Overview for a missing or unknown section", async () => {
+    await mount("/dashboard?tab=not-a-section");
+    // Not a blank screen, and not an error — the dashboard's home.
+    expect(container.textContent).toContain("At a Glance");
+  });
+
+  /*
    * Performance / Reviews / Projects are NOT tested through this component.
    * `SectionTabs` was reduced to Overview + Challenge in ada2b85 (2026-08-03),
-   * so three of the four sections have no tab and cannot be reached from the
-   * dashboard at all — Performance only via "Full Analytics". That is a product
-   * decision recorded in the plan's §19 and awaiting the user, not something to
-   * be undone by a test. The sections are covered directly in
-   * `sections/ProjectsSection.test.jsx` instead, so their behaviour is verified
-   * whatever the tab strip ends up being.
+   * so the strip itself still shows only those two. The sections are reached by
+   * URL instead (the test above) and from the bottom nav, whose Projects tab
+   * the writer preset points at `/dashboard?tab=projects`. Their internals are
+   * covered directly in `sections/ProjectsSection.test.jsx`, so they stay
+   * verified whatever the tab strip ends up being.
    */
   it("reaches Performance through Full Analytics", async () => {
     await mount();

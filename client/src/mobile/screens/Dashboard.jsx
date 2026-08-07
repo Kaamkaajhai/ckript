@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import AppBar, { AppBarAction, AppBarAvatar } from "../components/app-bars/AppBar";
 import SectionTabs from "../components/SectionTabs";
 import NavBar from "../components/navigation/NavBar";
@@ -24,6 +24,21 @@ import { useDashboardData } from "../hooks/useDashboardData";
 
 const CREATE_HREF = "/create-project";
 const UPLOAD_HREF = "/upload";
+
+/*
+ * The dashboard's section is part of the URL, not component state (plan §5.2:
+ * "query strings and tab selection" must be preserved, and §8.2: "a URL
+ * determines the active tab").
+ *
+ * This is what made Reviews and Projects reachable again after the tab strip
+ * was cut to Overview + Challenge: the writer nav preset now points at
+ * `/dashboard?tab=projects` and `/dashboard?tab=reviews`, which are ordinary
+ * links, deep-linkable, correct under browser back, and — because they are the
+ * same canonical `/dashboard` URL — do not invent a mobile-only route that
+ * would 404 on a desktop browser.
+ */
+const SECTIONS = ["overview", "performance", "reviews", "projects"];
+const DEFAULT_SECTION = "overview";
 
 /*
  * Dashboard — the writer's home screen.
@@ -52,7 +67,21 @@ export default function Dashboard({ initials, userName, onLogout, user, preview 
   const navigate = useNavigate();
   const toast = useToast();
 
-  const [tab, setTab] = useState("overview");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requested = searchParams.get("tab");
+  const tab = SECTIONS.includes(requested) ? requested : DEFAULT_SECTION;
+
+  /*
+   * `replace` so moving between sections does not stack history entries the
+   * user must then press Back through — but arriving from the tab bar is a real
+   * navigation and already has its own entry.
+   */
+  const setTab = (next) => {
+    const params = new URLSearchParams(searchParams);
+    if (next === DEFAULT_SECTION) params.delete("tab");
+    else params.set("tab", next);
+    setSearchParams(params, { replace: true });
+  };
   const [aiReview, setAiReview] = useState(null);
   const [showAllProjects, setShowAllProjects] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
