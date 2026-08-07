@@ -1,0 +1,192 @@
+/*
+ * Ckript Mobile — list row (prefix: ckm-row)
+ * ------------------------------------------------------------------
+ * Scoped under `.ckm` (plan §7.1). The row is the positioned container; the
+ * primary target inside it stretches to fill the row with a ::after overlay,
+ * so a row can navigate and still carry its own control.
+ */
+
+.ckm .ckm-row {
+  /* Where a separator starts, and where the text column begins. */
+  --ckm-row-inset: var(--ckm-space-4);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-2);
+  min-width: 0;
+  list-style: none;
+  background: var(--ckm-bg);
+}
+
+.ckm .ckm-row.has-leading {
+  --ckm-row-inset: 62px;
+}
+
+.ckm .ckm-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-3);
+  /* The row is never shorter than a touch target even with one short line. */
+  min-height: 60px;
+  padding: var(--ckm-space-3) var(--ckm-space-4);
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  text-decoration: none;
+  cursor: default;
+}
+
+.ckm .ckm-row--compact .ckm-row__main {
+  min-height: var(--ckm-touch-target);
+  padding-top: var(--ckm-space-2);
+  padding-bottom: var(--ckm-space-2);
+}
+
+.ckm .ckm-row--media .ckm-row__main {
+  min-height: 76px;
+}
+
+/* --- Interactive rows ---------------------------------------------------- */
+
+.ckm .ckm-row.is-interactive .ckm-row__main {
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background-color var(--ckm-duration-feedback) var(--ckm-ease);
+}
+
+/* The whole row is the target, including the padding beside the action. */
+.ckm .ckm-row.is-interactive .ckm-row__main::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.ckm .ckm-row.is-interactive:active {
+  background: var(--ckm-bg-soft);
+}
+
+.ckm .ckm-row__main:focus-visible {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: calc(var(--ckm-focus-ring-offset) * -1);
+  border-radius: var(--ckm-r-sm);
+}
+
+/* Anything in `action` is a second, independent target. `position: relative`
+   alone lifts it above the overlay — no z-index needed, because the overlay is
+   a pseudo-element of an earlier sibling. */
+.ckm .ckm-row__action {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  padding-right: var(--ckm-space-2);
+}
+
+/* --- Slots --------------------------------------------------------------- */
+
+.ckm .ckm-row__leading {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-row--media .ckm-row__leading {
+  width: 52px;
+}
+
+.ckm .ckm-row__text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ckm .ckm-row__overline {
+  font-size: var(--ckm-text-micro);
+  line-height: var(--ckm-leading-micro);
+  font-weight: var(--ckm-weight-bold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ckm-muted);
+}
+
+/* One line, ellipsised: a wrapping title turns a scannable list into prose.
+   The subtitle gets two, because a logline or a message preview needs them. */
+.ckm .ckm-row__title {
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ckm .ckm-row__subtitle {
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-row__trailing {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ckm-space-2);
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ckm .ckm-row__chevron {
+  flex: none;
+  color: var(--ckm-muted-3);
+}
+
+/* --- States -------------------------------------------------------------- */
+
+/* Not colour alone: the current row keeps a solid rail on its leading edge. */
+.ckm .ckm-row.is-current {
+  background: var(--ckm-accent-soft);
+}
+
+.ckm .ckm-row.is-current::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 3px;
+  background: var(--ckm-accent);
+  /* Decoration only: it paints over the row's own tap overlay, so it must not
+     swallow the taps that land on the first 3px. */
+  pointer-events: none;
+}
+
+.ckm .ckm-row.is-current .ckm-row__title {
+  color: var(--ckm-accent-strong);
+}
+
+.ckm .ckm-row.is-disabled {
+  opacity: var(--ckm-disabled-opacity);
+}
+
+.ckm .ckm-row--danger .ckm-row__title,
+.ckm .ckm-row--danger .ckm-row__leading {
+  color: var(--ckm-red);
+}

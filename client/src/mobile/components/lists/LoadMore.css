@@ -1,0 +1,48 @@
+/*
+ * Ckript Mobile — load more (prefix: ckm-load-more)
+ * ------------------------------------------------------------------
+ * Scoped under `.ckm` (plan §7.1). The foot of a paged list: count, optional
+ * failure, and the button that fetches the next page.
+ */
+
+.ckm .ckm-load-more {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--ckm-space-3);
+  padding: var(--ckm-space-5) 0 var(--ckm-space-2);
+  min-width: 0;
+}
+
+/* The container takes focus when the button unmounts at the end of the list;
+   that is a programmatic landing, not a keyboard one, so it shows no ring. */
+.ckm .ckm-load-more:focus {
+  outline: none;
+}
+
+.ckm .ckm-load-more__status {
+  text-align: center;
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.ckm .ckm-load-more__error {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: var(--ckm-space-1);
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  font-weight: var(--ckm-weight-medium);
+  color: var(--ckm-red-ink);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-load-more__error-icon {
+  flex: none;
+  font-size: 15px;
+  margin-top: 1px;
+}

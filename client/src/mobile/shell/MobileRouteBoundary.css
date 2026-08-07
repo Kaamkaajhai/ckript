@@ -1,0 +1,109 @@
+/*
+ * Route-level pending and failure surfaces (prefix: ckm-shell).
+ * Both fill the shell body, so chrome above/below stays put while a screen
+ * loads or recovers.
+ */
+
+.ckm .ckm-shell__pending,
+.ckm .ckm-shell__failure {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--ckm-bg);
+}
+
+/* --- Pending ----------------------------------------------------------- */
+
+.ckm .ckm-shell__pending {
+  gap: var(--ckm-space-3);
+  padding: var(--ckm-space-4) var(--ckm-space-4-5);
+}
+
+/* Announced, not shown: the visual pending state is the blocks below. */
+.ckm .ckm-shell__pending-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.ckm .ckm-shell__pending-bar,
+.ckm .ckm-shell__pending-block {
+  background: var(--ckm-track);
+  border-radius: var(--ckm-r-sm);
+  animation: ckm-pulse 1.4s var(--ckm-ease) infinite;
+}
+
+.ckm .ckm-shell__pending-bar {
+  height: 14px;
+  width: 45%;
+}
+
+.ckm .ckm-shell__pending-bar--wide {
+  width: 70%;
+  height: 20px;
+}
+
+.ckm .ckm-shell__pending-block {
+  height: 96px;
+  width: 100%;
+}
+
+/* --- Failure ----------------------------------------------------------- */
+
+.ckm .ckm-shell__failure {
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: var(--ckm-space-3);
+  padding: var(--ckm-space-6) var(--ckm-space-5);
+}
+
+.ckm .ckm-shell__failure-icon {
+  font-size: 34px;
+  color: var(--ckm-red);
+}
+
+.ckm .ckm-shell__failure-title {
+  font-family: var(--ckm-display);
+  font-size: var(--ckm-text-title-sm);
+  line-height: var(--ckm-leading-title-sm);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-text);
+}
+
+.ckm .ckm-shell__failure-body {
+  font-size: var(--ckm-text-body);
+  line-height: var(--ckm-leading-body);
+  color: var(--ckm-text-3);
+  max-width: 30ch;
+}
+
+.ckm .ckm-shell__failure-action {
+  min-height: var(--ckm-touch-target);
+  min-width: 140px;
+  margin-top: var(--ckm-space-2);
+  padding: 0 var(--ckm-space-5);
+  border: 0;
+  border-radius: var(--ckm-r-md);
+  background: var(--ckm-accent);
+  color: #fff;
+  font-size: var(--ckm-text-body);
+  font-weight: var(--ckm-weight-semibold);
+  cursor: pointer;
+  transition: transform var(--ckm-duration-press) var(--ckm-ease);
+}
+
+.ckm .ckm-shell__failure-action:active {
+  transform: scale(0.97);
+}
+
+.ckm .ckm-shell__failure-action:focus-visible {
+  outline: 2px solid var(--ckm-text);
+  outline-offset: 2px;
+}

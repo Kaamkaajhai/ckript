@@ -1,0 +1,110 @@
+/*
+ * Ckript Mobile — badge (prefix: ckm-badge)
+ * ------------------------------------------------------------------
+ * Scoped under `.ckm` (plan §7.1). Every tone below pairs a soft background
+ * with its measured `*-ink` text colour; see tokens.css for the numbers.
+ */
+
+.ckm .ckm-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 3px 9px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-family: var(--ckm-body);
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  font-weight: var(--ckm-weight-semibold);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* The one place 11px is allowed: a badge overlaid on card media, where the
+   label is a single word and the image beneath it needs the room. */
+.ckm .ckm-badge--sm {
+  padding: 2px 8px;
+  font-size: var(--ckm-text-micro);
+  line-height: var(--ckm-leading-micro);
+}
+
+.ckm .ckm-badge__dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.ckm .ckm-badge__icon {
+  flex: none;
+}
+
+/* --- Tones (soft) -------------------------------------------------------- */
+
+.ckm .ckm-badge--neutral {
+  background: var(--ckm-track);
+  color: var(--ckm-text-2);
+}
+
+.ckm .ckm-badge--accent {
+  background: var(--ckm-accent-soft);
+  color: var(--ckm-accent-ink);
+}
+
+.ckm .ckm-badge--success {
+  background: var(--ckm-green-bg);
+  color: var(--ckm-green-ink);
+}
+
+.ckm .ckm-badge--warning {
+  background: var(--ckm-gold-bg);
+  color: var(--ckm-gold-ink);
+}
+
+.ckm .ckm-badge--danger {
+  background: var(--ckm-red-bg);
+  color: var(--ckm-red-ink);
+}
+
+/* --- Variants ------------------------------------------------------------ */
+
+/* Solid reuses the same ink tokens as fills: each measures at least 5.2:1
+   under white, so the label survives at 11px. */
+.ckm .ckm-badge--solid {
+  color: var(--ckm-on-dark);
+}
+
+.ckm .ckm-badge--neutral.ckm-badge--solid {
+  background: var(--ckm-ink);
+}
+
+.ckm .ckm-badge--accent.ckm-badge--solid {
+  background: var(--ckm-accent-ink);
+}
+
+.ckm .ckm-badge--success.ckm-badge--solid {
+  background: var(--ckm-green-ink);
+}
+
+.ckm .ckm-badge--warning.ckm-badge--solid {
+  background: var(--ckm-gold-ink);
+}
+
+.ckm .ckm-badge--danger.ckm-badge--solid {
+  background: var(--ckm-red-ink);
+}
+
+/* Outline is for badges laid over an image, where a soft tint would take the
+   photograph's colour with it. The border carries the tone at 4.5:1+. */
+.ckm .ckm-badge--outline {
+  background: var(--ckm-bg);
+  border-color: currentColor;
+}
+
+.ckm .ckm-badge--neutral.ckm-badge--outline {
+  color: var(--ckm-text-2);
+  border-color: var(--ckm-control-border);
+}

@@ -1,0 +1,83 @@
+/*
+ * Ckript Mobile — app shell (prefix: ckm-shell)
+ * ------------------------------------------------------------------
+ * One column, one primary scroll surface, fixed chrome above and below it.
+ * Every rule is scoped under `.ckm`; nothing here may leak to the desktop app.
+ *
+ * Mode differences are intentionally small: the mode decides *which* chrome
+ * exists (MobileShell.jsx) — this file only tunes surface and safe-area
+ * treatment per mode.
+ */
+
+.ckm .ckm-shell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--ckm-bg);
+  overflow: hidden;
+}
+
+/* Chrome slots never grow; the scroll body absorbs every spare pixel. */
+.ckm .ckm-shell__app-bar,
+.ckm .ckm-shell__bottom {
+  flex: 0 0 auto;
+  z-index: var(--ckm-z-chrome);
+}
+
+.ckm .ckm-shell__app-bar {
+  padding-top: var(--ckm-safe-top);
+  background: var(--ckm-bg);
+}
+
+.ckm .ckm-shell__scroll {
+  flex: 1;
+  min-height: 0;
+  background: var(--ckm-bg);
+  /* The keyboard shrinks the visual viewport rather than the layout viewport;
+     contained scrolling keeps a focused field reachable without the page
+     behind the shell scrolling too. */
+  overscroll-behavior: contain;
+  /* WCAG 2.2 SC 2.4.11 (Focus Not Obscured) — the sufficient technique for
+     chrome that can cover a focused element. The shell's own chrome is in
+     layout flow rather than overlaid, so this is a margin, not a rescue: it
+     keeps focus clear of a screen's *own* sticky headers and of the keyboard
+     edge when the browser scrolls a focused field into view. */
+  scroll-padding-block: var(--ckm-space-4);
+}
+
+/* No bottom chrome means the scroll body itself owes the home indicator its
+   clearance, so the last row is never trapped under it. */
+.ckm .ckm-shell:not(:has(> .ckm-shell__bottom)) > .ckm-shell__scroll {
+  padding-bottom: var(--ckm-safe-bottom);
+}
+
+/* --- Mode tuning ------------------------------------------------------- */
+
+/* Immersive surfaces (reader / editor / media) own their own chrome and
+   background; the shell must not paint over them or pad their edges. */
+.ckm .ckm-shell--immersive {
+  background: var(--ckm-ink);
+}
+
+.ckm .ckm-shell--immersive > .ckm-shell__scroll {
+  background: transparent;
+  padding-bottom: 0;
+}
+
+/* Flow screens (onboarding / create / upload / payment) hide the tab bar and
+   give the stepper body a little more breathing room at the foot. */
+.ckm .ckm-shell--flow > .ckm-shell__scroll {
+  padding-bottom: calc(var(--ckm-space-6) + var(--ckm-safe-bottom));
+}
+
+/* Public marketing/legal routes sit on the warm page surface. */
+.ckm .ckm-shell--public > .ckm-shell__scroll {
+  background: var(--ckm-bg-soft);
+}
+
+/* Admin is dense, not small: rows stay at the product touch minimum. */
+.ckm .ckm-shell--admin {
+  --ckm-touch-min: var(--ckm-touch-target);
+}

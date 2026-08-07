@@ -24,10 +24,10 @@ import RouteFallback from "./components/skeleton/RouteFallback";
  */
 import {
   resolveShell,
-  isWriterAudience,
   SHELL,
   CONTENT_VARIANT,
 } from "./layouts/app-shell/shellPolicy";
+import { MOBILE_EXPERIENCE, resolveMobileExperience } from "./mobile/routes/mobileRoutePolicy";
 
 const Landing = lazy(() => import("./pages/landing/Landing"));
 const About = lazy(() => import("./pages/About"));
@@ -386,32 +386,24 @@ function DashboardRoute() {
   );
 }
 
-// Ckript ships a *separate* mobile app (src/mobile) for signed-in creators on
-// phone-sized viewports — a native-feeling experience, not a responsive reflow
-// of the desktop UI. This gate is the single mount point: while a creator is
-// on a phone it fully replaces the desktop routes; everyone else (logged-out
-// visitors, non-creators, tablets/desktops) gets the normal `children`. There
-// is deliberately no mobile landing page — the gate only trips once `user`
-// exists. SSR/prerender is unaffected (no window → not mobile, and no user).
+// Route-aware experience resolver. Mobile screens may replace the desktop
+// branch only when their manifest entry is implemented for the current
+// audience. Every unfinished route deliberately continues through `children`,
+// preserving its canonical URL and existing functionality during migration.
 function RootExperience({ children }) {
   const isMobile = useIsMobile();
   const { user, loading } = useContext(AuthContext);
   const location = useLocation();
 
-  /*
-   * The mobile app is a writer experience — it has no producer surfaces — so the
-   * gate is deliberately writer-only. Asking the policy rather than re-deriving
-   * the role check keeps this in step with the rest of the app: if `writer` or
-   * `creator` is ever renamed, this stops being a place it can be forgotten.
-   */
-  if (!loading && isMobile && user && isWriterAudience(user.role)) {
-    // Exempt /challenge routes so the competition registration and dashboard 
-    // flows are accessible on mobile devices.
-    if (location.pathname.startsWith("/challenge")) {
-      return children;
-    }
-    return <MobileApp />;
-  }
+  const decision = resolveMobileExperience({
+    isMobile,
+    authLoading: loading,
+    user,
+    pathname: location.pathname,
+    isDev: import.meta.env.DEV,
+  });
+
+  if (decision.experience === MOBILE_EXPERIENCE.MOBILE) return <MobileApp />;
 
   return children;
 }
@@ -594,9 +586,22 @@ function App() {
                 <Route
                   path="/__mobile-preview"
                   element={
-                    <AuthContext.Provider value={{ user: { name: "Arshad Rahman", role: "creator", token: "preview" }, logout: () => {} }}>
+                    <AuthContext.Provider value={{ user: { name: "Arshad Rahman", role: "creator", token: "preview" }, loading: false, logout: () => {} }}>
                       <Suspense fallback={null}>
-                        <MobileApp />
+                        <MobileApp preview />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
+              )}
+              {import.meta.env.DEV && (
+                /* Phase 1 primitive/state harness — see mobile/dev/PrimitiveGallery.jsx */
+                <Route
+                  path="/__mobile-primitives"
+                  element={
+                    <AuthContext.Provider value={{ user: { name: "Arshad Rahman", role: "creator", token: "preview" }, loading: false, logout: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="primitives" />
                       </Suspense>
                     </AuthContext.Provider>
                   }

@@ -14,7 +14,7 @@ export default function TopBar({ initials = "AR", unread = 0, avatarActive = fal
 
       <button type="button" className="ckm-topbar__search" onClick={onSearch}>
         <Icon name="search" size={18} color="var(--ckm-muted-2)" />
-        <span>Search scripts…</span>
+        <span className="ckm-topbar__search-label">Search scripts…</span>
       </button>
 
       <button type="button" className="ckm-topbar__bell" onClick={onBell} aria-label="Notifications">

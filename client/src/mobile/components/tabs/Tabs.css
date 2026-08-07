@@ -1,0 +1,131 @@
+/*
+ * Ckript Mobile — tab bar (prefix: ckm-tabbar)
+ * ------------------------------------------------------------------
+ * Scoped under `.ckm` (plan §7.1). An underline bar that scrolls sideways.
+ * Note this is a different component from the dashboard's `ckm-tabs`, which
+ * is a legacy 9px segmented strip that Phase 2 retires.
+ */
+
+.ckm .ckm-tabbar {
+  position: relative;
+  min-width: 0;
+  border-bottom: 1px solid var(--ckm-line);
+  background: var(--ckm-bg);
+}
+
+.ckm .ckm-tabbar__list {
+  display: flex;
+  align-items: stretch;
+  gap: var(--ckm-space-5);
+  padding: 0 var(--ckm-space-4);
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+
+.ckm .ckm-tabbar__list::-webkit-scrollbar {
+  display: none;
+}
+
+/* Few enough tabs to share the width: no scroll, equal columns. */
+.ckm .ckm-tabbar--fitted .ckm-tabbar__list {
+  gap: 0;
+  overflow-x: visible;
+}
+
+.ckm .ckm-tabbar--fitted .ckm-tabbar__tab {
+  flex: 1 1 0;
+  justify-content: center;
+}
+
+.ckm .ckm-tabbar__tab {
+  position: relative;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--ckm-tabs-h);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--ckm-text-3);
+  cursor: pointer;
+  touch-action: manipulation;
+  scroll-snap-align: start;
+  white-space: nowrap;
+  transition: color var(--ckm-duration-feedback) var(--ckm-ease);
+}
+
+.ckm .ckm-tabbar__label {
+  font-family: var(--ckm-body);
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  font-weight: var(--ckm-weight-medium);
+}
+
+.ckm .ckm-tabbar__count {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--ckm-track);
+  color: var(--ckm-text-3);
+  font-family: var(--ckm-body);
+  font-size: var(--ckm-text-micro);
+  line-height: var(--ckm-leading-micro);
+  font-weight: var(--ckm-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Selected: an underline (shape) plus a weight step (typography), not colour
+   alone — SC 1.4.1. The bar sits on the container's own hairline. */
+.ckm .ckm-tabbar__tab.is-selected {
+  color: var(--ckm-text);
+}
+
+.ckm .ckm-tabbar__tab.is-selected .ckm-tabbar__label {
+  font-weight: var(--ckm-weight-semibold);
+}
+
+.ckm .ckm-tabbar__tab.is-selected::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--ckm-accent);
+}
+
+.ckm .ckm-tabbar__tab.is-selected .ckm-tabbar__count {
+  background: var(--ckm-accent-soft);
+  color: var(--ckm-accent-ink);
+}
+
+.ckm .ckm-tabbar__tab:focus-visible {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: calc(var(--ckm-focus-ring-offset) * -1);
+  border-radius: var(--ckm-r-sm);
+}
+
+.ckm .ckm-tabbar__tab:active {
+  color: var(--ckm-text);
+}
+
+/* --- Panel ---------------------------------------------------------------- */
+
+.ckm .ckm-tabbar__panel {
+  min-width: 0;
+}
+
+/* The panel is focusable so the content a tab reveals is reachable; that must
+   not paint a ring when it is merely clicked into. */
+.ckm .ckm-tabbar__panel:focus {
+  outline: none;
+}
+
+.ckm .ckm-tabbar__panel:focus-visible {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: var(--ckm-focus-ring-offset);
+}

@@ -1,0 +1,120 @@
+/*
+ * ckm-navbar — the role-aware bottom tab bar (plan §8.2).
+ *
+ * It keeps the dark bar the Phase 0 dashboard established, so adopting it is
+ * not a visual redesign. Three measurements changed, and each was a defect in
+ * the provisional bar rather than a matter of taste:
+ *
+ *   • the label was 9px and the badge 9px — below the 11px floor §7.3 sets for
+ *     micro metadata, and the only text in the mobile app that the CDP sweeps
+ *     would have failed had the old bar ever been in one;
+ *   • the item measured ~42px tall, under the 44px Ckript standard in §7.4;
+ *   • `justify-content: space-around` sized the row from its content, so the
+ *     tap targets of a 4-item bar were narrower than the gaps between them.
+ */
+
+.ckm .ckm-navbar {
+  flex: none;
+  background: #0f0f0f;
+  border-top: 1px solid #1f1f1f;
+}
+
+.ckm .ckm-navbar__list {
+  list-style: none;
+  margin: 0;
+  /* Equal columns, so every tab has the same target and the row cannot
+     re-flow when one label is longer than the others. */
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  align-items: stretch;
+  padding: 6px 4px calc(6px + var(--ckm-safe-bottom));
+}
+
+.ckm .ckm-navbar__item {
+  display: flex;
+  min-width: 0;
+}
+
+.ckm .ckm-navbar__link {
+  flex: 1;
+  min-width: 0;
+  /* 44px is the floor, not the height: the link fills its column, so the real
+     target is column-width × 44px+ (§7.4). */
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px 2px;
+  border-radius: 12px;
+  color: #fff;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s ease, transform 0.12s ease, background-color 0.15s ease;
+}
+
+/* Pressed state is immediate and does not rely on hover (§7.4). */
+.ckm .ckm-navbar__link:active {
+  transform: scale(0.94);
+  background: #1a1a1a;
+}
+
+/* --ckm-accent measures ~4.35:1 on #0f0f0f, so the 11px label would fail
+   SC 1.4.3; --ckm-accent-on-dark is the same hue at ~5.09:1. Weight (the
+   filled glyph) carries the state as well, so colour is not the only cue. */
+.ckm .ckm-navbar__link.is-active {
+  color: var(--ckm-accent-on-dark);
+}
+
+/* The shared terracotta focus ring is near-invisible on #0f0f0f, the same
+   problem the toast surface solved the same way (§19, 2026-08-05). */
+.ckm .ckm-navbar__link:focus-visible {
+  outline: 2px solid #fff;
+  outline-offset: -2px;
+}
+
+.ckm .ckm-navbar__icon {
+  position: relative;
+  display: flex;
+}
+
+.ckm .ckm-navbar__badge {
+  position: absolute;
+  top: -5px;
+  right: -9px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px;
+  /* White on --ckm-accent is ~4.35:1; --ckm-accent-strong is the token that
+     exists precisely so small white text on brand colour clears 4.5:1. */
+  background: var(--ckm-accent-strong);
+  color: #fff;
+  font: 700 11px/18px var(--ckm-body);
+  text-align: center;
+  border: 1.5px solid #0f0f0f;
+}
+
+.ckm .ckm-navbar__label {
+  max-width: 100%;
+  font: 600 11px/1.2 var(--ckm-body);
+  text-align: center;
+  /* Labels stay visible — §8.2 forbids icon-only primary navigation. A long or
+     translated label clips to one line rather than growing the bar into the
+     screen; the destination is also named in the link's accessible name. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ckm .ckm-navbar__link {
+    transition: none;
+  }
+
+  .ckm .ckm-navbar__link:active {
+    transform: none;
+  }
+}

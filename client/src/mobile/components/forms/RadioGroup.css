@@ -1,0 +1,141 @@
+/*
+ * Ckript Mobile — radio group (prefix: ckm-radio)
+ * ------------------------------------------------------------------
+ * Scoped under `.ckm` (plan §7.1). A <fieldset> carries UA styling that has to
+ * be undone explicitly, which is why the reset below is not optional.
+ */
+
+.ckm .ckm-radio {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.ckm .ckm-radio__legend {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ckm-space-2);
+  padding: 0;
+  margin-bottom: var(--ckm-space-1);
+}
+
+.ckm .ckm-radio__legend-text {
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-text);
+  overflow-wrap: anywhere;
+}
+
+/* Rows, not an inline cluster: hairline-separated options read as one list and
+   each keeps a full-width tap target. */
+.ckm .ckm-radio__options {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-md);
+  overflow: hidden;
+}
+
+.ckm .ckm-radio__row {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ckm-space-3);
+  min-height: var(--ckm-touch-target);
+  padding: var(--ckm-space-3) var(--ckm-space-3);
+  cursor: pointer;
+  transition: background-color var(--ckm-duration-press) var(--ckm-ease);
+}
+
+.ckm .ckm-radio__row + .ckm-radio__row {
+  border-top: 1px solid var(--ckm-line);
+}
+
+.ckm .ckm-radio__row:active {
+  background: var(--ckm-bg-soft);
+}
+
+.ckm .ckm-radio__input {
+  position: absolute;
+  top: var(--ckm-space-3);
+  left: var(--ckm-space-3);
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.ckm .ckm-radio__dot {
+  flex: none;
+  position: relative;
+  width: 22px;
+  height: 22px;
+  margin-top: 1px;
+  border: 1.5px solid var(--ckm-control-border);
+  border-radius: 50%;
+  background: var(--ckm-bg);
+  transition: border-color var(--ckm-duration-press) var(--ckm-ease);
+}
+
+.ckm .ckm-radio__dot::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--ckm-ink);
+  transform: translate(-50%, -50%) scale(0);
+  transition: transform var(--ckm-duration-press) var(--ckm-ease);
+}
+
+.ckm .ckm-radio__input:checked ~ .ckm-radio__dot {
+  border-color: var(--ckm-ink);
+}
+
+.ckm .ckm-radio__input:checked ~ .ckm-radio__dot::after {
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.ckm .ckm-radio__input:focus-visible ~ .ckm-radio__dot {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: var(--ckm-focus-ring-offset);
+}
+
+.ckm .ckm-radio__input:disabled ~ .ckm-radio__dot,
+.ckm .ckm-radio__input:disabled ~ .ckm-radio__text {
+  opacity: var(--ckm-disabled-opacity);
+}
+
+.ckm .ckm-radio__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ckm .ckm-radio__label {
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  font-weight: var(--ckm-weight-medium);
+  color: var(--ckm-text);
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-radio__description {
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-radio.is-invalid .ckm-radio__options {
+  border-color: var(--ckm-red);
+}

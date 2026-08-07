@@ -1,0 +1,113 @@
+/*
+ * Ckript Mobile — full-screen dialog (prefix: ckm-dialog)
+ * ------------------------------------------------------------------
+ * Scoped under `.ckm` (plan §7.1). A fixed app bar, one scroll surface, and an
+ * optional fixed action bar — deliberately the same three-part column as
+ * MobileShell, because a full-screen dialog *is* a screen for as long as it is
+ * open, and it should not feel like a different kind of thing.
+ */
+
+.ckm .ckm-dialog {
+  padding-left: var(--ckm-safe-left);
+  padding-right: var(--ckm-safe-right);
+}
+
+/* --- App bar ------------------------------------------------------------- */
+
+.ckm .ckm-dialog__bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-3);
+  min-height: var(--ckm-app-bar-h);
+  padding: var(--ckm-space-2) var(--ckm-space-4);
+  padding-top: calc(var(--ckm-space-2) + var(--ckm-safe-top));
+  border-bottom: 1px solid var(--ckm-line);
+  background: var(--ckm-bg);
+  box-shadow: var(--ckm-shadow-chrome);
+}
+
+.ckm .ckm-dialog__close {
+  flex: none;
+}
+
+.ckm .ckm-dialog__titles {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Two lines, then ellipsis. A dialog title is a task name, and a screenplay
+   title long enough to need a third line has already failed to be a task name. */
+.ckm .ckm-dialog__title {
+  font-family: var(--ckm-display);
+  font-size: var(--ckm-text-card);
+  line-height: var(--ckm-leading-card);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ckm .ckm-dialog__description {
+  margin-top: 2px;
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ckm .ckm-dialog__action {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-2);
+}
+
+/* --- Body ---------------------------------------------------------------- */
+
+.ckm .ckm-dialog__body {
+  flex: 1;
+  min-height: 0;
+  padding: var(--ckm-space-5) var(--ckm-space-4-5);
+  /* SC 2.4.11: the fixed action bar must never be what a focused control is
+     hidden behind, so the scroll surface reserves its height. */
+  scroll-padding-bottom: var(--ckm-space-9);
+}
+
+.ckm .ckm-dialog__body:last-child {
+  padding-bottom: calc(var(--ckm-space-6) + var(--ckm-safe-bottom));
+}
+
+/* --- Footer -------------------------------------------------------------- */
+
+.ckm .ckm-dialog__footer {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+  padding: var(--ckm-space-3) var(--ckm-space-4-5)
+    calc(var(--ckm-space-4) + var(--ckm-safe-bottom));
+  border-top: 1px solid var(--ckm-line);
+  background: var(--ckm-bg);
+}
+
+/* At 320px the bar's three regions plus a two-word action do not fit on one
+   line without the title losing most of its characters. The action drops to
+   its own row rather than starving the title. */
+@media (max-width: 359px) {
+  .ckm .ckm-dialog__bar {
+    flex-wrap: wrap;
+  }
+
+  .ckm .ckm-dialog__action {
+    order: 3;
+    width: 100%;
+    justify-content: flex-end;
+    padding-bottom: var(--ckm-space-1);
+  }
+}

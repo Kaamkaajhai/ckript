@@ -1,0 +1,164 @@
+// @vitest-environment happy-dom
+import { describe, expect, it } from "vitest";
+import { buildMobileNav, resolveActiveTabKey } from "./mobileNav";
+import { SYMBOLS } from "../../layouts/app-shell/navigation/symbols";
+import { KNOWN_ROLES, getAudience } from "../../layouts/app-shell/shellPolicy";
+
+const navFor = (role, { profilePath = "/ada", msgCount = 0 } = {}) =>
+  buildMobileNav({ user: { role, _id: "u1", name: "Ada Lovelace" }, profilePath, msgCount });
+
+describe("buildMobileNav — the tab sets come from the desktop presets", () => {
+  it("gives the writer Dashboard, Create, Messages and Profile", () => {
+    expect(navFor("writer").tabs.map((t) => t.key)).toEqual([
+      "dashboard", "create", "messages", "profile",
+    ]);
+  });
+
+  it("gives the industry audience Discover, Featured, Messages and Profile", () => {
+    expect(navFor("producer").tabs.map((t) => t.key)).toEqual([
+      "home", "featured", "messages", "profile",
+    ]);
+  });
+
+  it("gives the reader Home, Discover, Messages and Profile", () => {
+    expect(navFor("reader").tabs.map((t) => t.key)).toEqual([
+      "home", "search", "messages", "profile",
+    ]);
+  });
+
+  it("gives the admin Console, Search, Messages and Profile", () => {
+    expect(navFor("admin").tabs.map((t) => t.key)).toEqual([
+      "admin", "search", "messages", "profile",
+    ]);
+  });
+
+  /*
+   * The defect this guards is the one shellPolicy exists to prevent: a role
+   * nobody mapped falling through to the writer's chrome and being offered
+   * "Create Project". Every role the server can issue must land on a real bar.
+   */
+  it("gives every known role a four-tab bar ending in Profile", () => {
+    for (const role of KNOWN_ROLES) {
+      const { tabs } = navFor(role);
+      expect(tabs, role).toHaveLength(4);
+      expect(tabs.at(-1).key, role).toBe("profile");
+      expect(tabs.every((t) => t.path && t.label), role).toBe(true);
+    }
+  });
+
+  it("never offers a writer's authoring destination to a non-writer", () => {
+    for (const role of KNOWN_ROLES) {
+      if (getAudience(role) === "writer") continue;
+      const paths = navFor(role).tabs.map((t) => t.path);
+      expect(paths, role).not.toContain("/create-project");
+      expect(paths, role).not.toContain("/upload");
+    }
+  });
+});
+
+describe("buildMobileNav — adaptation for mobile", () => {
+  it("resolves every preset icon key to a real Material Symbols ligature", () => {
+    const ligatures = new Set(Object.values(SYMBOLS));
+    for (const role of KNOWN_ROLES) {
+      for (const tab of navFor(role).tabs) {
+        // A missing key would fall back to the key itself and render a word.
+        expect(ligatures.has(tab.glyph), `${role}/${tab.key} → ${tab.glyph}`).toBe(true);
+      }
+    }
+  });
+
+  it("normalises the badge to a number and only when there is something to say", () => {
+    expect(navFor("writer", { msgCount: 0 }).tabs.find((t) => t.key === "messages").badge).toBe(0);
+    expect(navFor("writer", { msgCount: 3 }).tabs.find((t) => t.key === "messages").badge).toBe(3);
+  });
+
+  it("keeps startFresh on Create, so the tab opens a new draft", () => {
+    expect(navFor("writer").tabs.find((t) => t.key === "create").fresh).toBe(true);
+    expect(navFor("writer").tabs.find((t) => t.key === "messages").fresh).toBe(false);
+  });
+
+  /*
+   * WCAG SC 3.2.3: a navigation mechanism repeated across pages keeps the same
+   * relative order. A badge changes an item's contents, never its index.
+   */
+  it("does not reorder when a badge appears", () => {
+    const quiet = navFor("writer", { msgCount: 0 }).tabs.map((t) => t.key);
+    const busy = navFor("writer", { msgCount: 12 }).tabs.map((t) => t.key);
+    expect(busy).toEqual(quiet);
+  });
+
+  it("reads the reader's own search path from the preset rather than assuming /search", () => {
+    expect(navFor("reader").searchPath).toBe("/reader/search");
+    expect(navFor("writer").searchPath).toBe("/search");
+    expect(navFor("producer").searchPath).toBe("/search");
+  });
+
+  it("carries the audience's own home and search copy", () => {
+    expect(navFor("writer").homePath).toBe("/dashboard");
+    expect(navFor("producer").homePath).toBe("/home");
+    expect(navFor("reader").homePath).toBe("/reader");
+    expect(navFor("admin").homePath).toBe("/admin");
+    expect(navFor("producer").searchPlaceholder).not.toBe(navFor("reader").searchPlaceholder);
+  });
+});
+
+describe("resolveActiveTabKey — the URL decides, not component state", () => {
+  const writer = navFor("writer").tabs;
+  const reader = navFor("reader").tabs;
+
+  it("selects the tab whose route the URL is on", () => {
+    expect(resolveActiveTabKey(writer, "/dashboard")).toBe("dashboard");
+    expect(resolveActiveTabKey(writer, "/messages")).toBe("messages");
+    expect(resolveActiveTabKey(writer, "/create-project")).toBe("create");
+  });
+
+  it("keeps a tab selected on its nested screens", () => {
+    expect(resolveActiveTabKey(writer, "/messages/653f00")).toBe("messages");
+    expect(resolveActiveTabKey(writer, "/create-project/draft-9")).toBe("create");
+  });
+
+  it("returns null when the URL belongs to no tab", () => {
+    // A screenplay detail page is inside no tab, and marking one "current"
+    // there would be a lie told to a screen reader on every detail screen.
+    expect(resolveActiveTabKey(writer, "/script/653f00")).toBeNull();
+    expect(resolveActiveTabKey(writer, "/challenge")).toBeNull();
+  });
+
+  it("honours an exact tab so a root home does not swallow its children", () => {
+    // Reader home is "/reader" (exact); "/reader/search" is Discover.
+    expect(resolveActiveTabKey(reader, "/reader")).toBe("home");
+    expect(resolveActiveTabKey(reader, "/reader/search")).toBe("search");
+  });
+
+  it("prefers the most specific tab when two could match", () => {
+    // Declaration order puts home first; specificity must win regardless.
+    const shuffled = [...reader].reverse();
+    expect(resolveActiveTabKey(shuffled, "/reader/search")).toBe("search");
+  });
+
+  it("matches the profile tab exactly, because its path is user data", () => {
+    // The canonical profile path is a bare root segment, and so is half of the
+    // canonical PROJECT url (/:projectHeading/:writerUsername). A prefix match
+    // would light the profile tab on someone else's project page.
+    expect(resolveActiveTabKey(writer, "/ada")).toBe("profile");
+    expect(resolveActiveTabKey(writer, "/ada/the-final-draft")).toBeNull();
+  });
+
+  it("ignores the query string and hash", () => {
+    expect(resolveActiveTabKey(writer, "/messages?thread=9")).toBe("messages");
+    expect(resolveActiveTabKey(writer, "/dashboard#top")).toBe("dashboard");
+  });
+
+  it("marks at most one tab current", () => {
+    for (const path of ["/dashboard", "/messages/1", "/ada", "/script/1", "/"]) {
+      const key = resolveActiveTabKey(writer, path);
+      const matches = writer.filter((t) => t.key === key);
+      expect(matches.length, path).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("survives a nonsense pathname", () => {
+    expect(resolveActiveTabKey(writer, "")).toBeNull();
+    expect(resolveActiveTabKey([], "/dashboard")).toBeNull();
+  });
+});
