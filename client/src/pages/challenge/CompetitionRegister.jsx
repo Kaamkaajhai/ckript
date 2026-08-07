@@ -10,6 +10,7 @@ import TagSelect from "../../components/TagSelect";
 import { genres as GENRE_OPTIONS, CP_FILM_LANGUAGE_OPTIONS } from "../CreateProject/constants";
 import { COUNTRIES, EXPERIENCE_LEVELS } from "./constants";
 import useIsMobile from "../../mobile/hooks/useIsMobile";
+import ExternalRegistrationPanel from "./ExternalRegistrationPanel";
 import "./challenge.css";
 
 // A form field is labelled in the slug-line voice, like every other label on these pages.
@@ -498,6 +499,16 @@ const CompetitionRegister = () => {
               Back to the competition
             </Link>
           </div>
+
+          {/* The other way in: somebody who already paid to enter on Luma, BookMyShow or FilmFreeway
+              sends the details instead of paying twice, and an admin confirms it by hand. */}
+          <ExternalRegistrationPanel
+            competitionId={competition?._id}
+            form={form}
+            acceptRules={acceptRules}
+            acceptCopyright={acceptCopyright}
+            validateRegistration={validate}
+          />
         </form>
       </div>
 

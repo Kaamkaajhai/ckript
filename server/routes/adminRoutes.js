@@ -2,6 +2,11 @@ import express from "express";
 import protect from "../middleware/authMiddleware.js";
 import adminOnly from "../middleware/adminMiddleware.js";
 import {
+  listExternalRegistrations,
+  approveExternalRegistration,
+  rejectExternalRegistration,
+} from "../controllers/externalRegistrationController.js";
+import {
     getStats,
     getUsers,
     getUserNotableCreditAttachmentFile,
@@ -144,6 +149,12 @@ router.put("/investors/:id/reject", rejectInvestor);
 router.put("/writer-membership/:id/:membershipType/:decision", reviewWriterMembership);
 
 // Bank details review
+// Third-party registration claims: somebody paid to enter on another platform and needs a human to
+// confirm it. Approval creates the entry with no payment and records the foregone fee in the ledger.
+router.get("/external-registrations", listExternalRegistrations);
+router.put("/external-registrations/:id/approve", approveExternalRegistration);
+router.put("/external-registrations/:id/reject", rejectExternalRegistration);
+
 router.get("/bank-details/reviews", getBankDetailReviews);
 router.put("/bank-details/reviews/:id/approve", approveBankDetailReview);
 router.put("/bank-details/reviews/:id/reject", rejectBankDetailReview);

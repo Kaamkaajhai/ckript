@@ -16,6 +16,7 @@ import { Icon, StatCard } from "../components/AdminUI";
 import AdminAnalyticsPanel from "../components/AdminAnalyticsPanel";
 import AdminCompetitions from "./admin/AdminCompetitions";
 import AdminReferrals from "./admin/AdminReferrals";
+import ExternalRegistrationsSection from "./admin/sections/ExternalRegistrationsSection";
 import {
     API_BASE_URL,
     MAX_ATTACHMENT_SIZE_BYTES,
@@ -2057,6 +2058,9 @@ const AdminDashboard = () => {
 
             case "competitions":
                 return <AdminCompetitions isDark={isDark} />;
+
+            case "external-registrations":
+                return <ExternalRegistrationsSection />;
 
             case "referrals":
                 return <AdminReferrals isDark={isDark} />;

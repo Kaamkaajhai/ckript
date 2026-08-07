@@ -1574,3 +1574,106 @@ export const sendFipPlanGrantedEmail = async (
     return { success: false, error: error.message };
   }
 };
+
+
+/**
+ * The decision on a "I already registered elsewhere" claim.
+ *
+ * One template for both outcomes, because they are the same message with a different answer and a
+ * split would drift. Approval carries the entry ID the writer needs; rejection carries the reason and
+ * says plainly that they can submit again — a dead end here means someone who paid on another
+ * platform simply never enters.
+ */
+export const sendExternalRegistrationDecisionEmail = async (
+  email,
+  name,
+  {
+    decision,
+    competitionName = "the challenge",
+    providerLabel = "a third-party platform",
+    externalRef = "",
+    note = "",
+    eventId = "",
+    competitionId = "",
+    clientBaseUrl = "",
+  } = {}
+) => {
+  try {
+    const transporter = createTransporter();
+    await transporter.verify();
+
+    const isApproved = String(decision || "").toLowerCase() === "approved";
+    const safeNote = String(note || "").trim();
+    const actionUrl = buildClientUrl(
+      isApproved && competitionId ? `/challenges/${competitionId}` : "/challenges",
+      clientBaseUrl,
+    );
+    const subject = isApproved
+      ? `✅ You're in — ${competitionName}`
+      : `Action needed: your ${competitionName} registration`;
+
+    const mailOptions = {
+      from: mailFrom(),
+      to: email,
+      subject,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #141110; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #faf8f7; padding: 30px; border-radius: 0 0 10px 10px; }
+            .badge-approved { display: inline-block; background: #d1fae5; color: #065f46; font-size: 14px; font-weight: bold; padding: 6px 16px; border-radius: 20px; margin-bottom: 16px; }
+            .badge-rejected { display: inline-block; background: #fbf1ef; color: #8a2c1a; font-size: 14px; font-weight: bold; padding: 6px 16px; border-radius: 20px; margin-bottom: 16px; }
+            .note { background: #fff; border-left: 4px solid #D14D37; padding: 12px 14px; border-radius: 6px; margin: 12px 0; }
+            .facts { background: #fff; border: 1px solid #ded8d5; border-radius: 8px; padding: 14px; margin: 16px 0; font-size: 14px; }
+            .button { display: inline-block; background: #D14D37; color: white !important; padding: 14px 36px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 15px; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1 style="margin:0">${competitionName}</h1>
+            </div>
+            <div class="content">
+              <p>Hi <strong>${name}</strong>,</p>
+              <div><span class="${isApproved ? "badge-approved" : "badge-rejected"}">${isApproved ? "Registration confirmed" : "We could not confirm this yet"}</span></div>
+              ${isApproved
+                ? `<p>We checked your registration on <strong>${providerLabel}</strong> and you're confirmed. No payment is needed on Ckript — your entry is active.</p>`
+                : `<p>We could not confirm your registration on <strong>${providerLabel}</strong> from the details you sent. <strong>You can submit again</strong> with corrected details — your place is not lost.</p>`}
+              <div class="facts">
+                <div><strong>Platform:</strong> ${providerLabel}</div>
+                ${externalRef ? `<div><strong>Your reference:</strong> ${externalRef}</div>` : ""}
+                ${isApproved && eventId ? `<div><strong>Your Ckript entry ID:</strong> ${eventId}</div>` : ""}
+              </div>
+              ${safeNote ? `<p><strong>Note from our team:</strong></p><div class="note">${safeNote}</div>` : ""}
+              <div style="text-align:center">
+                <a href="${actionUrl}" class="button">${isApproved ? "Open the challenge" : "Submit again"}</a>
+              </div>
+              <p style="color:#666;font-size:13px">If the button doesn't work, use this link:<br/><a href="${actionUrl}" style="color:#D14D37">${actionUrl}</a></p>
+              <p>Regards,<br/><strong>Team ${CONTACTS.name}</strong></p>
+            </div>
+            <div class="footer">${signatureHtml()}
+              <p>© 2026 ckript. All rights reserved.</p>
+              <p>This is an automated message, please do not reply.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Hi ${name},\n\n${isApproved
+        ? `Your registration on ${providerLabel} has been confirmed. No payment is needed on Ckript — your entry is active.${eventId ? `\n\nYour Ckript entry ID: ${eventId}` : ""}`
+        : `We could not confirm your registration on ${providerLabel} from the details you sent. You can submit again with corrected details.`}${safeNote ? `\n\nNote from our team: ${safeNote}` : ""}\n\n${actionUrl}\n\nTeam ${CONTACTS.name}${signatureText()}`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`External registration ${decision} email sent to ${email}:`, info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending external registration decision email:", error.message);
+    return { success: false, error: error.message };
+  }
+};
