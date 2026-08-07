@@ -1752,8 +1752,26 @@ const Profile = () => {
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
-          className={`rounded-3xl border ${t.card} p-5 sm:p-8 flex flex-col divide-y ${dark ? "divide-white/[0.06]" : "divide-gray-100"} ${usesWorkspaceProfile ? "profile-workspace-panel" : ""}`}
+          className={usesWorkspaceProfile
+            ? "profile-workspace-panel"
+            : `rounded-3xl border ${t.card} p-5 sm:p-8 flex flex-col divide-y ${dark ? "divide-white/[0.06]" : "divide-gray-100"}`}
         >
+          {usesWorkspaceProfile ? (
+            <>
+              <ProfileWorkspaceOverview
+                profile={profile}
+                scripts={scripts}
+                isOwnProfile={isOwnProfile}
+                navigate={navigate}
+              />
+              <CompetitionAchievements
+                userId={profile._id}
+                badges={profile.badges}
+                className="mt-6"
+              />
+            </>
+          ) : (
+          <>
           {/* Bio */}
           <div className="pb-6 first:pt-0 last:pb-0">
             <SectionCard
@@ -2384,6 +2402,8 @@ const Profile = () => {
             </>
           )}
 
+          </>
+          )}
         </Motion.div>
       )}
 

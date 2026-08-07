@@ -259,6 +259,9 @@ export function ProfileWorkspaceIdentity({
 
 function ProfileDetails({ profile }) {
   const writer = profile?.writerProfile || {};
+  const industry = profile?.industryProfile || {};
+  const isWriterProfile = ["writer", "creator"].includes(String(profile?.role || "").toLowerCase());
+  const mandates = industry.mandates || {};
   const membershipRows = [
     {
       key: "wga",
@@ -271,12 +274,79 @@ function ProfileDetails({ profile }) {
       status: writer.membershipVerification?.swa?.status || "not_submitted",
     },
   ];
-  const genres = Array.from(new Set([...(writer.genres || []), ...(writer.specializedTags || [])].filter(Boolean)));
+  const genres = Array.from(new Set((isWriterProfile
+    ? [...(writer.genres || []), ...(writer.specializedTags || [])]
+    : mandates.genres || []).filter(Boolean)));
   const skills = Array.from(new Set((profile.skills || []).filter(Boolean)));
+
+  if (!isWriterProfile) {
+    const mandateGroups = [
+      { label: "Preferred genres", values: mandates.genres || [] },
+      { label: "Formats", values: mandates.formats || [] },
+      { label: "Looking for", values: mandates.specificHooks || [] },
+      { label: "Not considering", values: mandates.excludeGenres || [], muted: true },
+    ];
+
+    return (
+      <div className="profile-workspace-overview__grid profile-workspace-overview__grid--industry">
+        <section className="profile-workspace-card" aria-labelledby="professional-profile-heading">
+          <span className="profile-workspace-card__index" aria-hidden="true">01</span>
+          <h2 id="professional-profile-heading">Professional profile</h2>
+          <dl className="profile-workspace-facts">
+            <div><dt>Role</dt><dd>{titleCase(profile?.role || "Member")}</dd></div>
+            <div><dt>Company</dt><dd>{industry.company || "Not set"}</dd></div>
+            <div><dt>Title</dt><dd>{industry.jobTitle || "Not set"}</dd></div>
+            <div><dt>Specialism</dt><dd>{titleCase(industry.subRoleOther || industry.subRole || "Not set")}</dd></div>
+            <div><dt>Based in</dt><dd>{getLocationLabel(profile)}</dd></div>
+          </dl>
+        </section>
+
+        <section className="profile-workspace-card" aria-labelledby="investment-brief-heading">
+          <span className="profile-workspace-card__index" aria-hidden="true">02</span>
+          <h2 id="investment-brief-heading">Investment brief</h2>
+          <p className="profile-workspace-card__lede">
+            {industry.investmentThesis || industry.bio || "Open to discovering distinctive projects and creative partnerships."}
+          </p>
+          <dl className="profile-workspace-facts profile-workspace-facts--compact">
+            <div><dt>Investment range</dt><dd>{industry.investmentRange || "Open"}</dd></div>
+            <div><dt>Portfolio focus</dt><dd>{mandates.genres?.length ? mandates.genres.join(" · ") : "Broad"}</dd></div>
+          </dl>
+        </section>
+
+        <section className="profile-workspace-card profile-workspace-card--wide profile-workspace-card--mandates" aria-labelledby="mandates-heading">
+          <span className="profile-workspace-card__index" aria-hidden="true">03</span>
+          <h2 id="mandates-heading">Mandates & interests</h2>
+          <div className="profile-workspace-mandates">
+            {mandateGroups.map((group) => (
+              <div key={group.label} className={group.muted ? "is-muted" : undefined}>
+                <h3>{group.label}</h3>
+                {group.values.length > 0 ? (
+                  <div className="profile-workspace-chips">
+                    {group.values.map((item) => <span key={item}>{titleCase(item)}</span>)}
+                  </div>
+                ) : <p className="profile-workspace-card__empty">No preferences set.</p>}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="profile-workspace-card profile-workspace-card--wide" aria-labelledby="industry-skills-heading">
+          <span className="profile-workspace-card__index" aria-hidden="true">04</span>
+          <h2 id="industry-skills-heading">Skills & expertise</h2>
+          {skills.length > 0 ? (
+            <div className="profile-workspace-skill-list">
+              {skills.map((skill) => <span key={skill}><b aria-hidden="true">✓</b>{skill}</span>)}
+            </div>
+          ) : <p className="profile-workspace-card__empty">No skills added yet.</p>}
+        </section>
+      </div>
+    );
+  }
 
   return (
     <div className="profile-workspace-overview__grid">
       <section className="profile-workspace-card" aria-labelledby="writer-profile-heading">
+        <span className="profile-workspace-card__index" aria-hidden="true">01</span>
         <h2 id="writer-profile-heading">Writer profile</h2>
         <dl className="profile-workspace-facts">
           <div><dt>Username</dt><dd>{writer.username ? `@${writer.username}` : "Not set"}</dd></div>
@@ -287,6 +357,7 @@ function ProfileDetails({ profile }) {
       </section>
 
       <section className="profile-workspace-card" aria-labelledby="guild-memberships-heading">
+        <span className="profile-workspace-card__index" aria-hidden="true">02</span>
         <h2 id="guild-memberships-heading">Guild memberships</h2>
         <div className="profile-workspace-memberships">
           {membershipRows.map((membership) => {
@@ -308,6 +379,7 @@ function ProfileDetails({ profile }) {
       </section>
 
       <section className="profile-workspace-card" aria-labelledby="genres-heading">
+        <span className="profile-workspace-card__index" aria-hidden="true">03</span>
         <h2 id="genres-heading">Genres · Tags</h2>
         {genres.length > 0 ? (
           <div className="profile-workspace-chips">
@@ -317,6 +389,7 @@ function ProfileDetails({ profile }) {
       </section>
 
       <section className="profile-workspace-card profile-workspace-card--wide" aria-labelledby="skills-heading">
+        <span className="profile-workspace-card__index" aria-hidden="true">04</span>
         <h2 id="skills-heading">Skills & expertise</h2>
         {skills.length > 0 ? (
           <div className="profile-workspace-skill-list">
@@ -329,23 +402,38 @@ function ProfileDetails({ profile }) {
 }
 
 export function ProfileWorkspaceOverview({ profile, scripts, isOwnProfile, navigate, renderDelete, onViewAll }) {
+  const isWriterProfile = ["writer", "creator"].includes(String(profile?.role || "").toLowerCase());
+
   return (
     <div className="profile-workspace-overview">
+      <header className="profile-workspace-overview__header">
+        <div>
+          <span className="profile-workspace-overview__eyebrow">Profile overview</span>
+          <h2>{isWriterProfile ? "The work, practice & credentials" : "Professional brief & investment focus"}</h2>
+        </div>
+        <p>{isWriterProfile
+          ? "A concise view of this writer’s voice, professional standing, and published work."
+          : "A clear view of this member’s professional background, mandate, and areas of interest."}</p>
+      </header>
+
       <section className="profile-workspace-card profile-workspace-card--wide" aria-labelledby="about-heading">
+        <span className="profile-workspace-card__index" aria-hidden="true">00</span>
         <h2 id="about-heading">About</h2>
         <p className="profile-workspace-about-copy">{profile.bio || "No bio added yet."}</p>
       </section>
       <ProfileDetails profile={profile} />
-      <ProfileWorkspaceProjects
-        scripts={scripts}
-        profile={profile}
-        isOwnProfile={isOwnProfile}
-        navigate={navigate}
-        renderDelete={renderDelete}
-        limit={5}
-        showToolbar={false}
-        onViewAll={onViewAll}
-      />
+      {isWriterProfile && (
+        <ProfileWorkspaceProjects
+          scripts={scripts}
+          profile={profile}
+          isOwnProfile={isOwnProfile}
+          navigate={navigate}
+          renderDelete={renderDelete}
+          limit={5}
+          showToolbar={false}
+          onViewAll={onViewAll}
+        />
+      )}
     </div>
   );
 }
