@@ -87,8 +87,15 @@ const sanitizeRequest = (req, _res, next) => {
   if (removed.length) {
     // Observable on purpose: a spike here is somebody probing for operator injection, and a filter
     // that works silently is one nobody notices has stopped working.
+    // The URL is passed as an ARGUMENT, never interpolated into the first string. console.warn treats
+    // its first argument as a format string once more arguments follow, so a request to
+    // "/api/x?%s=1" would consume the values meant for the placeholders and rewrite the log line —
+    // the one record of somebody probing for operator injection.
     console.warn(
-      `[sanitize] stripped ${removed.length} forbidden key(s) from ${req.method} ${req.originalUrl}:`,
+      "[sanitize] stripped %d forbidden key(s) from %s %s: %s",
+      removed.length,
+      req.method,
+      req.originalUrl,
       [...new Set(removed)].join(", "),
     );
   }

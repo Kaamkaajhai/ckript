@@ -303,12 +303,18 @@ export const listExternalRegistrations = async (req, res) => {
     const status = String(req.query.status || "").trim();
     const search = String(req.query.search || "").trim();
 
+    // Every value below is rebuilt from a literal or an explicit String(), never handed through from
+    // req.query. The request sanitiser already strips operator keys globally, but that is a guarantee
+    // one layer away from this query; a value that arrives as ["luma"] passes isKnownProvider (because
+    // String(["luma"]) === "luma") and would then be matched as an ARRAY. Constructing the filter from
+    // known-good primitives is what makes the shape of this query independent of what was sent.
     const filter = {};
-    if (["pending", "approved", "rejected"].includes(status)) filter.status = status;
-    if (isKnownProvider(req.query.provider)) filter.provider = req.query.provider;
+    if (["pending", "approved", "rejected"].includes(status)) filter.status = String(status);
+    if (isKnownProvider(req.query.provider)) filter.provider = String(req.query.provider);
     if (search) {
-      // Escaped: an unescaped user string in a $regex is both an injection and a ReDoS.
-      const safe = search.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      // Escaped AND bounded: an unescaped user string in a $regex is an injection, and an unbounded
+      // one is a denial of service against the database rather than this process.
+      const safe = search.slice(0, 120).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const rx = new RegExp(safe, "i");
       filter.$or = [{ fullName: rx }, { externalRef: rx }, { phone: rx }];
     }

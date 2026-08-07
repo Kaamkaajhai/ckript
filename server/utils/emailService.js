@@ -17,7 +17,19 @@ const formatOtpValidityLabel = (seconds) => {
   return `${safeSeconds} second${safeSeconds === 1 ? "" : "s"}`;
 };
 
-const trimTrailingSlash = (value = "") => String(value || "").trim().replace(/\/+$/, "");
+/**
+ * Drop trailing slashes.
+ *
+ * A loop, not `/\/+$/`. That pattern is quadratic on "////…x": the engine matches the run of slashes
+ * from every starting position, checks for end-of-string, fails because of the trailing character,
+ * and backtracks through the whole run each time. This runs on a client-supplied base URL.
+ */
+const trimTrailingSlash = (value = "") => {
+  const text = String(value || "").trim();
+  let end = text.length;
+  while (end > 0 && text[end - 1] === "/") end -= 1;
+  return text.slice(0, end);
+};
 
 const normalizeClientBaseUrl = (value = "") => {
   const rawValue = trimTrailingSlash(value);
@@ -1196,7 +1208,10 @@ export const sendAdminBroadcastEmail = async (
       // A plain-text alternative, like every other template here. Without one a broadcast is
       // HTML-only, which reads as spam to filters and renders as nothing in a text-only client — and
       // it is the one message that goes to the whole audience at once.
-      text: `${safeTitle}\n\n${String(content || "").replace(/<[^>]*>/g, "").trim()}${
+      // htmlToPlainText, not a one-pass `replace(/<[^>]*>/g, "")`. That is the exact bug fixed in
+      // htmlText.js and then written fresh here: one sweep lets "<<script>script>" reassemble, and it
+      // decodes nothing, so an encoded tag survives into the text part.
+      text: `${safeTitle}\n\n${htmlToPlainText(content).trim()}${
         actionUrl ? `\n\n${buttonText}: ${finalUrl}` : ""
       }\n\nTeam ${CONTACTS.name}${signatureText()}`,
       attachments: attachments.map(att => ({
