@@ -256,7 +256,7 @@ export const BroadcastComposer = ({
         const match = content.match(/<!-- STATE:(.*?) -->/);
         if (match && match[1]) {
             try {
-                return JSON.parse(atob(match[1]));
+                return JSON.parse(decodeURIComponent(atob(match[1])));
             } catch (e) {
                 console.error("Failed to parse blocks state from content", e);
             }
@@ -271,7 +271,7 @@ export const BroadcastComposer = ({
             return;
         }
         const rawHtml = compileEmailBlocksToHtml(blocks, title);
-        const htmlWithState = `${rawHtml}\n<!-- STATE:${btoa(JSON.stringify(blocks))} -->`;
+        const htmlWithState = `${rawHtml}\n<!-- STATE:${btoa(encodeURIComponent(JSON.stringify(blocks)))} -->`;
         // Only update if changed to prevent infinite loops if AdminDashboard re-renders
         if (htmlWithState !== content) {
             onContentChange(htmlWithState);
