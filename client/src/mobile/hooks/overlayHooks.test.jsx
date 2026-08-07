@@ -179,6 +179,31 @@ describe("useInertBackground", () => {
     act(() => root.render(<Harness enabled={false} />));
     expect(sibling.hasAttribute("inert")).toBe(true);
   });
+
+  /*
+   * `inert` removes a subtree from the accessibility tree, so an inert live
+   * region cannot announce. If the toast layer were swept up by this walk, a
+   * message raised while a dialog is open would reach nobody: not shown to
+   * assistive technology, not dismissible, not spoken.
+   */
+  it("leaves an app-level live region live, so it can still announce", () => {
+    function Harness({ enabled }) {
+      const ref = useRef(null);
+      useInertBackground(ref, enabled);
+      return <div ref={ref} id="overlay" />;
+    }
+    mount(<Harness enabled={false} />);
+
+    const layer = document.createElement("div");
+    layer.setAttribute("data-ckm-live-region", "");
+    container.querySelector(".ckm-root").appendChild(layer);
+
+    act(() => root.render(<Harness enabled />));
+
+    // The screen behind is hidden, as it must be; the toast layer is not.
+    expect(container.querySelector(".ckm-shell__scroll").hasAttribute("inert")).toBe(true);
+    expect(layer.hasAttribute("inert")).toBe(false);
+  });
 });
 
 describe("lockScrollSurface", () => {

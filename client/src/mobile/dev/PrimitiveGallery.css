@@ -56,6 +56,23 @@
   border-top: 1px solid var(--ckm-line);
 }
 
+/* An audience's chrome, shown as the pair it really is: the app bar sits on the
+   page background and the tab bar on the dark bar, so the specimen carries a
+   border rather than trying to reproduce a whole screen around them. */
+.ckm .ckm-gallery__chrome {
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-lg);
+  overflow: hidden;
+  margin-bottom: var(--ckm-space-4);
+}
+
+.ckm .ckm-gallery__chrome > .ckm-gallery__note {
+  margin: 0;
+  padding: var(--ckm-space-2) var(--ckm-space-3);
+  background: var(--ckm-bg-fill);
+  border-bottom: 1px solid var(--ckm-line);
+}
+
 /* Lists, cards and tab bars are edge-to-edge components; showing them inside
    the harness's gutter would hide exactly the overflow it exists to catch. */
 .ckm .ckm-gallery__bleed {

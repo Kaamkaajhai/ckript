@@ -46,8 +46,16 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
   },
 
   // --- Shared components ------------------------------------------------
-  "ckm-topbar": { kind: SHARED_COMPONENT, owner: "components/TopBar.css" },
-  "ckm-bottomnav": { kind: SHARED_COMPONENT, owner: "components/BottomNav.css" },
+  "ckm-topbar": {
+    kind: SHARED_COMPONENT,
+    owner: "components/TopBar.css",
+    note: "Legacy writer-only top bar. Superseded by ckm-appbar on 2026-08-07; retire with the last caller.",
+  },
+  "ckm-bottomnav": {
+    kind: SHARED_COMPONENT,
+    owner: "components/BottomNav.css",
+    note: "Legacy two-item provisional tab bar. Superseded by ckm-navbar on 2026-08-07; retire with the last caller.",
+  },
   "ckm-tabs": { kind: SHARED_COMPONENT, owner: "components/SectionTabs.css" },
   "ckm-sheet": {
     kind: SHARED_COMPONENT,
@@ -55,7 +63,11 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     note: "Legacy dashboard sheet with no focus trap. Superseded by ckm-bottom-sheet for new screens; Phase 2 migrates the four dashboard overlays and retires it.",
   },
   "ckm-empty": { kind: SHARED_COMPONENT, owner: "components/EmptyState.css" },
-  "ckm-skel": { kind: SHARED_COMPONENT, owner: "components/Skeleton.css" },
+  "ckm-skel": {
+    kind: SHARED_COMPONENT,
+    owner: "components/Skeleton.css, components/feedback/Skeletons.css",
+    note: "Two owners by design: Skeleton.css holds the dashboard's fixed boot drawing, Skeletons.css the composable shapes. Neither uses the other's element names.",
+  },
   "ckm-island": { kind: SHARED_COMPONENT, owner: "components/DynamicIsland.css" },
   "ckm-statusbar": { kind: SHARED_COMPONENT, owner: "components/StatusBar.css" },
   "ckm-btn": {
@@ -79,6 +91,18 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
   "ckm-icon-button": { kind: SHARED_COMPONENT, owner: "components/buttons/IconButton.css" },
   "ckm-back": { kind: SHARED_COMPONENT, owner: "components/navigation/BackButton.css" },
   "ckm-page-header": { kind: SHARED_COMPONENT, owner: "components/app-bars/PageHeader.css" },
+
+  // --- Phase 1 role-aware chrome ----------------------------------------
+  "ckm-appbar": {
+    kind: SHARED_COMPONENT,
+    owner: "components/app-bars/AppBar.css",
+    note: "Role-aware top app bar for `standard` screens. Supersedes ckm-topbar, whose logo navigated nowhere and whose search placeholder was the writer's for every audience.",
+  },
+  "ckm-navbar": {
+    kind: SHARED_COMPONENT,
+    owner: "components/navigation/NavBar.css",
+    note: "Role-aware bottom tab bar; destinations come from the desktop audience presets and the active tab from the URL. Supersedes ckm-bottomnav, whose two items were hard-coded and whose active tab was a constant prop.",
+  },
 
   // --- Phase 1 form family ----------------------------------------------
   "ckm-field": {
@@ -150,6 +174,23 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     kind: SHARED_COMPONENT,
     owner: "components/overlays/ActionSheet.css",
     note: "The mobile form of the plan's 'context menu' — a dialog of actions, deliberately not role=menu.",
+  },
+
+  // --- Phase 1 state set ------------------------------------------------
+  "ckm-toast": {
+    kind: SHARED_COMPONENT,
+    owner: "components/feedback/Toast.css",
+    note: "Transient message plus its host layer. Supersedes the dashboard-era ckm-island, which Phase 2 retires with notify.desktopOnly().",
+  },
+  "ckm-message": {
+    kind: SHARED_COMPONENT,
+    owner: "components/feedback/InlineMessage.css",
+    note: "The durable counterpart of the toast: inline strip and full-panel failure form, both with an optional retry.",
+  },
+  "ckm-offline": {
+    kind: SHARED_COMPONENT,
+    owner: "components/feedback/OfflineBanner.css",
+    note: "Connectivity condition, rendered by MobileShell so no screen mounts a second one.",
   },
 
   "ckm-gallery": {
