@@ -1,30 +1,29 @@
 /*
  * Ckript Mobile — dashboard data
  * ------------------------------------------------------------------
- * A faithful port of the mock data + derivation logic from the hi-fi
- * wireframe's <script data-dc-script> Component. Kept as pure data/helpers
- * (no React) so screens stay declarative and this can later be swapped for
- * a real API response with the same shape.
+ * DEVELOPMENT FIXTURE ONLY. Nothing in this file reaches a signed-in user.
+ *
+ * As of 2026-08-07 (plan §11 Phase 2) the production dashboard builds every
+ * section from `data/dashboardModel.js` against the real payloads. What is left
+ * here exists to give `/__mobile-preview` a stable, offline, non-expiring
+ * fixture to render the same components against — the plan blesses that
+ * fixture, and it is the reason the shapes below must keep matching the model's
+ * output exactly.
+ *
+ * Removed with the same change: NOTIFICATIONS (three invented rows that the
+ * live bell was seeded from, and counted), WELCOME_TOAST, ACCOUNT_MENU and
+ * AI_DETAIL_OVERRIDES.
  */
 
 /* ---- score → verdict/grade/colour helpers (verbatim from the reference) ---- */
 
+import { verdictForRating, gradeForOverall } from "./dashboardModel";
+
 const clamp = (n) => Math.max(8, Math.min(99, Math.round(n)));
 
-export const verdictFor = (s) => {
-  if (s >= 85) return { label: "Excellent", col: "var(--ckm-accent)", bg: "var(--ckm-accent-soft)" };
-  if (s >= 70) return { label: "Good", col: "var(--ckm-accent)", bg: "var(--ckm-accent-soft)" };
-  if (s >= 55) return { label: "Fair", col: "var(--ckm-gold)", bg: "#fbf3e2" };
-  return { label: "Needs work", col: "var(--ckm-red)", bg: "var(--ckm-red-bg)" };
-};
-
-const gradeFor = (s) => (s >= 85 ? "Grade A" : s >= 75 ? "Grade B" : s >= 65 ? "Grade C" : "Grade D");
-
-const platColorFor = (s) => {
-  if (s >= 75) return { col: "var(--ckm-green)", bg: "var(--ckm-green-bg)" };
-  if (s >= 65) return { col: "var(--ckm-gold)", bg: "#fbf3e2" };
-  return { col: "var(--ckm-red)", bg: "var(--ckm-red-bg)" };
-};
+/* The fixture reuses the production bands so the preview cannot drift from
+   what a real account sees. */
+export const verdictFor = verdictForRating;
 
 const aiBars = (s) =>
   ["Structure", "Dialogue", "Pacing", "Originality"].map((label, i) => {
@@ -57,8 +56,17 @@ const AI_RAW = [
 ];
 
 export const AI_REVIEWS = AI_RAW.map(([title, score, excerpt], id) => {
-  const v = verdictFor(score);
-  return { id, title, score, excerpt, verdict: v.label, vcol: v.col, vbg: v.bg, bars: aiBars(score) };
+  const v = verdictForRating(score);
+  return {
+    id: String(id),
+    title,
+    score,
+    excerpt,
+    verdict: v.label,
+    vcol: v.col,
+    vbg: v.bg,
+    bars: aiBars(score),
+  };
 });
 
 /* ---- Reviews · Platform insights (9) ---- */
@@ -76,8 +84,17 @@ const PLAT_RAW = [
 ];
 
 export const PLATFORM_REVIEWS = PLAT_RAW.map(([title, score, feedback], id) => {
-  const p = platColorFor(score);
-  return { id, title, score, grade: gradeFor(score), gcol: p.col, gbg: p.bg, feedback, bars: platBars(score) };
+  const g = gradeForOverall(score);
+  return {
+    id: String(id),
+    title,
+    score,
+    grade: `Grade ${g.letter}`,
+    gcol: g.col,
+    gbg: g.bg,
+    feedback,
+    bars: platBars(score),
+  };
 });
 
 export const PAGE_SIZE = 5; // "View more" increment on the review lists
@@ -86,22 +103,23 @@ export const PAGE_SIZE = 5; // "View more" increment on the review lists
 
 export const OVERVIEW = {
   profileCompletion: 55,
+  analyticsLocked: false,
   hero: {
     title: "Your Stories in Motion",
     body: "Track scripts, trailer engagement & producer interest — all in one place.",
   },
   glance: [
-    { icon: "visibility", label: "Profile Views", value: "2.3k", note: "▲ 12% this week", tone: "up" },
-    { icon: "payments", label: "Earnings", value: "₹8.4k", note: "▲ ₹1.2k", tone: "up" },
-    { icon: "lock_open", label: "Unlocks", value: "146", note: "across 4 scripts", tone: "muted" },
-    { icon: "movie", label: "AI Trailers", value: "9", note: "2 rendering", tone: "muted" },
+    { icon: "visibility", label: "Profile Views", value: "2,340", note: "", tone: "muted" },
+    { icon: "payments", label: "Earnings", value: "₹8,400", note: "", tone: "muted" },
+    { icon: "lock_open", label: "Unlocks", value: "146", note: "", tone: "muted" },
+    { icon: "movie", label: "AI Trailers", value: "9", note: "", tone: "muted" },
   ],
-  avgScore: { value: 74, out: 100, note: "across 3 analyses" },
-  biggestMover: { title: "The Last Scene", note: "▲ 1.4k views · 7d" },
+  avgScore: { value: 74, out: 100, note: "Across all reviewed scripts" },
+  biggestMover: { title: "The Last Scene", note: "4,100 views", href: "/the-last-scene/arshad" },
   topScripts: [
-    { rank: 1, title: "The Last Scene", meta: "Drama · Feature", views: "4.1k" },
-    { rank: 2, title: "Nocturne", meta: "Thriller · Short", views: "3.2k" },
-    { rank: 3, title: "Driftwood", meta: "Drama · Feature", views: "2.1k" },
+    { rank: 1, id: "p1", href: "/the-last-scene/arshad", title: "The Last Scene", meta: "Drama · Feature Film", views: "4,100" },
+    { rank: 2, id: "p2", href: "/nocturne/arshad", title: "Nocturne", meta: "Thriller · Short Film", views: "3,200" },
+    { rank: 3, id: "p3", href: "/driftwood/arshad", title: "Driftwood", meta: "Drama · Feature Film", views: "2,100" },
   ],
 };
 
@@ -124,10 +142,6 @@ export const PERFORMANCE = {
       { label: "Verge", h: 19, opacity: 0.4 },
     ],
   },
-  details: [
-    { icon: "schedule", label: "Avg watch time", value: "1:48" },
-    { icon: "bookmark", label: "Saves", value: "312" },
-  ],
 };
 
 /* ---- Projects ---- */
@@ -135,9 +149,11 @@ export const PERFORMANCE = {
 export const PROJECTS = {
   total: 12,
   pendingApproval: 2,
+  rejectedCount: 1,
   featured: [
     {
-      id: "the-last-scene",
+      id: "p1",
+      href: "/the-last-scene/arshad",
       title: "The Last Scene",
       author: "Arshad R.",
       date: "Feb 12, 2026",
@@ -145,38 +161,40 @@ export const PROJECTS = {
       status: { label: "Published", dot: "var(--ckm-live)" },
       score: 84,
       tags: [
-        { label: "Complete", tone: "green" },
         { label: "Drama", tone: "neutral" },
         { label: "Feature Film", tone: "neutral" },
       ],
-      views: "4.1k",
-      rating: "4.6",
-      price: "₹1,499",
-      cover: "hero",
+      views: "4,100",
+      coverImage: null,
+      publicNote: "4,100 views",
+      price: 1499,
+      shareText: "A grieving editor splices one last reel to say goodbye.",
     },
     {
-      id: "ember-and-ash",
+      id: "p2",
+      href: "/ember-and-ash/arshad",
       title: "Ember & Ash",
       author: "Arshad R.",
       date: "Mar 03, 2026",
       logline: "A widow returns to the coast where the fire began.",
-      status: { label: "In Review", dot: "#f5a623" },
-      tags: [
-        { label: "In Progress · 60%", tone: "gold" },
-        { label: "Thriller", tone: "neutral" },
-      ],
+      status: { label: "In Review", dot: "var(--ckm-gold)" },
+      score: null,
+      tags: [{ label: "Thriller", tone: "neutral" }],
+      views: "0",
+      coverImage: null,
       publicNote: "Not yet public",
-      price: "Free",
-      cover: "placeholder",
+      price: null,
+      shareText: "A widow returns to the coast where the fire began.",
     },
   ],
   collaborations: [
     {
-      id: "halcyon-days",
+      id: "c1",
+      href: "/halcyon-days/meera",
       title: "Halcyon Days",
-      by: "Shared by Meera K. · Co-writer",
-      status: "Open",
-      swatch: "linear-gradient(135deg,#e6efe4,#c9ddc4)",
+      by: "Shared by Meera K.",
+      status: "Published",
+      role: "Co-writer",
     },
   ],
 };
@@ -190,111 +208,52 @@ const ALL_RAW = [
   ["Halcyon Days", null, "draft", "not published"],
   ["Verge", null, "rejected", "see feedback"],
   ["The Last Scene", 84, "published", "4.1k views"],
-  ["Ember & Ash", null, "review", "in review"],
+  ["Ember & Ash", null, "pending_approval", "in review"],
   ["Paper Boats", 81, "published", "980 views"],
   ["Saltwater", 90, "published", "3.4k views"],
   ["Understudy", 75, "published", "1.1k views"],
   ["Cinders", 65, "draft", "not published"],
-  ["Nightjar", 84, "review", "in review"],
+  ["Nightjar", 84, "pending_approval", "in review"],
   ["Second Takes", 67, "published", "760 views"],
 ];
 
-const SWATCHES = [
-  "linear-gradient(135deg,#dce9f8,#b5d0ef)",
-  "linear-gradient(135deg,#f0e5d6,#e0cdb2)",
-  "linear-gradient(135deg,#e6efe4,#c9ddc4)",
-  "linear-gradient(135deg,#f2dede,#e6bcbc)",
-];
-
 export const ALL_PROJECTS = ALL_RAW.map(([title, score, state, meta], id) => ({
-  id,
+  id: String(id),
+  href: `/${title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}/arshad`,
   title,
   score,
-  state, // published | draft | rejected | review
+  state, // published | draft | rejected | pending_approval
   meta,
-  swatch: SWATCHES[id % SWATCHES.length],
 }));
 
 export const ALL_PROJECTS_PAGE_SIZE = 9;
 
-/* ---- Notifications ---- */
+/* ---- AI detail ---------------------------------------------------------
+   Production reviews carry their own `detail`, built by `data/dashboardModel.js`
+   from the strengths / weaknesses / improvements / audienceFit / comparables
+   the model actually wrote. The derivation below exists only for the fixture
+   reviews in this file, which have no such fields — it is why it is here, in
+   the fixture module, and not in the model. */
 
-export const NOTIFICATIONS = [
-  {
-    id: "n1",
-    icon: "favorite",
-    unread: true,
-    html: "<b>Meera K.</b> liked <b>“Nocturne”</b>",
-    time: "2m ago",
-  },
-  {
-    id: "n2",
-    icon: "person_add",
-    unread: false,
-    html: "<b>A. Producer</b> started following you",
-    time: "1h ago",
-  },
-  {
-    id: "n3",
-    icon: "movie",
-    unread: false,
-    html: "Your AI trailer is ready",
-    time: "3h ago",
-  },
-];
-
-/* The transient toast from the reference (screen 04) — surfaced once on load. */
-export const WELCOME_TOAST = {
-  icon: "star",
-  html: "<b>Analyst</b> scored “The Last Scene” 78/100",
-  time: "just now",
-};
-
-/* ---- Account menu ---- */
-
-export const ACCOUNT_MENU = [
-  { id: "profile", icon: "person", label: "Profile" },
-  { id: "contact", icon: "mail", label: "Contact" },
-  { id: "terms", icon: "description", label: "T & C" },
-  { id: "privacy", icon: "shield", label: "Privacy" },
-];
-
-/* ---- Hand-authored AI detail (The Last Scene) from the reference sheet.
-   Other scripts derive their detail from their own bars/verdict. ---- */
-
-export const AI_DETAIL_OVERRIDES = {
-  "The Last Scene": {
-    quote: "A confident, cinematic voice with a devastating final act — tighten the middle and this sings.",
-    facets: [
-      { label: "Structure", value: "Excellent" },
-      { label: "Dialogue", value: "Strong" },
-      { label: "Pacing", value: "Good" },
-    ],
-    strengths: ["Distinct narrative voice", "Emotionally resonant climax"],
-    improve: ["Sagging second act", "Underused antagonist"],
-    audience: 'Festival-circuit drama; fans of <i>Aftersun</i> & <i>The Father</i>.',
-  },
-};
-
-/* Derive a full detail object for any AI review (falls back to computed
-   facet words + bar-ranked strengths/improvements when no override exists). */
 const facetWord = (v) =>
   v >= 85 ? "Excellent" : v >= 72 ? "Strong" : v >= 60 ? "Good" : v >= 48 ? "Fair" : "Weak";
 
 export function aiDetailFor(review) {
-  const override = AI_DETAIL_OVERRIDES[review.title];
-  if (override) return { ...override, score: review.score, verdict: review.verdict, vcol: review.vcol };
+  // The real path: the mapping already built this from the payload.
+  if (review?.detail) return review.detail;
 
-  const ranked = [...review.bars].sort((a, b) => b.val - a.val);
+  const ranked = [...(review?.bars || [])].sort((a, b) => b.val - a.val);
   return {
     score: review.score,
     verdict: review.verdict,
     vcol: review.vcol,
     quote: review.excerpt,
-    facets: review.bars.slice(0, 3).map((b) => ({ label: b.label, value: facetWord(b.val) })),
+    facets: (review.bars || []).slice(0, 3).map((b) => ({ label: b.label, value: facetWord(b.val) })),
     strengths: ranked.slice(0, 2).map((b) => `${b.label} lands with confidence`),
     improve: ranked.slice(-2).map((b) => `${b.label} needs another pass`),
-    audience: "Matched to readers of comparable titles in this genre.",
+    recommendations: [],
+    audienceFit: "Matched to readers of comparable titles in this genre.",
+    comparables: "",
   };
 }
 

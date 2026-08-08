@@ -18,24 +18,14 @@
   background: var(--ckm-track);
   color: var(--ckm-muted);
 }
-.ckm .ckm-proj__spacer {
-  flex: 1;
-}
 .ckm .ckm-proj__filter {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  border: 1px solid #e4ddd0;
-  background: #fff;
-  border-radius: 9px;
-  padding: 6px 10px;
-  font: 600 10.5px/1 var(--ckm-body);
-  color: var(--ckm-text-3);
-  cursor: pointer;
+  /* The bespoke "Filter ▾" button that used to sit here opened a
+     `desktopOnly()` toast. It is now a real ckm-segmented radio group. */
+  margin-top: 14px;
 }
 
 /* ---- pending banner ---- */
-.ckm .ckm-proj__pending {
+.ckm .ckm-proj__notice {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -45,7 +35,7 @@
   background: var(--ckm-gold-bg-2);
   border-radius: 14px;
 }
-.ckm .ckm-proj__pending-icon {
+.ckm .ckm-proj__notice-icon {
   width: 32px;
   height: 32px;
   flex: none;
@@ -56,16 +46,41 @@
   justify-content: center;
   color: var(--ckm-gold);
 }
-.ckm .ckm-proj__pending-text {
+.ckm .ckm-proj__notice-text {
   font: 400 12px/1.45 var(--ckm-body);
-  color: #8a6d24;
+  color: var(--ckm-gold-ink);
 }
-.ckm .ckm-proj__pending-text b {
-  color: #7a5f18;
+.ckm .ckm-proj__notice-text b {
+  color: var(--ckm-gold-ink);
+  font-weight: 700;
+}
+
+/* The rejected counterpart. Same shape, different meaning — one is "wait",
+   the other is "act". */
+.ckm .ckm-proj__notice--error {
+  border-color: #f2d5d1;
+  background: var(--ckm-red-bg);
+}
+.ckm .ckm-proj__notice--error .ckm-proj__notice-icon {
+  background: #fadedb;
+  color: var(--ckm-red-ink);
+}
+.ckm .ckm-proj__notice--error .ckm-proj__notice-text,
+.ckm .ckm-proj__notice--error .ckm-proj__notice-text b {
+  color: var(--ckm-red-ink);
+}
+
+/* ---- lists ---- */
+.ckm .ckm-proj__list,
+.ckm .ckm-proj__collab-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
 /* ---- project card ---- */
 .ckm .ckm-pc {
+  position: relative;
   margin-top: 14px;
   border: 1px solid #eee7db;
   border-radius: var(--ckm-r-xl);
@@ -78,9 +93,7 @@
   height: 150px;
   overflow: hidden;
 }
-.ckm .ckm-pc__cover--ph {
-  height: 120px;
-}
+
 .ckm .ckm-pc__cover-img {
   position: absolute;
   inset: 0;
@@ -96,20 +109,16 @@
 .ckm .ckm-pc__cover-ph {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, #dce9f8, #c7dbf3 55%, #b5d0ef);
-}
-.ckm .ckm-pc__cover-ph-icon {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 52px;
-  height: 52px;
-  border-radius: 15px;
-  background: rgba(255, 255, 255, 0.78);
   display: flex;
   align-items: center;
   justify-content: center;
+  background: var(--ckm-bg-soft);
+  border-bottom: 1px solid var(--ckm-line-3);
+}
+.ckm .ckm-pc__cover-ph-mark {
+  font: 500 34px/1 var(--ckm-display);
+  letter-spacing: 0.04em;
+  color: var(--ckm-faint);
 }
 .ckm .ckm-pc__status {
   position: absolute;
@@ -118,8 +127,8 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font: 700 8.5px/1 var(--ckm-body);
-  letter-spacing: 0.13em;
+  font: 700 11px/1 var(--ckm-body);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 6px 11px;
   border-radius: 999px;
@@ -148,8 +157,8 @@
   font: 600 15px/1 var(--ckm-display);
 }
 .ckm .ckm-pc__score-out {
-  font: 600 9px/1 var(--ckm-body);
-  color: var(--ckm-faint);
+  font: 600 11px/1 var(--ckm-body);
+  color: var(--ckm-text-3);
 }
 
 .ckm .ckm-pc__body {
@@ -165,26 +174,51 @@
   min-width: 0;
 }
 .ckm .ckm-pc__eyebrow {
-  font: 700 8.5px/1 var(--ckm-body);
-  letter-spacing: 1.4px;
+  font: 700 11px/1.2 var(--ckm-body);
+  letter-spacing: 0.6px;
   text-transform: uppercase;
-  color: var(--ckm-muted-3);
+  color: var(--ckm-text-3);
   margin-bottom: 6px;
 }
 .ckm .ckm-pc__title {
   font: 600 21px/1.1 var(--ckm-display);
 }
+/*
+ * The whole card is one tap target, via an overlay on the title's link rather
+ * than by wrapping the card in an anchor. Wrapping would put the Share button
+ * inside the link — invalid, and it would swallow Share's own tap — and would
+ * make the link's accessible name the entire card. This way the name is the
+ * title, and Share stays a sibling that sits above the overlay.
+ */
+.ckm .ckm-pc__link {
+  color: inherit;
+  text-decoration: none;
+}
+.ckm .ckm-pc__link::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
 .ckm .ckm-pc__share {
+  position: relative;
+  z-index: 1;
   flex: none;
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  border: 1px solid var(--ckm-line);
-  background: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  border: 1px solid var(--ckm-line);
+  background: #fff;
   cursor: pointer;
+}
+/* 32px stays the drawn size; the hit region is the required 44px. */
+.ckm .ckm-pc__share::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
 }
 .ckm .ckm-pc__logline {
   font: italic 400 13px/1.45 var(--ckm-display);
@@ -216,38 +250,17 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  color: var(--ckm-muted-2);
+  color: var(--ckm-text-3);
   font: 600 11px/1 var(--ckm-body);
-}
-.ckm .ckm-pc__stat--rating {
-  color: var(--ckm-muted);
-  gap: 4px;
-}
-.ckm .ckm-pc__foot-right {
-  display: flex;
-  align-items: center;
-  gap: 11px;
 }
 .ckm .ckm-pc__price {
   font: 500 19px/1 var(--ckm-display);
 }
 .ckm .ckm-pc__free {
-  font: 700 9px/1 var(--ckm-body);
-  letter-spacing: 0.1em;
+  font: 700 11px/1 var(--ckm-body);
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ckm-muted);
-}
-.ckm .ckm-pc__go {
-  width: 30px;
-  height: 30px;
-  border-radius: 9px;
-  background: var(--ckm-ink);
-  color: #fff;
-  border: none;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
+  color: var(--ckm-text-3);
 }
 
 /* ---- collaborations ---- */
@@ -276,28 +289,24 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  min-height: 44px;
   border: 1px solid #e7e2d8;
   border-radius: 14px;
   padding: 11px;
   background: #fff;
-  cursor: pointer;
+  color: inherit;
+  text-decoration: none;
   text-align: left;
 }
 .ckm .ckm-proj__collab-thumb {
-  width: 60px;
-  height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
   border-radius: 10px;
   flex: none;
-  position: relative;
-}
-.ckm .ckm-proj__collab-dot {
-  position: absolute;
-  top: 5px;
-  left: 5px;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: #3aa06a;
+  background: var(--ckm-bg-soft);
 }
 .ckm .ckm-proj__collab-main {
   flex: 1;
@@ -309,15 +318,15 @@
   font: 700 13px/1.2 var(--ckm-body);
 }
 .ckm .ckm-proj__collab-by {
-  font: 500 10.5px/1.2 var(--ckm-body);
-  color: var(--ckm-muted-2);
+  font: 500 11px/1.3 var(--ckm-body);
+  color: var(--ckm-text-3);
   margin-top: 5px;
 }
 .ckm .ckm-proj__collab-status {
-  font: 700 9px/1 var(--ckm-body);
-  letter-spacing: 0.1em;
+  font: 700 11px/1 var(--ckm-body);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--ckm-green);
+  color: var(--ckm-green-ink);
   background: var(--ckm-green-bg);
   padding: 5px 8px;
   border-radius: 7px;

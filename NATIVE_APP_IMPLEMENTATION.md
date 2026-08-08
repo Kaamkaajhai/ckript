@@ -423,8 +423,8 @@ Register the prefix before implementing a page — in this table **and** in `cli
 |---|---|
 | Mobile root and shell | `ckm-shell` (implemented: `client/src/mobile/shell/`, covers the app shell, route pending state, and route failure surface) |
 | Dashboard | `ckm-dashboard` (migrated from `ckm-dash` on 2026-08-05) |
-| Dashboard sections and overlays (one family, one prefix per file) | `ckm-ov`, `ckm-perf`, `ckm-rev`, `ckm-proj`, `ckm-pc`, `ckm-aid`, `ckm-allp`, `ckm-noti`, `ckm-acct` |
-| Shared mobile components | `ckm-topbar` (legacy writer-only top bar; superseded by `ckm-appbar` and now unused), `ckm-bottomnav` (legacy two-item provisional bar; superseded by `ckm-navbar` and now unused), `ckm-tabs` (legacy dashboard segmented strip; superseded by `ckm-tabbar`/`ckm-segmented`), `ckm-sheet` (legacy dashboard sheet with no focus trap; superseded by `ckm-bottom-sheet`), `ckm-empty`, `ckm-skel`, `ckm-island`, `ckm-statusbar`, `ckm-btn` (legacy dashboard button; superseded by `ckm-button`), `ckm-chip` (two owners by design: `theme/primitives.css` holds the base pill, `components/chips/Chip.css` the interactive forms), `ckm-viewmore` |
+| Dashboard sections and overlays (one family, one prefix per file) | `ckm-ov`, `ckm-perf`, `ckm-rev`, `ckm-proj`, `ckm-pc`, `ckm-aid`, `ckm-allp`, `ckm-noti`. *(`ckm-acct` was **retired and deleted** on 2026-08-07, Phase 2: AccountMenu is now composed from `ckm-action-sheet` + `ckm-confirm` and has no CSS of its own.)* |
+| Shared mobile components | `ckm-tabs` (legacy dashboard segmented strip, still in use; superseded by `ckm-tabbar`/`ckm-segmented` and awaiting the §19.3 tab-set decision), `ckm-empty`, `ckm-skel`, `ckm-statusbar`, `ckm-chip` (two owners by design: `theme/primitives.css` holds the base pill, `components/chips/Chip.css` the interactive forms). **Retired and deleted on 2026-08-07 (Phase 2), each with its component file:** `ckm-topbar` and `ckm-bottomnav` (superseded by `ckm-appbar`/`ckm-navbar`), `ckm-sheet` (`BottomSheet`, no focus trap — superseded by `ckm-bottom-sheet`), `ckm-island` (`DynamicIsland`, whose one production caller was `notify.desktopOnly()` — superseded by `ckm-toast`), `ckm-btn` (a 40px control under the touch floor with no link form — superseded by `ckm-button`), `ckm-viewmore` (superseded by `ckm-load-more`, which names the cost and announces the new count) |
 | Phase 1 action primitives | `ckm-button` (`components/buttons/Button.css`), `ckm-icon-button` (`components/buttons/IconButton.css`), `ckm-back` (`components/navigation/BackButton.css`), `ckm-page-header` (`components/app-bars/PageHeader.css`) |
 | Phase 1 role-aware chrome | `ckm-appbar` (`components/app-bars/AppBar.css` — the `standard`-shell app bar; supersedes `ckm-topbar`), `ckm-navbar` (`components/navigation/NavBar.css` — the role-aware bottom tab bar; supersedes `ckm-bottomnav`) |
 | Phase 1 form family | `ckm-field` (`components/forms/Field.css`), `ckm-control` (`components/forms/Control.css` — one box shared by input/textarea/select), `ckm-checkbox`, `ckm-radio`, `ckm-switch`, `ckm-file-picker` |
@@ -453,6 +453,7 @@ Register the prefix before implementing a page — in this table **and** in `cli
 | Authentication/invite/forgot password | `ckm-auth`, `ckm-invite`, `ckm-forgot-password` |
 | Writer/producer/industry onboarding | `ckm-writer-onboarding`, `ckm-producer-onboarding`, `ckm-industry-onboarding` |
 | Admin console/editor/script/agreements | `ckm-admin`, `ckm-admin-competition`, `ckm-admin-script`, `ckm-admin-agreements` |
+| Offers and holds | `ckm-holds` (`screens/Holds.css`, `/offer-holds` — added 2026-08-08, Phase 2 bullet 5. A family of one: the screen is a single list with no sections and no overlays of its own.) |
 | Finance | `ckm-finance` |
 
 If two page files would use the same prefix, record why they are one page family. Otherwise allocate a new prefix and add it here.
@@ -779,14 +780,14 @@ Phases are ordered to minimize architectural rework. Implement vertical slices: 
 
 ### Phase 2 — Writer navigation and dashboard completion
 
-- [ ] Dashboard research/parity audit against desktop.
-- [ ] Remove local/static production placeholders and wire real services.
-- [ ] Complete search, notification, account, profile, project, share, and collaboration destinations used by dashboard.
-- [ ] Replace provisional bottom navigation with approved writer tabs.
-- [ ] Implement `/ai-tools` and `/offer-holds` as real route-aware screens/sections.
-- [ ] Complete account/settings and global auth/session behaviors.
+- [x] Dashboard research/parity audit against desktop. *(2026-08-07 — §19.3. Payload shapes read out of `server/controllers/dashboardController.js` rather than inferred from client code, which is what caught the review-mapping defect.)*
+- [x] Remove local/static production placeholders and wire real services. *(2026-08-07 — `data/dashboardModel.js` + a rewritten `hooks/useDashboardData.js`. The AI and platform review lists were reading `score`/`summary` off payloads that send `rating`/`overall`/`feedback`, so every card showed 0/100 with identical empty bars and a hardcoded sentence about a real script. Also: the literal "Placeholder" badge, the three invented notifications behind the bell, `score: null` on every project card, and Performance's two "—" rows. The bell now consumes the desktop shell's own `useShellNotifications`.)*
+- [x] Complete search, notification, account, profile, project, share, and collaboration destinations used by dashboard. *(2026-08-07 — all nine `desktopOnly()` call sites replaced by real destinations or real in-place behaviour, and `DynamicIsland` deleted with them. Share is the Web Share API with a clipboard fallback; Filter is a real `ckm-segmented` status filter. Search is the app bar's, which Phase 1 already made role-aware.)*
+- [x] Replace provisional bottom navigation with approved writer tabs. *(2026-08-08 — **approved by the user as-is**: Dashboard · Projects · Messages · Profile. No code change; the bars have been preset-driven and URL-driven since Phase 1 §8.2, and the Phase 1 CDP sweep already measured this exact bar clean at all five widths. What this session added is enforcement: `mobileNav.test.js` now asserts the approved **labels and order**, and asserts that Create is absent from the compact bar but present in the rail and drawer — the condition the approval depended on.)*
+- [x] Implement `/ai-tools` and `/offer-holds` as real route-aware screens/sections. *(2026-08-08 — **the plan's premise was wrong and the §4 gate says so**: both routes are the identical `<DashboardRoute />` element as `/dashboard` in `App.jsx:582-583`, `pages/Dashboard.jsx` never reads the pathname, they have been that way since `93055d0` (2026-02-25), and nothing in the product links to either. Resolved with the user: `/offer-holds` built for real, `/ai-tools` recorded as a dashboard alias. See §19.3.)*
+- [x] Complete account/settings and global auth/session behaviors. *(2026-08-08 — **there is no settings page to port on either platform.** No `/settings` route, no settings page; desktop's entire account surface is `UserMenu.jsx`'s four entries plus Log out, which mobile's `AccountMenu` already mirrors — with a logout confirmation desktop does not have. Global auth/session already lives outside React in `services/api.js` + `AuthContext.jsx` and mobile inherits all of it (§5.4). Delivered: the `/terms` and `/privacy` alias links fixed to canonical, first-ever test coverage for the account surface, and the logout/cache contract pinned. See §19.3.)*
 
-**Exit gate:** every dashboard interaction works on mobile; no `desktopOnly()` branch remains in the dashboard family.
+**Exit gate: MET (2026-08-08).** Verified by grep: zero live `desktopOnly()` call sites remain anywhere in `client/src/mobile`; `DynamicIsland`, `BottomSheet`, `TopBar` and `BottomNav` are deleted and their prefixes retired.
 
 ### Phase 3 — Project creation, upload, and screenplay tools
 
@@ -1124,14 +1125,22 @@ This is the section future agents update continuously. Keep newest session entri
 
 ```yaml
 plan_status: IN_PROGRESS
-current_phase: 1
-current_work_item: "PHASE 1 COMPLETE. Every bullet in §11 Phase 1 is ticked, including bullet 2 (role-aware top app bars and bottom navigation), which the user unblocked on 2026-08-07 by choosing the desktop app-shell presets as the single source of truth for the tab sets — see the decision recorded in §8.2."
-last_completed_work_item: "Phase 1 bullet 2 — navigation/mobileNav.js + hooks/useMobileNav.js + components/app-bars/AppBar.{jsx,css} (ckm-appbar) + components/navigation/NavBar.{jsx,css} (ckm-navbar); --ckm-accent-on-dark added to tokens.css; Dashboard migrated off TopBar/BottomNav; the four audiences added to the primitive gallery; the dashboard baseline recaptured"
-next_action: "Open PHASE 2 (writer navigation and dashboard completion) and claim its FIRST bullet: the dashboard research/parity audit against desktop `client/src/pages/Dashboard.jsx`. Complete the §4 gate for the dashboard page family — desktop component tree, services, permissions, every state — and record it in §19 before editing the screen. Three concrete, already-specified pieces of work follow that audit, in this order: (1) remove the dashboard's static placeholders and wire real services (`hooks/useDashboardData.js` and `data/dashboardData.js`'s NOTIFICATIONS still seed the bell from local data, and the CDP sweep on 2026-08-07 measured a literal 'PLACEHOLDER' badge still rendering in the At-a-Glance section); (2) migrate the four dashboard overlays (AccountMenu, AiDetailSheet, AllProjectsSheet, NotificationsPanel) off `components/BottomSheet.jsx` onto `components/overlays/Sheet.jsx`, then delete BottomSheet and retire the `ckm-sheet` prefix; (3) replace every remaining `notify.desktopOnly()` call-site with a real destination or a real in-place behaviour, then delete `components/DynamicIsland.jsx` and retire `ckm-island` — §2.8 requires this before completion. Also now deletable, and cheap: `components/TopBar.jsx` + `TopBar.css` and `components/BottomNav.jsx` + `BottomNav.css` have NO remaining callers as of 2026-08-07; they were left in place only so this session did not mix a deletion into a behaviour change. Delete them and drop `ckm-topbar`/`ckm-bottomnav` from `theme/cssPrefixRegistry.js` and §7.2. Finally, the same sweep recorded a real, separate finding that belongs to this phase: the dashboard's own content (NOT the new chrome) has 5 text nodes below the 11px floor (`ckm-ov__mover-head` at 8.5px, `ckm-ov__mover-note` at 10.5px, three `ckm-ov__top-meta` at 10px) and ~25 colour pairs below 4.5:1 (`ckm-ov__glance-label` at 2.69:1, `ckm-ov__badge` at 3.02:1, `ckm-ov__profile-sub` at 3.36:1, `ckm-tabs__btn` inactive at 3.41:1, several `ckm-ov__top-rank` at 1.82:1). These are Phase 0 baseline debt that the Phase 2 dashboard work owns; they are measured and listed here so nobody has to rediscover them."
+current_phase: 3
+current_work_item: "PHASE 2 IS COMPLETE as of 2026-08-08 — all six bullets ticked and the exit gate verified by grep (zero live desktopOnly() call sites anywhere in client/src/mobile; DynamicIsland, BottomSheet, TopBar and BottomNav deleted and their prefixes retired). PHASE 3 (project creation, upload, and screenplay tools) is OPEN and NOT STARTED. Its first bullet is a research spike, not a page — see next_action."
+previous_work_item: "Phase 2 bullets 4, 5 and 6 (2026-08-08). Bullet 4: writer tab set approved as-is and now enforced by test. Bullet 5: /offer-holds built as a real industry screen over GET /scripts/holds; /ai-tools recorded as a dashboard alias because desktop mounts the identical element there. Bullet 6: no settings page exists to port on either platform, so the work was the /terms and /privacy canonical-link fix, first-ever account-surface test coverage, and pinning the logout/cache contract."
+last_completed_work_item: "Phase 2 bullet 6 — mobile/screens/overlays/AccountMenu.jsx (canonical /terms-of-service and /privacy-policy), mobile/screens/overlays/AccountMenu.test.jsx (new, 8 tests), mobile/mobileSession.test.js (new, 5 tests), and a correction to mobile/README.md, which still described the deleted desktopOnly()/DynamicIsland pattern as current behaviour."
+next_action: "Open PHASE 3 and claim its FIRST bullet: the research spike for mobile screenplay/editor workflows (§11 Phase 3 bullet 1). It is deliberately a spike rather than a page — the editor is the highest-risk surface in the whole plan, and §4.2 question 1 (screen vs sheet vs full-screen editor vs multi-step flow) has to be answered before any JSX. Do the §4 gate across the whole family at once, because these routes share state: /create-project, /create-project/:draftId, /new-project, /upload, /script/:id/pay. All five are DESKTOP_MIGRATION_FALLBACK today. Read the desktop sources first — pages/CreateProject/index.jsx and its steps/ directory, components/script-upload/ScriptUploadWorkspace.jsx, and features/script-workbench/ScriptWorkbenchPage.jsx — and read the server controllers for payload shapes rather than inferring them from client code; that discipline is what caught the review-mapping defect on 2026-08-07 and the three holds payload traps on 2026-08-08. Expect a third orphan hunt: /ai-tools, the holds backend and components/PrivacySettings.jsx were all declared-but-unbuilt, so verify each route actually renders something distinct before planning to port it. Phase 3's exit gate is demanding — a writer must be able to create or upload, LEAVE, RESUME, validate, collaborate where allowed, and finish entirely on a phone — so unsaved-change protection and interrupted-upload recovery are first-class, not polish. Independent and safe at any point, carried forward: (a) migrate ckm-tabs (components/SectionTabs) onto ckm-tabbar, the last legacy prefix with a caller; (b) add the dashboard socket refresh — desktop refetches on seven collab_* events, mobile still never refreshes after first load."
+open_follow_ups:
+  - "/offer-holds is deep-linkable but reachable from no navigation. The fix is a `holds` entry in layouts/app-shell/navigation/presets/industryNav.js's drawer, and it MUST land in the same change as a desktop holds screen — that preset feeds the desktop rail too, and on desktop /offer-holds still renders the dashboard."
+  - "Holds WRITE actions are live server-side and unbuilt on both platforms (releaseHold, hold/quote, hold/create-order, hold/verify-payment). Destructive and money-adjacent: needs confirmation copy and a refund rule decided before implementation."
+  - "components/PrivacySettings.jsx and PrivacySettingsWrapper.jsx have ZERO callers on either platform. Dead code, or an unbuilt feature — decide which before Phase 5 touches profiles."
+  - "Desktop defect, not mirrored: pages/Dashboard.jsx filters myScripts to status === 'published' then computes pending/rejected from it, so both status notices are unreachable on desktop. Mobile's behaviour is correct."
+  - "Free-writer analytics lock (isAnalyticsLocked, null profileViews) is rendered by NEITHER platform — both coerce null to 0 and show a free writer '0 profile views' where the truth is 'upgrade to see this'. Shared follow-up, §13."
+  - "The client test suite is flaky under full-suite concurrency — unrelated files fail on different runs. Re-run before investigating a red result."
 active_files: []
 known_blockers: []
-last_updated: "2026-08-07"
-updated_by: "Claude Phase 1 role-aware chrome session (Phase 1 closed)"
+last_updated: "2026-08-08"
+updated_by: "Claude Phase 2 completion session (bullets 4, 5, 6)"
 ```
 
 ### 19.2 Phase status
@@ -1140,7 +1149,7 @@ updated_by: "Claude Phase 1 role-aware chrome session (Phase 1 closed)"
 |---|---|---|---|---|---|
 | 0. Foundation and route safety | COMPLETE | Codex, Claude | 2026-08-05 | 2026-08-05 | Route manifest/policy + 87-route coverage contract, stable preview fixture, shell-mode contract, route suspense/error boundary, expanded tokens, `.ckm` scoping + prefix registry contract, mobile analytics contract. 41 mobile tests in 7 files; full suite 583/585 (2 pre-existing AppShell failures); lint clean on all touched files; build + 53-route prerender pass; five-width CDP verification with a before/after computed-style diff |
 | 1. Shared system and chrome | COMPLETE | Claude | 2026-08-05 | 2026-08-07 | **Role-aware chrome (`ckm-appbar`, `ckm-navbar`, `navigation/mobileNav.js`, `hooks/useMobileNav.js`, `--ckm-accent-on-dark`):** 251 mobile tests in 22 files; full suite 792/794 (the same 2 pre-existing `AppShell.render.test.jsx` failures, re-confirmed by stashing this session's changes and watching the identical 2 fail); lint clean on touched files; build + 53-route prerender pass. CDP sweep at 320/360/390/430/768 over all four audiences' bars at every width: 0 undersized targets, 0 text under 11px, 0 unnamed controls, 0 elements past the 520px frame, 0 contrast failures, no horizontal page scroll, 16/16 labels rendered unclipped. Measured rather than assumed: the selected tab is `rgb(221,90,66)` at **5.13:1** on the `rgb(15,15,15)` bar with the glyph's `FILL` axis at **1** against the idle tab's **0** (so the state is not carried by colour alone), the idle label at 19.17:1, both badges at 4.72:1, the search label at 5.21:1; each tab measured 49px tall and 80–128px wide depending on viewport; exactly **1** `aria-current` with the class applied and **0** on a URL belonging to no tab. Real dispatched Tab keys walked 4 stops, one per destination, each showing a `rgb(255,255,255) 2px solid` ring — the shared terracotta ring is invisible on the dark bar, the same override the toast surface needed. Dashboard baseline recaptured at all five widths; the previous images are archived in `baselines/phase0-dashboard/pre-role-aware-chrome/`. State set (`ckm-toast`, `ckm-message`, `ckm-offline`, `ckm-skel` extended, `ckm-empty` reused; `useOnlineStatus`; the live-region exemption in `useInertBackground`): 206 mobile tests in 19 files; full suite 747/749 (the same 2 pre-existing AppShell failures); lint clean on touched files; build + 53-route prerender pass. CDP sweep at 320/360/390/430/768, every check at every width: 10 state surfaces with no target under 44×44, no text under 11px, no unnamed control, nothing past the 520px frame, no horizontal page scroll. The load-bearing evidence is the three things a unit suite cannot reach — (1) with a full-screen dialog open, the app bar / banner / scroll surface all measured `inert` while the toast layer measured live, and a toast raised beforehand was still tappable and still dismissible *from over the dialog*, which is the whole point of the exemption; (2) real `Network.emulateNetworkConditions` offline → `navigator.onLine === false`, the gold banner appearing with `role="status"` at 4.90:1, measured as displacing the scroll body rather than covering it, then the green recovery state with a 78×44 action that cleared on dismiss; (3) real timing in a real browser, since the unit suite stubs framer-motion — an acknowledgement still present at 3.4s and gone by 6.0s, a three-message queue advancing First → Second → error in order, and the error still on screen at t+15s. Also measured: the error toast's icon at 8.66:1 on ink, a white 2px focus ring reached by a real dispatched Tab, and the bottom-nav lift verified on the *dashboard* (standard shell) where the toast clears the tab bar by 23px. Overlay set + focus/scroll helpers (`ckm-overlay`, `ckm-bottom-sheet`, `ckm-dialog`, `ckm-confirm`, `ckm-action-sheet`; `hooks/` scroll lock, focus trap + restoration, inert background, reduced motion, keyboard inset): 179 mobile tests in 18 files; full suite 720/722 (same 2 pre-existing AppShell failures); lint clean on touched files; build + 53-route prerender pass. CDP sweep at 320/360/390/430/768 opening all four surfaces at every width — 22 controls per width, **zero** undersized targets, zero unnamed controls, zero text under 11px, zero overflow past the 520px frame, no horizontal page scroll. The load-bearing evidence is real dispatched keys: 14 forward Tabs and 6 Shift+Tabs per surface per width (400 key events in total) never once landed focus outside the surface; Escape closed the surface, cleared `inert`, released the scroll lock, restored the exact scroll position, and returned focus to the opening control; a destructive confirmation focused **Cancel** at every width; and with a confirm dialog stacked over an action sheet the lower layer measured inert, the upper live, focus inside the upper, and Escape closed only the top. Collection/display family (`ckm-list`, `ckm-row`, `ckm-load-more`, `ckm-card`, `ckm-badge`, `ckm-chip` extended, `ckm-chip-row`, `ckm-segmented`, `ckm-tabbar`): 138 mobile tests in 16 files; full suite 679/681 (same 2 pre-existing AppShell failures); lint clean on touched files; build + 53-route prerender pass; CDP sweep at 320/360/390/430/768 with 37 targets at every width, none under 44×44 (`::after` hit regions measured, not assumed), no text under 11px, no unnamed control, no nested interactive element, no orphan `<li>`, no horizontal page scroll; real-key traversal proved one Tab stop per tab bar, Arrow/Home/End with wrap, the accent focus ring on the focused tab, and the next Tab landing on the panel. Form family (`ckm-field`, `ckm-control`, `ckm-checkbox`, `ckm-radio`, `ckm-switch`, `ckm-file-picker`): 99 mobile tests in 12 files; full suite 640/642; build passes; CDP sweep at 320–768 with 18 controls, none under 16px text or 44px touch, every invalid control's error reachable via `aria-describedby`; virtual-keyboard proxy passes. Action primitives (`ckm-button`, `ckm-icon-button`, `ckm-back`, `ckm-page-header`) + `useMobileBack` + `/__mobile-primitives` harness. 68 mobile tests in 15 files; full suite 610/612 (same 2 pre-existing AppShell failures); lint clean on touched files; build + 53-route prerender pass; CDP sweep at 320/360/375/390/412/430/480/768 with all 32 controls ≥44×44 and no horizontal page scroll |
-| 2. Writer navigation/dashboard | NOT STARTED | — | — | — | — |
+| 2. Writer navigation/dashboard | COMPLETE | Claude | 2026-08-07 | 2026-08-08 | **ALL SIX BULLETS COMPLETE; exit gate met and verified by grep — zero live `desktopOnly()` call sites remain in `client/src/mobile`.** 2026-08-08 bullet 6: the §4 gate found there is no settings page to port on either platform (no `/settings` route, no settings page; desktop's whole account surface is `UserMenu.jsx`'s four entries plus Log out, which mobile already mirrors with a logout confirmation desktop lacks), and global auth/session already lives outside React and is inherited wholesale. Delivered instead: the `/terms` and `/privacy` alias links fixed to canonical (mobile was paying a redirect hop desktop does not), first-ever test coverage for the account surface, and the logout/cache contract pinned — `AuthContext.logout()` clears `"dashboard:"` and mobile writes `"dashboard:v1:"`, two strings nothing but that test connects. 358 mobile tests in 29 files; full suite 899/901 across three consecutive runs. NOTE for future sessions: this suite is flaky under full-suite concurrency (unrelated files fail on different runs) — re-run before investigating a red result. Prior: 2026-08-08: bullet 4 approved by the user as-is (Dashboard · Projects · Messages · Profile) and now enforced by `mobileNav.test.js` on labels, order, and Create's absence-from-bar/presence-in-rail-and-drawer. Bullet 5's premise was found wrong at the §4 gate — `/ai-tools` and `/offer-holds` are the *identical* `<DashboardRoute />` element as `/dashboard` (`App.jsx:582-583`), have been since `93055d0` (2026-02-25), and are linked from nowhere — so it resolved to: `/ai-tools` a documented dashboard alias, `/offer-holds` a real screen (`ckm-holds`) over `GET /scripts/holds`, a shipped backend that had **no client at all**. It is an INDUSTRY screen: `holdScript` 403s any non-investor/producer/director and `getMyHolds` is holder-scoped, so it returns `[]` for a writer forever. 345 mobile tests in 27 files (was 288/25); full suite 886/888 (same 2 pre-existing AppShell failures, re-confirmed by stashing); lint clean across `src/mobile`; build + 53-route prerender pass. Five-width CDP sweep (320/360/390/430/768) over the real component with the real stylesheets: 0 undersized targets, 0 text under 11px, 0 unnamed controls, 0 overflow, no horizontal scroll, frame never over 520px. The sweep earned its keep twice — it caught a real 2.69:1 contrast failure in this session's own CSS (`ckm-holds__terms-sep`, fixed to 0 failures) and one reported failure that turned out to be the `file://` harness collapsing the app-bar logo, run down rather than waved away. All three payload traps verified on screen: 6 link rows + 1 inert (deleted script), a DB-"active" row 90 days past its `endDate` reading **Lapsed**, and a `convertedToSale` row reading **Bought**. Prior: bullets 1 and 2 complete. 288 mobile tests in 25 files (was 251/22); full suite 829/831 (same 2 pre-existing AppShell failures, re-confirmed by stashing); lint clean; build + 53-route prerender pass. Five-width browser sweep (320/360/390/430/768) with 0 undersized targets, 0 text under 11px, 0 unnamed controls, 0 overflow, no horizontal scroll — on the shipped dashboard and, with the tabs temporarily restored, on Performance/Reviews/Projects and all overlays. Measured rather than assumed: 4/4 probe points on a project card resolve to the title's link while Share stays independently hittable; 14 dispatched Tabs escaped the AI sheet 0 times with the scroll surface and app bar both `inert`; Escape restored focus to `ckm-rev__details` exactly; the logout confirmation is `role="alertdialog"` focused on **Cancel**. The SectionTabs blocker was answered (option B) and implemented the same session — Projects/Reviews are `/dashboard?tab=…` destinations in the writer preset, which also exposed and fixed a NavBar defect marking **two** tabs `aria-current`. Final: full suite 835/837; `?tab=projects`/`?tab=reviews`/`?tab=performance` each verified clean at all five widths. |
 | 3. Creation/upload/editor | NOT STARTED | — | — | — | — |
 | 4. Discovery/project consumption | NOT STARTED | — | — | — | — |
 | 5. Profiles/network/messages | NOT STARTED | — | — | — | — |
@@ -1151,6 +1160,308 @@ updated_by: "Claude Phase 1 role-aware chrome session (Phase 1 closed)"
 | 10. Hardening/release | NOT STARTED | — | — | — | — |
 
 ### 19.3 Session log template
+
+#### 2026-08-08 (later) — Claude (Claude Code) — Phase 2 bullet 6 (account/settings and global auth/session)
+
+**Work item claimed:** §11 Phase 2 bullet 6, the last bullet before the phase exit gate.
+
+##### The §4 gate: there is no settings page to port, on either platform
+
+Checked before designing anything, because the `/ai-tools` finding earlier the same day is a standing warning that a phrase in the plan is not evidence of a page behind it. It was the right instinct twice over:
+
+- **No `/settings` route and no settings page exist.** `App.jsx` declares neither; `pages/` contains no `Settings*` or `Account*` file. Grep for `settings` across the client returns admin competition settings, currency context, a script-upload workspace panel — nothing account-level.
+- **Desktop's entire account surface is `layouts/app-shell/components/UserMenu.jsx`**, whose `ACCOUNT_MENU` is exactly four entries — Profile, Contact, T & C, Privacy — plus a Log out button. That is the whole thing.
+- **Mobile is already at parity with it.** `screens/overlays/AccountMenu.jsx` carries the same four entries plus a `role="alertdialog"` logout confirmation focused on Cancel — which is *better* than desktop, where Log out fires immediately with no confirmation.
+- **Account editing is not in this family.** It lives in `EditProfileModal`, mounted from `pages/Profile.jsx`. `/profile/:id?` is still a `DESKTOP_MIGRATION_FALLBACK`, so it belongs to **Phase 5**, not here. Pulling it forward would scatter an unfinished profile surface across two phases.
+- **A third orphan, alongside `/ai-tools` and the holds backend:** `components/PrivacySettings.jsx` and `components/PrivacySettingsWrapper.jsx` exist with **zero callers** anywhere in the client. Recorded, not built — there is no desktop entry point to match.
+
+##### Global auth/session is already shared, and that is the correct design
+
+`§5.4` asks for one logic boundary, and this already is one. Every session behaviour lives **outside React**, in `services/api.js` and `context/AuthContext.jsx`, and mobile inherits all of it by importing the same `api`:
+
+| Behaviour | Where | Mobile status |
+|---|---|---|
+| Client-side expiry check before every request | `api.js:46-71` request interceptor | Inherited |
+| 401 → clear session → redirect | `api.js:74-94` response interceptor | Inherited |
+| Intended destination parked for the auth modal | `api.js:15-24` (`PENDING_AUTH_REDIRECT_KEY`) | Inherited — `AuthModalProvider` (`App.jsx:440`) wraps `RootExperience` (`App.jsx:454`), so the mobile branch is inside it |
+| Auto-logout timer on JWT `exp` | `AuthContext.jsx:50-64` | Inherited |
+| `/auth/me` validation on mount | `AuthContext.jsx:148` | Inherited |
+| Logout: clear state, clear `dashboard:` cache for privacy, `location.replace("/")` | `AuthContext.jsx:262-277` | Inherited — and the cache prefix genuinely covers mobile, which writes `dashboard:v1:<userId>` |
+
+Two mobile-specific risks were checked rather than assumed, and **both are clean**:
+
+1. **A session dying while an overlay holds the scroll lock.** `useScrollLock` locks `.ckm-shell__scroll` — an element *inside* `MobileApp` — so it cannot outlive the unmount. The document-level `ckm-html-lock` on `<html>` is removed by `MobileApp`'s own cleanup effect. No lock leaks onto the desktop document when the experience switches.
+2. **Logout leaving mobile's cached dashboard on disk.** It does not: `clearCacheByPrefix("dashboard:")` and mobile's `DASH_CACHE_NS = "dashboard:v1:"` are the same namespace by design.
+
+##### So what bullet 6 actually is
+
+Not a screen. The honest scope is one real defect, plus turning inherited behaviour into asserted behaviour:
+
+**The defect — mobile sends users through a redirect hop that desktop does not.** `AccountMenu.jsx:30-31` links `/terms` and `/privacy`. `App.jsx:481,483` mounts both as `<Navigate replace>` to the canonical `/terms-of-service` and `/privacy-policy`, which is where desktop's `UserMenu` links directly. It works, but it costs an extra navigation and breaks §5.2's canonical-URL rule on the only two account destinations mobile owns.
+
+##### What was done
+
+- **Fixed** the two account links to the canonical routes. The aliases stay declared in the manifest because external links to them exist; they are simply no longer what this app emits.
+- **`screens/overlays/AccountMenu.test.jsx` (new).** The account surface had **no test coverage at all**, which is how two alias links survived unnoticed. 8 tests: the canonical destinations, the full destination set asserted against desktop's own `ACCOUNT_MENU` (so if desktop gains "Billing", mobile fails until it gains it too — §8.2 applied to account admin), and the four states of the logout confirmation.
+- **`mobileSession.test.js` (new).** 5 tests pinning the cross-file contracts mobile inherits. The load-bearing one: `AuthContext.logout()` clears cache keys by the literal `"dashboard:"` and mobile's `useDashboardData` writes the literal `"dashboard:v1:<userId>"` — **nothing but this test connects those two strings**, and if they drift, a logged-out phone keeps the previous account's earnings, project titles and review scores readable in localStorage. Asserted on a shared device with two accounts' snapshots, and that unrelated cached data survives.
+- **Corrected `mobile/README.md`.** It still described `island.desktopOnly(feature)` and the Dynamic Island in the present tense as current behaviour. Both were deleted on 2026-08-07; the doc was actively misleading the next reader.
+
+##### Verification
+
+**358 mobile tests in 29 files** (was 345/27). Full suite **899/901** across **three consecutive runs** — the same 2 pre-existing `AppShell.render.test.jsx` failures, nothing else. Lint clean across `src/mobile`; build + 53-route prerender pass.
+
+**A flaky assertion of my own was found and fixed rather than retried.** Earlier full-suite runs failed 2, 5, and 4 tests on successive passes, and the varying ones included files this work never touched (`WriterRosterPage`, `adminCompetitionsEditor`) — load-dependent flakiness under parallel workers, not a regression. But one of the varying failures *was* mine: `Holds.render.test.jsx` asserted `toHaveBeenCalledTimes(1)`, which is hostage to React re-running an effect under concurrent rendering. The test is named "reads the one endpoint that exists, **and no other**", so it now asserts the distinct set of called URLs — the actual contract, which still fails just as loudly if a second endpoint appears, and passed 5/5 in isolation and 3/3 in the full suite afterwards. **Worth knowing for future sessions: this suite is flaky under full-suite concurrency, so a single red run is not evidence of a regression — re-run before investigating.**
+
+##### Phase 2 exit gate — met
+
+> *"Every dashboard interaction works on mobile; no `desktopOnly()` branch remains in the dashboard family."*
+
+Verified by grep: **zero** live `desktopOnly` call sites remain anywhere in `client/src/mobile` — every surviving mention is a comment recording what the call *became*. `DynamicIsland`, `BottomSheet`, `TopBar` and `BottomNav` are all deleted, and their prefixes retired from the registry.
+
+##### What bullet 6 did NOT build, and why
+
+No settings screen, because there is nothing to port — see the gate above. Account editing (`EditProfileModal`) belongs to **Phase 5** with `/profile/:id?`. `components/PrivacySettings.jsx` and `PrivacySettingsWrapper.jsx` are dead code with zero callers on either platform; building a mobile surface for them would be inventing a feature, not migrating one. All three are recorded as follow-ups rather than silently absorbed.
+
+#### 2026-08-08 — Claude (Claude Code) — Phase 2 (approved writer tabs; `/ai-tools` and `/offer-holds`) — **bullets 4 and 5**
+
+**Requested continuation:** "continue in native app implementation".
+
+**Starting checkpoint:** Verified against the repository before claiming (§20.4). `git status` clean of mobile changes; branch `feat/mobile-role-aware-chrome` at `7a31e91`. The previous entry's `next_action` named two things, and both were checked rather than assumed: `writerNav.js` does carry `mobileKeys: ["dashboard", "projects", "messages"]` as described, and `mobileRouteManifest.js:145-146` does still hold `/ai-tools` and `/offer-holds` as `DESKTOP_MIGRATION_FALLBACK`.
+
+**Work items claimed:** §11 Phase 2 bullet 4 (approved writer tabs) and bullet 5 (`/ai-tools` and `/offer-holds`).
+
+---
+
+##### Bullet 4 — the writer tab set, approved
+
+Put to the user with the three real options (approve; swap Projects back to Create; break the four-slot preset contract for a fifth tab). **Answered: approve as-is.**
+
+The approved set is **Dashboard · Projects · Messages · Profile**, and it needs no code — the bars have been preset-driven and URL-driven since Phase 1 (§8.2), and the Phase 1 CDP sweep already measured this exact bar at 320/360/390/430/768 with 0 undersized targets, 0 text under 11px, 0 unnamed controls, exactly 1 `aria-current`, and the selected tab at 5.13:1 with a distinct `FILL` axis so the state is not carried by colour alone.
+
+Create keeps its place in the rail and the drawer and remains the dashboard hero's primary action, so approving this set does not cost a tap on the writer's most common action. What it buys is the thing the 2026-08-07 swap was made for: a writer's own project list has an entry point in the compact bar.
+
+The approval is now **enforced rather than remembered** — see the test note below. A silent edit to `mobileKeys` should fail a test, not ship.
+
+---
+
+##### The §4 gate: `/ai-tools` and `/offer-holds` — the research changed the direction (§20.7)
+
+Phase 2 bullet 5 reads "Implement `/ai-tools` and `/offer-holds` as real route-aware screens/sections." **The premise is wrong, and it was wrong when the plan was written.** Read out of the source, not inferred:
+
+- `client/src/App.jsx:582-583` mounts **both** as `<DashboardRoute />` — the *identical element* as `/dashboard` on line 581. Not a variant, not a prop: the same three-line component.
+- `pages/Dashboard.jsx` (1460 lines) never reads `pathname`, `useLocation`, or a route param. There is no branch for either URL. Confirmed by grep: zero occurrences of `ai-tools`, `offer-holds`, `aiTools`, `offerHolds` or `pathname` in the file.
+- They have been that way since **`93055d0`** ("change in investor", Yash Chichad, 2026-02-25), the commit that introduced them — the original diff wraps a bare `<Dashboard />` in `<PrivateRoute><MainLayout>` for both. They were never built.
+- **Nothing in the application links to either one.** The only match in the whole client outside the route table and the SEO no-index list is `pages/FunctionalTestChecklist.jsx:50,52`.
+
+So there is no desktop screen to port. Bullet 5 is net-new product design wearing a migration bullet's clothes. That was put to the user with the options; the answer was **"holds real, ai-tools alias"**.
+
+**`/ai-tools` — a documented alias, not a port.** Seven live AI endpoints exist (`server/routes/aiRoutes.js`: generate-trailer, trailer-status, script-score, prose-sample, correct-script-text, writing-assist, generate-metadata) but every one is consumed from the screen that owns the script — the editor, create-project — never from a hub. A hub would need a script picker in front of every action, which is new design, not migration. Mobile therefore does what desktop does: renders the dashboard. The one thing worth fixing is that mobile was rendering the *desktop* dashboard there while rendering the *mobile* one at `/dashboard`, which is a parity gap in the opposite direction from the one the plan expected.
+
+**`/offer-holds` — real, and the audience is not the writer.** This route has the rarer problem: a **fully shipped backend with no client at all.**
+
+| Server surface | Where | Client consumers |
+|---|---|---|
+| `GET /scripts/holds` → `getMyHolds` | `scriptRoutes.js:123`, `scriptController.js:4854` | **none** |
+| `POST /scripts/hold` → `holdScript` | `scriptRoutes.js:162`, `scriptController.js:4753` | **none** |
+| `POST /scripts/release-hold` → `releaseHold` | `scriptRoutes.js:163`, `scriptController.js:4825` | **none** |
+| `POST /scripts/hold/quote`, `/hold/create-order`, `/hold/verify-payment` | `scriptRoutes.js:118-120` | **none** |
+| `ScriptOption` model, `script_hold` ledger entry, `hold` + `hold_expiring` notification types | `models/` | — |
+
+The decisive detail, and the reason this belongs to a different audience than the phase it sits in: **`holdScript` 403s anyone whose role is not `investor`, `producer` or `director`** (`scriptController.js:4770-4772`), and **`getMyHolds` queries `{ holder: req.user._id }`**. A writer can never be a holder, so `GET /scripts/holds` returns `[]` for a writer unconditionally, forever. `/offer-holds` is an **industry-audience** screen that Phase 2 happens to name.
+
+It is built here for the industry audience, with `fallbackDisposition` leaving every other audience on the existing desktop route — the manifest already supports exactly this shape (`mobileRoutePolicy.js:65-68`), and it is the same mechanism `/dashboard` uses to be writer-only.
+
+**Payload shape, read from the controller rather than the client** (this is the discipline that caught the review-mapping defect on 2026-08-07):
+
+```
+ScriptOption[]  — sorted createdAt desc, holder-scoped
+  _id, fee, platformCut, creatorPayout
+  startDate (default now), endDate (required), createdAt, updatedAt
+  status: "active" | "expired" | "converted" | "cancelled"
+  convertedToSale: boolean
+  paymentId, orderId
+  script (populated, select: title genre coverImage creator price trailerThumbnail)
+    creator (populated, select: name profileImage)
+```
+
+Three traps in that shape, each of which would produce a plausible-looking lie on screen:
+
+1. **`status` is not the truth about time.** `holdScript` writes `status: "active"` with `endDate = now + 30 days` and nothing ever sweeps it — there is no cron, no TTL, no `expired` writer anywhere in the server. A hold whose `endDate` passed six months ago is still `status: "active"` in the database. The screen must derive expiry from `endDate` against the clock and treat `status` as the *deal* state, never as the *time* state.
+2. **`script` can be `null`.** `populate` on a deleted or missing script yields `null`, and `holdScript` itself has a `script.isDeleted` 410 branch — so deletion is a real, handled state in this system. Every row must survive a null script rather than throwing on `hold.script.title`.
+3. **`convertedToSale` and `status: "converted"` are set by two different code paths** and are not guaranteed to agree; `getInvestorDashboard:344` already counts a deal converted if *either* is true. The model follows that precedent rather than inventing a third rule.
+
+---
+
+##### What was built
+
+| File | Role |
+|---|---|
+| `mobile/data/holdsModel.js` (new) | Pure payload → view derivation. The clock is an **argument**, so every time-dependent rule is testable at a chosen instant instead of trusted. |
+| `mobile/hooks/useHoldsData.js` (new) | The one request, the error/retry state, and an hourly clock tick. |
+| `mobile/screens/Holds.jsx` + `Holds.css` (new) | The screen; prefix `ckm-holds`, registered before the CSS was written (§7.2). |
+| `mobile/routes/mobileRouteManifest.js` | Both routes flipped from `DESKTOP_MIGRATION_FALLBACK` to `SCREEN`, each with its audience gate and `fallbackDisposition`. |
+| `mobile/routes/MobileRoutes.jsx` | `/ai-tools` → the dashboard element; `/offer-holds` → the new screen. |
+| `mobile/theme/cssPrefixRegistry.js` | `ckm-holds` registered. |
+
+Three decisions inside that are worth finding later without re-deriving them:
+
+- **No cache, deliberately.** The dashboard caches to localStorage because it is the app's home screen. This screen's whole subject is a countdown, and a cached "6 days left" painted before the network answers is precisely the stale-but-plausible number class that the 2026-08-07 audit was about. A skeleton that resolves beats a confident lie.
+- **The clock is state, not `new Date()` in render.** A session left open overnight would otherwise keep rendering yesterday's "1 day left". It ticks hourly — the coarsest interval that cannot show a wrong whole-day count.
+- **No write actions yet.** `releaseHold`, `hold/quote`, `hold/create-order` and `hold/verify-payment` all exist, but releasing a hold is a destructive, money-adjacent action whose desktop counterpart has never been built: there is no established confirmation copy, no refund rule, and no place a failure is currently reported. The read surface is the honest half to ship first.
+
+##### Verification
+
+**Tests.** 345 mobile tests in 27 files (was 288/25). Full suite **886/888** — the same 2 pre-existing `AppShell.render.test.jsx` failures, re-confirmed this session by stashing every change and watching the identical 2 fail. Lint clean across all of `src/mobile`. Build + **53-route prerender pass**.
+
+New coverage: 26 model tests written against the controller's shape (each of the three traps asserted from both sides), 12 screen render tests, 10 route-policy tests asserting the audience gate from **both** directions, and 2 MobileRoutes tests.
+
+**Five-width browser sweep (320/360/390/430/768), driven over CDP.** There is no puppeteer in this repo, so headless Chrome was driven directly over the DevTools protocol with `Emulation.setDeviceMetricsOverride` — never `--window-size`, which Chrome on Windows clamps near 500px and which crops rather than reflows (the Phase 0 baseline README's own warning). The page measured is the **real component**, rendered with real fixture data and carrying the real mobile stylesheets, so these are measurements of shipped CSS rather than of a mock.
+
+At **every** width: **0** undersized targets across 12 interactive elements, **0** text nodes under the 11px floor across 76, **0** unnamed controls, **0** elements past the frame, **no** horizontal page scroll, and the frame itself never wider than 520px (320/360/390/430/**520** at 768).
+
+Measured rather than assumed:
+
+- **The sweep found a real defect in this session's own CSS and it was fixed, not excused.** `ckm-holds__terms-sep` — the "·" between the fee and the date — was `--ckm-muted-2` (#a39d92) on white at **2.69:1**, failing SC 1.4.3 at 12px, 7 occurrences at all 5 widths. It is a rendered glyph, so the decorative exemption does not cover it. It now inherits the text colour and separation comes from the spacing: **0 contrast failures** at all five widths afterwards.
+- **One reported failure was the harness's, not the app's**, and was run down rather than waved away: `ckm-appbar__home` measured 8×44. The app bar's logo `src` is the absolute `/ckript-logo-landscape-nobg.png`, which over `file://` resolves to the drive root, so the `<img>` collapsed and took the link's width with it. Rewritten to a relative path, the same sweep reports **0** undersized targets at all five widths. Recorded because the next agent to build a `file://` harness will hit it.
+- **All three payload traps render correctly at every width.** 7 rows: **6** links and **1** inert (the deleted script), in 3 groups reading `Expiring soon 2`, `Active holds 2`, `Closed 3`. The badges are `Last day`, `5 days left`, `15 days left`, `26 days left`, `Lapsed`, `Bought`, `Released` — so the `status: "active"` row whose `endDate` passed 90 days ago reads **Lapsed**, and the `status: "active"` row with `convertedToSale: true` reads **Bought**. Each countdown badge also carries its sr-only expansion ("Last day" + "Expires last day").
+- **The summary excludes closed money.** Measured `4 / 2 / ₹13,100` — open = 200 + 12,500 + 200 + 200, with the released ₹200 and the lapsed ₹200 correctly outside it.
+- **Exactly 0 `aria-current` on a 4-tab industry bar**, which is the correct answer rather than a miss: `/offer-holds` belongs to no industry tab, and MDN's rule is that at most one element in a set carries it. Marking a fallback tab current here would be a lie told on every visit.
+- **Content stress (§16.2) held.** A 78-character title, a 30-character hyphenated writer name and a ₹12,500 fee all wrapped inside the 320px frame with no overflow and no text shrunk below the floor.
+
+**Known limitation, recorded rather than papered over:** the screen is deep-linkable but reachable from no navigation. Adding it to `industryNav.js`'s drawer is the correct fix and is deliberately **not** done here, because that preset feeds the desktop rail and drawer too (§8.2: a destination cannot exist in one bar and not the other) — and on desktop `/offer-holds` still renders the dashboard. Shipping a drawer link that lands industry users back on their own dashboard is a worse defect than the one it fixes. The nav entry should land in the same change as the desktop screen. Logged as a follow-up.
+
+#### 2026-08-07 — Claude (Claude Code) — Phase 2 (dashboard parity audit + data truth) — **bullet 1 closed, bullet 2 in progress**
+
+**Requested continuation:** "continue in native app implementation".
+
+**Starting checkpoint:** Verified against the repository before claiming (§20.4). Every file the Phase 1 entry names exists; `components/TopBar.*`, `components/BottomNav.*`, `components/BottomSheet.*` and `components/DynamicIsland.*` are all still present. One correction to the previous session's `next_action`: it says "migrate the four dashboard overlays (AccountMenu, AiDetailSheet, AllProjectsSheet, NotificationsPanel) off `components/BottomSheet.jsx`". Only **two** of the four use it — `AiDetailSheet` and `AllProjectsSheet`. `NotificationsPanel` (`ckm-noti`) and `AccountMenu` (`ckm-acct`) are bespoke anchored popovers with their own scrims, their own `AnimatePresence`, no focus trap, no scroll lock and no `inert`; they are not sheets at all and migrating them is a larger job than the note implies (see the follow-up list below).
+
+**Work item claimed:** §11 Phase 2 bullet 1 (dashboard research/parity audit) and bullet 2 (remove static placeholders, wire real services).
+
+---
+
+##### The §4 gate: dashboard page family
+
+**Desktop component tree** (`client/src/pages/Dashboard.jsx`, 1460 lines). `Dashboard` is an audience *router*: `isIndustryAudience(user?.role)` lazy-loads `ProducerDashboardPage`, otherwise `CreatorDashboard`. Only the creator branch has a mobile counterpart. Its children: `ProfileCompletionBanner`, hero, Script Performance (3 stats + hand-rolled bar chart), Reviews & Insights (`CarouselNav`/`NavBtn` + `AiReviewCompact` + `AdminReviewCard` + `EmptyPanel`), My Projects (`ProjectCard` grid + pending/rejected notices + Collaborations), a `lg:`-only right rail (At a Glance 2×2, Avg Score, Biggest Mover, Top Scripts, Full Analytics), and two modals (`ReviewModal` → `AiReviewDetail`, `AllProjectsModal` paginated 9/page). `DashboardSkeleton` mirrors the whole layout.
+
+**Services.** Three parallel `Promise.allSettled` calls, identical on both platforms: `GET /scripts/mine?includeCollaborations=1`, `GET /dashboard`, `GET /dashboard/reviews`. Plus a `/auth/me` session sync in the router, a `socket.io` subscription to seven `collab_*` events that refetches, and a localStorage stale-while-revalidate cache (`dashboard:v1:<userId>`, written via `writeCache` with a trimmed retry).
+
+**Server payload shapes, read from `server/controllers/dashboardController.js` rather than inferred:**
+
+| Endpoint | Field | Shape |
+|---|---|---|
+| `/dashboard` | `stats` | `totalEarnings`, `totalUnlocks`, `totalViews`, `profileViews`, `trailersGenerated`, `avgScore` (nullable), `activeHolds`, `scoredScripts`, `auditionCount`, `scriptScoreCredits`, `plan`, **`isAnalyticsLocked`** |
+| `/dashboard/reviews` | `ai[]` | `scriptId`, `scriptTitle`, **`rating`**, **`scores{plot,characters,dialogue,pacing,marketability}`**, `feedback`, `strengths[]`, `weaknesses[]`, `improvements[]`, `audienceFit`, `comparables`, `date` |
+| `/dashboard/reviews` | `adminScores[]` | `scriptId`, `scriptTitle`, **`overall`**, `content`, `trailer`, `title`, `synopsis`, `tags`, `feedback`, `scoredAt` |
+| `/dashboard/reviews` | `readers[]`, `platform[]` | present in the payload; **neither platform renders them** |
+
+**Permissions.** `getDashboardStats` and `getDashboardReviews` both compute `isFreeWriter` (role writer/creator with no plan or `plan === "free"`) and return `null` for `profileViews` / `totalViews`, plus `isAnalyticsLocked: true` and locked reader insights. This is §13's "plan/quota restricted" state and **neither desktop nor mobile renders it** — both coerce the `null` to `0` with `??` and silently show a free writer "0 profile views" where the truth is "upgrade to see this". Recorded as a shared follow-up, not a mobile-only one.
+
+**Parity inventory — what the audit actually found.** Ordered by severity, and every one of these was read out of the source, not assumed:
+
+1. **The reviews tab renders fabricated data on both lists.** `mobile/hooks/useDashboardData.js` maps AI reviews with `r.score` and `r.summary`, and platform reviews with `r.score`. The server sends **`rating`** and **`overall`**. Neither `score` nor `summary` exists on either payload, so every AI card scores **0/100** with four identical 0% bars and the hardcoded excerpt "AI Analysis completed.", and every platform card scores **0/100**, "Grade B", "Platform review completed." The mobile dashboard has been showing invented review content for real scripts. This is not a placeholder — it is worse, because it is indistinguishable from data.
+2. **The literal `Placeholder` badge** — `screens/sections/OverviewSection.jsx:72` renders `<span className="ckm-ov__badge">Placeholder</span>` beside "At a Glance" in production.
+3. **The notification bell is fiction.** `screens/Dashboard.jsx:44` seeds state from `data/dashboardData.js`'s `NOTIFICATIONS` — three hand-written rows ("Meera K. liked Nocturne") shipped to every user, with `dangerouslySetInnerHTML`. Meanwhile `layouts/app-shell/hooks/useShellNotifications.js` already exists as a presentation-agnostic hook doing polling, sockets, unread counts, mark-read, delete and follow-request decisions. §5.4 says share the logic; mobile should consume that hook, not a second implementation and certainly not a constant.
+4. **Nine `desktopOnly()` call sites**, seven of which have a real destination available today: Create → `/create-project` (state `{startFresh:true}`), Upload → `/upload`, Edit profile → `getProfileCanonicalPath(user, …)`, Open project / Top Scripts rows / All Projects rows / Collaborations → `getScriptCanonicalPath(script)`. Desktop already navigates to exactly these. Two need a real in-place behaviour instead: Share and Filter.
+5. **Project cards carry `score: null` with the comment "would need to merge with reviews".** The merge is available — `/dashboard/reviews` returns `scriptId` on both lists, so the join is by id.
+6. **Mobile drops the rejected-projects notice** that desktop renders. Mobile has the pending notice only.
+7. **Mobile has no cache and no socket refresh.** Desktop hydrates synchronously from `readCache` (first paint with no skeleton) and refetches on seven collab events. Mobile shows `MobileRoutePending` on every visit and never updates until remount.
+8. **Mobile's loading state discards `useDashboardData`'s partial-failure handling.** The hook uses `Promise.allSettled` and defaults each leg, but a total failure only `console.error`s and leaves `data` null — so the screen renders the pending skeleton **forever** with no error, no retry and no offline distinction. `ckm-message` (Phase 1) is the component that fixes this and it is already built.
+9. **A desktop defect found during the audit, not to be copied:** desktop's `fetchData` filters `myScripts` to `status === "published"`, then computes `pending`/`rejected` from `myScripts` — so the two status notices it renders are **unreachable on desktop**. Mobile does not filter, so mobile's pending count is the correct one. Keeping mobile's behaviour and adding the rejected notice is the right call; the desktop bug is logged as a separate follow-up rather than silently mirrored.
+10. **Superseded primitives still in the dashboard's own markup:** `ckm-btn` (superseded by `ckm-button`), `ckm-viewmore` (superseded by `ckm-load-more`), the bespoke `ckm-rev__subtab` pair (superseded by `ckm-tabbar`), and `ckm-sheet` via `BottomSheet`. Phase 1 built all four replacements.
+11. **Baseline accessibility debt on the dashboard's own content** (measured in the Phase 1 CDP sweep, restated here because Phase 2 owns it): 5 text nodes under the 11px floor and ~25 colour pairs under 4.5:1, listed in the previous `next_action`.
+
+**Not a gap, deliberately:** mobile shows Overview as its own tab, recovering the right rail that `hidden lg:block` drops on a phone. Mobile paginates reviews with "View more" where desktop uses a one-card carousel — a carousel is a desktop affordance and §4.2 favours the list. Both are kept.
+
+---
+
+##### ⚠ BLOCKING PRODUCT QUESTION — three of the four dashboard sections have no way in *(RESOLVED 2026-08-07 — option B, implemented below)*
+
+Found while writing the render tests, not from the ledger: **`components/SectionTabs.jsx` lists only two tabs, Overview and Challenge.** Commit `ada2b85` (2026-08-03, Yash Chichad, "Update SectionTabs to only show Overview and Challenge") removed `performance`, `reviews` and `projects`.
+
+`Dashboard.jsx` still renders all four sections, and `useDashboardData` still fetches everything all four need. So today:
+
+- **Performance** is reachable by exactly one control — Overview's "Full Analytics" button;
+- **Reviews** is reachable by nothing;
+- **Projects** is reachable by nothing;
+- **AllProjectsSheet** is reachable by nothing (its only opener is inside Projects);
+- **AiDetailSheet** is reachable by nothing (its only opener is inside Reviews).
+
+That is roughly 700 lines of fully-wired screen — including everything this session repaired in Reviews and Projects — that a signed-in writer cannot currently open. It is also why Phase 2's exit gate ("every dashboard interaction works on mobile") cannot honestly be signed off yet: the interactions work, but three quarters of them cannot be started.
+
+The commit message states the intent plainly and carries no explanation, so this is treated as a **deliberate product decision that the plan must not silently reverse** (§20.14). It was left exactly as committed. The options, with consequences:
+
+| Option | Consequence |
+|---|---|
+| **A. Restore the four tabs** | Everything Phase 2 fixed becomes reachable, and the tab strip returns to five items (with Challenge) — measured at 320px, five tabs give a 41.7px-wide target, under the 44px floor, so the strip would need to scroll horizontally or drop to icons. |
+| **B. Keep two tabs; move Reviews and Projects to their own routes** | Matches §5.2's URL contract better than tabs do — a writer can link to their projects — and the bottom nav already has room. Costs two new route entries and their manifest/shell registrations. |
+| **C. Keep two tabs; fold Reviews and Projects into Overview as sections** | One long scroll, which is what the mobile plan explicitly moved away from. |
+| **D. Keep as-is and delete the three sections** | Honest, but throws away working screens and re-opens Phase 2 as new work later. |
+
+**Recommendation: B.** The plan's own URL contract wants these to be addressable, the sections are already built and now verified, and it avoids the 320px tab-strip problem entirely.
+
+**ANSWERED 2026-08-07 by the user: option B.** Implemented the same session — see "How B was built" below. The tab strip is untouched; `ada2b85` stands.
+
+##### How B was built, and the one place it deviates from the sketch
+
+The sketch said "new routes `/projects` and `/reviews`". That turned out to be the wrong mechanism, and the manifest is what said so: `mobileRouteCoverage.test.js` asserts that the registered mobile routes are **exactly** the path literals in `App.jsx`, and §5.2 says "desktop and mobile use the same canonical URL". A mobile-only `/projects` would therefore either fail the coverage contract or ship a URL that 404s the moment the same writer opens it on a laptop — which is precisely the class of thing the URL contract exists to prevent.
+
+So the destinations are **query-string tabs of the dashboard's own URL**: `/dashboard?tab=projects` and `/dashboard?tab=reviews`. That delivers everything option B was chosen for — deep-linkable, correct under browser Back, addressable from the nav — with none of the cost:
+
+- one canonical URL per platform, because it *is* `/dashboard`, which both already serve;
+- no new `App.jsx` route, no coverage-contract change, no 404 risk on desktop;
+- §5.2 names "query strings and tab selection" as something mobile routing must preserve, so this is the contract's own idiom;
+- and the writer preset **already** shipped a destination of exactly this shape — `{ key: "competitions", path: "/challenge?tab=mine" }`.
+
+Concretely:
+
+1. `screens/Dashboard.jsx` takes its section from `useSearchParams` instead of `useState`, validated against a known list and falling back to Overview. Section changes `replace:` rather than push, so moving between sections does not build a stack of history entries the user has to Back through, while arriving from the nav is a real navigation with its own entry.
+2. `presets/writerNav.js` gains `projects` (rail + drawer + compact bar) and `reviews` (drawer). Declared in the **desktop preset**, per §8.2 — a destination cannot exist in one bar and not the other — so the desktop rail and drawer gain them too.
+3. `mobileKeys` becomes `["dashboard", "projects", "messages"]`. **Create gave up its compact slot to Projects.** Create is still one tap from home — it is the dashboard hero's primary action on every visit — and it keeps its place in the rail and drawer; a writer's own project list had no entry point anywhere in the compact bar.
+
+**Two real defects this surfaced, both fixed:**
+
+- `resolveActiveTabKey` matched on pathname alone, so `/dashboard?tab=projects` and `/dashboard` were indistinguishable and Dashboard won both. It now requires every query param a destination declares to be present with that value, and scores each as specificity — so the query tab beats its host page on the query URL, and the host page still wins on its own.
+- **`NavBar` was marking two tabs `aria-current="page"`.** It used `NavLink`, which decides "am I active?" itself from the path, and applies its *own* `aria-current` when it does — so passing `undefined` could not suppress it. This was latent before (no two tabs had shared a path) and became visible immediately. The bar is now a plain `Link` with `resolveActiveTabKey` as the single authority, which is what its own comment had always claimed. Two tabs claiming to be the current page is a lie told to a screen reader on the app's most-visited screen, so this was worth the change on its own.
+
+**Verified:** full suite **835/837** (same 2 pre-existing AppShell failures); lint clean on every touched file; build + 53-route prerender pass. New tests cover the query-vs-host resolution both ways, that exactly one tab is current on each URL, that `?tab=` opens the named section, and that an unknown `?tab=` falls back to Overview rather than blanking. Real browser at 320/360/390/430/768: `?tab=projects`, `?tab=reviews` and `?tab=performance` each render their section with **0 undersized targets, 0 text under 11px, 0 unnamed controls, 0 overflow and no horizontal scroll at every width**, with the bottom bar reading Dashboard · Projects · Messages · Profile.
+
+---
+
+##### What was built (bullet 2, and the deletions bullet 1 unblocked)
+
+**The data.** New `data/dashboardModel.js` — pure, no React — is the single mapping from the three payloads to what the sections render, and `hooks/useDashboardData.js` is now only the data session. Concretely fixed: AI reviews read `rating`/`scores{}`/`feedback`/`strengths`/`weaknesses`/`improvements`/`audienceFit`/`comparables`; platform reviews read `overall` plus all five dimensions; verdict bands and A–F grades match desktop exactly (the old grade helper could only ever emit A or B, so a failing script was shown to its author as a "Grade B"); project cards carry the real merged score (`platformScore.overall ?? scriptScore.overall`), the real `coverImage`, the real price via `premium`, and a canonical `href`; an unscored dimension is omitted rather than drawn as a 0% bar.
+
+**The session.** `useDashboardData` now hydrates synchronously from the **same** `dashboard:v1:<userId>` cache desktop writes, so a returning phone paints real numbers with no skeleton and revalidates behind them, and a form-factor switch does not discard the other client's snapshot. A total failure surfaces an `InlineMessage` with a working retry instead of leaving the pending skeleton up forever; a partial failure keeps the sections that loaded.
+
+**The nine `desktopOnly()` call sites are gone, and with them `DynamicIsland`.** Create → `/create-project` (with `startFresh`), Upload → `/upload`, Edit profile → `getProfileCanonicalPath`, Open project / Top Scripts rows / All-projects rows / Collaborations → `getScriptCanonicalPath`, account menu → `/contact` `/terms` `/privacy` + the profile. Filter became a real `ckm-segmented` status filter with a recovery action on the empty result. Share became `data/shareProject.js` — Web Share API, clipboard fallback, and it distinguishes an `AbortError` (the user closing the OS sheet) from a real failure so cancelling is never reported as an error.
+
+**The bell became real.** `NotificationsPanel` consumes `useShellNotifications` — the desktop shell's own hook — plus the shared `timeAgo` / icon-map / decision-test helpers, so the same notification cannot look different on a phone. The three invented rows and their `dangerouslySetInnerHTML` are deleted, as is the `dangerouslySetInnerHTML` on the AI sheet's audience text (defensible for a hand-written fixture; not defensible for model output stored on a script).
+
+**Retired and deleted, with their prefixes:** `TopBar` + `BottomNav` (`ckm-topbar`, `ckm-bottomnav`), `BottomSheet` (`ckm-sheet` — its only two callers, `AiDetailSheet` and `AllProjectsSheet`, are now real `Sheet`s with focus trap, scroll lock and `inert`), `DynamicIsland` + `context/dynamicIsland.js` (`ckm-island`), `AccountMenu.css` (`ckm-acct` — it is now `ActionSheet` + `ConfirmDialog`), and `ckm-btn` / `ckm-viewmore` from `theme/primitives.css`. `AllProjectsSheet`'s pager also stopped printing one button per page — 200 scripts meant 23 numbered buttons wrapped across a phone — and now uses desktop's windowed `1 … n-1 n n+1 … N`.
+
+**Also removed, deliberately:** Performance's "Details" list. Its two rows were "Avg watch time —" and "Saves —", values no endpoint supplies, behind a chevron that opened a `desktopOnly()` toast. Desktop shows the three stats and the chart and nothing else, so removing it is also the parity-correct shape.
+
+**Accessibility debt this phase owned, cleared.** Every item the Phase 1 sweep listed is fixed and re-measured: `ckm-ov__mover-head` 8.5→11px, `ckm-ov__mover-note` 10.5→11px, `ckm-ov__top-meta` 10→11px, `ckm-ov__glance-label` 2.69:1 → `--ckm-text-3`, `ckm-ov__badge` 3.02:1 → `--ckm-gold-ink` at 11px, `ckm-ov__profile-sub` 3.36:1, `ckm-ov__top-rank` 1.82:1, and `ckm-tabs__btn` — which turned out to be worse than recorded: a 29px-tall control with a 9px label at 3.41:1, failing size, target and contrast at once. The browser sweep also found debt nobody had listed, because nobody had been able to reach those screens: 10 undersized text nodes in Performance and **43** in Reviews, plus a 23px `ckm-rev__subtab` and a 16px `ckm-rev__details`. All fixed. One new token pair, `--ckm-info` / `--ckm-info-bg`, because the platform score runs A–F and the existing warm semantics covered only four of the five bands.
+
+##### Verification
+
+- **288 mobile tests in 25 files** (was 251 in 22). Full suite **829/831**; the 2 failures are the same pre-existing `AppShell.render.test.jsx` ones, re-confirmed this session by stashing every change and watching the identical 2 fail. Lint clean on the whole mobile tree. Production build + 53-route prerender pass.
+- New `data/dashboardModel.test.js` (21 tests) is written against fixtures **transcribed from `dashboardController.js`**, not from client code — that distinction is the whole point, since every previous test used the client's own invented shape and so agreed with the bug. It asserts `payload.score === undefined` before asserting the mapping reads `rating`, so the regression cannot come back quietly.
+- New `screens/Dashboard.render.test.jsx` and `screens/sections/ProjectsSection.test.jsx` assert the things a model test cannot: that Create/Upload/Edit-profile/Top-Scripts/project-title are **links with the right `href`**, that Share is not nested inside the card's link, that the filter is a real radio group with a recovery path, that the rejected notice renders, and that a total failure produces a `role="alert"` message whose retry **re-issues the requests** and then clears.
+- **Real browser, five widths (320/360/390/430/768), headless Chrome via CDP.** On the shipped two-tab dashboard: 0 undersized targets, 0 text under 11px, 0 unnamed controls, 0 elements past the frame, no horizontal scroll, and no "Placeholder" string, at every width. Then, with the four tabs **temporarily restored locally and reverted immediately after** (the only way to reach the other sections), the same sweep over Performance, Reviews, Projects and the AI-detail / all-projects / account overlays at all five widths: **0 real violations** after the fixes above, 0 nested interactive elements, 0 orphan `<li>`.
+- The load-bearing checks a unit suite cannot make, measured in a real browser: the project card's tap region is genuinely the whole card — **4 of 4 probe points** well away from the title resolve to the title's link — while Share stays a sibling and is still independently hittable; the AI sheet opens as `role="dialog" aria-modal="true"` named "The Last Scene" with the scroll surface *and* app bar measuring `inert`, focus inside, and **14 dispatched Tab presses escaping 0 times**; Escape closes it, clears every `inert`, and — with the opener focused for real rather than by a synthetic `.click()` — **restores focus to `ckm-rev__details` exactly**; the account sheet's four items are real anchors (`/profile`, `/contact`, `/terms`, `/privacy`) with logout as the one button, and it hands over to a `role="alertdialog"` whose focus lands on **Cancel**, not "Log out".
+- Baselines recaptured at all five widths; the previous images are archived in `baselines/phase0-dashboard/pre-phase2-data-truth/`.
+
+##### Follow-ups recorded, not silently absorbed
+
+1. **Desktop bug, unfixed on purpose.** `pages/Dashboard.jsx` filters `myScripts` to `status === "published"` and then computes `pending`/`rejected` from it, so both status notices it renders are unreachable on desktop. Mobile does not filter and now shows both. Fixing desktop is out of this phase's scope; it is logged here so it is not rediscovered as a mobile inconsistency.
+2. **The locked-analytics state is unhandled on both platforms.** The server returns `profileViews: null` + `isAnalyticsLocked: true` for a free writer; desktop coerces it to `0` and so says "0 profile views" where the truth is "upgrade to see this". Mobile now carries `analyticsLocked` through the model and shows "—" plus an "Upgrade to view" badge, but there is no upgrade destination behind it yet, and desktop still shows the misleading zero.
+3. **`ckm-tabs` (SectionTabs) is still the legacy strip**, superseded by `ckm-tabbar`. Its size/contrast failures are fixed but the primitive migration is not done; it is entangled with the tab-set question above and should be done with whatever answer that gets.
+4. `/dashboard/reviews` also returns `readers[]` and `platform[]`. Neither platform renders either. Not a regression — noted because the data is already being fetched and paid for.
+5. Mobile still has no socket refresh; desktop refetches on seven `collab_*` events. The cache and retry landed this session; the socket did not.
+
+---
 
 #### 2026-08-07 — Claude (Claude Code) — Phase 1 (role-aware chrome) — **Phase 1 closed**
 

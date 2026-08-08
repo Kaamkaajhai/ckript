@@ -1,0 +1,237 @@
+/*
+ * Ckript Mobile — offers and holds (prefix: ckm-holds, plan §7.2).
+ *
+ * Every selector is scoped under `.ckm` (§7.1) and every class in this file
+ * belongs to the one prefix registered in theme/cssPrefixRegistry.js.
+ *
+ * Colour note: status text uses the *-ink tokens, never the shape colours.
+ * --ckm-gold measures ~2.95:1 on --ckm-gold-bg; --ckm-gold-ink measures
+ * ~4.90:1 on the same background. The tokens exist precisely so a status label
+ * cannot be styled with the colour of a status dot.
+ */
+
+.ckm .ckm-holds__scroll {
+  padding: var(--ckm-space-4-5) var(--ckm-space-4-5) var(--ckm-space-8);
+}
+
+.ckm .ckm-holds__heading {
+  margin: 0 0 var(--ckm-space-4);
+  font: var(--ckm-weight-medium) var(--ckm-text-title-sm) / var(--ckm-leading-title-sm) var(--ckm-display);
+  color: var(--ckm-text);
+}
+
+/* ---- summary strip ---------------------------------------------------- */
+
+.ckm .ckm-holds__summary {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--ckm-space-2);
+  margin: 0 0 var(--ckm-space-6);
+  padding: var(--ckm-space-4) var(--ckm-space-3);
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-lg);
+  background: var(--ckm-bg-soft);
+}
+
+.ckm .ckm-holds__stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--ckm-space-1);
+  min-width: 0;
+  text-align: center;
+}
+
+.ckm .ckm-holds__stat-label {
+  font: var(--ckm-weight-medium) var(--ckm-text-micro) / var(--ckm-leading-micro) var(--ckm-body);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  /* --ckm-text-3 (#6f695f) on --ckm-bg-soft (#faf7f2) measures ~4.98:1. The
+     muted ramp above it does not clear 4.5:1 at this size. */
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-holds__stat-value {
+  margin: 0;
+  font: var(--ckm-weight-medium) var(--ckm-text-section) / var(--ckm-leading-section) var(--ckm-display);
+  color: var(--ckm-text);
+  /* A long committed figure (₹12,50,000) must wrap rather than push the grid
+     wider than the 320px frame. */
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-holds__stat-value.is-urgent {
+  color: var(--ckm-gold-ink);
+}
+
+/* ---- groups ----------------------------------------------------------- */
+
+.ckm .ckm-holds__group + .ckm-holds__group {
+  margin-top: var(--ckm-space-6);
+}
+
+.ckm .ckm-holds__group-title {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-3);
+  margin: 0 0 var(--ckm-space-3);
+  font: var(--ckm-weight-medium) var(--ckm-text-card) / var(--ckm-leading-card) var(--ckm-display);
+  color: var(--ckm-text);
+}
+
+.ckm .ckm-holds__group-count {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--ckm-track);
+  /* #6f695f on --ckm-track (#f4efe6) measures ~4.79:1. */
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-bold) var(--ckm-text-caption) / 1 var(--ckm-body);
+}
+
+/* ---- rows ------------------------------------------------------------- */
+
+.ckm .ckm-holds__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+}
+
+.ckm .ckm-holds__row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ckm-space-3);
+  /* 14px + the 56px media block clears --ckm-touch-target on its own, so the
+     row never needs a min-height that would strand short rows. */
+  padding: 14px;
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-lg);
+  background: var(--ckm-bg);
+  color: inherit;
+  text-decoration: none;
+  box-shadow: var(--ckm-shadow-card);
+  transition: transform 0.16s var(--ckm-ease), border-color 0.16s var(--ckm-ease);
+}
+
+/* The pressed state is the row's only affordance that it is a link, since it
+   carries no underline — so a row that goes nowhere must not have it. */
+.ckm .ckm-holds__row:active:not(.ckm-holds__row--inert) {
+  transform: scale(var(--ckm-press-scale));
+  border-color: var(--ckm-line-strong);
+}
+
+.ckm .ckm-holds__row:focus-visible {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: var(--ckm-focus-ring-offset);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ckm .ckm-holds__row {
+    transition: none;
+  }
+  .ckm .ckm-holds__row:active:not(.ckm-holds__row--inert) {
+    transform: none;
+  }
+}
+
+.ckm .ckm-holds__media {
+  flex: none;
+  width: 44px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: var(--ckm-r-sm);
+  background: var(--ckm-track);
+}
+
+.ckm .ckm-holds__cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ckm .ckm-holds__body {
+  flex: 1 1 auto;
+  /* Without this a long unbroken title makes the flex item refuse to shrink and
+     pushes the badge off the 320px frame. */
+  min-width: 0;
+}
+
+.ckm .ckm-holds__title {
+  margin: 0;
+  font: var(--ckm-weight-medium) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+  color: var(--ckm-text);
+  /* Two lines, then ellipsis: one line truncates too many real screenplay
+     titles, three starts to crowd the terms line out of the first screen. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-holds__meta,
+.ckm .ckm-holds__terms {
+  margin: var(--ckm-space-1) 0 0;
+  font: var(--ckm-weight-regular) var(--ckm-text-caption) / var(--ckm-leading-caption) var(--ckm-body);
+  color: var(--ckm-text-3);
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-holds__writer {
+  font-weight: var(--ckm-weight-medium);
+}
+
+.ckm .ckm-holds__fee {
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-text-2);
+}
+
+/*
+ * The separator sits at the SAME colour as the text it separates, not a lighter
+ * one. Measured in the 2026-08-08 sweep: --ckm-muted-2 (#a39d92) on white is
+ * 2.69:1, which fails SC 1.4.3 at 12px. It is a visible glyph, so the "purely
+ * decorative" exemption does not cover it — the honest fix is to stop treating
+ * a rendered character as decoration. Separation now comes from the spacing.
+ */
+.ckm .ckm-holds__terms-sep {
+  margin: 0 6px;
+  color: inherit;
+}
+
+.ckm .ckm-holds__note {
+  margin: var(--ckm-space-2) 0 0;
+  padding: var(--ckm-space-2) var(--ckm-space-3);
+  border-radius: var(--ckm-r-sm);
+  background: var(--ckm-gold-bg);
+  /* #8a6414 on --ckm-gold-bg (#fdf3e8) measures ~4.90:1. */
+  color: var(--ckm-gold-ink);
+  font: var(--ckm-weight-regular) var(--ckm-text-caption) / var(--ckm-leading-caption) var(--ckm-body);
+}
+
+.ckm .ckm-holds__state {
+  flex: none;
+  /* Top-aligned with the title rather than centred: a two-line title would
+     otherwise drag the countdown into the middle of the row. */
+  padding-top: 1px;
+}
+
+/*
+ * At the narrowest supported width the badge and a two-line title cannot both
+ * hold their ground on one line. Dropping the badge below the body keeps the
+ * countdown at full size rather than shrinking it under the 11px floor.
+ */
+@media (max-width: 339px) {
+  .ckm .ckm-holds__row {
+    flex-wrap: wrap;
+  }
+  .ckm .ckm-holds__state {
+    width: 100%;
+    padding-top: 0;
+    padding-left: calc(44px + var(--ckm-space-3));
+  }
+}

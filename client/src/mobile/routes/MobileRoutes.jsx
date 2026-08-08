@@ -3,6 +3,7 @@ import { Route, Routes } from "react-router-dom";
 import MobileRouteBoundary from "../shell/MobileRouteBoundary";
 
 const Dashboard = lazy(() => import("../screens/Dashboard"));
+const Holds = lazy(() => import("../screens/Holds"));
 const PrimitiveGallery = lazy(() => import("../dev/PrimitiveGallery"));
 
 /*
@@ -50,6 +51,12 @@ export default function MobileRoutes({
     <MobileRouteBoundary>
       <Routes>
         <Route path="/dashboard" element={dashboard} />
+        {/* /ai-tools is the dashboard, because on desktop it is literally the
+            same element (App.jsx mounts <DashboardRoute /> at both). Without
+            this line a mobile writer got the desktop dashboard at one alias and
+            the mobile one at the other. See the manifest note. */}
+        <Route path="/ai-tools" element={dashboard} />
+        <Route path="/offer-holds" element={<Holds user={user} />} />
         {/* Defensive no-op: policy prevents this branch from mounting for an
             unfinished route, and it must never substitute Dashboard. */}
         <Route path="*" element={null} />

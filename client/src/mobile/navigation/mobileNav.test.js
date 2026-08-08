@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import { describe, expect, it } from "vitest";
 import { buildMobileNav, resolveActiveTabKey } from "./mobileNav";
+import { buildNav } from "../../layouts/app-shell/navigation/buildNav";
 import { SYMBOLS } from "../../layouts/app-shell/navigation/symbols";
 import { KNOWN_ROLES, getAudience } from "../../layouts/app-shell/shellPolicy";
 
@@ -8,10 +9,47 @@ const navFor = (role, { profilePath = "/ada", msgCount = 0 } = {}) =>
   buildMobileNav({ user: { role, _id: "u1", name: "Ada Lovelace" }, profilePath, msgCount });
 
 describe("buildMobileNav — the tab sets come from the desktop presets", () => {
-  it("gives the writer Dashboard, Create, Messages and Profile", () => {
+  it("gives the writer Dashboard, Projects, Messages and Profile", () => {
     expect(navFor("writer").tabs.map((t) => t.key)).toEqual([
-      "dashboard", "create", "messages", "profile",
+      "dashboard", "projects", "messages", "profile",
     ]);
+  });
+
+  /*
+   * THE APPROVED WRITER BAR (plan §11 Phase 2 bullet 4, approved 2026-08-08).
+   *
+   * The keys above are asserted elsewhere in this file too; this case exists to
+   * make the *product decision* fail a test rather than live in a document.
+   * The alternatives were put to the user with their costs — swapping Projects
+   * back to Create (which leaves a writer's own project list with no entry
+   * point in the compact bar) and adding a fifth tab (which forks mobileKeys
+   * away from the desktop preset, the one thing §8.2 forbids). Neither was
+   * chosen, so a change to this set is a change to an approved decision.
+   *
+   * Labels as well as keys: a rename is as visible to a user as a reorder, and
+   * a key-only assertion would let "Projects" silently become something else.
+   */
+  it("shows exactly the approved writer labels, in the approved order", () => {
+    expect(navFor("writer").tabs.map((t) => t.label)).toEqual([
+      // "Profile", not the rail's "Writer Profile": buildNav shortens the
+      // fourth slot's label for the compact bar, where the audience is already
+      // implied and the wider label would clip at 320px.
+      "Dashboard", "Projects", "Messages", "Profile",
+    ]);
+  });
+
+  it("keeps Create out of the writer's compact bar, but not out of the app", () => {
+    /*
+     * Create gave up its slot to Projects on 2026-08-07 and the user confirmed
+     * that on 2026-08-08. It is still one tap away — the dashboard hero's
+     * primary action — and it keeps its place in the rail and the drawer. This
+     * asserts both halves, because the approval depended on the second one.
+     */
+    const nav = buildNav({ user: { role: "writer", _id: "u1" }, profilePath: "/ada", msgCount: 0 });
+
+    expect(nav.mobile.map((t) => t.key)).not.toContain("create");
+    expect(nav.primary.map((t) => t.key)).toContain("create");
+    expect(nav.drawer.filter((t) => !t.divider).map((t) => t.key)).toContain("create");
   });
 
   it("gives the industry audience Discover, Featured, Messages and Profile", () => {
@@ -72,8 +110,11 @@ describe("buildMobileNav — adaptation for mobile", () => {
     expect(navFor("writer", { msgCount: 3 }).tabs.find((t) => t.key === "messages").badge).toBe(3);
   });
 
-  it("keeps startFresh on Create, so the tab opens a new draft", () => {
-    expect(navFor("writer").tabs.find((t) => t.key === "create").fresh).toBe(true);
+  it("keeps startFresh on the destinations that declare it", () => {
+    // Create is no longer a compact tab, but the flag must still survive the
+    // adaptation for the rail and drawer that do show it.
+    const { primary } = buildNav({ user: { role: "writer", _id: "u1" }, profilePath: "/ada" });
+    expect(primary.find((i) => i.key === "create").fresh).toBe(true);
     expect(navFor("writer").tabs.find((t) => t.key === "messages").fresh).toBe(false);
   });
 
@@ -109,12 +150,36 @@ describe("resolveActiveTabKey — the URL decides, not component state", () => {
   it("selects the tab whose route the URL is on", () => {
     expect(resolveActiveTabKey(writer, "/dashboard")).toBe("dashboard");
     expect(resolveActiveTabKey(writer, "/messages")).toBe("messages");
-    expect(resolveActiveTabKey(writer, "/create-project")).toBe("create");
+    expect(resolveActiveTabKey(reader, "/reader")).toBe("home");
   });
 
   it("keeps a tab selected on its nested screens", () => {
     expect(resolveActiveTabKey(writer, "/messages/653f00")).toBe("messages");
-    expect(resolveActiveTabKey(writer, "/create-project/draft-9")).toBe("create");
+    expect(resolveActiveTabKey(reader, "/reader/search")).toBe("search");
+  });
+
+  /*
+   * A destination may be a query-string tab of a page rather than a page.
+   * Projects lives at /dashboard?tab=projects, so on pathname alone it is
+   * indistinguishable from Dashboard — which is exactly the bug this guards:
+   * without the query, Dashboard would claim the URL and Projects could never
+   * light up.
+   */
+  it("lets a query-string destination win over its own host page", () => {
+    expect(resolveActiveTabKey(writer, "/dashboard", "?tab=projects")).toBe("projects");
+    expect(resolveActiveTabKey(writer, "/dashboard?tab=projects")).toBe("projects");
+  });
+
+  it("keeps the host page selected when the query does not match", () => {
+    expect(resolveActiveTabKey(writer, "/dashboard")).toBe("dashboard");
+    expect(resolveActiveTabKey(writer, "/dashboard", "?tab=overview")).toBe("dashboard");
+    expect(resolveActiveTabKey(writer, "/dashboard", "?tab=reviews")).toBe("dashboard");
+  });
+
+  it("still selects exactly one tab on a query-string destination", () => {
+    const keys = ["dashboard", "projects", "messages", "profile"];
+    const active = resolveActiveTabKey(writer, "/dashboard", "?tab=projects");
+    expect(keys.filter((k) => k === active)).toHaveLength(1);
   });
 
   it("returns null when the URL belongs to no tab", () => {

@@ -1,6 +1,5 @@
 import { useContext, useEffect, useMemo, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
-import { DynamicIslandProvider } from "./components/DynamicIsland";
 import ToastProvider from "./components/feedback/ToastProvider";
 import Skeleton from "./components/Skeleton";
 import MobileRoutes from "./routes/MobileRoutes";
@@ -17,7 +16,7 @@ import "./MobileApp.css";
  *
  *   • a full-viewport frame that owns its own scroll,
  *   • a brief load skeleton for a deliberate first paint,
- *   • the Dynamic Island provider (used app-wide for "desktop-only" hints),
+ *   • the toast layer every screen raises transient messages through,
  *   • and the Dashboard — the one screen built for mobile so far.
  *
  * It derives display identity (initials / name) from the auth user and wires
@@ -71,28 +70,25 @@ export default function MobileApp({ preview = false, devScreen = null }) {
   return (
     <div className="ckm">
       <div className="ckm-root">
-        {/* Two transient-message surfaces coexist during migration, exactly as
-            ckm-sheet and ckm-bottom-sheet do: the Island is the dashboard's
-            verified Phase 0 baseline and serves `notify.desktopOnly()`, which
-            §2.8 removes by completion. New screens use ToastProvider. Phase 2
-            migrates the dashboard and retires the Island. No single screen may
-            use both — §13 forbids stacking transient surfaces. */}
+        {/* One transient-message surface, app-wide. The dashboard-era
+            DynamicIsland that used to sit beside this was retired on
+            2026-08-07 with its last caller, `notify.desktopOnly()` — §2.8
+            requires that call to be gone by completion, and §13 forbids two
+            competing transient surfaces in the meantime. */}
         <ToastProvider>
-          <DynamicIslandProvider>
-            {booting ? (
-              <Skeleton time={time} />
-            ) : (
-              <MobileRoutes
-                time={time}
-                initials={initials}
-                userName={userName}
-                onLogout={() => logout()}
-                user={user}
-                preview={preview}
-                devScreen={devScreen}
-              />
-            )}
-          </DynamicIslandProvider>
+          {booting ? (
+            <Skeleton time={time} />
+          ) : (
+            <MobileRoutes
+              time={time}
+              initials={initials}
+              userName={userName}
+              onLogout={() => logout()}
+              user={user}
+              preview={preview}
+              devScreen={devScreen}
+            />
+          )}
         </ToastProvider>
       </div>
     </div>

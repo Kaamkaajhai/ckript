@@ -44,8 +44,9 @@ describe("NavBar", () => {
   });
 
   it("renders the audience's own destinations", () => {
+    // 2026-08-07: Create gave its compact slot to Projects (writerNav's note).
     expect(labels(render(<NavBar user={WRITER} />)))
-      .toEqual(["Dashboard", "Create", "Messages", "Profile"]);
+      .toEqual(["Dashboard", "Projects", "Messages", "Profile"]);
 
     act(() => root.unmount());
     container.remove();
@@ -73,7 +74,7 @@ describe("NavBar", () => {
   });
 
   it("never marks more than one tab current", () => {
-    for (const route of ["/dashboard", "/create-project/d1", "/ada", "/messages"]) {
+    for (const route of ["/dashboard", "/dashboard?tab=projects", "/ada", "/messages"]) {
       const el = render(<NavBar user={WRITER} />, { route });
       expect(links(el).filter((a) => a.getAttribute("aria-current") === "page").length, route)
         .toBeLessThanOrEqual(1);
@@ -87,7 +88,7 @@ describe("NavBar", () => {
   it("navigates with real hrefs, so a destination can be opened however the user likes", () => {
     const el = render(<NavBar user={WRITER} />);
     expect(links(el).map((a) => a.getAttribute("href")))
-      .toEqual(["/dashboard", "/create-project", "/messages", "/ada"]);
+      .toEqual(["/dashboard", "/dashboard?tab=projects", "/messages", "/ada"]);
     // …and nothing in the bar is a button pretending to be a link.
     expect(el.querySelectorAll("button")).toHaveLength(0);
   });
@@ -121,10 +122,23 @@ describe("NavBar", () => {
     }
   });
 
-  it("opens Create as a new draft rather than resuming the last one", () => {
-    // `fresh` is carried as router state; asserting the model here keeps the
-    // contract visible even though happy-dom cannot read a NavLink's state.
-    const el = render(<NavBar user={WRITER} />);
-    expect(links(el)[1].getAttribute("href")).toBe("/create-project");
+  /*
+   * Projects is a query-string destination on the dashboard's own URL, so the
+   * bar has to tell it apart from Dashboard by more than the path. Without
+   * that, both would resolve to "dashboard" and Projects could never be marked
+   * current — which is the whole reason the section was unreachable.
+   */
+  it("selects Projects, not Dashboard, on the projects URL", () => {
+    const el = render(<NavBar user={WRITER} />, { route: "/dashboard?tab=projects" });
+    const current = links(el).filter((a) => a.getAttribute("aria-current") === "page");
+    expect(current).toHaveLength(1);
+    expect(current[0].getAttribute("href")).toBe("/dashboard?tab=projects");
+  });
+
+  it("selects Dashboard on the bare dashboard URL", () => {
+    const el = render(<NavBar user={WRITER} />, { route: "/dashboard" });
+    const current = links(el).filter((a) => a.getAttribute("aria-current") === "page");
+    expect(current).toHaveLength(1);
+    expect(current[0].getAttribute("href")).toBe("/dashboard");
   });
 });

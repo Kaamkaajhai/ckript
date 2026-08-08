@@ -1,4 +1,4 @@
-import { NavLink } from "react-router-dom";
+import { Link } from "react-router-dom";
 import Icon from "../Icon";
 import useMobileNav from "../../hooks/useMobileNav";
 import "./NavBar.css";
@@ -20,11 +20,18 @@ import "./NavBar.css";
  *
  * WHY LINKS, NOT BUTTONS
  * ----------------------
- * A tab is a destination, so it is an <a>. `NavLink` also gives the two states
- * this bar has to get right for free — and `aria-current="page"` is applied to
+ * A tab is a destination, so it is an <a>. `aria-current="page"` is applied to
  * at most one tab, because `resolveActiveTabKey` returns one key or none (MDN:
  * only ever mark one element in a set as current). "None" is the honest answer
  * on a detail screen that belongs to no tab.
+ *
+ * It is a plain `Link`, not a `NavLink` (changed 2026-08-07). NavLink decides
+ * "am I active?" itself, from the path alone — and once a destination became a
+ * query-string tab of another page (`/dashboard?tab=projects`), that made TWO
+ * tabs believe they were current on the same URL, and NavLink applies its own
+ * `aria-current` when it does, so passing `undefined` could not suppress it.
+ * The resolver above is the single source of truth for which tab is selected;
+ * having a second, weaker one inside the link could only ever disagree with it.
  *
  * WHAT IT DELIBERATELY DOES NOT DO
  * --------------------------------
@@ -52,9 +59,8 @@ export default function NavBar({
 
           return (
             <li className="ckm-navbar__item" key={tab.key}>
-              <NavLink
+              <Link
                 to={tab.path}
-                end={tab.exact}
                 // `startFresh` is how Create opens a new draft instead of
                 // resuming the last one; §5.2 requires location.state to survive
                 // the desktop→mobile move, so it is threaded rather than dropped.
@@ -82,7 +88,7 @@ export default function NavBar({
                     {`, ${tab.badge} unread`}
                   </span>
                 )}
-              </NavLink>
+              </Link>
             </li>
           );
         })}
