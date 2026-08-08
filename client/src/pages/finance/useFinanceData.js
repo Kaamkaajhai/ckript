@@ -14,9 +14,30 @@ import api from "../../services/financeApi";
  * overwrite the new section's rows.
  */
 
-/** Section key → the endpoint and the response field its rows live under. */
+/**
+ * Section key → the endpoint and the response field its rows live under.
+ *
+ * `pagesKey` exists because the two families of endpoint disagree. The ones reused from the admin
+ * controllers answer with `totalPages`; the ledger endpoints, written later, answer with `pages`.
+ * Naming it per source beats normalising server-side, which would mean changing a response shape
+ * the admin console still reads.
+ *
+ * `searchable: false` marks a source whose endpoint ignores a search term. The shell hides its
+ * search box rather than offering a field that silently does nothing.
+ */
 const SOURCES = {
   payments: { url: "/finance/payments", key: "transactions" },
+  // Challenge entries come from the LEDGER, not from Transaction or Invoice, and that is the whole
+  // point: the ledger is the only source that records a free entry alongside a paid one. A
+  // third-party or admin-granted entry writes no payment and no invoice, so a Challenges section
+  // built on either would show a competition as emptier than it was.
+  challenges: {
+    url: "/finance/entries",
+    key: "entries",
+    pagesKey: "pages",
+    searchable: false,
+    params: { kind: "competition_registration" },
+  },
   invoices: { url: "/finance/invoices", key: "invoices" },
   purchases: { url: "/finance/purchases", key: "scripts" },
   premium: { url: "/finance/users", key: "users", params: { isPremium: true, role: "investor" } },
@@ -53,12 +74,16 @@ export default function useFinanceData(section, search) {
     (async () => {
       try {
         const { data } = await api.get(source.url, {
-          params: { page, search: search || undefined, ...(source.params || {}) },
+          params: {
+            page,
+            search: source.searchable === false ? undefined : search || undefined,
+            ...(source.params || {}),
+          },
         });
         if (cancelled) return;
         setRows(Array.isArray(data?.[source.key]) ? data[source.key] : []);
         setTotal(Number(data?.total) || 0);
-        setTotalPages(Number(data?.totalPages) || 1);
+        setTotalPages(Number(data?.[source.pagesKey || "totalPages"]) || 1);
         setError("");
       } catch (err) {
         // A superseded request must never overwrite the state of the one that replaced it.
@@ -87,6 +112,8 @@ export default function useFinanceData(section, search) {
     loading: source ? loading : false,
     error: source ? error : "",
     page,
+    /** False when this section's endpoint ignores a search term, so the shell can hide the box. */
+    searchable: source ? source.searchable !== false : false,
     refresh,
     setPage: goToPage,
   }), [source, rows, total, totalPages, loading, error, page, refresh, goToPage]);

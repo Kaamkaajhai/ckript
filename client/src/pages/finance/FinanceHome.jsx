@@ -8,7 +8,7 @@ import useFinanceData from "./useFinanceData";
 import useFinanceActions from "./useFinanceActions";
 import LedgerSection from "./LedgerSection";
 import {
-  PaymentsTable, InvoicesTable, PurchasesTable,
+  PaymentsTable, ChallengesTable, InvoicesTable, PurchasesTable,
   PremiumTable, WriterPlansTable, BankReviewsTable,
 } from "./FinanceSections";
 
@@ -30,6 +30,7 @@ import {
 const SECTIONS = [
   { key: "ledger", label: "Overview", icon: "M3 3v18h18M7 14l3-3 2.25 2.25L17 8" },
   { key: "payments", label: "Transactions", icon: "M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 002.25-2.25V6.75A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25v10.5A2.25 2.25 0 004.5 19.5z" },
+  { key: "challenges", label: "Challenges", icon: "M16.5 18.75h-9m9 0a3 3 0 013 3h-15a3 3 0 013-3m9 0v-3.375c0-.621-.503-1.125-1.125-1.125h-.871M7.5 18.75v-3.375c0-.621.504-1.125 1.125-1.125h.872m5.007 0H9.497m5.007 0a7.454 7.454 0 01-.982-3.172M9.497 14.25a7.454 7.454 0 00.981-3.172M5.25 4.236c-.982.143-1.954.317-2.916.52A6.003 6.003 0 007.73 9.728M5.25 4.236V4.5c0 2.108.966 3.99 2.48 5.228M5.25 4.236V2.721C7.456 2.41 9.71 2.25 12 2.25s4.545.16 6.75.47v1.516M7.73 9.728a6.726 6.726 0 002.748 1.35m8.272-6.842V4.5c0 2.108-.966 3.99-2.48 5.228m2.48-5.492a46.32 46.32 0 012.916.52 6.003 6.003 0 01-5.395 4.972m0 0a6.726 6.726 0 01-2.749 1.35m0 0a6.772 6.772 0 01-3.044 0" },
   { key: "invoices", label: "Invoices", icon: "M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5A3.375 3.375 0 0010.125 2.25H6.75A2.25 2.25 0 004.5 4.5v15A2.25 2.25 0 006.75 21.75h10.5A2.25 2.25 0 0019.5 19.5v-1.125M15 12h-6m6 3h-6" },
   { key: "purchases", label: "Script purchases", icon: "M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 00-3 3h15.75m-12.75-3h11.218c1.121-2.3 2.1-4.684 2.924-7.138a60.114 60.114 0 00-16.536-1.84M7.5 14.25L5.106 5.272" },
   { key: "premium", label: "Premium subscribers", icon: "M11.48 3.5a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557L3.04 10.386a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z" },
@@ -37,11 +38,24 @@ const SECTIONS = [
   { key: "bank-reviews", label: "Bank reviews", icon: "M3.75 4.5h16.5A1.5 1.5 0 0121.75 6v12a1.5 1.5 0 01-1.5 1.5H3.75a1.5 1.5 0 01-1.5-1.5V6a1.5 1.5 0 011.5-1.5zM6 9h12M6 13.5h5.25" },
 ];
 
-const NAV_GROUPS = [
-  { title: "", items: SECTIONS.slice(0, 1) },
-  { title: "Records", items: SECTIONS.slice(1, 4) },
-  { title: "Subscriptions", items: SECTIONS.slice(4) },
+/**
+ * Grouped by key rather than by index slice.
+ *
+ * The slices these replace (`SECTIONS.slice(1, 4)`) silently reshuffled the whole sidebar the moment
+ * a section was inserted anywhere but the end — adding Challenges after Transactions pushed
+ * "Purchases" into the Subscriptions group with nothing to indicate it. Naming the members makes an
+ * insertion a local edit and a typo a visible one.
+ */
+const GROUPS = [
+  { title: "", keys: ["ledger"] },
+  { title: "Records", keys: ["payments", "challenges", "invoices", "purchases"] },
+  { title: "Subscriptions", keys: ["premium", "writer-plans", "bank-reviews"] },
 ];
+
+const NAV_GROUPS = GROUPS.map(({ title, keys }) => ({
+  title,
+  items: keys.map((key) => SECTIONS.find((s) => s.key === key)).filter(Boolean),
+}));
 
 function FinanceWorkspace({ canControl }) {
   const [section, setSection] = useState("ledger");
@@ -91,6 +105,7 @@ function FinanceWorkspace({ canControl }) {
     switch (section) {
       case "ledger": return <LedgerSection />;
       case "payments": return <PaymentsTable {...shared} />;
+      case "challenges": return <ChallengesTable {...shared} />;
       case "invoices": return <InvoicesTable {...shared} onOpenPdf={openInvoicePdf} />;
       case "purchases": return <PurchasesTable {...shared} />;
       case "premium": return <PremiumTable {...shared} actions={canControl ? actions : null} />;
@@ -110,7 +125,7 @@ function FinanceWorkspace({ canControl }) {
       onNavigate={setSection}
       crumbs={[label]}
       searchValue={search}
-      onSearchChange={section === "ledger" ? null : (e) => setSearch(e.target.value)}
+      onSearchChange={data.searchable ? (e) => setSearch(e.target.value) : null}
       searchPlaceholder={`Search ${label.toLowerCase()}`}
     >
       {body}
