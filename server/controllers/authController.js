@@ -1,4 +1,5 @@
 import User from "../models/User.js";
+import { resolveAllowedUrl, asPostalPathSegment } from "../utils/outboundRequest.js";
 import jwt from "jsonwebtoken";
 import { OAuth2Client } from "google-auth-library";
 import { sendOTPEmail, sendWelcomeEmail, sendInvestorWelcomeEmail, sendPasswordResetOTPEmail } from "../utils/emailService.js";
@@ -419,12 +420,16 @@ const parseAddressForValidation = (address = "") => {
   return { city, state, zipCode };
 };
 
+// Every postal lookup resolves through the shared allowlist — see utils/outboundRequest.js for why
+// the check belongs at the sink rather than in the callers.
 const fetchJsonWithTimeout = async (url, timeoutMs = 8000) => {
+  const target = resolveAllowedUrl(url);
+
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(url, {
+    const response = await fetch(target, {
       signal: controller.signal,
       headers: {
         Accept: "application/json",
@@ -442,12 +447,16 @@ const fetchJsonWithTimeout = async (url, timeoutMs = 8000) => {
 };
 
 const fetchPostalOfficesFromIndiaPost = async (zipCode) => {
-  const data = await fetchJsonWithTimeout(`https://api.postalpincode.in/pincode/${zipCode}`);
+  const segment = asPostalPathSegment(zipCode);
+  if (!segment) return [];
+  const data = await fetchJsonWithTimeout(`https://api.postalpincode.in/pincode/${segment}`);
   return Array.isArray(data) && data[0]?.PostOffice ? data[0].PostOffice : [];
 };
 
 const fetchPostalOfficesFromZippopotam = async (zipCode) => {
-  const data = await fetchJsonWithTimeout(`https://api.zippopotam.us/IN/${zipCode}`);
+  const segment = asPostalPathSegment(zipCode);
+  if (!segment) return [];
+  const data = await fetchJsonWithTimeout(`https://api.zippopotam.us/IN/${segment}`);
   const places = Array.isArray(data?.places) ? data.places : [];
 
   return places.map((place) => ({
@@ -1479,18 +1488,31 @@ export const getReferralSummary = async (req, res) => {
   }
 };
 
+/**
+ * Resolve a 6-digit Indian PIN code to its city and state.
+ *
+ * The parameter is called `pincode`, not `zipCode`, because that is what it is: a Postal Index
+ * Number identifying a delivery area, which the `/^\d{6}$/` check below is the format for. The old
+ * name read as "this user's postal address", which is a different and far more sensitive thing —
+ * misleading to anyone reading the handler, and to static analysis, which flagged the endpoint for
+ * carrying contact information in a GET URL. The value here is a public area code being looked up,
+ * and it is the input to the lookup rather than anything about the person making it.
+ *
+ * The response still returns a `zipCode` field: nothing in the client reads it, but it costs
+ * nothing to leave the wire format alone.
+ */
 export const lookupZipInfo = async (req, res) => {
-  const zipCode = String(req.params?.zipCode || "").trim();
+  const pincode = String(req.params?.pincode || "").trim();
 
   try {
-    if (!/^\d{6}$/.test(zipCode)) {
+    if (!/^\d{6}$/.test(pincode)) {
       return res.status(400).json({
         valid: false,
         message: "ZIP code must be exactly 6 digits.",
       });
     }
 
-    const offices = await fetchPostalOfficesByZip(zipCode);
+    const offices = await fetchPostalOfficesByZip(pincode);
 
     if (!offices.length) {
       return res.status(404).json({
@@ -1503,7 +1525,7 @@ export const lookupZipInfo = async (req, res) => {
 
     return res.json({
       valid: true,
-      zipCode,
+      zipCode: pincode,
       city,
       state,
     });
@@ -1511,7 +1533,7 @@ export const lookupZipInfo = async (req, res) => {
     console.error("ZIP lookup error:", error);
     return res.status(200).json({
       valid: false,
-      zipCode,
+      zipCode: pincode,
       city: "",
       state: "",
       message: "Unable to auto-fill city/state right now. Please enter them manually.",

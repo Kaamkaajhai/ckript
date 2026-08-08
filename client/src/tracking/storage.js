@@ -27,10 +27,24 @@ const getStorage = () => {
   }
 };
 
+/** The width `Math.random().toString(16).slice(2)` used to produce, kept so old and new ids match. */
+const RANDOM_SUFFIX_LENGTH = 13;
+
+const randomHexSuffix = () => {
+  const bytes = new Uint8Array(Math.ceil(RANDOM_SUFFIX_LENGTH / 2));
+  globalThis.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0"))
+    .join("")
+    .slice(0, RANDOM_SUFFIX_LENGTH);
+};
+
 const generateId = (prefix) => {
-  const randomPart = typeof crypto !== "undefined" && crypto.randomUUID
-    ? crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  // randomUUID is secure-context only, so plain-http dev hosts and Safari < 15.4 take the second
+  // branch — which makes that branch the one most in need of a real random source. getRandomValues
+  // lives on the same object and carries no such restriction, so it needs nothing behind it.
+  const randomPart = globalThis.crypto?.randomUUID
+    ? globalThis.crypto.randomUUID()
+    : `${Date.now()}-${randomHexSuffix()}`;
   return `${prefix}_${randomPart}`;
 };
 

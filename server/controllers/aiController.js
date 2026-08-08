@@ -1,6 +1,7 @@
 import Script from "../models/Script.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
+import { asObjectId } from "../utils/requestValue.js";
 
 import { generateJsonWithGoogleAI } from "../services/googleAiService.js";
 import { generateTrailerVideo } from "../services/videoGenerationService.js";
@@ -17,9 +18,25 @@ const clampScore = (value) => {
   return Math.max(0, Math.min(100, Math.round(n)));
 };
 
+// Drops every "<...>" run, exactly as /<[^>]*>/g did, but in one left-to-right pass. The regex was
+// quadratic on script text like "<<<<<<...": the engine restarts at each "<" and scans to the end of
+// the string looking for a ">" that is not there. cleanText runs on whole uploaded screenplays.
+const stripTags = (text) => {
+  let out = "";
+  let cursor = 0;
+  for (;;) {
+    const open = text.indexOf("<", cursor);
+    if (open === -1) break;
+    const close = text.indexOf(">", open + 1);
+    if (close === -1) break; // an unclosed "<" is literal text, which is what the regex did too
+    out += text.slice(cursor, open) + " ";
+    cursor = close + 1;
+  }
+  return out + text.slice(cursor);
+};
+
 const cleanText = (value = "") =>
-  String(value)
-    .replace(/<[^>]*>/g, " ")
+  stripTags(String(value))
     .replace(/\s+/g, " ")
     .trim();
 
@@ -298,7 +315,10 @@ Analyze deeply. Be specific. Be honest. Be professional.`;
 // Simulate AI trailer generation (in production, integrate with RunwayML, Pika, etc.)
 export const generateTrailer = async (req, res) => {
   try {
-    const { scriptId } = req.body;
+    const scriptId = asObjectId(req.body.scriptId);
+    if (!scriptId) {
+      return res.status(400).json({ message: "A valid script id is required" });
+    }
     const script = await Script.findById(scriptId);
     
     if (!script) {
@@ -440,7 +460,10 @@ export const getTrailerStatus = async (req, res) => {
 // AI Script Score / Pro Analysis
 export const generateScriptScore = async (req, res) => {
   try {
-    const { scriptId } = req.body;
+    const scriptId = asObjectId(req.body.scriptId);
+    if (!scriptId) {
+      return res.status(400).json({ message: "A valid script id is required" });
+    }
     const script = await Script.findById(scriptId);
     
     if (!script) {
@@ -769,7 +792,10 @@ Profoundly enhance the emotional depth of the following script text: strengthen 
 
 export const generateProseSample = async (req, res) => {
   try {
-    const { scriptId } = req.body;
+    const scriptId = asObjectId(req.body.scriptId);
+    if (!scriptId) {
+      return res.status(400).json({ message: "A valid script id is required" });
+    }
     const script = await Script.findById(scriptId);
 
     if (!script) {

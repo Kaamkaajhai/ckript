@@ -21,6 +21,7 @@ import {
   verifyHashedOTP,
 } from "../utils/otpHelper.js";
 import { buildUserCanonicalPath, buildUserShareMeta, buildScriptCanonicalPath, buildScriptShareMeta } from "../utils/shareMeta.js";
+import { asObjectId } from "../utils/requestValue.js";
 import { getProfileCompletion } from "../utils/profileCompletion.js";
 import multer from "multer";
 import { uploadToCloudinary, deleteFromCloudinary, buildPrivateDownloadUrl } from "../config/cloudinary.js";
@@ -1443,19 +1444,27 @@ const isWriterRole = (role) =>
 
 export const followUser = async (req, res) => {
   try {
-    const userToFollow = await User.findById(req.body.userId);
+    const targetUserId = asObjectId(req.body.userId);
+    if (!targetUserId) {
+      return res.status(400).json({ message: "A valid userId is required" });
+    }
+    // The canonical hex form: the identity checks below are string comparisons, and comparing against
+    // the raw body value would let a padded or upper-cased id slip past the "cannot follow yourself" guard.
+    const targetUserIdString = targetUserId.toString();
+
+    const userToFollow = await User.findById(targetUserId);
     const currentUser = await User.findById(req.user._id);
 
     if (!userToFollow) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    if (req.body.userId === req.user._id.toString()) {
+    if (targetUserIdString === req.user._id.toString()) {
       return res.status(400).json({ message: "You cannot follow yourself" });
     }
 
     const currentBlockedTarget = currentUser.blockedUsers?.some(
-      (id) => id.toString() === req.body.userId
+      (id) => id.toString() === targetUserIdString
     );
     const targetBlockedCurrent = userToFollow.blockedUsers?.some(
       (id) => id.toString() === req.user._id.toString()
@@ -1465,7 +1474,7 @@ export const followUser = async (req, res) => {
       return res.status(403).json({ message: "Follow action is not allowed for blocked users" });
     }
 
-    if (currentUser.following.includes(req.body.userId)) {
+    if (currentUser.following.includes(targetUserIdString)) {
       return res.status(400).json({ message: "Already following this user" });
     }
 
@@ -1532,7 +1541,7 @@ export const followUser = async (req, res) => {
       return res.json({ message: "Follow request sent", status: "pending" });
     }
 
-    currentUser.following.push(req.body.userId);
+    currentUser.following.push(targetUserId);
     userToFollow.followers.push(req.user._id);
 
     await currentUser.save();
@@ -1540,7 +1549,7 @@ export const followUser = async (req, res) => {
 
     // Send notification to the followed user
     await Notification.create({
-      user: req.body.userId,
+      user: targetUserId,
       type: "follow",
       from: req.user._id,
       message: "started following you",
@@ -1963,7 +1972,13 @@ export const removeNotableCreditAttachment = async (req, res) => {
 
 export const unfollowUser = async (req, res) => {
   try {
-    const userToUnfollow = await User.findById(req.body.userId);
+    const targetUserId = asObjectId(req.body.userId);
+    if (!targetUserId) {
+      return res.status(400).json({ message: "A valid userId is required" });
+    }
+    const targetUserIdString = targetUserId.toString();
+
+    const userToUnfollow = await User.findById(targetUserId);
     const currentUser = await User.findById(req.user._id);
 
     if (!userToUnfollow) {
@@ -1971,14 +1986,14 @@ export const unfollowUser = async (req, res) => {
     }
 
     currentUser.following = currentUser.following.filter(
-      (id) => id.toString() !== req.body.userId
+      (id) => id.toString() !== targetUserIdString
     );
     userToUnfollow.followers = userToUnfollow.followers.filter(
       (id) => id.toString() !== req.user._id.toString()
     );
     // Also clear any pending follow request in either direction so unfollow doubles as cancel.
     currentUser.sentFollowRequests = (currentUser.sentFollowRequests || []).filter(
-      (entry) => entry?.to?.toString() !== req.body.userId
+      (entry) => entry?.to?.toString() !== targetUserIdString
     );
     userToUnfollow.followRequests = (userToUnfollow.followRequests || []).filter(
       (entry) => entry?.from?.toString() !== req.user._id.toString()
@@ -2001,25 +2016,31 @@ export const blockUser = async (req, res) => {
       return res.status(400).json({ message: "userId is required" });
     }
 
-    if (userId === req.user._id.toString()) {
+    const targetUserId = asObjectId(userId);
+    if (!targetUserId) {
+      return res.status(400).json({ message: "A valid userId is required" });
+    }
+    const targetUserIdString = targetUserId.toString();
+
+    if (targetUserIdString === req.user._id.toString()) {
       return res.status(400).json({ message: "You cannot block yourself" });
     }
 
-    const userToBlock = await User.findById(userId);
+    const userToBlock = await User.findById(targetUserId);
     const currentUser = await User.findById(req.user._id);
 
     if (!userToBlock) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const alreadyBlocked = currentUser.blockedUsers?.some((id) => id.toString() === userId);
+    const alreadyBlocked = currentUser.blockedUsers?.some((id) => id.toString() === targetUserIdString);
     if (!alreadyBlocked) {
-      currentUser.blockedUsers.push(userId);
+      currentUser.blockedUsers.push(targetUserId);
     }
 
     // Remove follow relationship in both directions on block.
-    currentUser.following = (currentUser.following || []).filter((id) => id.toString() !== userId);
-    currentUser.followers = (currentUser.followers || []).filter((id) => id.toString() !== userId);
+    currentUser.following = (currentUser.following || []).filter((id) => id.toString() !== targetUserIdString);
+    currentUser.followers = (currentUser.followers || []).filter((id) => id.toString() !== targetUserIdString);
     userToBlock.following = (userToBlock.following || []).filter((id) => id.toString() !== req.user._id.toString());
     userToBlock.followers = (userToBlock.followers || []).filter((id) => id.toString() !== req.user._id.toString());
 

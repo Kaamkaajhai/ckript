@@ -270,13 +270,20 @@ function ProducerOnboardingModalInner({ onClose, onComplete }) {
   const pct = Math.round((step / TOTAL_STEPS) * 100);
   const primaryLabel = step === 3 ? "Create Account" : step === TOTAL_STEPS ? "Enter Platform" : "Continue";
 
-  // ── Persist a sanitised draft (never the password) ──────────
+  // ── Persist a sanitised draft (never the password, never special-category data) ──────────
+  //
+  // The password exclusion was always here. Gender and nationality are excluded for the same
+  // reason, and leaving them in was an oversight rather than a decision: they are exactly the
+  // categories privacy law treats as special, and a half-finished signup form has no business
+  // writing them to browser storage where any script on the origin can read them back.
+  //
+  // The cost is that a reload clears two dropdowns. Everything the user typed still survives.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const payload = {
       step,
       account: { ...account, password: "" },
-      profile,
+      profile: { ...profile, gender: "", nationality: "" },
       genres,
       formats,
       accountCreated,

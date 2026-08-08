@@ -1,0 +1,99 @@
+/*
+ * Ckript Mobile — switch (prefix: ckm-switch)
+ * ------------------------------------------------------------------
+ * Scoped under `.ckm` (plan §7.1). The track is decoration; the button around
+ * it is the control, and it is the button that carries focus and state.
+ */
+
+.ckm .ckm-switch {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-4);
+  min-height: var(--ckm-touch-target);
+  min-width: 0;
+}
+
+.ckm .ckm-switch__text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ckm .ckm-switch__label {
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  font-weight: var(--ckm-weight-medium);
+  color: var(--ckm-text);
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-switch__description {
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+  overflow-wrap: anywhere;
+}
+
+/* The control is 44px tall even though the track is 30px — the padding is the
+   hit region, so the setting is easy to hit without a heavy-looking switch. */
+.ckm .ckm-switch__control {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--ckm-touch-target);
+  padding: 0 var(--ckm-space-1);
+  border: none;
+  border-radius: var(--ckm-r-md);
+  background: transparent;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.ckm .ckm-switch__control:focus-visible {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: var(--ckm-focus-ring-offset);
+}
+
+.ckm .ckm-switch__control:disabled {
+  opacity: var(--ckm-disabled-opacity);
+  cursor: default;
+}
+
+.ckm .ckm-switch__track {
+  position: relative;
+  display: block;
+  width: 51px;
+  height: 30px;
+  border-radius: 999px;
+  background: var(--ckm-track);
+  border: 1px solid var(--ckm-line-strong);
+  transition:
+    background-color var(--ckm-duration-feedback) var(--ckm-ease),
+    border-color var(--ckm-duration-feedback) var(--ckm-ease);
+}
+
+.ckm .ckm-switch__thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--ckm-bg);
+  box-shadow: var(--ckm-shadow-raised);
+  transition: transform var(--ckm-duration-feedback) var(--ckm-ease);
+}
+
+/* Green rather than ink: "on" is a state, and the state colour is what makes
+   an on switch legible at a glance in a list of settings. */
+.ckm .ckm-switch__control[aria-checked="true"] .ckm-switch__track {
+  background: var(--ckm-green);
+  border-color: var(--ckm-green);
+}
+
+.ckm .ckm-switch__control[aria-checked="true"] .ckm-switch__thumb {
+  transform: translateX(21px);
+}

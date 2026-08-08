@@ -2,6 +2,7 @@ import Transaction from "../models/Transaction.js";
 import User from "../models/User.js";
 import Script from "../models/Script.js";
 import ScriptOption from "../models/ScriptOption.js";
+import { asInt, asTrimmedString } from "../utils/requestValue.js";
 
 const normalizedCurrency = "INR";
 const BANK_REVIEW_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
@@ -133,16 +134,28 @@ const serializeTransaction = (transaction) => {
 // @access  Private
 export const getUserTransactions = async (req, res) => {
   try {
-    const { page = 1, limit = 20, type, status } = req.query;
-    
+    const { page: rawPage, limit: rawLimit, type: rawType, status: rawStatus } = req.query;
+
+    // A filter that arrives as an object or an array is never a transaction type or status. Refusing it
+    // is what keeps a malformed filter from being answered with the unfiltered list.
+    const isMalformedFilter = (value) => value !== undefined && typeof value !== "string";
+    if (isMalformedFilter(rawType) || isMalformedFilter(rawStatus)) {
+      return res.status(400).json({ message: "Invalid transaction filter" });
+    }
+
+    const page = asInt(rawPage, { min: 1, fallback: 1 });
+    const limit = asInt(rawLimit, { min: 1, max: 100, fallback: 20 });
+    const type = asTrimmedString(rawType, 40);
+    const status = asTrimmedString(rawStatus, 40);
+
     const query = { user: req.user._id };
-    
+
     if (type) query.type = type;
     if (status) query.status = status;
-    
+
     const transactions = await Transaction.find(query)
       .sort({ createdAt: -1 })
-      .limit(limit * 1)
+      .limit(limit)
       .skip((page - 1) * limit)
       .populate('relatedScript', 'title')
       .populate('relatedProject', 'title');

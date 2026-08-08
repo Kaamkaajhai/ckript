@@ -3,7 +3,8 @@ import fs from "fs";
 import { fileURLToPath } from "url";
 import { Writable } from "stream";
 import PDFDocument from "pdfkit";
-import { CONTACTS } from "./companyContacts.js";
+import { LOGO } from "./brandAssets.js";
+import { CONTACTS, COMPANY } from "./companyContacts.js";
 
 // Participation / achievement certificate for a judged competition entry.
 //
@@ -20,16 +21,9 @@ const __dirname = path.dirname(__filename);
 
 // Real files, checked against client/public. invoicePdf.js points at two names that do not exist,
 // which is why every invoice silently falls back to plain text — don't inherit that.
-const LOGO_CANDIDATES = [
-  path.join(__dirname, "..", "..", "client", "public", "ckript-logo-official-nobg.png"),
-  path.join(__dirname, "..", "..", "client", "public", "ckript_logo_no_bg.png"),
-  path.join(__dirname, "..", "..", "client", "public", "ckript-logo-landscape-nobg.png"),
-];
 
-const COMPANY_NAME = process.env.COMPANY_NAME || "CKRIPT";
-// Read at RENDER time via CONTACTS rather than captured here — see the note in companyContacts.js:
+// Read at RENDER time via COMPANY rather than captured here — see the note in companyContacts.js:
 // dotenv.config() runs after every import is evaluated, so a module-level env read never sees .env.
-const FOUNDER_NAME = process.env.FOUNDER_NAME || "Yash";
 
 const ACCENT = "#D14D37";
 const INK = "#111111";
@@ -43,9 +37,7 @@ const AWARD_TITLES = {
   none: "Certificate of Participation",
 };
 
-const pickLogo = () => LOGO_CANDIDATES.find((p) => {
-  try { return fs.existsSync(p); } catch { return false; }
-});
+const pickLogo = () => LOGO.path;
 
 const safe = (value, fallback = "") => {
   const text = String(value ?? "").replace(/\s+/g, " ").trim();
@@ -97,17 +89,20 @@ export const generateCompetitionCertificate = async ({
     const logo = pickLogo();
     if (logo) {
       try {
-        doc.image(logo, W / 2 - 55, y, { fit: [110, 40], align: "center" });
-        y += 50;
+        // Width from the mark's real aspect, so it is centred on its ink rather than on the box a
+        // `fit` would have letterboxed it inside.
+        const [logoW, logoH] = LOGO.boxForHeight(40);
+        doc.image(logo, W / 2 - logoW / 2, y, { width: logoW, height: logoH });
+        y += logoH + 10;
       } catch {
         // A missing or unreadable image must never take the certificate down.
         doc.font("Helvetica-Bold").fontSize(18).fillColor(INK)
-          .text(COMPANY_NAME, 0, y, { width: W, align: "center" });
+          .text(COMPANY.name, 0, y, { width: W, align: "center" });
         y += 30;
       }
     } else {
       doc.font("Helvetica-Bold").fontSize(18).fillColor(INK)
-        .text(COMPANY_NAME, 0, y, { width: W, align: "center" });
+        .text(COMPANY.name, 0, y, { width: W, align: "center" });
       y += 30;
     }
 
@@ -170,9 +165,9 @@ export const generateCompetitionCertificate = async ({
     doc.lineWidth(1).strokeColor("#cccccc")
       .moveTo(96, footerY).lineTo(266, footerY).stroke();
     doc.font("Helvetica-Bold").fontSize(10).fillColor(INK)
-      .text(FOUNDER_NAME, 96, footerY + 8, { width: 170, align: "center" });
+      .text(COMPANY.founder, 96, footerY + 8, { width: 170, align: "center" });
     doc.font("Helvetica").fontSize(8).fillColor(MUTED)
-      .text(`Founder, ${COMPANY_NAME}`, 96, footerY + 22, { width: 170, align: "center" });
+      .text(`Founder, ${COMPANY.name}`, 96, footerY + 22, { width: 170, align: "center" });
 
     const right = W - 266;
     doc.lineWidth(1).strokeColor("#cccccc")

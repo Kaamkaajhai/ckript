@@ -5,7 +5,7 @@
   "main": "server.js",
   "type": "module",
   "scripts": {
-    "test": "node --test utils/*.test.js",
+    "test": "node --test --test-reporter=spec \"**/*.test.js\"",
     "test:url-policy": "node --test utils/remoteAssetPolicy.test.js",
     "test:security-boundaries": "node --test utils/remoteAssetPolicy.test.js utils/mongoId.test.js",
     "security:audit-remote-assets": "node scripts/auditRemoteAssetUrls.js",

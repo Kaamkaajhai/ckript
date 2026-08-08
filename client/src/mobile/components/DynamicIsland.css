@@ -1,4 +1,4 @@
-.ckm-island__layer {
+.ckm .ckm-island__layer {
   position: absolute;
   top: calc(8px + var(--ckm-safe-top));
   left: 0;
@@ -9,7 +9,7 @@
   pointer-events: none;
 }
 
-.ckm-island {
+.ckm .ckm-island {
   pointer-events: auto;
   display: flex;
   align-items: center;
@@ -27,7 +27,7 @@
   white-space: nowrap;
 }
 
-.ckm-island__dot {
+.ckm .ckm-island__dot {
   width: 30px;
   height: 30px;
   flex: none;
@@ -38,19 +38,19 @@
   color: #fff;
 }
 
-.ckm-island--desktop .ckm-island__dot {
+.ckm .ckm-island--desktop .ckm-island__dot {
   background: rgba(209, 77, 55, 0.22);
   color: #f2a08e;
 }
-.ckm-island--info .ckm-island__dot {
+.ckm .ckm-island--info .ckm-island__dot {
   background: rgba(255, 255, 255, 0.12);
 }
-.ckm-island--success .ckm-island__dot {
+.ckm .ckm-island--success .ckm-island__dot {
   background: rgba(52, 199, 89, 0.2);
   color: #5cd67f;
 }
 
-.ckm-island__text {
+.ckm .ckm-island__text {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -58,14 +58,14 @@
   padding-right: 4px;
 }
 
-.ckm-island__title {
+.ckm .ckm-island__title {
   font: 600 12.5px/1.2 var(--ckm-body);
   color: #fff;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.ckm-island__sub {
+.ckm .ckm-island__sub {
   font: 400 11px/1.2 var(--ckm-body);
   color: rgba(255, 255, 255, 0.62);
   overflow: hidden;

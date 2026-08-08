@@ -1,4 +1,4 @@
-.ckm-bottomnav {
+.ckm .ckm-bottomnav {
   flex: none;
   background: #0f0f0f;
   border-top: 1px solid #1f1f1f;
@@ -29,12 +29,12 @@
   color: var(--ckm-accent);
 }
 
-.ckm-bottomnav__icon {
+.ckm .ckm-bottomnav__icon {
   position: relative;
   display: flex;
 }
 
-.ckm-bottomnav__badge {
+.ckm .ckm-bottomnav__badge {
   position: absolute;
   top: -4px;
   right: -7px;
@@ -49,6 +49,6 @@
   border: 1.5px solid #0f0f0f;
 }
 
-.ckm-bottomnav__label {
+.ckm .ckm-bottomnav__label {
   font: 600 9px/1 var(--ckm-body);
 }

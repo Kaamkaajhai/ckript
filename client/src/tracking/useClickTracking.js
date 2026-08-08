@@ -1,15 +1,7 @@
 import { useEffect } from "react";
 import { sendTrackEvent } from "./analyticsClient";
 import { hasConsent } from "./storage";
-
-const getUserContext = (user) => {
-  if (!user?._id) return undefined;
-  return {
-    userId: user._id,
-    email: user.email || "",
-    phone: user.phone || "",
-  };
-};
+import { getUserContext } from "./userContext";
 
 const normalizeText = (value, max = 120) => String(value || "")
   .replace(/\s+/g, " ")

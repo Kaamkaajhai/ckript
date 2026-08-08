@@ -1,0 +1,111 @@
+/*
+ * Ckript Mobile — the control box (prefix: ckm-control)
+ * ------------------------------------------------------------------
+ * One box shared by the text input, the textarea and the select, the same way
+ * the admin kit shares `adf-control`. A screen must never be able to produce
+ * two differently-shaped text fields.
+ *
+ * Scoped under `.ckm` (plan §7.1).
+ */
+
+.ckm .ckm-control {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--ckm-control-h-md);
+  padding: var(--ckm-space-2) var(--ckm-space-3);
+  border: 1px solid var(--ckm-control-border);
+  border-radius: var(--ckm-r-md);
+  background: var(--ckm-bg);
+  color: var(--ckm-text);
+  font-family: var(--ckm-body);
+  /* 16px is load-bearing, not aesthetic: iOS Safari zooms the page when a
+     focused input renders below it, and the zoom does not undo on blur. Never
+     let a mobile input fall to --ckm-text-support. */
+  font-size: var(--ckm-text-body);
+  line-height: var(--ckm-leading-body);
+  appearance: none;
+  /* Measured, not guessed: with the keyboard open (visual viewport ~390px on a
+     390x844 device) the browser scrolled the focused input into view and left
+     its error message below the fold — the user was told something was wrong
+     by text they could not see. scroll-margin extends the box the browser
+     scrolls to, so the message under the control comes with it. The block-end
+     value is a two-line message plus the counter a textarea may add.
+     This is the field-level half of the pair; MobileShell.css owns the
+     surface-level scroll-padding (WCAG 2.2 SC 2.4.11). */
+  scroll-margin-block: var(--ckm-space-4) calc(var(--ckm-space-9) + var(--ckm-space-4));
+  transition:
+    border-color var(--ckm-duration-feedback) var(--ckm-ease),
+    background-color var(--ckm-duration-feedback) var(--ckm-ease);
+}
+
+.ckm .ckm-control::placeholder {
+  color: var(--ckm-muted-2);
+}
+
+.ckm .ckm-control:focus-visible {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: var(--ckm-focus-ring-offset);
+  border-color: var(--ckm-text-3);
+}
+
+.ckm .ckm-control:disabled {
+  opacity: var(--ckm-disabled-opacity);
+  background: var(--ckm-bg-soft);
+  cursor: default;
+}
+
+/* The invalid border is a second signal, never the only one — the message
+   under the control carries the meaning (Field.css). */
+.ckm .ckm-control[aria-invalid="true"] {
+  border-color: var(--ckm-red);
+}
+
+/* --- Textarea ----------------------------------------------------------- */
+
+.ckm .ckm-control--area {
+  min-height: 96px;
+  padding: var(--ckm-space-3);
+  resize: vertical;
+}
+
+/* --- Select ------------------------------------------------------------- */
+
+/* The wrapper exists only to park the caret; the native <select> keeps its
+   platform picker, which is the single best select experience on a phone. */
+.ckm .ckm-control__wrap {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+
+.ckm .ckm-control--select {
+  /* Room for the caret, plus a little more so a long option label never runs
+     underneath it. */
+  padding-right: var(--ckm-space-8);
+  cursor: pointer;
+}
+
+.ckm .ckm-control__caret {
+  position: absolute;
+  top: 50%;
+  right: var(--ckm-space-3);
+  transform: translateY(-50%);
+  color: var(--ckm-text-3);
+  pointer-events: none;
+}
+
+/* --- Text input with a leading icon ------------------------------------- */
+
+.ckm .ckm-control__icon {
+  position: absolute;
+  top: 50%;
+  left: var(--ckm-space-3);
+  transform: translateY(-50%);
+  color: var(--ckm-muted);
+  pointer-events: none;
+}
+
+.ckm .ckm-control--has-icon {
+  padding-left: var(--ckm-space-9);
+}

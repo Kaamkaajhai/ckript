@@ -12,8 +12,12 @@ export default function Trailer() {
     <section className="ckl-trailer">
       <img
         className="ckl-trailer-bg"
-        src="https://picsum.photos/seed/ckript-cinema/1920/1100?grayscale"
+        src="/landing/ai/trailer-cinema.webp"
         alt=""
+        width="1920"
+        height="1100"
+        loading="lazy"
+        decoding="async"
       />
       <div className="ckl-trailer-overlay" />
       <div className="ckl-trailer-inner">

@@ -1,14 +1,14 @@
-.ckm-acct__layer {
+.ckm .ckm-acct__layer {
   position: absolute;
   inset: 0;
   z-index: 65;
 }
-.ckm-acct__scrim {
+.ckm .ckm-acct__scrim {
   position: absolute;
   inset: 0;
   background: rgba(20, 18, 15, 0.16);
 }
-.ckm-acct {
+.ckm .ckm-acct {
   position: absolute;
   top: calc(96px + var(--ckm-safe-top));
   right: 14px;
@@ -20,7 +20,7 @@
   box-shadow: var(--ckm-shadow-pop);
   transform-origin: top right;
 }
-.ckm-acct__item {
+.ckm .ckm-acct__item {
   display: flex;
   align-items: center;
   gap: 11px;
@@ -35,21 +35,21 @@
   color: var(--ckm-ink);
   transition: background 0.12s ease;
 }
-.ckm-acct__item:active {
+.ckm .ckm-acct__item:active {
   background: var(--ckm-bg-fill);
 }
-.ckm-acct__item.is-danger {
+.ckm .ckm-acct__item.is-danger {
   font-weight: 600;
   color: var(--ckm-danger);
 }
-.ckm-acct__sep {
+.ckm .ckm-acct__sep {
   height: 1px;
   background: #f0ebe0;
   margin: 4px 8px;
 }
 
 /* confirm dialog */
-.ckm-acct__confirm-layer {
+.ckm .ckm-acct__confirm-layer {
   position: absolute;
   inset: 0;
   background: rgba(20, 18, 15, 0.34);
@@ -58,14 +58,14 @@
   justify-content: center;
   padding: 0 26px;
 }
-.ckm-acct__dialog {
+.ckm .ckm-acct__dialog {
   width: 100%;
   background: #fff;
   border-radius: var(--ckm-r-xl);
   padding: 22px 20px;
   box-shadow: 0 24px 60px -16px rgba(0, 0, 0, 0.4);
 }
-.ckm-acct__dialog-icon {
+.ckm .ckm-acct__dialog-icon {
   width: 44px;
   height: 44px;
   border-radius: 12px;
@@ -75,33 +75,33 @@
   justify-content: center;
   margin-bottom: 14px;
 }
-.ckm-acct__dialog-title {
+.ckm .ckm-acct__dialog-title {
   font: 600 20px/1.1 var(--ckm-display);
 }
-.ckm-acct__dialog-body {
+.ckm .ckm-acct__dialog-body {
   font: 400 13px/1.5 var(--ckm-body);
   color: var(--ckm-text-3);
   margin-top: 8px;
 }
-.ckm-acct__dialog-actions {
+.ckm .ckm-acct__dialog-actions {
   display: flex;
   gap: 10px;
   margin-top: 18px;
 }
-.ckm-acct__dialog-cancel,
-.ckm-acct__dialog-confirm {
+.ckm .ckm-acct__dialog-cancel,
+.ckm .ckm-acct__dialog-confirm {
   flex: 1;
   height: 44px;
   border-radius: 11px;
   font: 600 13px/1 var(--ckm-body);
   cursor: pointer;
 }
-.ckm-acct__dialog-cancel {
+.ckm .ckm-acct__dialog-cancel {
   border: 1px solid #d7d0c2;
   background: #fff;
   color: var(--ckm-ink);
 }
-.ckm-acct__dialog-confirm {
+.ckm .ckm-acct__dialog-confirm {
   border: none;
   background: var(--ckm-accent);
   color: #fff;

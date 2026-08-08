@@ -1,17 +1,23 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import api from "../../services/api";
-import { verdictFor } from "../data/dashboardData"; // We can extract this or keep it in dashboardData.js
+import { DASHBOARD_PREVIEW_DATA } from "../data/dashboardData";
 
 const DEFAULT_STATS = {
   totalEarnings: 0, totalUnlocks: 0, totalViews: 0,
   profileViews: 0, trailersGenerated: 0, avgScore: null, plan: "free",
 };
 
-export function useDashboardData(user) {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+export function useDashboardData(user, { preview = false } = {}) {
+  const [data, setData] = useState(() => preview ? DASHBOARD_PREVIEW_DATA : null);
+  const [loading, setLoading] = useState(() => !preview);
 
   useEffect(() => {
+    if (preview) {
+      setData(DASHBOARD_PREVIEW_DATA);
+      setLoading(false);
+      return undefined;
+    }
+
     let disposed = false;
     const fetchData = async () => {
       try {
@@ -205,7 +211,7 @@ export function useDashboardData(user) {
 
     fetchData();
     return () => { disposed = true; };
-  }, [user]);
+  }, [preview, user]);
 
   return { data, loading };
 }

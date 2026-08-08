@@ -1,0 +1,90 @@
+/*
+ * Ckript Mobile — field wrapper (prefix: ckm-field)
+ * ------------------------------------------------------------------
+ * Scoped under `.ckm` (plan §7.1). Owns the label / hint / error column that
+ * every text-like control sits inside; the controls themselves own their box.
+ */
+
+.ckm .ckm-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+  min-width: 0;
+}
+
+.ckm .ckm-field__label {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ckm-space-2);
+  /* The label is a tap target that focuses the control, so it gets a real
+     touch row rather than being squeezed to the height of its text. */
+  min-height: var(--ckm-space-6);
+  cursor: pointer;
+}
+
+.ckm .ckm-field__label-text {
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-text);
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-field__flag {
+  flex: none;
+  font-size: var(--ckm-text-micro);
+  line-height: var(--ckm-leading-micro);
+  font-weight: var(--ckm-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-field__flag--soft {
+  font-weight: var(--ckm-weight-regular);
+  color: var(--ckm-muted);
+}
+
+/* Guidance left, status right. `align-items: baseline` keeps a one-line count
+   on the same line as the first line of a wrapping hint. */
+.ckm .ckm-field__foot {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ckm-space-3);
+  min-width: 0;
+}
+
+.ckm .ckm-field__meta {
+  flex: none;
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.ckm .ckm-field__hint {
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+  overflow-wrap: anywhere;
+}
+
+/* Colour is never the only carrier: the icon and the words say it too. */
+.ckm .ckm-field__error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ckm-space-1);
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  font-weight: var(--ckm-weight-medium);
+  color: var(--ckm-red);
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-field__error-icon {
+  flex: none;
+  font-size: 15px;
+  /* Optical alignment with the first line of a 12/16 message. */
+  margin-top: 1px;
+}

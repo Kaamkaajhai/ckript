@@ -8,7 +8,7 @@
  */
 
 /* Solid / ghost action buttons (hero, empty states, dialogs). */
-.ckm-btn {
+.ckm .ckm-btn {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -20,7 +20,7 @@
   border: none;
   transition: transform 0.12s ease, filter 0.15s ease;
 }
-.ckm-btn:active {
+.ckm .ckm-btn:active {
   transform: scale(0.97);
 }
 
@@ -36,7 +36,7 @@
 }
 
 /* Full-width "View more / View all" pill used by every list. */
-.ckm-viewmore {
+.ckm .ckm-viewmore {
   width: 100%;
   margin-top: 14px;
   display: flex;
@@ -52,29 +52,29 @@
   cursor: pointer;
   transition: background 0.15s ease;
 }
-.ckm-viewmore:active {
+.ckm .ckm-viewmore:active {
   background: var(--ckm-bg-soft);
 }
-.ckm-viewmore--muted {
+.ckm .ckm-viewmore--muted {
   color: var(--ckm-text-3);
 }
 
 /* Pill chips for genre / status tags. */
-.ckm-chip {
+.ckm .ckm-chip {
   font: 600 10px/1 var(--ckm-body);
   padding: 6px 11px;
   border-radius: 999px;
   white-space: nowrap;
 }
-.ckm-chip--neutral {
+.ckm .ckm-chip--neutral {
   background: var(--ckm-track);
   color: #7a746a;
 }
-.ckm-chip--green {
+.ckm .ckm-chip--green {
   background: var(--ckm-green-bg);
   color: var(--ckm-green);
 }
-.ckm-chip--gold {
+.ckm .ckm-chip--gold {
   background: var(--ckm-gold-bg);
   color: var(--ckm-gold);
 }

@@ -49,6 +49,41 @@ export const CONTACTS = {
 };
 
 /**
+ * The company as it appears on a document: legal name, address, and who signs.
+ *
+ * These live here, as getters, for exactly the reason the block above does. invoicePdf.js carried a
+ * comment explaining the import-hoisting trap and then declared `const COMPANY_LOCATION =
+ * process.env.COMPANY_LOCATION || "Pune, Maharashtra, India"` on the next line — so the fix reached
+ * the email address and skipped the three constants beneath it. Every invoice printed the Pune
+ * address whatever the environment said, and setting COMPANY_LOCATION in .env would not have
+ * changed a thing.
+ */
+export const COMPANY = {
+  /** The wordmark on the masthead. Short on purpose — the legal entity is `legalName`. */
+  get name() { return env("COMPANY_NAME", "CKRIPT"); },
+  /** The registered entity, for the parts of a document that are a legal disclosure. */
+  get legalName() { return env("COMPANY_LEGAL_NAME", "CKRIPT PRIVATE LIMITED"); },
+  /**
+   * Registered office, printed in the document footer.
+   *
+   * Kept identical to client/src/constants/company.js `registeredOffice`, which is what the landing
+   * footer and the policy pages already show. The default here used to be "Pune, Maharashtra,
+   * India" — an address the company does not use, on the one document a buyer files and an
+   * accountant reads years later.
+   */
+  get location() {
+    return env(
+      "COMPANY_LOCATION",
+      "SUIT-D, 400-A, 4th Floor, 12 Ajit Singh House, Yusuf Sarai Commercial Complex, New Delhi - 110016, India",
+    );
+  },
+  /** Corporate Identity Number. Companies Act s.12(3)(c) requires it on business letters and bills. */
+  get cin() { return env("COMPANY_CIN", "U62099DL2026PTC468691"); },
+  /** Who the authorised signature belongs to. */
+  get founder() { return env("FOUNDER_NAME", "Yash"); },
+};
+
+/**
  * The block that closes every outgoing template.
  *
  * All three addresses appear together on purpose: a reader who needs a different desk should not

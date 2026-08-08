@@ -8,6 +8,9 @@ import Review from "../models/Review.js";
 import User from "../models/User.js";
 import Notification from "../models/Notification.js";
 import Transaction from "../models/Transaction.js";
+import { recordPayment, recordGrant, recordReversal } from "../utils/ledger.js";
+import { issueInvoice, totalRow, gatewayRow, formatInvoiceMoney } from "../utils/invoiceIssue.js";
+import LedgerEntry from "../models/LedgerEntry.js";
 import Invoice from "../models/Invoice.js";
 import Agreement from "../models/Agreement.js";
 import AuditLog from "../models/AuditLog.js";
@@ -46,6 +49,7 @@ import {
   verifyRemoteAssetGrant,
 } from "../utils/remoteAssetPolicy.js";
 import { parseMongoObjectId } from "../utils/mongoId.js";
+import { asTrimmedString, asInt, asSearchRegex } from "../utils/requestValue.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import { resolveCurrency, convertInrToCurrency, toSubunits } from "../utils/currencyFx.js";
@@ -102,7 +106,7 @@ const readOrderCharge = async (orderId, inrTotal) => {
     if (!order) return fallback;
     return {
       currency: String(order.currency || "INR").toUpperCase(),
-      chargedTotal: (Number(order.amount) || 0) / 100,
+      chargedTotal: (Number(order.amount_paid) || Number(order.amount) || 0) / 100,
       fxRate: Number(order.notes?.fxRate) || 1,
     };
   } catch {
@@ -3202,9 +3206,14 @@ export const getScripts = async (req, res) => {
 
     const { genre, contentType, budget, sort, search, premium, minPrice, maxPrice } = req.query;
     const query = { ...PUBLIC_SCRIPT_FILTER };
-    if (genre) query.genre = genre;
-    if (contentType) query.contentType = contentType;
-    if (budget) query.budget = budget;
+    // Each facet is an equality match, so it has to reach the query as a string. An object here would
+    // be read by Mongo as an operator rather than as a value to compare.
+    const genreFilter = asTrimmedString(genre);
+    const contentTypeFilter = asTrimmedString(contentType);
+    const budgetFilter = asTrimmedString(budget);
+    if (genreFilter) query.genre = genreFilter;
+    if (contentTypeFilter) query.contentType = contentTypeFilter;
+    if (budgetFilter) query.budget = budgetFilter;
     if (premium === "true") query.premium = true;
     else if (premium === "false") query.premium = { $ne: true };
     if (minPrice || maxPrice) {
@@ -3212,8 +3221,8 @@ export const getScripts = async (req, res) => {
       if (minPrice) query.price.$gte = Number(minPrice);
       if (maxPrice) query.price.$lte = Number(maxPrice);
     }
-    if (search) {
-      const searchRegex = new RegExp(escapeRegExp(search), "i");
+    const searchRegex = asSearchRegex(search);
+    if (searchRegex) {
       query.$or = [
         { sid: searchRegex },
         { title: searchRegex },
@@ -4095,7 +4104,11 @@ export const getPublicScriptById = async (req, res) => {
 
 export const unlockScript = async (req, res) => {
   try {
-    const script = await Script.findById(req.body.scriptId);
+    const scriptObjectId = parseMongoObjectId(req.body.scriptId);
+    if (!scriptObjectId) {
+      return res.status(400).json({ message: "Invalid script ID." });
+    }
+    const script = await Script.findById(scriptObjectId);
     if (!script) return res.status(404).json({ message: "Script not found" });
     if (script.isDeleted) {
       return res.status(410).json({ message: "This project was deleted by creator and is no longer available for new purchases." });
@@ -4138,7 +4151,12 @@ export const requestScriptPurchase = async (req, res) => {
       return res.status(403).json({ message: "Only investors and industry professionals can request script purchases." });
     }
 
-    const script = await Script.findById(scriptId).populate("creator", "name email");
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) {
+      return res.status(400).json({ message: "Invalid script ID." });
+    }
+
+    const script = await Script.findById(scriptObjectId).populate("creator", "name email");
     if (!script) return res.status(404).json({ message: "Script not found" });
     if (script.isDeleted) {
       return res.status(410).json({ message: "This project was deleted by creator and is no longer available for new purchases." });
@@ -4162,7 +4180,7 @@ export const requestScriptPurchase = async (req, res) => {
 
     // Prevent duplicate active request flows for same investor/script.
     const existing = await ScriptPurchaseRequest.findOne({
-      script: scriptId,
+      script: scriptObjectId,
       investor: req.user._id,
       $or: [
         { status: "pending" },
@@ -4182,7 +4200,7 @@ export const requestScriptPurchase = async (req, res) => {
     const sanitizedNote = String(note || defaultRequestNote).trim() || defaultRequestNote;
 
     const purchaseRequest = await ScriptPurchaseRequest.create({
-      script: scriptId,
+      script: scriptObjectId,
       investor: req.user._id,
       writer: script.creator._id,
       amount,
@@ -4615,6 +4633,28 @@ export const rejectScriptPurchase = async (req, res) => {
         });
         gatewayRefundId = refund?.id || "";
 
+        // A refund is a NEW entry pointing at the original, never an edit of it — both rows survive,
+        // so the history shows a sale that was refunded rather than a sale that vanished. With no
+        // original on file (a purchase captured before the ledger existed) there is nothing to
+        // reverse, and inventing a standalone negative row would corrupt the totals instead.
+        const originalEntry = await LedgerEntry.findOne({
+          providerPaymentId: purchaseRequest.paymentGatewayPaymentId,
+        });
+        if (originalEntry) {
+          await recordReversal({
+            original: originalEntry,
+            amountMinor: Math.round(amountToRefund * 100),
+            reason: "purchase request denied by writer",
+            providerPaymentId: gatewayRefundId || undefined,
+            source: "scriptController.rejectScriptPurchase",
+          });
+        } else {
+          console.warn(
+            "[ledger] refund for a payment with no ledger entry:",
+            purchaseRequest.paymentGatewayPaymentId,
+          );
+        }
+
         await Transaction.create({
           user: investor._id,
           type: "refund",
@@ -4753,7 +4793,11 @@ export const getMyPurchaseRequests = async (req, res) => {
 export const holdScript = async (req, res) => {
   try {
     const { scriptId } = req.body;
-    const script = await Script.findById(scriptId);
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) {
+      return res.status(400).json({ message: "Invalid script ID." });
+    }
+    const script = await Script.findById(scriptObjectId);
 
     if (!script) return res.status(404).json({ message: "Script not found" });
     if (script.isDeleted) {
@@ -4779,7 +4823,7 @@ export const holdScript = async (req, res) => {
 
     // Create option record
     const option = await ScriptOption.create({
-      script: scriptId,
+      script: scriptObjectId,
       holder: req.user._id,
       fee,
       platformCut,
@@ -4825,7 +4869,11 @@ export const holdScript = async (req, res) => {
 export const releaseHold = async (req, res) => {
   try {
     const { scriptId } = req.body;
-    const script = await Script.findById(scriptId);
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) {
+      return res.status(400).json({ message: "Invalid script ID." });
+    }
+    const script = await Script.findById(scriptObjectId);
 
     if (!script) return res.status(404).json({ message: "Script not found" });
     if (script.heldBy?.toString() !== req.user._id.toString()) {
@@ -4840,7 +4888,7 @@ export const releaseHold = async (req, res) => {
 
     // Update option
     await ScriptOption.findOneAndUpdate(
-      { script: scriptId, holder: req.user._id, status: "active" },
+      { script: scriptObjectId, holder: req.user._id, status: "active" },
       { status: "cancelled" }
     );
 
@@ -4871,7 +4919,11 @@ export const getMyHolds = async (req, res) => {
 export const addRoles = async (req, res) => {
   try {
     const { scriptId, roles } = req.body;
-    const script = await Script.findById(scriptId);
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) {
+      return res.status(400).json({ message: "Invalid script ID." });
+    }
+    const script = await Script.findById(scriptObjectId);
 
     if (!script) return res.status(404).json({ message: "Script not found" });
     if (script.creator.toString() !== req.user._id.toString()) {
@@ -5056,18 +5108,23 @@ export const searchScriptsReader = async (req, res) => {
     if (blockedUserIds.length > 0) {
       query.creator = { $nin: blockedUserIds };
     }
-    if (q) {
-      const regex = new RegExp(escapeRegExp(q), "i");
+    const regex = asSearchRegex(q);
+    if (regex) {
       query.$or = [{ sid: regex }, { title: regex }, { description: regex }, { logline: regex }, { tags: regex }];
     }
-    if (category) query.contentType = category;
-    if (genre) query.genre = genre;
+    // Equality facets must arrive as strings; an object would be read by Mongo as an operator.
+    const categoryFilter = asTrimmedString(category);
+    const genreFilter = asTrimmedString(genre);
+    if (categoryFilter) query.contentType = categoryFilter;
+    if (genreFilter) query.genre = genreFilter;
+    const pageNumber = asInt(page, { min: 1, fallback: 1 });
+    const pageSize = asInt(limit, { min: 1, max: 100, fallback: 20 });
     const total = await Script.countDocuments(query);
     const scripts = await Script.find(query)
       .populate("creator", "name profileImage role")
       .sort({ createdAt: -1 })
-      .skip((page - 1) * limit)
-      .limit(parseInt(limit));
+      .skip((pageNumber - 1) * pageSize)
+      .limit(pageSize);
 
     await Promise.all(
       scripts.map(async (doc) => {
@@ -5077,7 +5134,7 @@ export const searchScriptsReader = async (req, res) => {
       })
     );
 
-    res.json({ scripts, totalPages: Math.ceil(total / limit), page: parseInt(page), total });
+    res.json({ scripts, totalPages: Math.ceil(total / pageSize), page: pageNumber, total });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -5203,8 +5260,6 @@ export const getCategories = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
-const escapeRegExp = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 const normalizeGenre = (value = "") => {
   const raw = String(value || "").toLowerCase().trim();
@@ -5572,7 +5627,12 @@ export const createScriptPurchaseOrder = async (req, res) => {
       acceptedLegalDisclaimer,
     } = req.body;
 
-    const script = await Script.findById(scriptId).populate("creator", "name");
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) {
+      return res.status(400).json({ message: "Invalid script ID." });
+    }
+
+    const script = await Script.findById(scriptObjectId).populate("creator", "name");
     if (!script) {
       return res.status(404).json({ message: "Script not found" });
     }
@@ -5599,7 +5659,7 @@ export const createScriptPurchaseOrder = async (req, res) => {
     const now = new Date();
     const activeApprovedClause = getApprovedUnpaidActiveClause(now);
     const purchaseRequest = await ScriptPurchaseRequest.findOne({
-      script: scriptId,
+      script: scriptObjectId,
       investor: req.user._id,
       $or: [{ status: "pending" }, activeApprovedClause],
     }).sort({ createdAt: -1 });
@@ -5800,7 +5860,9 @@ const buildCurrencyQuote = async (pricing, currency) => {
 export const getScriptPurchaseQuote = async (req, res) => {
   try {
     const { scriptId } = req.body;
-    const script = await Script.findById(scriptId).select("price title");
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) return res.status(400).json({ message: "Invalid script ID." });
+    const script = await Script.findById(scriptObjectId).select("price title");
     if (!script) return res.status(404).json({ message: "Script not found" });
     const pricing = getScriptPurchasePricing(Math.max(0, Number(script.price || 0)));
     const currency = resolveCurrency(req.body?.currency, req.user?.preferredCurrency);
@@ -5817,7 +5879,9 @@ export const getScriptPurchaseQuote = async (req, res) => {
 export const getScriptHoldQuote = async (req, res) => {
   try {
     const { scriptId } = req.body;
-    const script = await Script.findById(scriptId).select("holdFee title");
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) return res.status(400).json({ message: "Invalid script ID." });
+    const script = await Script.findById(scriptObjectId).select("holdFee title");
     if (!script) return res.status(404).json({ message: "Script not found" });
     const pricing = getScriptPurchasePricing(Number(script.holdFee || 200));
     const currency = resolveCurrency(req.body?.currency, req.user?.preferredCurrency);
@@ -5845,8 +5909,13 @@ export const activateProjectSpotlight = async (req, res) => {
       return res.status(400).json({ message: "Script ID is required" });
     }
 
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) {
+      return res.status(400).json({ message: "Invalid script ID" });
+    }
+
     await session.withTransaction(async () => {
-      script = await Script.findById(scriptId).session(session);
+      script = await Script.findById(scriptObjectId).session(session);
       if (!script) {
         const error = new Error("Script not found");
         error.statusCode = 404;
@@ -5996,7 +6065,15 @@ export const verifyScriptPurchase = async (req, res) => {
       });
     }
 
-    const script = await Script.findById(scriptId).populate("creator", "name email");
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) {
+      return res.status(400).json({
+        message: "Invalid script id.",
+        success: false,
+      });
+    }
+
+    const script = await Script.findById(scriptObjectId).populate("creator", "name email");
     if (!script) {
       console.error("Script not found:", scriptId);
       return res.status(404).json({
@@ -6222,6 +6299,9 @@ export const verifyScriptPurchase = async (req, res) => {
       };
     }
 
+    // Hoisted: both the buyer's Transaction row below and the ledger entry further down read it.
+    let charge = null;
+
     if (!isFreeAccessRequest) {
       const writerBalanceBefore = writerDoc.wallet.balance || 0;
       writerDoc.wallet.balance = writerBalanceBefore + pricing.baseAmount;
@@ -6229,7 +6309,7 @@ export const verifyScriptPurchase = async (req, res) => {
       await writerDoc.save();
 
       // What the buyer was actually charged (their currency); the writer payout below stays INR.
-      const charge = await readOrderCharge(razorpay_order_id, pricing.totalAmount);
+      charge = await readOrderCharge(razorpay_order_id, pricing.totalAmount);
 
       await Transaction.create([
         {
@@ -6299,6 +6379,46 @@ export const verifyScriptPurchase = async (req, res) => {
     purchaseRequest.paymentGatewaySignature = isFreeAccessRequest ? undefined : razorpay_signature;
     purchaseRequest.settledAt = new Date();
     await purchaseRequest.save();
+
+    // The books. A free-access request is still recorded — as a grant carrying the list price, so
+    // the revenue foregone is visible without ever being counted as revenue. Both calls are
+    // non-fatal by design: a ledger outage must not fail a purchase the buyer already paid for.
+    if (isFreeAccessRequest) {
+      await recordGrant({
+        kind: "script_purchase",
+        user: req.user._id,
+        listPriceMinor: Math.round(Number(script.price || 0) * 100),
+        subjectType: "Script",
+        subjectId: script._id,
+        label: script.title,
+        reason: "free access request approved by writer",
+        source: "scriptController.verifyScriptPurchase",
+        metadata: { purchaseRequestId: String(purchaseRequest._id), writerId: String(purchaseRequest.writer) },
+      });
+    } else {
+      // `charge` is what Razorpay says the buyer was charged in their own currency; `pricing` is the
+      // INR list side. Recording the provider's figure is the whole point — a USD order that fell
+      // back to INR must not be booked at the USD price.
+      await recordPayment({
+        kind: "script_purchase",
+        user: req.user._id,
+        amountMinor: Math.round(charge.chargedTotal * 100),
+        currency: charge.currency,
+        listPriceMinor: Math.round(pricing.totalAmount * 100),
+        providerOrderId: razorpay_order_id,
+        providerPaymentId: razorpay_payment_id,
+        subjectType: "Script",
+        subjectId: script._id,
+        label: script.title,
+        source: "scriptController.verifyScriptPurchase",
+        metadata: {
+          purchaseRequestId: String(purchaseRequest._id),
+          writerId: String(purchaseRequest.writer),
+          writerPayoutInr: pricing.baseAmount,
+          platformCommissionInr: pricing.platformTaxAmount,
+        },
+      });
+    }
 
     let agreementRecord = null;
     try {
@@ -6453,6 +6573,44 @@ export const verifyScriptPurchase = async (req, res) => {
         : `${investorDoc?.name || "A buyer"} completed payment for "${script.title}". Payout of ₹${pricing.baseAmount.toLocaleString("en-IN")} has been credited to your wallet.`,
     });
 
+    // Free access still gets a document. It is not a tax invoice — nothing was charged — but it is
+    // the record of what was granted, to whom and when, which is exactly what a buyer needs when
+    // the writer later asks on what basis they hold the script.
+    if (isFreeAccessRequest && !purchaseInvoice) {
+      purchaseInvoice = await issueInvoice({
+        kind: "script",
+        user: investorDoc || req.user,
+        paymentReference: `FREE-${purchaseRequest._id}`,
+        currency: "INR",
+        amountCharged: 0,
+        accessType: "free",
+        script: script._id,
+        scriptSid: script.sid || "",
+        detailLines: [
+          script.title,
+          `SID ${script.sid || "-"}`,
+          "Access: Free (approved by writer)",
+          `Request: ${purchaseRequest._id}`,
+        ],
+        rows: [
+          {
+            item: "Script Access",
+            type: "Grant",
+            detail: `Free full access to "${script.title}", approved by the writer.`,
+            amountLabel: "INR 0.00",
+            amountValue: 0,
+          },
+          {
+            item: "Total Paid",
+            type: "Total",
+            detail: "No payment was required for this project.",
+            amountLabel: "INR 0.00",
+            amountValue: 0,
+          },
+        ],
+        source: "scriptController.verifyScriptPurchase (free access)",
+      });
+    }
     console.log("Script purchase settled:", {
       scriptId,
       buyerId: req.user._id,
@@ -6465,7 +6623,7 @@ export const verifyScriptPurchase = async (req, res) => {
     res.json({
       success: true,
       message: isFreeAccessRequest
-        ? "Access granted. This project is free, so no payment or invoice was required."
+        ? "Access granted. This project is free — your access record is available as a document."
         : "Payment successful. Full script access granted.",
       purchaseRequest: {
         id: purchaseRequest._id,
@@ -6507,8 +6665,12 @@ export const createScriptHoldOrder = async (req, res) => {
     }
 
     const { scriptId } = req.body;
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) {
+      return res.status(400).json({ message: "Invalid script ID." });
+    }
 
-    const script = await Script.findById(scriptId).populate("creator", "name");
+    const script = await Script.findById(scriptObjectId).populate("creator", "name");
     if (!script) {
       return res.status(404).json({ message: "Script not found" });
     }
@@ -6612,8 +6774,16 @@ export const verifyScriptHold = async (req, res) => {
       });
     }
 
+    const scriptObjectId = parseMongoObjectId(scriptId);
+    if (!scriptObjectId) {
+      return res.status(400).json({
+        message: "Invalid script id.",
+        success: false
+      });
+    }
+
     // Payment verified successfully, place hold on script
-    const script = await Script.findById(scriptId).populate("creator", "name email");
+    const script = await Script.findById(scriptObjectId).populate("creator", "name email");
     if (!script) {
       console.error("Script not found:", scriptId);
       return res.status(404).json({
@@ -6639,7 +6809,7 @@ export const verifyScriptHold = async (req, res) => {
 
     // Create option record
     const option = await ScriptOption.create({
-      script: scriptId,
+      script: scriptObjectId,
       holder: req.user._id,
       fee,
       platformCut,
@@ -6724,6 +6894,64 @@ export const verifyScriptHold = async (req, res) => {
       message: `${user.name} has placed a hold on "${script.title}" for ₹${pricing.totalAmount.toFixed(2)} (includes 5% platform commission, 30 days). You earn ₹${creatorPayout.toFixed(2)}.`,
     });
 
+    await recordPayment({
+      kind: "script_hold",
+      user: req.user._id,
+      amountMinor: Math.round(charge.chargedTotal * 100),
+      currency: charge.currency,
+      listPriceMinor: Math.round(pricing.totalAmount * 100),
+      providerOrderId: razorpay_order_id,
+      providerPaymentId: razorpay_payment_id,
+      subjectType: "Script",
+      subjectId: script._id,
+      label: script.title,
+      source: "scriptController.verifyScriptHold",
+      metadata: {
+        creatorId: String(script.creator?._id || script.creator || ""),
+        creatorPayoutInr: creatorPayout,
+        platformCommissionInr: platformCut,
+        holdEndDate: endDate,
+      },
+    });
+
+    // A hold is a real purchase — thirty days of exclusivity, paid for — and it produced no
+    // document at all. Non-fatal: the money is captured, so a missing invoice is something to fix
+    // later, never a reason to tell the buyer their payment failed.
+    await issueInvoice({
+      kind: "script_hold",
+      user: req.user,
+      paymentReference: `RZP-HOLD-${razorpay_payment_id}`,
+      currency: charge.currency,
+      amountCharged: charge.chargedTotal,
+      script: script._id,
+      scriptSid: script.sid || "",
+      scriptPrice: pricing.baseAmount,
+      detailLines: [
+        script.title,
+        `SID ${script.sid || "-"}`,
+        `Hold until: ${new Date(endDate).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}`,
+        `Payment Ref: ${razorpay_payment_id}`,
+      ],
+      rows: [
+        {
+          item: "Script Hold (30 days)",
+          type: "Payment",
+          detail: `Exclusive hold on "${script.title}".`,
+          amountLabel: formatInvoiceMoney(pricing.baseAmount, "INR"),
+          amountValue: pricing.baseAmount,
+        },
+        {
+          item: "Platform Commission (5%)",
+          type: "Tax",
+          detail: "Buyer-side commission charged on the hold fee.",
+          amountLabel: formatInvoiceMoney(platformCut, "INR"),
+          amountValue: platformCut,
+        },
+        totalRow(charge.chargedTotal, charge.currency),
+        gatewayRow(razorpay_payment_id),
+      ],
+      source: "scriptController.verifyScriptHold",
+    });
     console.log("Script hold completed:", { scriptId, holderId: req.user._id, fee });
 
     res.json({
@@ -7111,6 +7339,60 @@ export const verifyScriptTrailerPayment = async (req, res) => {
     };
     await script.save();
 
+    // The ledger reads the ORDER, not the request body. `paymentAmount` above falls back to a
+    // client-supplied `amount`, which must never become a revenue figure — what Razorpay captured is
+    // the only number an accountant can rely on.
+    const trailerCharge = await readOrderCharge(razorpay_order_id, pricing.inr);
+    await recordPayment({
+      kind: "ai_trailer",
+      user: req.user._id,
+      amountMinor: Math.round(trailerCharge.chargedTotal * 100),
+      currency: trailerCharge.currency,
+      listPriceMinor: Math.round(Number(pricing.inr || 0) * 100),
+      providerOrderId: razorpay_order_id,
+      providerPaymentId: razorpay_payment_id,
+      subjectType: "Script",
+      subjectId: script._id,
+      label: script.title,
+      source: "scriptController.verifyScriptTrailerPayment",
+      metadata: {
+        duration: selectedDuration,
+        quality: selectedQuality,
+        format: selectedFormat,
+        claimedAmount: paymentAmount,
+        claimedCurrency: paymentCurrency,
+      },
+    });
+
+    // The writer paid for this trailer; until now the only trace was a Transaction row they cannot
+    // see. Same non-fatal contract as every other invoice call.
+    await issueInvoice({
+      kind: "ai_trailer",
+      user: req.user,
+      paymentReference: `RZP-TRL-${razorpay_payment_id}`,
+      currency: trailerCharge.currency,
+      amountCharged: trailerCharge.chargedTotal,
+      script: script._id,
+      scriptSid: script.sid || "",
+      detailLines: [
+        script.title,
+        `SID ${script.sid || "-"}`,
+        `${selectedDuration}s · ${selectedQuality}px · ${normalizeTrailerLayout(selectedFormat) === "portrait" ? "Portrait" : "Landscape"}`,
+        `Payment Ref: ${razorpay_payment_id}`,
+      ],
+      rows: [
+        {
+          item: "AI Trailer Generation",
+          type: "Payment",
+          detail: `${selectedDuration}s at ${selectedQuality}px for "${script.title}".`,
+          amountLabel: formatInvoiceMoney(trailerCharge.chargedTotal, trailerCharge.currency),
+          amountValue: trailerCharge.chargedTotal,
+        },
+        totalRow(trailerCharge.chargedTotal, trailerCharge.currency),
+        gatewayRow(razorpay_payment_id),
+      ],
+      source: "scriptController.verifyScriptTrailerPayment",
+    });
     await notifyAdminWorkflowEvent({
       title: "AI Trailer Approval Request",
       section: "trailers",

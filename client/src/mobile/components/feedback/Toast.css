@@ -1,0 +1,166 @@
+/*
+ * Ckript Mobile — toast (prefix: ckm-toast)
+ * ------------------------------------------------------------------
+ * A dark, bottom-anchored message over the current screen. Owned by
+ * ToastProvider; no screen mounts one directly.
+ *
+ * The surface is `--ckm-ink` rather than a light card for a measured reason:
+ * this thing appears over arbitrary screen content, and a light-on-light
+ * surface needs a border to be found at all. White on ink measures ~17:1, so
+ * the message stays legible over anything underneath it.
+ */
+
+/* --- Host layer -------------------------------------------------------- */
+
+/* Absolute, so `.ckm-root > * { flex: 1 }` cannot give it a share of the
+   column. `pointer-events: none` keeps the empty layer from swallowing taps
+   meant for the screen; the toast itself takes them back. */
+.ckm .ckm-toast__layer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--ckm-z-toast);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  pointer-events: none;
+  padding: 0 var(--ckm-space-3) calc(var(--ckm-space-3) + var(--ckm-safe-bottom));
+}
+
+/*
+ * The layer lives above the router, so it cannot know whether the current
+ * screen has a bottom tab bar — it asks the DOM instead. `--ckm-bottom-nav-h`
+ * is the *reserved* chrome height and the nav renders inside it, so this
+ * clears the bar rather than merely reaching it.
+ *
+ * A browser without `:has()` falls back to the un-lifted padding, which is
+ * correct for four of the six shell modes (only `standard` and `admin` carry a
+ * tab bar) — the fallback is the commoner case, not the broken one.
+ */
+.ckm .ckm-root:has(.ckm-shell__bottom) .ckm-toast__layer {
+  padding-bottom: calc(var(--ckm-bottom-nav-h) + var(--ckm-space-2) + var(--ckm-safe-bottom));
+}
+
+/* Always in the DOM and empty most of the time: a live region announced
+   reliably is one that already existed when its content changed. Empty divs
+   with no box of their own cost nothing. */
+.ckm .ckm-toast__region {
+  width: 100%;
+  max-width: 420px;
+}
+
+.ckm .ckm-toast__slot {
+  width: 100%;
+}
+
+/* --- Surface ----------------------------------------------------------- */
+
+.ckm .ckm-toast {
+  pointer-events: auto;
+  display: grid;
+  /* icon | text | close, with the action on a second row beneath the text so a
+     320px toast never has to choose between a readable title and its action. */
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: start;
+  column-gap: var(--ckm-space-3);
+  row-gap: var(--ckm-space-2);
+  padding: var(--ckm-space-3) var(--ckm-space-3) var(--ckm-space-3) var(--ckm-space-4);
+  border-radius: var(--ckm-r-lg);
+  background: var(--ckm-ink);
+  color: var(--ckm-on-dark);
+  box-shadow: var(--ckm-shadow-pop);
+}
+
+.ckm .ckm-toast__icon {
+  grid-column: 1;
+  grid-row: 1;
+  display: flex;
+  align-items: center;
+  /* Optically centre the glyph on the first line of the title rather than on
+     the box, which sits high once a description wraps to three lines. */
+  min-height: var(--ckm-leading-support);
+}
+
+/* Tone is never carried by colour alone — the glyph differs too, and the
+   wording says what happened. These are the light-on-ink counterparts of the
+   semantic ramp; the `*-ink` tokens are for light surfaces and would vanish
+   here. Measured against --ckm-ink: 9.9 / 10.6 / 8.7 : 1. */
+.ckm .ckm-toast--info .ckm-toast__icon { color: rgba(255, 255, 255, 0.86); }
+.ckm .ckm-toast--success .ckm-toast__icon { color: #7fd6a0; }
+.ckm .ckm-toast--warning .ckm-toast__icon { color: #f0c473; }
+.ckm .ckm-toast--error .ckm-toast__icon { color: #ff9d8f; }
+
+.ckm .ckm-toast__text {
+  grid-column: 2;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.ckm .ckm-toast__title {
+  font: var(--ckm-weight-semibold) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+  color: var(--ckm-on-dark);
+  /* Wrapping, not truncation: the toast may be the only place this sentence is
+     shown, and §7.3 makes clamping a product decision, not a default. */
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-toast__description {
+  margin-top: 2px;
+  font: var(--ckm-weight-regular) var(--ckm-text-caption) / var(--ckm-leading-caption) var(--ckm-body);
+  color: rgba(255, 255, 255, 0.78);
+  overflow-wrap: anywhere;
+}
+
+/* --- Action ------------------------------------------------------------ */
+
+/*
+ * Not a <Button>. The four button intents are drawn for light surfaces, and the
+ * terracotta `tertiary` label measures 3.99:1 on ink — under the 4.5:1 that
+ * small text needs. Rather than add a fifth intent that exists for one context
+ * (the plan allows four, deliberately), the toast draws its own: white label,
+ * hairline boundary at 3.9:1 for SC 1.4.11.
+ */
+.ckm .ckm-toast__action {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: start;
+  min-height: var(--ckm-touch-target);
+  min-width: var(--ckm-touch-target);
+  padding: 0 var(--ckm-space-4);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: var(--ckm-r-sm);
+  background: transparent;
+  color: var(--ckm-on-dark);
+  font: var(--ckm-weight-semibold) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+  cursor: pointer;
+  transition: background-color var(--ckm-duration-press) var(--ckm-ease);
+}
+
+.ckm .ckm-toast__action:active {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.ckm .ckm-toast__action:focus-visible {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-on-dark);
+  outline-offset: var(--ckm-focus-ring-offset);
+}
+
+/* --- Dismiss ----------------------------------------------------------- */
+
+.ckm .ckm-toast__close {
+  grid-column: 3;
+  grid-row: 1;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.ckm .ckm-toast__close:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* The shared focus ring is terracotta, which is a focus colour on paper and a
+   near-invisible one on ink. On this surface the ring is white. */
+.ckm .ckm-toast__close:focus-visible {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-on-dark);
+  outline-offset: var(--ckm-focus-ring-offset);
+}

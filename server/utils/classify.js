@@ -46,7 +46,14 @@ export const FORCE_TRANSITION = /^>(?!\s*$)/;    // leading ">" (with content) �
 // but ">THE END<" is centered. Centered lines classify as ACTION (a styled paragraph) — no new
 // element type — so reports / FDX / PDF treat them safely; the editor centers them visually and the
 // markers are stripped for display. The marker round-trips in the stored Fountain text.
-export const CENTERED = /^>\s*(.*?)\s*<$/;       // ">text<" → centered (rendered as action)
+// Linear by construction: one greedy quantifier, no nesting. The previous form —
+// /^>\s*(.*?)\s*<$/ — nested three, so a ">" followed by n spaces and no closing "<" made the engine
+// try every split between them. That is quadratic, screenplay text is uploaded by users, and a
+// single 10,000-character line stalled the process for minutes.
+//
+// `.*` runs to the end and backtracks once to the final "<" — a single pass, and the same meaning.
+// The surrounding \s* only ever trimmed the capture, so the trim moved into clean() below.
+export const CENTERED = /^>(.*)<$/;              // ">text<" → centered (rendered as action)
 // Strip a leading forcing marker (and the whitespace hugging it) to recover the writer's words.
 export const stripForceMarker = (text = "") => String(text).replace(/^[.@>]\s*/, "");
 
@@ -105,7 +112,7 @@ export const textToBlocks = (text = "") => {
     if (type === "dual") return t.replace(/\s*\^\s*$/, "");
     // Centered text ">words<" classifies as action; show just the words (markers are syntax).
     const cm = CENTERED.exec(t);
-    if (cm) return cm[1];
+    if (cm) return cm[1].trim();
     // Forced scene/character/transition markers (.@>) are syntax, not content — strip them so the
     // viewer and PDF show the writer's words, matching the editor's on-screen marker suppression.
     if ((type === "scene" || type === "character" || type === "transition") && /^[.@>]/.test(t)) {

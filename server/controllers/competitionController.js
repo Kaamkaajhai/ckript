@@ -3,6 +3,7 @@ import Competition from "../models/Competition.js";
 import CompetitionEntry from "../models/CompetitionEntry.js";
 import Script from "../models/Script.js";
 import Invoice from "../models/Invoice.js";
+import { issueInvoice, totalRow, gatewayRow } from "../utils/invoiceIssue.js";
 import { recordPayment } from "../utils/ledger.js";
 import User from "../models/User.js";
 import { createNotification, sendEmailNotification } from "../utils/notify.js";
@@ -531,14 +532,6 @@ const REGISTRATION_FEE = {
 };
 const REGISTRATION_RECEIPT_PREFIX = "reg_";
 
-const REGISTRATION_INVOICE_PREFIX = "CKR-REG";
-
-const buildRegistrationInvoiceNumber = (paymentId = "") => {
-  const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
-  const suffix = String(paymentId || "").replace(/[^a-zA-Z0-9]/g, "").slice(-8).toUpperCase()
-    || Date.now().toString().slice(-8);
-  return `${REGISTRATION_INVOICE_PREFIX}-${stamp}-${suffix}`;
-};
 
 /**
  * Issue the tax invoice for a paid competition entry.
@@ -574,36 +567,33 @@ const issueRegistrationInvoice = async ({ user, competition, entry, paymentId, a
     metadata: { eventId: entry?.eventId || "" },
   });
 
-  try {
-    return await Invoice.create({
-      paymentReference,
-      invoiceNumber: buildRegistrationInvoiceNumber(paymentReference),
-      invoiceDate: new Date(),
-      kind: "competition_registration",
-      creator: user._id,
-      creatorSid: user.sid || "",
-      competition: competition._id,
-      currency,
-      amountCharged: amountMajor,
-      accessType: "premium",
-      rows: [
-        {
-          item: "Competition Entry Fee",
-          type: "registration",
-          detail: `${competition.name}${entry?.eventId ? ` · Entry ${entry.eventId}` : ""}`,
-          amountLabel: `${currency} ${Number(amountMajor).toFixed(2)}`,
-          amountValue: amountMajor,
-        },
-      ],
-    });
-  } catch (error) {
-    // A duplicate key here means a concurrent callback won the race — return its invoice.
-    if (error?.code === 11000) {
-      return Invoice.findOne({ paymentReference }).select("_id invoiceNumber pdfPath");
-    }
-    console.error("[competition] invoice creation failed:", error?.message || error);
-    return null;
-  }
+  return issueInvoice({
+    kind: "competition_registration",
+    user,
+    paymentReference,
+    currency,
+    amountCharged: amountMajor,
+    competition: competition._id,
+    detailLines: [
+      competition.name,
+      `Competition ID: ${competition._id}`,
+      `Entry Fee: ${currency} ${Number(amountMajor).toFixed(2)}`,
+      entry?.eventId ? `Entry ID: ${entry.eventId}` : "",
+      `Payment Ref: ${paymentReference}`,
+    ],
+    rows: [
+      {
+        item: "Competition Entry Fee",
+        type: "Registration",
+        detail: `${competition.name}${entry?.eventId ? ` · Entry ${entry.eventId}` : ""}`,
+        amountLabel: `${currency} ${Number(amountMajor).toFixed(2)}`,
+        amountValue: amountMajor,
+      },
+      totalRow(amountMajor, currency),
+      gatewayRow(paymentReference),
+    ],
+    source: "competitionController.issueRegistrationInvoice",
+  });
 };
 
 const getRazorpayClient = async () => {

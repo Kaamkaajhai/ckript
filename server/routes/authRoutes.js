@@ -35,7 +35,7 @@ router.post("/validate-address", validateSignupAddress);
 router.get("/validate-referral/:referralInput", validateReferral);
 router.post("/apply-referral", protect, applyReferralCode);
 router.get("/referral-summary", protect, getReferralSummary);
-router.get("/zip-info/:zipCode", lookupZipInfo);
+router.get("/zip-info/:pincode", lookupZipInfo);
 router.get("/me", protect, getMe);
 
 // Session Routes

@@ -24,17 +24,24 @@ const invoiceSchema = new mongoose.Schema(
     // here too rather than in a parallel model with its own numbering that could collide.
     kind: {
       type: String,
-      enum: ["script", "competition_registration"],
+      enum: [
+        "script",                   // a script purchase, paid or free-access
+        "competition_registration", // challenge entry fee
+        "plan_subscription",        // FIP / writer silver / writer gold
+        "script_hold",              // a paid 30-day option on a script
+        "ai_trailer",               // trailer generation
+      ],
       default: "script",
       index: true,
     },
 
-    // Required only for script invoices. A competition registration has no script, and a blanket
-    // `required: true` is what would otherwise force a dummy reference into the ledger.
+    // Required only where a script is genuinely part of the transaction. Stated as an allowlist
+    // rather than "not competition_registration": the old form silently made `script` mandatory for
+    // every kind added afterwards, which would have blocked the first plan-subscription invoice.
     script: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Script",
-      required() { return this.kind !== "competition_registration"; },
+      required() { return ["script", "script_hold", "ai_trailer"].includes(this.kind); },
     },
     scriptSid: { type: String, default: "" },
     competition: { type: mongoose.Schema.Types.ObjectId, ref: "Competition" },
@@ -58,8 +65,27 @@ const invoiceSchema = new mongoose.Schema(
     creditsBalanceBefore: { type: Number, default: 0 },
     creditsBalanceAfter: { type: Number, default: 0 },
     rows: { type: [invoiceRowSchema], default: [] },
+
+    // The right-hand panel of the document, written by whoever issued the invoice.
+    //
+    // The PDF route used to build this itself with an `isRegistration` branch, which meant every new
+    // payment surface needed a new branch there before its invoice could describe itself. Carrying
+    // the lines on the document instead keeps that route kind-agnostic. Empty for older invoices,
+    // which still fall back to the script/registration panels.
+    detailTitle: { type: String, default: "" },
+    detailLines: { type: [String], default: [] },
+
     pdfPath: { type: String, default: "" },
     pdfGeneratedAt: { type: Date },
+
+    // Which iteration of the document design the cached PDF was rendered with.
+    //
+    // A redesign is invisible to anyone holding an already-rendered invoice: `pdfPath` is set, so the
+    // download route serves the cached bytes forever and every historical invoice stays frozen on the
+    // old look. Stamping the version lets the route notice and re-render exactly once, with no
+    // backfill script and no admin button — and it does the same automatically for the next redesign.
+    // 0 means "rendered before this field existed", i.e. the pre-Ckript layout.
+    pdfDesignVersion: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

@@ -1,5 +1,5 @@
 import Invoice from "../models/Invoice.js";
-import { generateAndSaveInvoicePdf } from "../utils/invoicePdf.js";
+import { generateAndSaveInvoicePdf, INVOICE_DESIGN_VERSION } from "../utils/invoicePdf.js";
 import { fetchTrustedPdfAsset } from "../utils/remoteAssetPolicy.js";
 
 const canAccessInvoice = (invoice, user) => {
@@ -25,13 +25,24 @@ export const getInvoicePdf = async (req, res) => {
 
     const hasRemotePdf = /^https?:\/\//i.test(String(invoice.pdfPath || ""));
     const refreshFlag = String(req.query.refresh || req.query.regenerate || "").toLowerCase();
-    const shouldRegenerate = ["1", "true", "yes"].includes(refreshFlag);
+    const forcedRefresh = ["1", "true", "yes"].includes(refreshFlag);
 
-    if (!hasRemotePdf || shouldRegenerate) {
-      // A competition entry fee has no script, so the project panel is replaced rather than left to
-      // render "Script SID: -" against an empty title in the buyer's tax record.
+    // A cached PDF drawn by an older version of the document is re-rendered exactly once, the next
+    // time anyone opens it. Without this, redesigning the invoice only ever affected invoices issued
+    // afterwards — every existing one kept serving its stored bytes forever, and the only escape was
+    // a query parameter no client passes.
+    const isStaleDesign = Number(invoice.pdfDesignVersion || 0) < INVOICE_DESIGN_VERSION;
+
+    if (!hasRemotePdf || forcedRefresh || isStaleDesign) {
+      // The panel comes off the invoice itself where the issuer wrote one. The fallbacks below cover
+      // documents created before that field existed: a competition entry has no script, and printing
+      // "Script SID: -" against an empty title in somebody's tax record reads as a bug.
+      const stored = Array.isArray(invoice.detailLines) && invoice.detailLines.length
+        ? { title: invoice.detailTitle || "Details", lines: invoice.detailLines }
+        : null;
+
       const isRegistration = invoice.kind === "competition_registration";
-      const registrationDetails = isRegistration
+      const legacyRegistrationDetails = isRegistration
         ? {
           title: "Entry Details",
           lines: [
@@ -43,6 +54,11 @@ export const getInvoicePdf = async (req, res) => {
         }
         : undefined;
 
+      const details = stored || legacyRegistrationDetails;
+      // The headline figure. Script invoices carry a "Total" row the document lifts out itself, so
+      // they pass nothing; every other kind states what was charged.
+      const needsSummary = Boolean(details) && invoice.kind !== "script";
+
       const generated = await generateAndSaveInvoicePdf({
         invoice,
         creatorName: invoice.creator?.name,
@@ -50,8 +66,8 @@ export const getInvoicePdf = async (req, res) => {
         creatorSid: invoice.creatorSid || invoice.creator?.sid,
         scriptTitle: invoice.script?.title,
         scriptSid: invoice.scriptSid || invoice.script?.sid,
-        details: registrationDetails,
-        summary: isRegistration
+        details,
+        summary: needsSummary
           ? { label: "Total Paid", value: invoice.amountCharged || 0 }
           : undefined,
       });
@@ -61,6 +77,7 @@ export const getInvoicePdf = async (req, res) => {
       }
 
       invoice.pdfGeneratedAt = new Date();
+      invoice.pdfDesignVersion = INVOICE_DESIGN_VERSION;
       await invoice.save();
     }
 

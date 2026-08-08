@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 import { getOTPExpirySeconds } from "./otpHelper.js";
 import mailFrom from "./mailFrom.js";
 import { CONTACTS, signatureHtml, signatureText } from "./companyContacts.js";
+import { htmlToPlainText } from "./htmlText.js";
 
 let cachedTransporter = null;
 
@@ -16,7 +17,19 @@ const formatOtpValidityLabel = (seconds) => {
   return `${safeSeconds} second${safeSeconds === 1 ? "" : "s"}`;
 };
 
-const trimTrailingSlash = (value = "") => String(value || "").trim().replace(/\/+$/, "");
+/**
+ * Drop trailing slashes.
+ *
+ * A loop, not `/\/+$/`. That pattern is quadratic on "////…x": the engine matches the run of slashes
+ * from every starting position, checks for end-of-string, fails because of the trailing character,
+ * and backtracks through the whole run each time. This runs on a client-supplied base URL.
+ */
+const trimTrailingSlash = (value = "") => {
+  const text = String(value || "").trim();
+  let end = text.length;
+  while (end > 0 && text[end - 1] === "/") end -= 1;
+  return text.slice(0, end);
+};
 
 const normalizeClientBaseUrl = (value = "") => {
   const rawValue = trimTrailingSlash(value);
@@ -1176,9 +1189,10 @@ export const sendAdminBroadcastEmail = async (
                 A minimal platform for storytellers.
               </p>
               <p style="margin: 0;">
-                <a href="https://ckript.com">Website</a> &nbsp;&middot;&nbsp; 
+                <a href="https://ckript.com">Website</a> &nbsp;&middot;&nbsp;
                 <a href="https://ckript.com/privacy-policy">Privacy</a>
               </p>
+              ${signatureHtml()}
               <p style="margin: 16px 0 0;">&copy; ${new Date().getFullYear()} Ckript. All rights reserved.</p>
             </div>
           </div>
@@ -1191,6 +1205,15 @@ export const sendAdminBroadcastEmail = async (
       to: email,
       subject: safeTitle,
       html: finalHtml,
+      // A plain-text alternative, like every other template here. Without one a broadcast is
+      // HTML-only, which reads as spam to filters and renders as nothing in a text-only client — and
+      // it is the one message that goes to the whole audience at once.
+      // htmlToPlainText, not a one-pass `replace(/<[^>]*>/g, "")`. That is the exact bug fixed in
+      // htmlText.js and then written fresh here: one sweep lets "<<script>script>" reassemble, and it
+      // decodes nothing, so an encoded tag survives into the text part.
+      text: `${safeTitle}\n\n${htmlToPlainText(content).trim()}${
+        actionUrl ? `\n\n${buttonText}: ${finalUrl}` : ""
+      }\n\nTeam ${CONTACTS.name}${signatureText()}`,
       attachments: attachments.map(att => ({
         filename: att.filename,
         content: att.content,
@@ -1217,11 +1240,20 @@ export const sendCustomHtmlEmail = async (
 
     const transporter = createTransporter();
 
+    // The admin's markup goes out exactly as written; the signature is APPENDED rather than woven in,
+    // so a direct email carries the same three contact addresses as every other template here without
+    // this function having to understand the HTML it was handed.
+    const body = String(html || "");
+    const finalHtml = `${body}<div style="text-align:center;margin-top:20px;color:#666;font-size:12px">${signatureHtml()}</div>`;
+
     const mailOptions = {
       from: mailFrom(),
       to: email,
       subject: subject,
-      html: html,
+      html: finalHtml,
+      // A plain-text alternative. htmlToPlainText is the shared converter — it decodes entities before
+      // stripping tags and strips repeatedly, so admin markup cannot smuggle a tag through.
+      text: `${htmlToPlainText(body).trim()}\n\nTeam ${CONTACTS.name}${signatureText()}`,
       attachments: attachments.map(att => ({
         filename: att.filename,
         path: att.url, // Assuming url is a path or actual URL. If we use memory storage, we pass buffer. Let's support both.
@@ -1647,6 +1679,109 @@ export const sendFipPlanGrantedEmail = async (
     return { success: true, messageId: info.messageId };
   } catch (error) {
     console.error("Error sending FIP plan granted email:", error.message);
+    return { success: false, error: error.message };
+  }
+};
+
+
+/**
+ * The decision on a "I already registered elsewhere" claim.
+ *
+ * One template for both outcomes, because they are the same message with a different answer and a
+ * split would drift. Approval carries the entry ID the writer needs; rejection carries the reason and
+ * says plainly that they can submit again — a dead end here means someone who paid on another
+ * platform simply never enters.
+ */
+export const sendExternalRegistrationDecisionEmail = async (
+  email,
+  name,
+  {
+    decision,
+    competitionName = "the challenge",
+    providerLabel = "a third-party platform",
+    externalRef = "",
+    note = "",
+    eventId = "",
+    competitionId = "",
+    clientBaseUrl = "",
+  } = {}
+) => {
+  try {
+    const transporter = createTransporter();
+    await transporter.verify();
+
+    const isApproved = String(decision || "").toLowerCase() === "approved";
+    const safeNote = String(note || "").trim();
+    const actionUrl = buildClientUrl(
+      isApproved && competitionId ? `/challenges/${competitionId}` : "/challenges",
+      clientBaseUrl,
+    );
+    const subject = isApproved
+      ? `✅ You're in — ${competitionName}`
+      : `Action needed: your ${competitionName} registration`;
+
+    const mailOptions = {
+      from: mailFrom(),
+      to: email,
+      subject,
+      html: `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <style>
+            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+            .header { background: #141110; color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+            .content { background: #faf8f7; padding: 30px; border-radius: 0 0 10px 10px; }
+            .badge-approved { display: inline-block; background: #d1fae5; color: #065f46; font-size: 14px; font-weight: bold; padding: 6px 16px; border-radius: 20px; margin-bottom: 16px; }
+            .badge-rejected { display: inline-block; background: #fbf1ef; color: #8a2c1a; font-size: 14px; font-weight: bold; padding: 6px 16px; border-radius: 20px; margin-bottom: 16px; }
+            .note { background: #fff; border-left: 4px solid #D14D37; padding: 12px 14px; border-radius: 6px; margin: 12px 0; }
+            .facts { background: #fff; border: 1px solid #ded8d5; border-radius: 8px; padding: 14px; margin: 16px 0; font-size: 14px; }
+            .button { display: inline-block; background: #D14D37; color: white !important; padding: 14px 36px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 15px; margin: 20px 0; }
+            .footer { text-align: center; margin-top: 20px; color: #666; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1 style="margin:0">${competitionName}</h1>
+            </div>
+            <div class="content">
+              <p>Hi <strong>${name}</strong>,</p>
+              <div><span class="${isApproved ? "badge-approved" : "badge-rejected"}">${isApproved ? "Registration confirmed" : "We could not confirm this yet"}</span></div>
+              ${isApproved
+                ? `<p>We checked your registration on <strong>${providerLabel}</strong> and you're confirmed. No payment is needed on Ckript — your entry is active.</p>`
+                : `<p>We could not confirm your registration on <strong>${providerLabel}</strong> from the details you sent. <strong>You can submit again</strong> with corrected details — your place is not lost.</p>`}
+              <div class="facts">
+                <div><strong>Platform:</strong> ${providerLabel}</div>
+                ${externalRef ? `<div><strong>Your reference:</strong> ${externalRef}</div>` : ""}
+                ${isApproved && eventId ? `<div><strong>Your Ckript entry ID:</strong> ${eventId}</div>` : ""}
+              </div>
+              ${safeNote ? `<p><strong>Note from our team:</strong></p><div class="note">${safeNote}</div>` : ""}
+              <div style="text-align:center">
+                <a href="${actionUrl}" class="button">${isApproved ? "Open the challenge" : "Submit again"}</a>
+              </div>
+              <p style="color:#666;font-size:13px">If the button doesn't work, use this link:<br/><a href="${actionUrl}" style="color:#D14D37">${actionUrl}</a></p>
+              <p>Regards,<br/><strong>Team ${CONTACTS.name}</strong></p>
+            </div>
+            <div class="footer">${signatureHtml()}
+              <p>© 2026 ckript. All rights reserved.</p>
+              <p>This is an automated message, please do not reply.</p>
+            </div>
+          </div>
+        </body>
+        </html>
+      `,
+      text: `Hi ${name},\n\n${isApproved
+        ? `Your registration on ${providerLabel} has been confirmed. No payment is needed on Ckript — your entry is active.${eventId ? `\n\nYour Ckript entry ID: ${eventId}` : ""}`
+        : `We could not confirm your registration on ${providerLabel} from the details you sent. You can submit again with corrected details.`}${safeNote ? `\n\nNote from our team: ${safeNote}` : ""}\n\n${actionUrl}\n\nTeam ${CONTACTS.name}${signatureText()}`,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log(`External registration ${decision} email sent to ${email}:`, info.messageId);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error("Error sending external registration decision email:", error.message);
     return { success: false, error: error.message };
   }
 };

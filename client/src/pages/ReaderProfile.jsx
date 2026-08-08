@@ -5,6 +5,7 @@ import { BookOpen, Heart, MessageSquare, Pencil, ArrowLeft, X, Camera, Save, Loa
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
+import { safeMediaSrc } from "../utils/safeMediaSrc";
 import ProjectCard from "../components/ProjectCard";
 import ReviewCard from "../components/ReviewCard";
 import SocialShareButton from "../components/SocialShareButton";
@@ -20,6 +21,15 @@ const normalizePublicShareUrl = (rawUrl = "", fallbackUrl = "") => {
     .replace(/\/profile\/([^/?#]+)/i, "/share/profile/$1")
     .replace(/\/script\/([^/?#]+)/i, "/share/project/$1");
 };
+
+/**
+ * An avatar URL a browser will fetch as an image, or "".
+ *
+ * profileImage is stored text that reaches this page from another account's profile, so the scheme is
+ * only ever as trustworthy as whoever typed it. An avatar is always a still, so no other data: media
+ * type is accepted here — the shared helper defaults to images alone.
+ */
+const safeImageSrc = (url) => safeMediaSrc(url);
 
 /* ── Edit Profile Modal ─────────────────────────────── */
 const EditProfileModal = ({ profile, onClose, onSaved }) => {
@@ -142,7 +152,7 @@ const EditProfileModal = ({ profile, onClose, onSaved }) => {
             <div className="relative group">
               {currentImage ? (
                 <img
-                  src={currentImage}
+                  src={safeImageSrc(currentImage)}
                   alt="Profile"
                   className="w-20 h-20 rounded-2xl object-cover ring-2 ring-gray-100"
                 />
@@ -500,7 +510,7 @@ const ReaderProfile = () => {
                   <div className="relative shrink-0">
                     {profile.profileImage ? (
                       <img
-                        src={resolveImage(profile.profileImage)}
+                        src={safeImageSrc(resolveImage(profile.profileImage))}
                         alt={profile.name}
                         className={`w-24 h-24 sm:w-28 sm:h-28 rounded-2xl object-cover ring-[3px] shadow-xl ${dark ? "ring-white/[0.12] bg-[#0d1520]" : "ring-white bg-white"}`}
                       />
@@ -749,7 +759,7 @@ const ReaderProfile = () => {
                     >
                       {connection.profileImage ? (
                         <img
-                          src={resolveImage(connection.profileImage)}
+                          src={safeImageSrc(resolveImage(connection.profileImage))}
                           alt={connection.name}
                           className="w-10 h-10 rounded-full object-cover shrink-0"
                         />

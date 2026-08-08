@@ -1,62 +1,86 @@
-import fs from "fs";
-import path from "path";
 import { Writable } from "stream";
-import { fileURLToPath } from "url";
 import PDFDocument from "pdfkit";
 import { uploadToCloudinary } from "../config/cloudinary.js";
-import { CONTACTS } from "./companyContacts.js";
+import { CONTACTS, COMPANY } from "./companyContacts.js";
+import { LOGO, SIGNATURE, BRAND } from "./brandAssets.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-// Real filenames, checked against client/public. These previously pointed at "cklogo-nobg.png" and
-// "cklogo.png", neither of which exists, so pickLogoPath() always returned undefined and every
-// invoice silently rendered the plain-text fallback instead of the logo.
-//
-// The fallback is still load-bearing: this path reaches out of server/ into client/public, which
-// will not resolve on a server-only deploy.
-const logoCandidates = [
-  path.join(__dirname, "..", "..", "client", "public", "ckript-logo-official-nobg.png"),
-  path.join(__dirname, "..", "..", "client", "public", "ckript_logo_no_bg.png"),
-  path.join(__dirname, "..", "..", "client", "public", "ckript-logo-landscape-nobg.png"),
-];
+/**
+ * The Ckript invoice.
+ *
+ * Designed as a document rather than a dashboard: hairline rules instead of rounded cards, one
+ * accent instead of a palette, and whitespace doing the work that borders used to. A tax record is
+ * something a buyer files, forwards to an accountant and reads years later — it should look like it
+ * came from a company, not from a template.
+ *
+ * The brand does the arranging. The wordmark is a serif, so Times sets the display type and
+ * Helvetica sets the data; the red that dots the "i" in the logo is the only colour on the page, and
+ * it marks exactly three things — the rule under the masthead, the column heads, and the total.
+ * Everything else is ink on paper. (What was here before was built on navy, which appears nowhere in
+ * this brand, and a logo that rendered at a third of its box — see brandAssets.js for why.)
+ */
 
-const COMPANY_NAME = process.env.COMPANY_NAME || "CKRIPT";
-// Read at RENDER time via CONTACTS, not captured here: dotenv.config() runs in server.js's body,
-// which is after every import in the graph has already been evaluated, so a module-level
-// `process.env.COMPANY_EMAIL` is always undefined and the fallback wins permanently. This line used
-// to be exactly that, which is why invoices kept printing the old gmail address.
-const COMPANY_LOCATION = process.env.COMPANY_LOCATION || "Pune, Maharashtra, India";
-const FOUNDER_NAME = process.env.FOUNDER_NAME || "Yash";
+/**
+ * The document's design iteration. BUMP THIS whenever the layout changes materially.
+ *
+ * A cached PDF is served from Cloudinary forever once `pdfPath` is set, so a redesign otherwise only
+ * reaches invoices issued after it — every existing one keeps its old look, and nobody notices
+ * because the code plainly says the new design is in use. The download route compares this against
+ * `invoice.pdfDesignVersion` and re-renders once when it is behind.
+ *
+ * 1 was the original navy-and-rounded-cards layout; 2 is the Ckript document; 3 replaces the
+ * typeset founder name with the real authorised signature; 4 corrects the registered office in the
+ * footer and adds the CIN. 3 and 4 matter more than a redesign usually would — an invoice already in
+ * someone's hands showing a name where the current one shows a signature, or stating an address the
+ * company does not use, is exactly what gets a document questioned. 4 is separate from 3 rather than
+ * folded into it because 3 shipped first, and anything regenerated in between carries the old
+ * address.
+ */
+export const INVOICE_DESIGN_VERSION = 4;
+
+// Read at RENDER time via COMPANY / CONTACTS, never captured here: dotenv.config() runs in
+// server.js's BODY, which is after every import in the graph has already been evaluated, so a
+// module-level `process.env.X` is always undefined and the fallback wins permanently. The note about
+// this used to sit right above three constants that did exactly that — which is why the footer kept
+// printing the Pune address no matter what the environment said.
 
 // The currency is a PARAMETER, not a constant. Competition registration is charged in INR or USD
 // depending on what the entrant picked at checkout, and a hardcoded "INR" prefix would have printed
 // a $2 entry fee as "INR 2.00" — a document stating the wrong currency is worse than none.
 const asCurrency = (value = 0, currency = "INR") =>
-  `${String(currency || "INR").toUpperCase()} ${Number(value || 0).toFixed(2)}`;
-const asDate = (value) => new Date(value || Date.now()).toLocaleString();
+  `${String(currency || "INR").toUpperCase()} ${Number(value || 0).toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+// Long-form date. "15 March 2026" cannot be misread; "3/15/26" and "15/3/26" are the same document
+// to two different readers, and an invoice crosses borders.
+const asDate = (value) => new Date(value || Date.now()).toLocaleDateString("en-GB", {
+  day: "numeric", month: "long", year: "numeric",
+});
+
 const toSafeText = (value, fallback = "-") => {
   if (value === undefined || value === null) return fallback;
   const text = String(value).trim();
   return text || fallback;
 };
+
 const isWriterPayoutRow = (row = {}) => {
   const item = String(row?.item || "").trim().toLowerCase();
   const type = String(row?.type || "").trim().toLowerCase();
   return item === "writer payout" || type === "settlement";
 };
 
-const pickLogoPath = () => logoCandidates.find((candidate) => fs.existsSync(candidate));
+/** The line an invoice is actually about. Reference rows carry no money and must not be mistaken for it. */
+const isTotalRow = (row = {}) => String(row?.type || "").trim().toLowerCase() === "total";
+const isReferenceRow = (row = {}) => String(row?.type || "").trim().toLowerCase() === "reference";
 
 /**
- * Render an invoice to PDF and upload it.
+ * Draw the invoice and return the PDF bytes.
  *
- * `details` and `summary` exist because this document now serves two different purchases. A script
- * invoice describes a project (title, SID, access tier); a competition-registration invoice has no
- * script at all, and printing "Script SID: -" beside an empty project panel would look like a bug
- * in the buyer's tax record. Callers that omit them get the original script-shaped layout, so the
- * script path is unchanged.
+ * Separate from the upload so the document can be rendered and looked at without a Cloudinary
+ * account or a network — a layout is not something you can review by reading the code that emits it.
  */
-export const generateAndSaveInvoicePdf = async ({
+export const renderInvoicePdfBuffer = async ({
   invoice,
   creatorName,
   creatorEmail,
@@ -70,8 +94,6 @@ export const generateAndSaveInvoicePdf = async ({
     throw new Error("Invoice details are required to generate PDF");
   }
 
-  const safeInvoiceNumber = String(invoice.invoiceNumber).replace(/[^a-zA-Z0-9-_]/g, "_");
-  const logoPath = pickLogoPath();
   const resolvedCreatorSid = creatorSid || invoice.creatorSid || "-";
   const resolvedScriptSid = scriptSid || invoice.scriptSid || "-";
   const resolvedCreatorName = toSafeText(creatorName);
@@ -82,262 +104,326 @@ export const generateAndSaveInvoicePdf = async ({
   const resolvedScriptId = toSafeText(invoice.script?._id || invoice.script);
   const resolvedPaymentReference = toSafeText(invoice.paymentReference || "", "Pending");
   const issuedAt = asDate(invoice.invoiceDate || invoice.createdAt);
+  const invoiceCurrency = invoice.currency || "INR";
 
   const pdfBuffer = await new Promise((resolve, reject) => {
     const chunks = [];
-    const doc = new PDFDocument({ size: "A4", margin: 42 });
+    // bufferPages: the footer carries "Page 1 of 3", which cannot be written until the last page
+    // exists. Buffering lets every page be revisited once the total is known.
+    const doc = new PDFDocument({ size: "A4", margin: 48, bufferPages: true });
     doc.on("error", reject);
-    doc.on("data", (chunk) => chunks.push(chunk));
+    doc.on("data", (c) => chunks.push(c));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.pipe(new Writable({ write(_c, _e, cb) { cb(); } }));
 
-    doc.pipe(new Writable({
-      write(_chunk, _enc, cb) {
-        cb();
-      },
-    }));
+    const left = 48;
+    const right = doc.page.width - 48;
+    const width = right - left;
+    // The reserved band at the foot of every page. Content stops here so it can never collide with
+    // the footer rule that gets stamped in afterwards.
+    const contentBottom = doc.page.height - 78;
+    let y = 52;
 
-    const pageWidth = doc.page.width;
-    const left = 42;
-    const right = pageWidth - 42;
-    const contentWidth = right - left;
-    const pageBottom = doc.page.height - 42;
-    let y = 40;
-
-    const drawRoundedBox = (x, boxY, width, height, fill, stroke = null, radius = 10) => {
-      doc.save();
-      doc.roundedRect(x, boxY, width, height, radius);
-      if (fill) doc.fill(fill);
-      if (stroke) {
-        doc.roundedRect(x, boxY, width, height, radius).lineWidth(0.8).stroke(stroke);
-      }
-      doc.restore();
+    // ── Type helpers ────────────────────────────────────────────────────────
+    // An uppercase, letterspaced micro-label. Used for every column head and field name, which is
+    // what gives the document one voice instead of six font sizes.
+    const eyebrow = (text, x, textY, w, { align = "left", color = BRAND.inkMuted } = {}) => {
+      doc.font("Helvetica-Bold").fontSize(7).fillColor(color)
+        .text(String(text).toUpperCase(), x, textY, { width: w, align, characterSpacing: 1.1 });
+      return 11;
     };
 
-    const ensureSpace = (required, redrawHeader) => {
-      if (y + required <= pageBottom) return;
+    const rule = (x, ruleY, w, { color = BRAND.rule, weight = 0.7 } = {}) => {
+      doc.save().moveTo(x, ruleY).lineTo(x + w, ruleY).lineWidth(weight).strokeColor(color).stroke().restore();
+    };
+
+    const field = (label, value, x, fieldY, w, align = "left") => {
+      let h = eyebrow(label, x, fieldY, w, { align });
+      const text = toSafeText(value);
+      doc.font("Helvetica").fontSize(9.5).fillColor(BRAND.ink)
+        .text(text, x, fieldY + h, { width: w, align });
+      return h + doc.heightOfString(text, { width: w, align }) + 2;
+    };
+
+    // ── Masthead ────────────────────────────────────────────────────────────
+    // Redrawn on every page: a continuation sheet that arrives without the company on it is not
+    // recognisably part of the same document.
+    const drawMasthead = () => {
+      const logoH = 46;
+      const [logoW] = LOGO.boxForHeight(logoH);
+      const logoPath = LOGO.path;
+      let drew = false;
+
+      if (logoPath) {
+        try {
+          // Width AND height are given, both derived from the asset's real ratio, so the mark fills
+          // the space it is allotted rather than being letterboxed inside it.
+          doc.image(logoPath, left, y, { width: logoW, height: logoH });
+          drew = true;
+        } catch { /* fall through to the wordmark */ }
+      }
+      if (!drew) {
+        // The wordmark set in the same serif as the logo, so a missing asset degrades to something
+        // still recognisably Ckript rather than to bold Helvetica.
+        doc.font("Times-Bold").fontSize(30).fillColor(BRAND.ink)
+          .text(COMPANY.name.toLowerCase(), left, y + 8, { characterSpacing: -0.5 });
+      }
+
+      doc.font("Times-Bold").fontSize(27).fillColor(BRAND.ink)
+        .text("INVOICE", right - 240, y + 4, { width: 240, align: "right", characterSpacing: 3 });
+      doc.font("Helvetica-Bold").fontSize(9.5).fillColor(BRAND.accent)
+        .text(toSafeText(invoice.invoiceNumber), right - 240, y + 38, { width: 240, align: "right", characterSpacing: 0.4 });
+
+      // The brand's signature on the page — the one heavy rule, in the logo's own red.
+      rule(left, y + logoH + 16, width, { color: BRAND.accent, weight: 2 });
+      y += logoH + 28;
+    };
+
+    const ensureSpace = (needed) => {
+      if (y + needed <= contentBottom) return;
       doc.addPage();
-      y = 40;
-      if (typeof redrawHeader === "function") {
-        redrawHeader();
-      }
+      y = 52;
+      drawMasthead();
     };
 
-    const drawKeyValue = (x, textY, label, value, width, align = "left") => {
-      doc.font("Helvetica-Bold").fontSize(9).fillColor("#475569").text(`${label}:`, x, textY, { width, align });
-      const labelHeight = doc.heightOfString(`${label}:`, { width, align });
-      doc.font("Helvetica").fontSize(9.5).fillColor("#0F172A").text(toSafeText(value), x, textY + labelHeight + 1, { width, align });
-      const valueHeight = doc.heightOfString(toSafeText(value), { width, align });
-      return labelHeight + valueHeight + 5;
-    };
+    drawMasthead();
 
-    // Header block
-    const headerHeight = 146;
-    drawRoundedBox(left, y, contentWidth, headerHeight, "#F8FBFF", "#DCE7F4", 12);
+    // ── Issued / reference strip ────────────────────────────────────────────
+    const stripW = width / 3;
+    field("Issued", issuedAt, left, y, stripW - 12);
+    field("Payment reference", resolvedPaymentReference, left + stripW, y, stripW - 12);
+    field("Currency", String(invoiceCurrency).toUpperCase(), left + stripW * 2, y, stripW - 12, "right");
+    y += 34;
 
-    if (logoPath) {
-      try {
-        doc.image(logoPath, left + 16, y + 16, { fit: [132, 40], align: "left" });
-      } catch {
-        doc.font("Helvetica-Bold").fontSize(24).fillColor("#0F2A4A").text(COMPANY_NAME, left + 16, y + 22);
-      }
-    } else {
-      doc.font("Helvetica-Bold").fontSize(24).fillColor("#0F2A4A").text(COMPANY_NAME, left + 16, y + 22);
-    }
+    // ── Billed to / details ─────────────────────────────────────────────────
+    const gap = 28;
+    const colW = (width - gap) / 2;
 
-    doc.font("Helvetica").fontSize(10).fillColor("#334155").text(CONTACTS.company, left + 16, y + 74, { width: 260 });
-    doc.text(COMPANY_LOCATION, left + 16, y + 90, { width: 260 });
-
-    const invoiceMetaX = right - 240;
-    const invoiceMetaW = 220;
-    doc.font("Helvetica-Bold").fontSize(32).fillColor("#0B1D3A").text("INVOICE", invoiceMetaX, y + 10, {
-      width: invoiceMetaW,
-      align: "right",
-    });
-
-    let metaY = y + 58;
-    metaY += drawKeyValue(invoiceMetaX, metaY, "Invoice No", invoice.invoiceNumber, invoiceMetaW, "right");
-    metaY += drawKeyValue(invoiceMetaX, metaY, "Issued", issuedAt, invoiceMetaW, "right");
-    drawKeyValue(invoiceMetaX, metaY, "Invoice ID", resolvedInvoiceId, invoiceMetaW, "right");
-
-    y += headerHeight + 16;
-
-    // Party and project cards
-    const gap = 14;
-    const colW = (contentWidth - gap) / 2;
-    const cardTextW = colW - 24;
-
-    const leftLines = [
-      resolvedCreatorName,
-      resolvedCreatorEmail || "-",
-      `Buyer SID: ${resolvedCreatorSid}`,
-      `Buyer ID: ${resolvedCreatorId}`,
-    ];
-
-    const invoiceCurrency = invoice.currency || "INR";
-
-    const detailsTitle = details?.title || "Project Details";
-    const rightLines = details?.lines || [
+    const billedLines = [resolvedCreatorName, resolvedCreatorEmail, `SID ${resolvedCreatorSid}`].filter(Boolean);
+    const detailsTitle = details?.title || "Project";
+    const detailLines = details?.lines || [
       resolvedScriptTitle,
-      `Script SID: ${resolvedScriptSid}`,
-      `Content ID: ${resolvedScriptId}`,
+      `SID ${resolvedScriptSid}`,
       invoice.accessType === "premium"
-        ? `Access: Premium (${asCurrency(invoice.scriptPrice || 0, invoiceCurrency)})`
-        : "Access: Free",
-      `Payment Ref: ${resolvedPaymentReference}`,
+        ? `Premium access · ${asCurrency(invoice.scriptPrice || 0, invoiceCurrency)}`
+        : "Free access",
     ];
 
-    const measureCardHeight = (title, lines) => {
-      let h = 34;
-      doc.font("Helvetica-Bold").fontSize(12);
-      h += doc.heightOfString(title, { width: cardTextW }) + 8;
-      doc.font("Helvetica").fontSize(10);
-      lines.forEach((line) => {
-        h += doc.heightOfString(toSafeText(line), { width: cardTextW }) + 4;
+    const drawParty = (title, lines, x) => {
+      let partyY = y;
+      eyebrow(title, x, partyY, colW);
+      partyY += 11;
+      rule(x, partyY, colW);
+      partyY += 9;
+      lines.forEach((line, i) => {
+        const text = toSafeText(line);
+        // The first line is the name — it is what the reader scans for, so it carries the weight.
+        doc.font(i === 0 ? "Helvetica-Bold" : "Helvetica").fontSize(i === 0 ? 11 : 9.5)
+          .fillColor(i === 0 ? BRAND.ink : BRAND.inkSoft)
+          .text(text, x, partyY, { width: colW });
+        partyY += doc.heightOfString(text, { width: colW }) + (i === 0 ? 5 : 3);
       });
-      return Math.max(120, h + 10);
+      return partyY - y;
     };
 
-    const leftCardH = measureCardHeight("Bill To", leftLines);
-    const rightCardH = measureCardHeight(detailsTitle, rightLines);
-    const cardsH = Math.max(leftCardH, rightCardH);
+    const partyH = Math.max(drawParty("Billed to", billedLines, left), drawParty(detailsTitle, detailLines, left + colW + gap));
+    y += partyH + 26;
 
-    drawRoundedBox(left, y, colW, cardsH, "#FFFFFF", "#DFE8F5", 10);
-    drawRoundedBox(left + colW + gap, y, colW, cardsH, "#FFFFFF", "#DFE8F5", 10);
+    // ── Line items ──────────────────────────────────────────────────────────
+    const itemW = Math.round(width * 0.55);
+    const typeW = Math.round(width * 0.17);
+    const amountW = width - itemW - typeW;
 
-    doc.font("Helvetica-Bold").fontSize(12).fillColor("#0F172A").text("Bill To", left + 12, y + 12, { width: cardTextW });
-    let lineY = y + 34;
-    doc.font("Helvetica").fontSize(10).fillColor("#334155");
-    leftLines.forEach((line) => {
-      doc.text(toSafeText(line), left + 12, lineY, { width: cardTextW });
-      lineY += doc.heightOfString(toSafeText(line), { width: cardTextW }) + 4;
-    });
-
-    doc.font("Helvetica-Bold").fontSize(12).fillColor("#0F172A").text(detailsTitle, left + colW + gap + 12, y + 12, { width: cardTextW });
-    lineY = y + 34;
-    doc.font("Helvetica").fontSize(10).fillColor("#334155");
-    rightLines.forEach((line) => {
-      doc.text(toSafeText(line), left + colW + gap + 12, lineY, { width: cardTextW });
-      lineY += doc.heightOfString(toSafeText(line), { width: cardTextW }) + 4;
-    });
-
-    y += cardsH + 18;
-
-    // Table
-    const tableX = left;
-    const tableW = contentWidth;
-    const itemW = Math.round(tableW * 0.56);
-    const typeW = Math.round(tableW * 0.18);
-    const amountW = tableW - itemW - typeW;
-
-    const drawTableHeader = () => {
-      drawRoundedBox(tableX, y, tableW, 28, "#0F2A4A", null, 8);
-      doc.font("Helvetica-Bold").fontSize(9.5).fillColor("#FFFFFF");
-      doc.text("ITEM", tableX + 10, y + 9, { width: itemW - 14 });
-      doc.text("TYPE", tableX + itemW + 4, y + 9, { width: typeW - 8 });
-      doc.text("AMOUNT", tableX + itemW + typeW + 4, y + 9, { width: amountW - 10, align: "right" });
-      y += 34;
+    const drawTableHead = () => {
+      eyebrow("Description", left, y, itemW, { color: BRAND.accent });
+      eyebrow("Type", left + itemW, y, typeW, { color: BRAND.accent });
+      eyebrow("Amount", left + itemW + typeW, y, amountW, { align: "right", color: BRAND.accent });
+      y += 13;
+      rule(left, y, width, { color: BRAND.ink, weight: 0.9 });
+      y += 10;
     };
 
-    drawTableHeader();
+    drawTableHead();
 
-    const rows = Array.isArray(invoice.rows)
-      ? invoice.rows.filter((row) => !isWriterPayoutRow(row))
-      : [];
+    const allRows = Array.isArray(invoice.rows) ? invoice.rows.filter((r) => !isWriterPayoutRow(r)) : [];
+    // The total is pulled out of the table and set as the document's conclusion; leaving it inline as
+    // one row among five is what made the old layout read as a list rather than a bill.
+    const totalRow = allRows.find(isTotalRow);
+    const rows = allRows.filter((r) => !isTotalRow(r) && !isReferenceRow(r));
+    const referenceRows = allRows.filter(isReferenceRow);
+
     if (!rows.length) {
-      doc.font("Helvetica").fontSize(10).fillColor("#64748B").text("No line items available.", tableX + 10, y + 8, {
-        width: tableW - 20,
-      });
-      y += 32;
+      doc.font("Helvetica-Oblique").fontSize(9.5).fillColor(BRAND.inkMuted)
+        .text("No line items recorded.", left, y, { width });
+      y += 26;
     }
 
-    rows.forEach((row, idx) => {
-      const itemTitle = `${idx + 1}. ${toSafeText(row.item, "Item")}`;
-      const itemDetail = toSafeText(row.detail, "");
-      const itemBlock = itemDetail ? `${itemTitle}\n${itemDetail}` : itemTitle;
+    rows.forEach((row) => {
+      const title = toSafeText(row.item, "Item");
+      const detail = toSafeText(row.detail, "");
       const typeText = toSafeText(row.type);
       const amountText = toSafeText(row.amountLabel);
 
       doc.font("Helvetica-Bold").fontSize(10);
-      const itemTitleHeight = doc.heightOfString(itemTitle, { width: itemW - 16 });
-      doc.font("Helvetica").fontSize(9.5);
-      const itemBlockHeight = doc.heightOfString(itemBlock, { width: itemW - 16 });
-      const typeHeight = doc.heightOfString(typeText, { width: typeW - 8 });
-      const amountHeight = doc.heightOfString(amountText, { width: amountW - 10 });
-      const rowHeight = Math.max(34, itemBlockHeight + 10, typeHeight + 10, amountHeight + 10);
+      const titleH = doc.heightOfString(title, { width: itemW - 16 });
+      doc.font("Helvetica").fontSize(9);
+      const detailH = detail ? doc.heightOfString(detail, { width: itemW - 16 }) + 2 : 0;
+      const rowH = Math.max(26, titleH + detailH + 12);
 
-      ensureSpace(rowHeight + 130, drawTableHeader);
+      ensureSpace(rowH + 8);
 
-      doc.save();
-      doc.rect(tableX, y - 2, tableW, rowHeight).fill(idx % 2 === 0 ? "#F8FAFC" : "#FFFFFF");
-      doc.restore();
-
-      doc.font("Helvetica-Bold").fontSize(10).fillColor("#0F172A").text(itemTitle, tableX + 10, y + 4, {
-        width: itemW - 16,
-      });
-
-      if (itemDetail) {
-        doc.font("Helvetica").fontSize(9.5).fillColor("#64748B").text(itemDetail, tableX + 10, y + 6 + itemTitleHeight, {
-          width: itemW - 16,
-        });
+      doc.font("Helvetica-Bold").fontSize(10).fillColor(BRAND.ink)
+        .text(title, left, y, { width: itemW - 16 });
+      if (detail) {
+        doc.font("Helvetica").fontSize(9).fillColor(BRAND.inkMuted)
+          .text(detail, left, y + titleH + 2, { width: itemW - 16 });
       }
+      doc.font("Helvetica").fontSize(9.5).fillColor(BRAND.inkSoft)
+        .text(typeText, left + itemW, y, { width: typeW - 8 });
+      doc.font("Helvetica").fontSize(10).fillColor(BRAND.ink)
+        .text(amountText, left + itemW + typeW, y, { width: amountW, align: "right" });
 
-      doc.font("Helvetica").fontSize(9.5).fillColor("#334155").text(typeText, tableX + itemW + 4, y + 4, {
-        width: typeW - 8,
-      });
-
-      doc.font("Helvetica-Bold").fontSize(10).fillColor("#0F172A").text(amountText, tableX + itemW + typeW + 4, y + 4, {
-        width: amountW - 10,
-        align: "right",
-      });
-
-      doc.save();
-      doc.moveTo(tableX, y + rowHeight).lineTo(tableX + tableW, y + rowHeight).lineWidth(0.6).strokeColor("#E2E8F0").stroke();
-      doc.restore();
-
-      y += rowHeight + 4;
+      y += rowH;
+      rule(left, y - 4, width, { color: BRAND.ruleSoft });
     });
 
-    y += 6;
-    ensureSpace(176);
+    // ── Total ───────────────────────────────────────────────────────────────
+    // Whatever else an invoice says, this is the number it exists to state.
+    ensureSpace(86);
+    y += 12;
 
-    // Footer meta and summary cards
-    const summaryW = 252;
-    const metaW = contentWidth - summaryW - 14;
-    const footerCardH = 120;
+    const totalLabel = totalRow ? toSafeText(totalRow.item, "Total") : (summary?.label || "Net per premium sale");
+    const totalValue = totalRow
+      ? toSafeText(totalRow.amountLabel)
+      : asCurrency(summary ? summary.value || 0 : invoice.writerEarnsPerSale || 0, invoiceCurrency);
 
-    drawRoundedBox(left, y, metaW, footerCardH, "#FFFFFF", "#DFE8F5", 10);
-    drawRoundedBox(left + metaW + 14, y, summaryW, footerCardH, "#F8FBFF", "#DCE7F4", 10);
+    const totalBoxW = 268;
+    const totalBoxX = right - totalBoxW;
+    const totalBoxH = 54;
 
-    doc.font("Helvetica-Bold").fontSize(11).fillColor("#0F172A").text("Transaction Metadata", left + 12, y + 12, { width: metaW - 24 });
-    doc.font("Helvetica").fontSize(9.5).fillColor("#334155");
-    doc.text(`Invoice ID: ${resolvedInvoiceId}`, left + 12, y + 32, { width: metaW - 24 });
-    doc.text(`Payment Ref: ${resolvedPaymentReference}`, left + 12, y + 48, { width: metaW - 24 });
-    doc.text(`Content ID: ${resolvedScriptId}`, left + 12, y + 64, { width: metaW - 24 });
-    doc.text(`Buyer ID: ${resolvedCreatorId}`, left + 12, y + 80, { width: metaW - 24 });
+    doc.save().rect(totalBoxX, y, totalBoxW, totalBoxH).fill(BRAND.accentSoft).restore();
+    rule(totalBoxX, y, totalBoxW, { color: BRAND.accent, weight: 1.6 });
 
-    const summaryX = left + metaW + 26;
-    doc.font("Helvetica-Bold").fontSize(12).fillColor("#0F172A").text("Summary", summaryX, y + 12, { width: summaryW - 36 });
-    doc.font("Helvetica-Bold").fillColor("#0F172A").text(
-      summary
-        ? `${summary.label}: ${asCurrency(summary.value || 0, invoiceCurrency)}`
-        : `Net Per Premium Sale: ${asCurrency(invoice.writerEarnsPerSale || 0, invoiceCurrency)}`,
-      summaryX, y + 36, {
-      width: summaryW - 36,
+    eyebrow(totalLabel, totalBoxX + 16, y + 13, totalBoxW - 32, { color: BRAND.inkSoft });
+    doc.font("Helvetica-Bold").fontSize(17).fillColor(BRAND.accent)
+      .text(totalValue, totalBoxX + 16, y + 26, { width: totalBoxW - 32, align: "left" });
+
+    // The secondary figure sits opposite the total, never inside it — one number is the bill and the
+    // other is settlement information, and a reader must not have to work out which is which.
+    if (totalRow && !summary && Number(invoice.writerEarnsPerSale || 0) > 0) {
+      eyebrow("Net per premium sale", left, y + 13, colW, { color: BRAND.inkMuted });
+      doc.font("Helvetica").fontSize(11).fillColor(BRAND.inkSoft)
+        .text(asCurrency(invoice.writerEarnsPerSale || 0, invoiceCurrency), left, y + 25, { width: colW });
+    }
+
+    y += totalBoxH + 26;
+
+    // ── Reference ───────────────────────────────────────────────────────────
+    // Gateway references and database ids: needed for a dispute, noise for everyone else. Small,
+    // muted, and at the bottom, which is where reference data belongs.
+    ensureSpace(80);
+    eyebrow("Reference", left, y, width, { color: BRAND.inkMuted });
+    y += 11;
+    rule(left, y, width);
+    y += 8;
+
+    const refs = [
+      ["Invoice ID", resolvedInvoiceId],
+      ["Buyer ID", resolvedCreatorId],
+      ...(details ? [] : [["Content ID", resolvedScriptId]]),
+      ...referenceRows.map((r) => [toSafeText(r.item, "Reference"), toSafeText(r.detail, r.amountLabel)]),
+    ];
+
+    doc.font("Helvetica").fontSize(8).fillColor(BRAND.inkMuted);
+    refs.forEach(([label, value]) => {
+      const text = `${label}   ${value}`;
+      doc.text(text, left, y, { width });
+      y += doc.heightOfString(text, { width }) + 2;
     });
 
-    y += footerCardH + 14;
+    // ── Authorisation ───────────────────────────────────────────────────────
+    //
+    // The real signature, not the name set in an italic face pretending to be one. It sits ON the
+    // rule the way a signature does on paper — the image is drawn so its baseline lands just above
+    // the line, rather than being centred in a box that happens to be near it.
+    const SIG_W = 96;
+    const [sigW, sigH] = SIGNATURE.boxForWidth(SIG_W);
+    const signaturePath = SIGNATURE.path;
 
-    // Signature
-    ensureSpace(72);
-    doc.font("Helvetica").fontSize(9).fillColor("#64748B").text("Authorized by", left, y);
-    doc.font("Helvetica-Oblique").fontSize(22).fillColor("#0F172A").text(FOUNDER_NAME, left, y + 10);
-    doc.save();
-    doc.moveTo(left, y + 42).lineTo(left + 178, y + 42).lineWidth(0.8).strokeColor("#94A3B8").stroke();
-    doc.restore();
-    doc.font("Helvetica").fontSize(9).fillColor("#475569").text(`Founder, ${COMPANY_NAME}`, left, y + 47);
+    ensureSpace(sigH + 46);
+    y += 16;
+
+    const ruleY = y + sigH + 4;
+    if (signaturePath) {
+      doc.image(signaturePath, left, y, { width: sigW, height: sigH });
+    } else {
+      // No asset on this deploy: fall back to the name rather than leave the block empty, so an
+      // invoice is never issued with an unsigned authorisation area.
+      doc.font("Times-Italic").fontSize(21).fillColor(BRAND.ink)
+        .text(COMPANY.founder, left, y + sigH - 26);
+    }
+
+    rule(left, ruleY, Math.max(172, sigW + 40), { color: BRAND.ink, weight: 0.7 });
+    doc.font("Helvetica-Bold").fontSize(8.5).fillColor(BRAND.ink)
+      .text(COMPANY.founder, left, ruleY + 6, { width: 240, lineBreak: false });
+    eyebrow(`Authorized Signatory · ${COMPANY.name}`, left, ruleY + 18, 260);
+
+    // ── Footer on every page ────────────────────────────────────────────────
+    const range = doc.bufferedPageRange();
+    for (let i = range.start; i < range.start + range.count; i++) {
+      doc.switchToPage(i);
+
+      // PDFKit appends a page whenever text is drawn below the bottom margin — and a footer, by
+      // definition, is drawn below the bottom margin. Left alone it appends one page per line, then
+      // those pages get no footer of their own, so every invoice shipped with blank sheets after it.
+      // Dropping the margin for the duration of the stamp is what makes the footer a footer.
+      const savedBottom = doc.page.margins.bottom;
+      doc.page.margins.bottom = 0;
+
+      const footY = doc.page.height - 70;
+      rule(left, footY, width);
+
+      // Three rows, because the registered office is a real address and no longer a city name.
+      // It previously shared a 45%-wide box with the company name under `lineBreak: false`, which
+      // was fine for "Pune, Maharashtra, India" and would have silently clipped the Delhi address
+      // mid-street — the failure mode being a document that looks finished and states an incomplete
+      // address. The address now owns a full-width line of its own.
+      //
+      // lineBreak stays false throughout: a footer that wraps grows downward, off the page edge.
+      doc.font("Helvetica-Bold").fontSize(7.5).fillColor(BRAND.inkSoft)
+        .text(COMPANY.legalName, left, footY + 9, { width: width * 0.45, lineBreak: false });
+      doc.font("Helvetica").fontSize(7.5).fillColor(BRAND.inkMuted);
+      doc.text(CONTACTS.company, left + width * 0.45, footY + 9, {
+        width: width * 0.3, align: "center", lineBreak: false,
+      });
+      doc.text(`Page ${i - range.start + 1} of ${range.count}`, right - width * 0.25, footY + 9, {
+        width: width * 0.25, align: "right", lineBreak: false,
+      });
+
+      // CIN alongside the address: Companies Act s.12(3)(c) requires it on every business letter
+      // and bill, and an invoice is both.
+      doc.font("Helvetica").fontSize(7).fillColor(BRAND.inkMuted)
+        .text(`${COMPANY.location}   ·   CIN ${COMPANY.cin}`, left, footY + 21, { width, lineBreak: false });
+
+      // Reworded because the document now carries a real signature: "valid without a physical
+      // signature" directly contradicts the mark above it, and a line that argues with the page it
+      // is printed on is worse than no line at all.
+      doc.text("This is a computer-generated document. The authorised signature above is affixed electronically.",
+        left, footY + 32, { width, align: "left", lineBreak: false });
+
+      doc.page.margins.bottom = savedBottom;
+    }
 
     doc.end();
   });
+
+  return pdfBuffer;
+};
+
+export const generateAndSaveInvoicePdf = async (args) => {
+  const { invoice } = args || {};
+  const pdfBuffer = await renderInvoicePdfBuffer(args);
+  const safeInvoiceNumber = String(invoice.invoiceNumber).replace(/[^a-zA-Z0-9-_]/g, "_");
 
   const uploadResult = await uploadToCloudinary(pdfBuffer, {
     folder: "scriptbridge/invoices",

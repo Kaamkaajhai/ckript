@@ -22,6 +22,7 @@ import { createOrderWithUsdFallback } from "../utils/razorpayOrder.js";
 import { PLAN_PRICES, WRITER_PLAN_KEY } from "../config/pricing.js";
 import { planOrderNotes, readVerifiedPlanOrder, planAmountMinor } from "../utils/planCheckout.js";
 import { recordPayment, recordGrant } from "../utils/ledger.js";
+import { issueInvoice, totalRow, gatewayRow, formatInvoiceMoney } from "../utils/invoiceIssue.js";
 
 const FILM_INDUSTRY_PRO_MODEL = {
   plan: "pro",
@@ -357,6 +358,36 @@ export const verifyRazorpayPayment = async (req, res) => {
       metadata: { planKey: "film_industry_professional", cycle, durationDays },
     });
 
+    // The buyer's copy. Non-fatal like the ledger row above and for the same reason — the charge has
+    // already gone through, so a document that cannot be written is skipped, never surfaced as a
+    // failed payment. The PDF itself renders on first download.
+    const paidMajor = Number(verified.paidMinor || 0) / 100;
+    await issueInvoice({
+      kind: "plan_subscription",
+      user: currentUser,
+      paymentReference: razorpay_payment_id,
+      currency: verified.currency,
+      amountCharged: paidMajor,
+      detailLines: [
+        "Film Industry Professional",
+        `Billing: ${cycle}`,
+        `Access: ${durationDays} days`,
+        `Payment Ref: ${razorpay_payment_id}`,
+      ],
+      rows: [
+        {
+          item: "Film Industry Professional",
+          type: "Subscription",
+          detail: `${cycle} plan, ${durationDays} days of full access.`,
+          amountLabel: formatInvoiceMoney(paidMajor, verified.currency),
+          amountValue: paidMajor,
+        },
+        totalRow(paidMajor, verified.currency),
+        gatewayRow(razorpay_payment_id),
+      ],
+      source: "paymentController.verifyRazorpayPayment",
+    });
+
     const refreshedUser = await User.findById(currentUser._id).select("-password");
 
     return res.json({
@@ -632,6 +663,35 @@ export const verifyWriterRazorpayPayment = async (req, res) => {
       source: "paymentController.verifyWriterRazorpayPayment",
       metadata: { planKey: WRITER_PLAN_KEY[tier], tier, cycle, durationDays },
     });
+
+    const writerPaidMajor = Number(verified.paidMinor || 0) / 100;
+    const tierLabel = `Writer ${String(tier).charAt(0).toUpperCase()}${String(tier).slice(1)}`;
+    await issueInvoice({
+      kind: "plan_subscription",
+      user: currentUser,
+      paymentReference: razorpay_payment_id,
+      currency: verified.currency,
+      amountCharged: writerPaidMajor,
+      detailLines: [
+        tierLabel,
+        `Billing: ${cycle}`,
+        `Access: ${durationDays} days`,
+        `Payment Ref: ${razorpay_payment_id}`,
+      ],
+      rows: [
+        {
+          item: tierLabel,
+          type: "Subscription",
+          detail: `${cycle} plan, ${durationDays} days of writer tools.`,
+          amountLabel: formatInvoiceMoney(writerPaidMajor, verified.currency),
+          amountValue: writerPaidMajor,
+        },
+        totalRow(writerPaidMajor, verified.currency),
+        gatewayRow(razorpay_payment_id),
+      ],
+      source: "paymentController.verifyWriterRazorpayPayment",
+    });
+
     const refreshedUser = await User.findById(currentUser._id).select("-password");
 
     return res.status(200).json({

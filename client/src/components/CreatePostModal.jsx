@@ -3,6 +3,12 @@ import { motion } from "framer-motion";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
+import { safeMediaSrc } from "../utils/safeMediaSrc";
+
+// A post preview carries stills and clips alike, so data: URLs of all three media kinds pass. The
+// video element shares this guard with the image, and an image-only allowlist rejected
+// "data:video/mp4;…" — a valid, playable source the submit handler went on to post anyway.
+const POST_MEDIA = { media: ["image", "video", "audio"] };
 
 const CreatePostModal = ({ onClose, onPostCreated }) => {
   const { user } = useContext(AuthContext);
@@ -120,7 +126,7 @@ const CreatePostModal = ({ onClose, onPostCreated }) => {
               <p className="text-sm text-gray-600 mb-2">Preview:</p>
               {image && (
                 <img
-                  src={image}
+                  src={safeMediaSrc(image, POST_MEDIA)}
                   alt="Preview"
                   className="max-h-48 rounded-lg mb-2"
                   onError={(e) => {
@@ -131,7 +137,7 @@ const CreatePostModal = ({ onClose, onPostCreated }) => {
               )}
               {video && (
                 <video
-                  src={video}
+                  src={safeMediaSrc(video, POST_MEDIA)}
                   controls
                   className="max-h-48 rounded-lg"
                   onError={(e) => {

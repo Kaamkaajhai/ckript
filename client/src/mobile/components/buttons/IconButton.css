@@ -1,0 +1,110 @@
+/*
+ * Ckript Mobile — icon button (prefix: ckm-icon-button)
+ * ------------------------------------------------------------------
+ * Scoped under `.ckm` (plan §7.1). Every size below is tappable at
+ * --ckm-touch-target even when it is drawn smaller.
+ */
+
+.ckm .ckm-icon-button {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: var(--ckm-control-h-md);
+  height: var(--ckm-control-h-md);
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--ckm-r-md);
+  background: transparent;
+  color: var(--ckm-text-2);
+  text-decoration: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    transform var(--ckm-duration-press) var(--ckm-ease),
+    background-color var(--ckm-duration-feedback) var(--ckm-ease),
+    color var(--ckm-duration-feedback) var(--ckm-ease);
+}
+
+.ckm .ckm-icon-button:active:not(.is-disabled) {
+  transform: scale(var(--ckm-press-scale));
+  background: var(--ckm-bg-soft);
+}
+
+.ckm .ckm-icon-button:focus-visible {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: var(--ckm-focus-ring-offset);
+}
+
+.ckm .ckm-icon-button.is-disabled,
+.ckm .ckm-icon-button:disabled {
+  opacity: var(--ckm-disabled-opacity);
+  cursor: default;
+}
+
+/* --- Sizes -------------------------------------------------------------- */
+
+/* Drawn at 36px, tapped at 44px. The overlay is the hit region: it adds no
+   layout box, so a dense app bar can stay dense without failing target size.
+   (React Native calls this hitSlop; WCAG 2.2 SC 2.5.8 calls the alternative
+   "spacing", and this satisfies the stronger of the two.) */
+.ckm .ckm-icon-button--sm {
+  width: var(--ckm-control-h-sm);
+  height: var(--ckm-control-h-sm);
+}
+
+.ckm .ckm-icon-button--sm::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: var(--ckm-touch-target);
+  height: var(--ckm-touch-target);
+  transform: translate(-50%, -50%);
+}
+
+.ckm .ckm-icon-button--lg {
+  width: var(--ckm-control-h-lg);
+  height: var(--ckm-control-h-lg);
+}
+
+/* --- Variants ----------------------------------------------------------- */
+
+.ckm .ckm-icon-button--soft {
+  background: var(--ckm-bg-fill);
+  border-color: var(--ckm-line);
+}
+
+.ckm .ckm-icon-button--soft:active:not(.is-disabled) {
+  background: var(--ckm-track);
+}
+
+.ckm .ckm-icon-button--danger {
+  color: var(--ckm-red);
+}
+
+.ckm .ckm-icon-button.is-active {
+  color: var(--ckm-accent);
+}
+
+/* --- Badge -------------------------------------------------------------- */
+
+/* Count is announced through the control's accessible name, so this is
+   decoration; the white ring keeps it legible over any icon beneath it.
+   The fill is --ckm-accent-strong, not --ckm-accent: white text this small
+   needs 4.5:1, which the lighter terracotta misses (tokens.css). */
+.ckm .ckm-icon-button__badge {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  border: 1.5px solid var(--ckm-bg);
+  background: var(--ckm-accent-strong);
+  color: var(--ckm-on-dark);
+  font: var(--ckm-weight-bold) 9.5px/14px var(--ckm-body);
+  text-align: center;
+}

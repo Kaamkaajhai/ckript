@@ -1,0 +1,89 @@
+/*
+ * Ckript Mobile — primitive gallery (prefix: ckm-gallery)
+ * ------------------------------------------------------------------
+ * Development-only harness. Scoped under `.ckm` like everything else so the
+ * contract test covers it; it must contain no styling a primitive needs to
+ * look right — anything essential belongs in the primitive's own stylesheet.
+ */
+
+.ckm .ckm-gallery__page {
+  padding: var(--ckm-space-5) var(--ckm-space-4-5) var(--ckm-space-9);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-7);
+}
+
+.ckm .ckm-gallery__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-3);
+}
+
+.ckm .ckm-gallery__row-title {
+  font-family: var(--ckm-display);
+  font-size: var(--ckm-text-card);
+  line-height: var(--ckm-leading-card);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-text);
+}
+
+.ckm .ckm-gallery__note {
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+}
+
+/* Wrapping, not scrolling: a specimen row that needed horizontal scroll would
+   hide exactly the overflow this harness exists to catch. */
+.ckm .ckm-gallery__specimens {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: var(--ckm-space-3);
+}
+
+.ckm .ckm-gallery__stack {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+}
+
+/* Deliberate separation between the everyday actions and the irreversible one. */
+.ckm .ckm-gallery__danger-zone {
+  margin-top: var(--ckm-space-7);
+  padding-top: var(--ckm-space-4);
+  border-top: 1px solid var(--ckm-line);
+}
+
+/* An audience's chrome, shown as the pair it really is: the app bar sits on the
+   page background and the tab bar on the dark bar, so the specimen carries a
+   border rather than trying to reproduce a whole screen around them. */
+.ckm .ckm-gallery__chrome {
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-lg);
+  overflow: hidden;
+  margin-bottom: var(--ckm-space-4);
+}
+
+.ckm .ckm-gallery__chrome > .ckm-gallery__note {
+  margin: 0;
+  padding: var(--ckm-space-2) var(--ckm-space-3);
+  background: var(--ckm-bg-fill);
+  border-bottom: 1px solid var(--ckm-line);
+}
+
+/* Lists, cards and tab bars are edge-to-edge components; showing them inside
+   the harness's gutter would hide exactly the overflow it exists to catch. */
+.ckm .ckm-gallery__bleed {
+  width: auto;
+  margin: 0 calc(var(--ckm-space-4-5) * -1);
+}
+
+/* Shows a header specimen in situ without letting it read as the real app bar. */
+.ckm .ckm-gallery__frame {
+  width: 100%;
+  border: 1px dashed var(--ckm-line-strong);
+  border-radius: var(--ckm-r-md);
+  overflow: hidden;
+}

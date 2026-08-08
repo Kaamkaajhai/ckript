@@ -1,4 +1,13 @@
-const trimTrailingSlash = (value = "") => String(value || "").replace(/\/+$/, "");
+// Walked backwards from the end, not `/\/+$/`. That regex is quadratic on a hostile value: the
+// engine tries every one of n slashes as a start position, matches the run to the end from each one,
+// fails the "$" when a non-slash follows, and backtracks. The value here is a client-supplied Origin
+// header, so a long enough run of slashes is a free CPU burn. This pass touches each character once.
+const trimTrailingSlash = (value = "") => {
+  const text = String(value || "");
+  let end = text.length;
+  while (end > 0 && text[end - 1] === "/") end -= 1;
+  return text.slice(0, end);
+};
 
 const normalizeHeadingSegment = (value = "") =>
   String(value || "")

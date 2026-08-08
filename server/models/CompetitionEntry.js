@@ -51,6 +51,17 @@ const competitionEntrySchema = new mongoose.Schema({
     invoice: { type: mongoose.Schema.Types.ObjectId, ref: "Invoice", default: null },
   },
 
+  // Set when an admin accepted proof of a registration paid on another platform (Luma, BookMyShow,
+  // FilmFreeway and the rest). `payment` stays empty in that case, deliberately: it means "money
+  // Ckript received", and a granted entry has to stay distinguishable from a paid one in every
+  // report that reads it. The foregone fee is recorded as a ledger grant instead.
+  externalRegistration: {
+    provider: { type: String, default: "" },
+    reference: { type: String, default: "" },
+    verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    verifiedAt: { type: Date, default: null },
+  },
+
   scriptId: { type: mongoose.Schema.Types.ObjectId, ref: "Script", default: null },
   status: {
     type: String,
