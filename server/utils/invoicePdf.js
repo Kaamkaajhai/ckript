@@ -1,8 +1,8 @@
 import { Writable } from "stream";
 import PDFDocument from "pdfkit";
 import { uploadToCloudinary } from "../config/cloudinary.js";
-import { CONTACTS } from "./companyContacts.js";
-import { LOGO, BRAND } from "./brandAssets.js";
+import { CONTACTS, COMPANY } from "./companyContacts.js";
+import { LOGO, SIGNATURE, BRAND } from "./brandAssets.js";
 
 /**
  * The Ckript invoice.
@@ -27,17 +27,21 @@ import { LOGO, BRAND } from "./brandAssets.js";
  * because the code plainly says the new design is in use. The download route compares this against
  * `invoice.pdfDesignVersion` and re-renders once when it is behind.
  *
- * 1 was the original navy-and-rounded-cards layout; 2 is the Ckript document.
+ * 1 was the original navy-and-rounded-cards layout; 2 is the Ckript document; 3 replaces the
+ * typeset founder name with the real authorised signature; 4 corrects the registered office in the
+ * footer and adds the CIN. 3 and 4 matter more than a redesign usually would — an invoice already in
+ * someone's hands showing a name where the current one shows a signature, or stating an address the
+ * company does not use, is exactly what gets a document questioned. 4 is separate from 3 rather than
+ * folded into it because 3 shipped first, and anything regenerated in between carries the old
+ * address.
  */
-export const INVOICE_DESIGN_VERSION = 2;
+export const INVOICE_DESIGN_VERSION = 4;
 
-const COMPANY_NAME = process.env.COMPANY_NAME || "CKRIPT";
-// Read at RENDER time via CONTACTS, not captured here: dotenv.config() runs in server.js's body,
-// which is after every import in the graph has already been evaluated, so a module-level
-// `process.env.COMPANY_EMAIL` is always undefined and the fallback wins permanently. This line used
-// to be exactly that, which is why invoices kept printing the old gmail address.
-const COMPANY_LOCATION = process.env.COMPANY_LOCATION || "Pune, Maharashtra, India";
-const FOUNDER_NAME = process.env.FOUNDER_NAME || "Yash";
+// Read at RENDER time via COMPANY / CONTACTS, never captured here: dotenv.config() runs in
+// server.js's BODY, which is after every import in the graph has already been evaluated, so a
+// module-level `process.env.X` is always undefined and the fallback wins permanently. The note about
+// this used to sit right above three constants that did exactly that — which is why the footer kept
+// printing the Pune address no matter what the environment said.
 
 // The currency is a PARAMETER, not a constant. Competition registration is charged in INR or USD
 // depending on what the entrant picked at checkout, and a hardcoded "INR" prefix would have printed
@@ -162,7 +166,7 @@ export const renderInvoicePdfBuffer = async ({
         // The wordmark set in the same serif as the logo, so a missing asset degrades to something
         // still recognisably Ckript rather than to bold Helvetica.
         doc.font("Times-Bold").fontSize(30).fillColor(BRAND.ink)
-          .text(COMPANY_NAME.toLowerCase(), left, y + 8, { characterSpacing: -0.5 });
+          .text(COMPANY.name.toLowerCase(), left, y + 8, { characterSpacing: -0.5 });
       }
 
       doc.font("Times-Bold").fontSize(27).fillColor(BRAND.ink)
@@ -338,11 +342,31 @@ export const renderInvoicePdfBuffer = async ({
     });
 
     // ── Authorisation ───────────────────────────────────────────────────────
-    ensureSpace(76);
+    //
+    // The real signature, not the name set in an italic face pretending to be one. It sits ON the
+    // rule the way a signature does on paper — the image is drawn so its baseline lands just above
+    // the line, rather than being centred in a box that happens to be near it.
+    const SIG_W = 96;
+    const [sigW, sigH] = SIGNATURE.boxForWidth(SIG_W);
+    const signaturePath = SIGNATURE.path;
+
+    ensureSpace(sigH + 46);
     y += 16;
-    doc.font("Times-Italic").fontSize(21).fillColor(BRAND.ink).text(FOUNDER_NAME, left, y);
-    rule(left, y + 30, 172, { color: BRAND.ink, weight: 0.7 });
-    eyebrow(`Founder · ${COMPANY_NAME}`, left, y + 36, 240);
+
+    const ruleY = y + sigH + 4;
+    if (signaturePath) {
+      doc.image(signaturePath, left, y, { width: sigW, height: sigH });
+    } else {
+      // No asset on this deploy: fall back to the name rather than leave the block empty, so an
+      // invoice is never issued with an unsigned authorisation area.
+      doc.font("Times-Italic").fontSize(21).fillColor(BRAND.ink)
+        .text(COMPANY.founder, left, y + sigH - 26);
+    }
+
+    rule(left, ruleY, Math.max(172, sigW + 40), { color: BRAND.ink, weight: 0.7 });
+    doc.font("Helvetica-Bold").fontSize(8.5).fillColor(BRAND.ink)
+      .text(COMPANY.founder, left, ruleY + 6, { width: 240, lineBreak: false });
+    eyebrow(`Authorized Signatory · ${COMPANY.name}`, left, ruleY + 18, 260);
 
     // ── Footer on every page ────────────────────────────────────────────────
     const range = doc.bufferedPageRange();
@@ -356,21 +380,36 @@ export const renderInvoicePdfBuffer = async ({
       const savedBottom = doc.page.margins.bottom;
       doc.page.margins.bottom = 0;
 
-      const footY = doc.page.height - 62;
+      const footY = doc.page.height - 70;
       rule(left, footY, width);
-      // lineBreak:false as well: a long company name must be clipped, never wrapped into the void
-      // below the page edge.
-      doc.font("Helvetica").fontSize(7.5).fillColor(BRAND.inkMuted)
-        .text(`${COMPANY_NAME} · ${COMPANY_LOCATION}`, left, footY + 9, { width: width * 0.45, lineBreak: false });
+
+      // Three rows, because the registered office is a real address and no longer a city name.
+      // It previously shared a 45%-wide box with the company name under `lineBreak: false`, which
+      // was fine for "Pune, Maharashtra, India" and would have silently clipped the Delhi address
+      // mid-street — the failure mode being a document that looks finished and states an incomplete
+      // address. The address now owns a full-width line of its own.
+      //
+      // lineBreak stays false throughout: a footer that wraps grows downward, off the page edge.
+      doc.font("Helvetica-Bold").fontSize(7.5).fillColor(BRAND.inkSoft)
+        .text(COMPANY.legalName, left, footY + 9, { width: width * 0.45, lineBreak: false });
+      doc.font("Helvetica").fontSize(7.5).fillColor(BRAND.inkMuted);
       doc.text(CONTACTS.company, left + width * 0.45, footY + 9, {
         width: width * 0.3, align: "center", lineBreak: false,
       });
       doc.text(`Page ${i - range.start + 1} of ${range.count}`, right - width * 0.25, footY + 9, {
         width: width * 0.25, align: "right", lineBreak: false,
       });
+
+      // CIN alongside the address: Companies Act s.12(3)(c) requires it on every business letter
+      // and bill, and an invoice is both.
       doc.font("Helvetica").fontSize(7).fillColor(BRAND.inkMuted)
-        .text("This is a computer-generated document and is valid without a physical signature.",
-          left, footY + 21, { width, align: "left", lineBreak: false });
+        .text(`${COMPANY.location}   ·   CIN ${COMPANY.cin}`, left, footY + 21, { width, lineBreak: false });
+
+      // Reworded because the document now carries a real signature: "valid without a physical
+      // signature" directly contradicts the mark above it, and a line that argues with the page it
+      // is printed on is worse than no line at all.
+      doc.text("This is a computer-generated document. The authorised signature above is affixed electronically.",
+        left, footY + 32, { width, align: "left", lineBreak: false });
 
       doc.page.margins.bottom = savedBottom;
     }

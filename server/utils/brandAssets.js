@@ -40,6 +40,34 @@ const readable = (candidate) => {
   }
 };
 
+/**
+ * The authorised signature that appears on invoices.
+ *
+ * `yash-sign.png` is the file as supplied; `yash-signature.png` is the same signature cropped to its
+ * ink and is what documents use. The crop is not cosmetic — it is the same trap the logo hit above.
+ * The source has 8% padding on the left and 12% on the top, and PDFKit measures padding as part of
+ * the image, so an untrimmed signature given a box would render small and float away from the rule
+ * it is supposed to sit on, with the offset differing at every size.
+ *
+ * SIGNATURE.ratio is measured from the cropped asset (576x374), so a caller sizing by width gets a
+ * height that matches the ink rather than the canvas.
+ */
+const SERVER_SIGNATURE = path.join(__dirname, "..", "assets", "yash-signature.png");
+const SIGNATURE_FALLBACK = path.join(__dirname, "..", "assets", "yash-sign.png");
+
+export const SIGNATURE = {
+  /** Width ÷ height of the cropped signature. Measured from the asset, not guessed. */
+  ratio: 576 / 374,
+  /** Absolute path to the best available signature, or "" when neither is readable. */
+  get path() {
+    return [SERVER_SIGNATURE, SIGNATURE_FALLBACK].find(readable) || "";
+  },
+  /** Box for a signature of this width, honouring the real aspect. */
+  boxForWidth(width) {
+    return [width, Math.round(width / SIGNATURE.ratio)];
+  },
+};
+
 export const LOGO = {
   /** Width ÷ height of the trimmed mark. Measured from the asset, not guessed. */
   ratio: 1559 / 652,
@@ -80,4 +108,4 @@ export const BRAND = {
   paperAlt: "#FAF8F7",     // the faintest banding, warm not blue
 };
 
-export default { LOGO, BRAND };
+export default { LOGO, SIGNATURE, BRAND };
