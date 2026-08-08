@@ -20,11 +20,42 @@ const frame = (title, count, table) => (
   </div>
 );
 
+/**
+ * What each Transaction.type means to someone reading the books.
+ *
+ * "credit" is the one that matters. It reads like the retired credits feature and is nothing of the
+ * sort — scriptController writes it on every sale to credit the writer's wallet ("Script purchase
+ * payout", "Earned from script hold"). Showing the raw enum invited exactly that misreading, and
+ * acting on it would have meant hiding every payout from the accountant's view. Naming it is the
+ * fix; the rows themselves are the payout side of the business and belong here.
+ */
+const TRANSACTION_TYPE = {
+  credit: { label: "Writer payout", tone: "success" },
+  debit: { label: "Debit", tone: "danger" },
+  payment: { label: "Payment", tone: "success" },
+  refund: { label: "Refund", tone: "warn" },
+  withdrawal: { label: "Withdrawal", tone: "warn" },
+  subscription: { label: "Subscription", tone: "info" },
+  bonus: { label: "Bonus", tone: "info" },
+  commission: { label: "Commission", tone: "neutral" },
+};
+
+const describeType = (type) => TRANSACTION_TYPE[type] || { label: type || "—", tone: "neutral" };
+
 /** Transactions — pure ledger reading, no controls in any role. */
 export function PaymentsTable({ rows, total, loading, error, onRetry }) {
   const columns = [
     { key: "user", header: "User", sortable: true, sortValue: (t) => t.user?.name || "", render: (t) => t.user?.name || "—" },
-    { key: "type", header: "Type", sortable: true, render: (t) => <Badge tone={t.type === "debit" ? "danger" : "success"}>{t.type}</Badge> },
+    {
+      key: "type",
+      header: "Type",
+      sortable: true,
+      sortValue: (t) => describeType(t.type).label,
+      render: (t) => {
+        const { label, tone } = describeType(t.type);
+        return <Badge tone={tone}>{label}</Badge>;
+      },
+    },
     { key: "amount", header: "Amount", align: "right", sortable: true, sortValue: (t) => Number(t.amount) || 0, render: (t) => money(t.amount, t.currency) },
     { key: "status", header: "Status", sortable: true, render: (t) => <StatusPill status={t.status} /> },
     { key: "description", header: "Description", hideable: true, render: (t) => t.description || "—" },
@@ -34,6 +65,86 @@ export function PaymentsTable({ rows, total, loading, error, onRetry }) {
     <DataTable columns={columns} rows={rows} loading={loading} error={error} onRetry={onRetry}
       search={false} paginate={false} exportName="transactions"
       empty={{ title: "No transactions", body: "Payments appear here as they are captured." }} />
+  ));
+}
+
+/**
+ * Challenge entries, read from the ledger rather than from payments or invoices.
+ *
+ * That choice is the substance of this table. A challenge is entered three ways — paid on Ckript,
+ * granted by an admin, or approved as a third-party registration someone already paid for elsewhere
+ * — and only the first writes a Transaction or an Invoice. Built on either of those, this section
+ * would report a competition as emptier than it was and would show no cost for the entries given
+ * away. The ledger records all three, so `settlement` separates them and `listPriceMinor` states
+ * what a granted entry was worth.
+ *
+ * Amounts are minor units on the wire, converted here rather than server-side: the ledger stores
+ * integers precisely so no rounding happens between the payment and the report.
+ */
+export function ChallengesTable({ rows, total, loading, error, onRetry }) {
+  const SETTLEMENT_TONE = { paid: "success", granted: "info", reversed: "danger" };
+
+  const columns = [
+    {
+      key: "entrant",
+      header: "Entrant",
+      sortable: true,
+      sortValue: (e) => e.user?.name || "",
+      render: (e) => (<>{e.user?.name || "—"}<span className="adtb-sub">{e.user?.email}</span></>),
+    },
+    {
+      key: "challenge",
+      header: "Challenge",
+      sortable: true,
+      sortValue: (e) => e.label || "",
+      // `label` is written at capture time, so a renamed or deleted competition still reads back.
+      render: (e) => e.label || "—",
+    },
+    {
+      key: "settlement",
+      header: "Entry",
+      sortable: true,
+      render: (e) => <Badge tone={SETTLEMENT_TONE[e.settlement] || "neutral"}>{e.settlement || "—"}</Badge>,
+    },
+    {
+      key: "amount",
+      header: "Amount",
+      align: "right",
+      sortable: true,
+      sortValue: (e) => Number(e.amountMinor) || 0,
+      // A grant is zero, and showing "—" instead of "0.00" keeps a free entry from reading as a sale
+      // of nothing. What it cost is the next column.
+      render: (e) => (Number(e.amountMinor) ? money(Number(e.amountMinor) / 100, e.currency) : <span className="adtb-sub">—</span>),
+    },
+    {
+      key: "listPrice",
+      header: "List price",
+      align: "right",
+      hideable: true,
+      sortable: true,
+      sortValue: (e) => Number(e.listPriceMinor) || 0,
+      render: (e) => (Number(e.listPriceMinor) ? money(Number(e.listPriceMinor) / 100, e.currency) : "—"),
+    },
+    {
+      key: "provider",
+      header: "Source",
+      hideable: true,
+      sortValue: (e) => e.provider || "",
+      render: (e) => <Badge tone="neutral">{e.provider === "none" ? "grant" : e.provider || "—"}</Badge>,
+    },
+    {
+      key: "date",
+      header: "Date",
+      sortable: true,
+      sortValue: (e) => new Date(e.occurredAt || 0).getTime(),
+      render: (e) => day(e.occurredAt),
+    },
+  ];
+
+  return frame("Challenge entries", total, (
+    <DataTable columns={columns} rows={rows} loading={loading} error={error} onRetry={onRetry}
+      search={false} paginate={false} exportName="challenge-entries"
+      empty={{ title: "No challenge entries", body: "Entries appear here as they are paid or granted." }} />
   ));
 }
 

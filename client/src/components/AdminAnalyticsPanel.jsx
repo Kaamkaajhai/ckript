@@ -29,7 +29,7 @@ const getTimeValue = (value) => {
 
 const getTooltipStyle = (isDark) => ({
     backgroundColor: isDark ? "#221d1d" : "#ffffff",
-    border: `1px solid ${isDark ? "#294468" : "#e5e7eb"}`,
+    border: "1px solid var(--ad-line)",
     borderRadius: 8,
     fontSize: 12,
     boxShadow: isDark ? "0 4px 12px rgba(0,0,0,0.3)" : "0 4px 12px rgba(0,0,0,0.06)",
@@ -67,9 +67,9 @@ const TrendChart = ({ isDark, chartsReady, data }) => {
                     <ResponsiveContainer width="100%" height={240} minWidth={0}>
                         <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: -18 }}>
                             <CartesianGrid strokeDasharray="3 3" stroke={isDark ? "rgba(255,255,255,0.06)" : "#f3f4f6"} vertical={false} />
-                            <XAxis dataKey="label" tick={tick} axisLine={{ stroke: isDark ? "#294468" : "#e5e7eb" }} tickLine={false} minTickGap={24} />
+                            <XAxis dataKey="label" tick={tick} axisLine={{ stroke: "var(--ad-line)" }} tickLine={false} minTickGap={24} />
                             <YAxis allowDecimals={false} tick={tick} axisLine={false} tickLine={false} width={32} />
-                            <Tooltip contentStyle={getTooltipStyle(isDark)} cursor={{ stroke: isDark ? "#294468" : "#e5e7eb" }} />
+                            <Tooltip contentStyle={getTooltipStyle(isDark)} cursor={{ stroke: "var(--ad-line)" }} />
                             {series.map((s) => (
                                 <Line key={s.key} type="monotone" dataKey={s.key} name={s.label} stroke={s.color} strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
                             ))}
@@ -235,7 +235,7 @@ const OverviewTab = ({
                 <StatCard isDark={isDark} label="Live Right Now" value={liveNow} icon="M3 12h4l3 8 4-16 3 8h4" color="bg-emerald-500/15 text-emerald-500" />
                 <StatCard isDark={isDark} label="Returning Rate" value={`${returningRate}%`} icon="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992" color="bg-amber-500/15 text-amber-500" />
                 <StatCard isDark={isDark} label="Total Signups" value={authSummary.totalSignupEvents || 0} icon="M12 4.5v15m7.5-7.5h-15" color="bg-purple-500/15 text-purple-500" />
-                <StatCard isDark={isDark} label="Total Logins" value={authSummary.totalLoginEvents || 0} icon="M11.25 6.75v5.25l3.75 2.25M21 12a9 9 0 11-18 0 9 9 0 0118 0z" color="bg-cyan-500/15 text-cyan-500" />
+                <StatCard isDark={isDark} label="Total Logins" value={authSummary.totalLoginEvents || 0} icon="M11.25 6.75v5.25l3.75 2.25M21 12a9 9 0 11-18 0 9 9 0 0118 0z" color="bg-[var(--ad-info-soft)] text-[var(--ad-info)]" />
             </div>
 
             <Panel isDark={isDark}>
@@ -480,7 +480,7 @@ export default function AdminAnalyticsPanel({
     const tabButtonClass = (key) => (
         `px-3 py-2 rounded-lg text-xs font-bold transition-all ${analyticsSection === key
             ? (isDark ? "bg-[#a83a4d]/25 text-[#f7edee] shadow-sm shadow-[#a83a4d]/20" : "bg-white text-[#a83a4d] shadow-sm")
-            : (isDark ? "text-gray-300 hover:bg-[#1b3558] hover:text-white" : "text-gray-600 hover:bg-white/70")
+            : "text-[var(--ad-ink-2)] hover:bg-[var(--ad-surface-3)] hover:text-[var(--ad-ink)]"
         }`
     );
 
@@ -509,7 +509,7 @@ export default function AdminAnalyticsPanel({
                         type="button"
                         onClick={onRefresh}
                         disabled={refreshing}
-                        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold transition-colors disabled:opacity-50 ${isDark ? "border-[#294468] bg-[#221d1d]/60 text-gray-200 hover:bg-[#1b3558]" : "border-gray-200 text-gray-600 hover:bg-gray-100"}`}
+                        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-bold transition-colors disabled:opacity-50 border-[var(--ad-line)] bg-[var(--ad-surface-2)] text-[var(--ad-ink-2)] hover:bg-[var(--ad-surface-3)]`}
                     >
                         <Icon d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
                         Refresh
@@ -849,7 +849,7 @@ export default function AdminAnalyticsPanel({
                                             <select
                                                 value={registeredSort}
                                                 onChange={(event) => setRegisteredSort(event.target.value)}
-                                                className={`rounded-xl border px-3 py-2 text-xs font-semibold outline-none ${isDark ? "border-[#294468] bg-[#221d1d] text-gray-200" : "border-gray-200 bg-white text-gray-700"}`}
+                                                className={`rounded-xl border px-3 py-2 text-xs font-semibold outline-none border-[var(--ad-line)] bg-[var(--ad-surface-2)] text-[var(--ad-ink-2)]`}
                                             >
                                                 <option value="recent">Sort: Most recent</option>
                                                 <option value="sessions">Sort: Most sessions</option>
@@ -859,7 +859,7 @@ export default function AdminAnalyticsPanel({
                                             <select
                                                 value={analyticsRegisteredStatusFilter}
                                                 onChange={(event) => setAnalyticsRegisteredStatusFilter(event.target.value)}
-                                                className={`rounded-xl border px-3 py-2 text-xs font-semibold outline-none ${isDark ? "border-[#294468] bg-[#221d1d] text-gray-200" : "border-gray-200 bg-white text-gray-700"}`}
+                                                className={`rounded-xl border px-3 py-2 text-xs font-semibold outline-none border-[var(--ad-line)] bg-[var(--ad-surface-2)] text-[var(--ad-ink-2)]`}
                                             >
                                                 <option value="all">All statuses</option>
                                                 <option value="live">Live now</option>
@@ -873,14 +873,14 @@ export default function AdminAnalyticsPanel({
                                         value={analyticsRegisteredSearch}
                                         onChange={(event) => setAnalyticsRegisteredSearch(event.target.value)}
                                         placeholder="Search name, email, role, page, project..."
-                                        className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none ${isDark ? "border-[#294468] bg-[#081221] text-gray-100 placeholder:text-gray-500" : "border-gray-200 bg-slate-50 text-gray-800 placeholder:text-gray-400"}`}
+                                        className={`w-full rounded-xl border px-3 py-2.5 text-sm outline-none border-[var(--ad-line-2)] bg-[var(--ad-surface-2)] text-[var(--ad-ink)] placeholder:text-[var(--ad-ink-3)]`}
                                     />
                                 </div>
                             </div>
 
                             <div className="max-h-[980px] space-y-3 overflow-y-auto p-4">
                                 {sortedRegisteredUsers.length === 0 ? (
-                                    <div className={`rounded-2xl border border-dashed px-4 py-8 text-center text-sm ${isDark ? "border-[#294468] text-gray-500" : "border-gray-300 text-gray-500"}`}>No registered users match this filter.</div>
+                                    <div className={`rounded-2xl border border-dashed px-4 py-8 text-center text-sm border-[var(--ad-line)] text-[var(--ad-ink-3)]`}>No registered users match this filter.</div>
                                 ) : (
                                     sortedRegisteredUsers.slice(0, 120).map((entry) => (
                                         <button
@@ -888,7 +888,7 @@ export default function AdminAnalyticsPanel({
                                             type="button"
                                             onClick={() => fetchAnalyticsUserDetail(String(entry.userId || ""))}
                                             disabled={!entry.userId || analyticsUserDetailLoading}
-                                            className={`w-full rounded-2xl border p-4 text-left transition-all disabled:opacity-60 ${String(selectedUser?.id || "") === String(entry?.userId || "") ? (isDark ? "border-cyan-400/35 bg-cyan-500/10 shadow-[0_0_0_1px_rgba(34,211,238,0.12)]" : "border-cyan-300 bg-cyan-50") : (isDark ? "border-[#2e2828] bg-[#0c172b] hover:border-[#335782] hover:bg-[#10203a]" : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm")}`}
+                                            className={`w-full rounded-2xl border p-4 text-left transition-all disabled:opacity-60 ${String(selectedUser?.id || "") === String(entry?.userId || "") ? "border-[var(--ad-accent)] bg-[var(--ad-accent-soft)]" : "border-[var(--ad-line)] bg-[var(--ad-surface-2)] hover:border-[var(--ad-line-2)] hover:bg-[var(--ad-surface-3)]"}`}
                                         >
                                             <div className="flex items-start gap-3">
                                                 <Avatar isDark={isDark} name={entry.name} />
@@ -975,7 +975,7 @@ export default function AdminAnalyticsPanel({
                                     </div>
 
                                     <div className={`rounded-2xl border px-4 py-3 ${isDark ? "border-[#1f3454] bg-[#0c1a30]" : "border-gray-200 bg-slate-50"}`}>
-                                        <p className={`text-sm ${isDark ? "text-cyan-100/90" : "text-slate-700"}`}>
+                                        <p className={`text-sm text-[var(--ad-ink-2)]`}>
                                             Last seen {formatRelativeTime(selectedSummary.lastActiveAt)} on <span className="font-semibold">{formatPathLabel(selectedUser.latestPath)}</span>
                                             {selectedUser.latestAction ? ` — ${humanizeEventLabel(selectedUser.latestAction)}` : ""}.
                                         </p>
