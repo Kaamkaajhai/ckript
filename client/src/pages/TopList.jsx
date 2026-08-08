@@ -471,7 +471,7 @@ const TopList = () => {
             </button>
             <div className="flex flex-col items-center text-center gap-4">
               <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${dark ? "bg-amber-500/15" : "bg-amber-50"}`}>
-                <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <svg className={`w-6 h-6 ${dark ? "text-amber-400" : "text-amber-600"}`} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                 </svg>
               </div>
@@ -482,7 +482,7 @@ const TopList = () => {
               <div className="flex flex-col gap-2.5 w-full">
                 <button
                   onClick={() => { setShowUpgradeModal(false); openPricingModal(); }}
-                  className="w-full py-2.5 rounded-xl text-sm font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition"
+                  className={`w-full py-2.5 rounded-xl text-sm font-bold border transition ${dark ? "border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20" : "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"}`}
                 >
                   Get Film Industry Professional plan
                 </button>

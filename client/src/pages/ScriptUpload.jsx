@@ -1925,7 +1925,7 @@ const ScriptUpload = () => {
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 sm:p-10 max-w-sm text-center">
           <div className="text-5xl mb-4">🚫</div>
-          <h2 className="text-xl font-bold text-white mb-2">Access Denied</h2>
+          <h2 className={`text-xl font-bold mb-2 ${isDarkMode ? "text-white" : "text-gray-900"}`}>Access Denied</h2>
           <p className="text-sm text-neutral-400">Only creator accounts can upload scripts. Switch to your creator profile to continue.</p>
         </div>
       </div>

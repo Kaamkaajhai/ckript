@@ -918,7 +918,7 @@ const IndustryOnboarding = () => {
           <div className="flex items-center justify-center gap-2 mb-4">
             <BrandLogo className="h-11 w-auto" />
           </div>
-          <p className="text-sm text-gray-600">Industry Professional Registration</p>
+          <p className="text-sm text-gray-400">Industry Professional Registration</p>
         </div>
         
         {/* Progress Steps */}
@@ -932,23 +932,23 @@ const IndustryOnboarding = () => {
                 <div key={step.num} className="flex items-center flex-1">
                   <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition text-xs font-semibold ${
                     isComplete 
-                      ? 'bg-[#111111] border-[#111111] text-white' 
+                      ? 'bg-[#111111] border-gray-300 text-white' 
                       : isActive 
                         ? 'bg-[#0f2544] border-[#0f2544] text-white' 
-                        : 'bg-white border-gray-300 text-gray-400'
+                        : 'bg-white border-gray-300 text-gray-600'
                   }`}>
                     {isComplete ? '' : step.num}
                   </div>
                   <div className="ml-2 hidden sm:block">
                     <div className={`text-xs font-semibold ${
-                      isComplete || isActive ? 'text-[#0a1628]' : 'text-gray-400'
+                      isComplete || isActive ? 'text-white' : 'text-gray-400'
                     }`}>
                       {step.title}
                     </div>
                   </div>
                   {index < steps.length - 1 && (
                     <div className={`flex-1 h-0.5 mx-4 ${
-                      isComplete ? 'bg-[#111111]' : 'bg-gray-300'
+                      isComplete ? 'bg-white' : 'bg-gray-300'
                     }`} />
                   )}
                 </div>

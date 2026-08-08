@@ -90,7 +90,7 @@ const NewProject = () => {
                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${card.iconBg} ${card.iconColor} transition-transform duration-300 group-hover:scale-110`}>
                   {card.icon}
                 </div>
-                <span className={`text-[10px] font-bold uppercase tracking-widest ${dark ? "text-gray-600" : "text-gray-300"}`}>
+                <span className={`text-[10px] font-bold uppercase tracking-widest ${dark ? "text-gray-600" : "text-gray-500"}`}>
                   {card.subtitle}
                 </span>
               </div>
@@ -142,7 +142,7 @@ const NewProject = () => {
       {/* Tip */}
       <motion.div
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }}
-        className={`mt-8 text-center text-xs ${dark ? "text-gray-600" : "text-gray-300"}`}
+        className={`mt-8 text-center text-xs ${dark ? "text-gray-600" : "text-gray-500"}`}
       >
         <span className="font-semibold">Tip:</span> You can start a draft in the editor and later upload a PDF version too.
       </motion.div>

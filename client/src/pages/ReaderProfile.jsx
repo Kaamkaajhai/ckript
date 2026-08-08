@@ -178,7 +178,7 @@ const EditProfileModal = ({ profile, onClose, onSaved }) => {
               />
             </div>
             <div className="flex-1">
-              <p className="text-sm font-bold text-gray-700">Profile Photo</p>
+              <p className={`text-sm font-bold ${dark ? "text-gray-200" : "text-gray-700"}`}>Profile Photo</p>
               <p className="text-[11px] text-gray-400 mt-0.5">JPG, PNG or GIF. Max 5MB.</p>
               <button
                 onClick={() => fileInputRef.current?.click()}
@@ -208,7 +208,7 @@ const EditProfileModal = ({ profile, onClose, onSaved }) => {
           <div>
             <label className="flex items-center justify-between text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-1.5">
               <span>Bio</span>
-              <span className="text-gray-300 normal-case tracking-normal font-semibold">{bio.length}/300</span>
+              <span className={`normal-case tracking-normal font-semibold ${dark ? "text-gray-500" : "text-gray-400"}`}>{bio.length}/300</span>
             </label>
             <textarea
               value={bio}

@@ -96,7 +96,7 @@ const ReviewForm = ({ onSubmit, loading = false, isEditing = false, initialRatin
                 style={{ width: `${charPercent}%` }}
               />
             </div>
-            <span className="text-[11px] text-gray-300 font-semibold tabular-nums">
+            <span className={`text-[11px] font-semibold tabular-nums ${dark ? "text-gray-300" : "text-gray-400"}`}>
               {charCount.toLocaleString()}/2,000
             </span>
           </div>

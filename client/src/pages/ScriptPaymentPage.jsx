@@ -515,7 +515,7 @@ export default function ScriptPaymentPage() {
                   <p className={t.sub}>
                     Platform usage, payment rules, and dispute handling apply to this transaction.
                   </p>
-                  <Link to="/terms-of-service" target="_blank" rel="noreferrer" className="inline-block mt-2 text-[#1e3a5f] hover:underline font-semibold">
+                  <Link to="/terms-of-service" target="_blank" rel="noreferrer" className={`inline-block mt-2 hover:underline font-semibold ${isDarkMode ? "text-blue-300" : "text-[#1e3a5f]"}`}>
                     Read Platform Terms
                   </Link>
                 </div>
@@ -525,7 +525,7 @@ export default function ScriptPaymentPage() {
                   <p className={t.sub}>
                     Rights transfer and writer obligations for approved script access requests apply.
                   </p>
-                  <Link to="/terms-conditions?tab=writer" target="_blank" rel="noreferrer" className="inline-block mt-2 text-[#1e3a5f] hover:underline font-semibold">
+                  <Link to="/terms-conditions?tab=writer" target="_blank" rel="noreferrer" className={`inline-block mt-2 hover:underline font-semibold ${isDarkMode ? "text-blue-300" : "text-[#1e3a5f]"}`}>
                     Read Writer Terms
                   </Link>
                 </div>

@@ -2048,7 +2048,7 @@ const CreateProject = () => {
               transition={{ type: "spring", damping: 24, stiffness: 280 }}
               className={`w-full max-w-md rounded-2xl border p-6 shadow-2xl ${dark ? "bg-[#091322] border-white/[0.08]" : "bg-white border-gray-200"}`}
             >
-              <div className="w-12 h-12 rounded-xl bg-amber-500/15 text-amber-300 flex items-center justify-center mb-4">
+              <div className={`w-12 h-12 rounded-xl flex items-center justify-center mb-4 ${dark ? "bg-amber-500/15 text-amber-300" : "bg-amber-100 text-amber-600"}`}>
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth={2.2} viewBox="0 0 24 24" aria-hidden="true">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
