@@ -40,6 +40,30 @@ const ALLOWED_PROTOCOLS = new Set(["http:", "https:", "blob:"]);
 const DATA_MEDIA = /^data:(image|video|audio)\/([a-z0-9][a-z0-9.+-]*);base64,([a-z0-9+/]+={0,2})$/i;
 
 /**
+ * The characters that could end the attribute this value is about to sit in.
+ *
+ * Very nearly a no-op, and worth being exact about rather than hand-waving. On the data: branch it
+ * provably cannot fire: the string is rebuilt from a fixed media kind, a `[a-z0-9.+-]` subtype and a
+ * base64 payload, and none of those alphabets contains any of the five. On http/https the URL parser
+ * has already encoded `<`, `>` and `"`, so only two cases actually change bytes — a bare `'` in a
+ * path and a backtick in a query — and both are percent-encodings every server decodes before it
+ * resolves anything, so the same resource is fetched. A `blob:` URL has an opaque path the parser
+ * barely touches, so all five would survive there; every blob here comes from createObjectURL and is
+ * hex and dashes, and a hand-typed one carrying a quote is the case where changing it is right.
+ *
+ * It earns its place by making the guarantee LOCAL. Without it, "the returned string cannot break
+ * out of an attribute" is a property inherited from the URL spec's encode sets — true, but true
+ * somewhere else, and it silently stops being true the day someone adds a branch that returns a
+ * string the parser never touched. That is exactly how the data: branch went wrong: it returned its
+ * input verbatim, angle brackets and all, while every other path was safe. Enforcing the invariant
+ * at the single exit means a new branch inherits it instead of having to remember it.
+ */
+const ATTRIBUTE_BREAKERS = /["'<>`]/g;
+
+const encodeAttributeBreakers = (value) =>
+  value.replace(ATTRIBUTE_BREAKERS, (char) => `%${char.charCodeAt(0).toString(16).toUpperCase()}`);
+
+/**
  * @param {unknown} url
  * @param {{ media?: ("image"|"video"|"audio")[] }} [options]
  *   Which data: media types are acceptable. Defaults to images only, which is what an avatar wants;
@@ -93,7 +117,7 @@ export const safeMediaSrc = (url, { media = ["image"] } = {}) => {
     if (!media.includes(kind.toLowerCase())) return "";
     // Reassembled from the matched parts rather than returned as-is, so the string handed back is
     // built here out of pieces that have each been checked, not the caller's string waved through.
-    return `data:${kind.toLowerCase()}/${subtype.toLowerCase()};base64,${payload}`;
+    return encodeAttributeBreakers(`data:${kind.toLowerCase()}/${subtype.toLowerCase()};base64,${payload}`);
   }
 
   let parsed;
@@ -105,7 +129,7 @@ export const safeMediaSrc = (url, { media = ["image"] } = {}) => {
   }
 
   if (!ALLOWED_PROTOCOLS.has(parsed.protocol)) return "";
-  return parsed.href;
+  return encodeAttributeBreakers(parsed.href);
 };
 
 export default safeMediaSrc;
