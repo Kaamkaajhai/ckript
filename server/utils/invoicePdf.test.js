@@ -7,7 +7,9 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import PDFDocument from "pdfkit";
 import { renderInvoicePdfBuffer } from "./invoicePdf.js";
+import { COMPANY } from "./companyContacts.js";
 import { LOGO, SIGNATURE, BRAND } from "./brandAssets.js";
 
 const scriptInvoice = () => ({
@@ -127,6 +129,36 @@ describe("the rendered invoice", () => {
     const buf = await render();
     const images = (buf.toString("latin1").match(/\/Subtype\s*\/Image/g) || []).length;
     assert.ok(images >= 3, `expected the logo and the signature, found ${images} image XObject(s)`);
+  });
+
+  test("the footer states the registered office, not a city the company left", async () => {
+    // The default was "Pune, Maharashtra, India" and no environment variable could change it, so
+    // every invoice ever issued carried an address the company does not use. Assert the real one.
+    assert.match(COMPANY.location, /New Delhi/, "the registered office is not the Delhi one");
+    assert.doesNotMatch(COMPANY.location, /Pune/i, "the Pune default is back");
+    assert.match(COMPANY.location, /110016/, "the registered office lost its PIN code");
+  });
+
+  test("every footer line fits its box instead of being silently clipped", () => {
+    // The address used to share a 45%-wide box with the company name under lineBreak:false. That was
+    // survivable for a city name and would have cut the Delhi address off mid-street — producing a
+    // document that looks complete and states an incomplete address, which is the worst outcome
+    // available. Measure the strings against the boxes they are actually drawn into.
+    const doc = new PDFDocument({ size: "A4", margin: 48 });
+    const width = doc.page.width - 96;
+
+    doc.font("Helvetica").fontSize(7);
+    const addressLine = `${COMPANY.location}   ·   CIN ${COMPANY.cin}`;
+    assert.ok(
+      doc.widthOfString(addressLine) <= width,
+      `address line is ${doc.widthOfString(addressLine).toFixed(1)}pt in a ${width.toFixed(1)}pt box`,
+    );
+
+    doc.font("Helvetica-Bold").fontSize(7.5);
+    assert.ok(
+      doc.widthOfString(COMPANY.legalName) <= width * 0.45,
+      `legal name is ${doc.widthOfString(COMPANY.legalName).toFixed(1)}pt in a ${(width * 0.45).toFixed(1)}pt box`,
+    );
   });
 
   test("the signature does not push the invoice onto a second page", async () => {

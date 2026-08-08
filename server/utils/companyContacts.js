@@ -59,10 +59,26 @@ export const CONTACTS = {
  * changed a thing.
  */
 export const COMPANY = {
-  /** Legal name, as it should read on an invoice. */
+  /** The wordmark on the masthead. Short on purpose — the legal entity is `legalName`. */
   get name() { return env("COMPANY_NAME", "CKRIPT"); },
-  /** Registered address, printed in the document footer. */
-  get location() { return env("COMPANY_LOCATION", "Pune, Maharashtra, India"); },
+  /** The registered entity, for the parts of a document that are a legal disclosure. */
+  get legalName() { return env("COMPANY_LEGAL_NAME", "CKRIPT PRIVATE LIMITED"); },
+  /**
+   * Registered office, printed in the document footer.
+   *
+   * Kept identical to client/src/constants/company.js `registeredOffice`, which is what the landing
+   * footer and the policy pages already show. The default here used to be "Pune, Maharashtra,
+   * India" — an address the company does not use, on the one document a buyer files and an
+   * accountant reads years later.
+   */
+  get location() {
+    return env(
+      "COMPANY_LOCATION",
+      "SUIT-D, 400-A, 4th Floor, 12 Ajit Singh House, Yusuf Sarai Commercial Complex, New Delhi - 110016, India",
+    );
+  },
+  /** Corporate Identity Number. Companies Act s.12(3)(c) requires it on business letters and bills. */
+  get cin() { return env("COMPANY_CIN", "U62099DL2026PTC468691"); },
   /** Who the authorised signature belongs to. */
   get founder() { return env("FOUNDER_NAME", "Yash"); },
 };

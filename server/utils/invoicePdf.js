@@ -28,11 +28,14 @@ import { LOGO, SIGNATURE, BRAND } from "./brandAssets.js";
  * `invoice.pdfDesignVersion` and re-renders once when it is behind.
  *
  * 1 was the original navy-and-rounded-cards layout; 2 is the Ckript document; 3 replaces the
- * typeset founder name with the real authorised signature. 3 matters more than a redesign usually
- * would — an invoice already in someone's hands showing a name where the current one shows a
- * signature is the kind of inconsistency that gets a document questioned.
+ * typeset founder name with the real authorised signature; 4 corrects the registered office in the
+ * footer and adds the CIN. 3 and 4 matter more than a redesign usually would — an invoice already in
+ * someone's hands showing a name where the current one shows a signature, or stating an address the
+ * company does not use, is exactly what gets a document questioned. 4 is separate from 3 rather than
+ * folded into it because 3 shipped first, and anything regenerated in between carries the old
+ * address.
  */
-export const INVOICE_DESIGN_VERSION = 3;
+export const INVOICE_DESIGN_VERSION = 4;
 
 // Read at RENDER time via COMPANY / CONTACTS, never captured here: dotenv.config() runs in
 // server.js's BODY, which is after every import in the graph has already been evaluated, so a
@@ -377,24 +380,36 @@ export const renderInvoicePdfBuffer = async ({
       const savedBottom = doc.page.margins.bottom;
       doc.page.margins.bottom = 0;
 
-      const footY = doc.page.height - 62;
+      const footY = doc.page.height - 70;
       rule(left, footY, width);
-      // lineBreak:false as well: a long company name must be clipped, never wrapped into the void
-      // below the page edge.
-      doc.font("Helvetica").fontSize(7.5).fillColor(BRAND.inkMuted)
-        .text(`${COMPANY.name} · ${COMPANY.location}`, left, footY + 9, { width: width * 0.45, lineBreak: false });
+
+      // Three rows, because the registered office is a real address and no longer a city name.
+      // It previously shared a 45%-wide box with the company name under `lineBreak: false`, which
+      // was fine for "Pune, Maharashtra, India" and would have silently clipped the Delhi address
+      // mid-street — the failure mode being a document that looks finished and states an incomplete
+      // address. The address now owns a full-width line of its own.
+      //
+      // lineBreak stays false throughout: a footer that wraps grows downward, off the page edge.
+      doc.font("Helvetica-Bold").fontSize(7.5).fillColor(BRAND.inkSoft)
+        .text(COMPANY.legalName, left, footY + 9, { width: width * 0.45, lineBreak: false });
+      doc.font("Helvetica").fontSize(7.5).fillColor(BRAND.inkMuted);
       doc.text(CONTACTS.company, left + width * 0.45, footY + 9, {
         width: width * 0.3, align: "center", lineBreak: false,
       });
       doc.text(`Page ${i - range.start + 1} of ${range.count}`, right - width * 0.25, footY + 9, {
         width: width * 0.25, align: "right", lineBreak: false,
       });
+
+      // CIN alongside the address: Companies Act s.12(3)(c) requires it on every business letter
+      // and bill, and an invoice is both.
+      doc.font("Helvetica").fontSize(7).fillColor(BRAND.inkMuted)
+        .text(`${COMPANY.location}   ·   CIN ${COMPANY.cin}`, left, footY + 21, { width, lineBreak: false });
+
       // Reworded because the document now carries a real signature: "valid without a physical
       // signature" directly contradicts the mark above it, and a line that argues with the page it
       // is printed on is worse than no line at all.
-      doc.font("Helvetica").fontSize(7).fillColor(BRAND.inkMuted)
-        .text("This is a computer-generated document. The authorised signature above is affixed electronically.",
-          left, footY + 21, { width, align: "left", lineBreak: false });
+      doc.text("This is a computer-generated document. The authorised signature above is affixed electronically.",
+        left, footY + 32, { width, align: "left", lineBreak: false });
 
       doc.page.margins.bottom = savedBottom;
     }
