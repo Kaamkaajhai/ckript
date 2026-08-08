@@ -210,6 +210,12 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
   "ckm-noti": { kind: PAGE_COMPONENT, owner: "screens/overlays/NotificationsPanel.css", family: "dashboard" },
   // ckm-acct was retired on 2026-08-07 (Phase 2): AccountMenu is now composed
   // from ckm-action-sheet + ckm-confirm and has no CSS of its own.
+
+  // --- Offers and holds (Phase 2 bullet 5) ------------------------------
+  // The industry audience's holds screen at /offer-holds. A family of one: the
+  // screen is a single list with no sections and no overlays of its own, so a
+  // second prefix would be a file with nothing in it.
+  "ckm-holds": { kind: PAGE_FAMILY, owner: "screens/Holds.css", family: "holds" },
 });
 
 /*

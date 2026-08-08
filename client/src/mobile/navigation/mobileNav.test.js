@@ -15,6 +15,43 @@ describe("buildMobileNav — the tab sets come from the desktop presets", () => 
     ]);
   });
 
+  /*
+   * THE APPROVED WRITER BAR (plan §11 Phase 2 bullet 4, approved 2026-08-08).
+   *
+   * The keys above are asserted elsewhere in this file too; this case exists to
+   * make the *product decision* fail a test rather than live in a document.
+   * The alternatives were put to the user with their costs — swapping Projects
+   * back to Create (which leaves a writer's own project list with no entry
+   * point in the compact bar) and adding a fifth tab (which forks mobileKeys
+   * away from the desktop preset, the one thing §8.2 forbids). Neither was
+   * chosen, so a change to this set is a change to an approved decision.
+   *
+   * Labels as well as keys: a rename is as visible to a user as a reorder, and
+   * a key-only assertion would let "Projects" silently become something else.
+   */
+  it("shows exactly the approved writer labels, in the approved order", () => {
+    expect(navFor("writer").tabs.map((t) => t.label)).toEqual([
+      // "Profile", not the rail's "Writer Profile": buildNav shortens the
+      // fourth slot's label for the compact bar, where the audience is already
+      // implied and the wider label would clip at 320px.
+      "Dashboard", "Projects", "Messages", "Profile",
+    ]);
+  });
+
+  it("keeps Create out of the writer's compact bar, but not out of the app", () => {
+    /*
+     * Create gave up its slot to Projects on 2026-08-07 and the user confirmed
+     * that on 2026-08-08. It is still one tap away — the dashboard hero's
+     * primary action — and it keeps its place in the rail and the drawer. This
+     * asserts both halves, because the approval depended on the second one.
+     */
+    const nav = buildNav({ user: { role: "writer", _id: "u1" }, profilePath: "/ada", msgCount: 0 });
+
+    expect(nav.mobile.map((t) => t.key)).not.toContain("create");
+    expect(nav.primary.map((t) => t.key)).toContain("create");
+    expect(nav.drawer.filter((t) => !t.divider).map((t) => t.key)).toContain("create");
+  });
+
   it("gives the industry audience Discover, Featured, Messages and Profile", () => {
     expect(navFor("producer").tabs.map((t) => t.key)).toEqual([
       "home", "featured", "messages", "profile",
