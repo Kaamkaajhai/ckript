@@ -27,8 +27,17 @@ export default function AccountMenu({ open, onClose, onLogout, userName, profile
   const items = [
     { id: "profile", icon: "person", label: "Profile", to: profileHref },
     { id: "contact", icon: "mail", label: "Contact", to: "/contact" },
-    { id: "terms", icon: "description", label: "Terms & Conditions", to: "/terms" },
-    { id: "privacy", icon: "shield", label: "Privacy Policy", to: "/privacy" },
+    /*
+     * CANONICAL paths, not the aliases (2026-08-08, plan §5.2 and §11 Phase 2
+     * bullet 6). These read `/terms` and `/privacy` until now, and App.jsx:481
+     * and :483 mount both as `<Navigate replace>` to the paths below — so every
+     * mobile tap on either item cost a redirect hop that the same item in
+     * desktop's UserMenu does not pay. Desktop links straight here; so does
+     * mobile now. The aliases stay declared in the route manifest because
+     * external links to them exist; they are just not what this app emits.
+     */
+    { id: "terms", icon: "description", label: "Terms & Conditions", to: "/terms-of-service" },
+    { id: "privacy", icon: "shield", label: "Privacy Policy", to: "/privacy-policy" },
     {
       id: "logout",
       icon: "logout",
