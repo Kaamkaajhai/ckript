@@ -2017,7 +2017,7 @@ const AdminDashboard = () => {
                             onChange={(e) => { setCodeInput(e.target.value); setCodeError(""); }}
                             placeholder="Access Code"
                             autoFocus
-                            className="w-full px-4 py-3.5 rounded-xl text-center text-lg font-bold tracking-[0.3em] outline-none border bg-[#0b1426] border-[#2e2828] text-white placeholder-gray-600 focus:border-[#a83a4d]/50 focus:ring-2 focus:ring-[#a83a4d]/20 transition-all"
+                            className="w-full px-4 py-3.5 rounded-xl text-center text-lg font-bold tracking-[0.3em] outline-none border bg-[var(--ad-surface-2)] border-[var(--ad-line-2)] text-[var(--ad-ink)] placeholder:text-[var(--ad-ink-3)] focus:border-[var(--ad-accent)] focus:ring-2 focus:ring-[var(--ad-accent)]/25 transition-all"
                         />
                         {codeError && (
                             <p className="text-red-400 text-sm font-semibold mt-2 text-center">{codeError}</p>
@@ -2284,7 +2284,7 @@ const AdminDashboard = () => {
             return text || "-";
         };
 
-        const sectionClass = `rounded-xl border p-4 ${isDark ? "border-[#2e2828] bg-[#0b1426]" : "border-gray-200 bg-gray-50"}`;
+        const sectionClass = `rounded-xl border p-4 border-[var(--ad-line)] bg-[var(--ad-surface-2)]`;
 
         return (
             <div className="fixed inset-0 z-[220] flex items-center justify-center bg-black/70 backdrop-blur-sm" onClick={onClose}>
@@ -2421,7 +2421,7 @@ const AdminDashboard = () => {
                                             const isPending = status === "pending";
 
                                             return (
-                                                <div key={item.key} className={`rounded-lg border p-3 ${isDark ? "border-[#2e2828] bg-[#091121]" : "border-gray-200 bg-white"}`}>
+                                                <div key={item.key} className={`rounded-lg border p-3 border-[var(--ad-line)] bg-[var(--ad-surface-2)]`}>
                                                     <p className={`text-sm font-bold ${isDark ? "text-gray-100" : "text-gray-900"}`}>{item.label} Membership</p>
                                                     <p className={`text-xs mt-1 ${isDark ? "text-gray-400" : "text-gray-500"}`}>Status: <span className="font-semibold">{status}</span></p>
                                                     <p className={`text-xs ${isDark ? "text-gray-400" : "text-gray-500"}`}>Submitted: {submittedAt}</p>
@@ -2768,7 +2768,7 @@ const AdminDashboard = () => {
                                 onChange={(event) => setAdminDialog((prev) => ({ ...prev, value: event.target.value }))}
                                 rows={4}
                                 placeholder={adminDialog.placeholder}
-                                className="mt-3 w-full rounded-xl border border-[#294468] bg-[#0b1426] px-3 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 outline-none focus:border-[#a83a4d]/60"
+                                className="mt-3 w-full rounded-xl border border-[var(--ad-line-2)] bg-[var(--ad-surface-2)] px-3 py-2.5 text-sm text-[var(--ad-ink)] placeholder:text-[var(--ad-ink-3)] outline-none focus:border-[var(--ad-accent)]"
                             />
                         ) : (
                             <input
@@ -2777,7 +2777,7 @@ const AdminDashboard = () => {
                                 value={adminDialog.value}
                                 onChange={(event) => setAdminDialog((prev) => ({ ...prev, value: event.target.value }))}
                                 placeholder={adminDialog.placeholder}
-                                className="mt-3 w-full rounded-xl border border-[#294468] bg-[#0b1426] px-3 py-2.5 text-sm text-gray-100 placeholder:text-gray-500 outline-none focus:border-[#a83a4d]/60"
+                                className="mt-3 w-full rounded-xl border border-[var(--ad-line-2)] bg-[var(--ad-surface-2)] px-3 py-2.5 text-sm text-[var(--ad-ink)] placeholder:text-[var(--ad-ink-3)] outline-none focus:border-[var(--ad-accent)]"
                             />
                         )
                     )}
@@ -2787,7 +2787,7 @@ const AdminDashboard = () => {
                             autoFocus
                             value={adminDialog.value}
                             onChange={(event) => setAdminDialog((prev) => ({ ...prev, value: event.target.value }))}
-                            className="mt-3 w-full rounded-xl border border-[#294468] bg-[#0b1426] px-3 py-2.5 text-sm text-gray-100 outline-none focus:border-[#a83a4d]/60"
+                            className="mt-3 w-full rounded-xl border border-[var(--ad-line-2)] bg-[var(--ad-surface-2)] px-3 py-2.5 text-sm text-[var(--ad-ink)] outline-none focus:border-[var(--ad-accent)]"
                         >
                             {adminDialog.options?.map((opt) => (
                                 <option key={opt.value} value={opt.value}>
@@ -2852,25 +2852,25 @@ const AdminDashboard = () => {
                         return (
                             <div className="mt-4 space-y-3">
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <div className="rounded-xl border border-[#1f3b61] bg-[#0b1426] px-4 py-3">
+                                    <div className="rounded-xl border border-[var(--ad-line)] bg-[var(--ad-surface-2)] px-4 py-3">
                                         <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Duration</p>
                                         <p className="mt-1 text-sm font-semibold text-white">{summary.duration || "Not set"}</p>
                                     </div>
-                                    <div className="rounded-xl border border-[#1f3b61] bg-[#0b1426] px-4 py-3">
+                                    <div className="rounded-xl border border-[var(--ad-line)] bg-[var(--ad-surface-2)] px-4 py-3">
                                         <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Quality</p>
                                         <p className="mt-1 text-sm font-semibold text-white">{summary.quality || "Not set"}</p>
                                     </div>
-                                    <div className="rounded-xl border border-[#1f3b61] bg-[#0b1426] px-4 py-3">
+                                    <div className="rounded-xl border border-[var(--ad-line)] bg-[var(--ad-surface-2)] px-4 py-3">
                                         <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Layout</p>
                                         <p className="mt-1 text-sm font-semibold text-white">{summary.layout || "Not set"}</p>
                                     </div>
-                                    <div className="rounded-xl border border-[#1f3b61] bg-[#0b1426] px-4 py-3">
+                                    <div className="rounded-xl border border-[var(--ad-line)] bg-[var(--ad-surface-2)] px-4 py-3">
                                         <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Payment</p>
                                         <p className="mt-1 text-sm font-semibold text-white">{summary.price || "Not set"}</p>
                                     </div>
                                 </div>
 
-                                <div className="rounded-xl border border-[#1f3b61] bg-[#0b1426] px-4 py-3">
+                                <div className="rounded-xl border border-[var(--ad-line)] bg-[var(--ad-surface-2)] px-4 py-3">
                                     <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Request Note</p>
                                     <p className="mt-2 text-sm text-gray-200 leading-relaxed whitespace-pre-wrap">
                                         {parsed?.text || "No request note available."}
