@@ -352,13 +352,25 @@ function WriterOnboardingModalInner({ onClose, onComplete }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Persist a sanitised draft (never the password) ──────────
+  // ── Persist a sanitised draft (never the password, never special-category data) ──────────
+  //
+  // The password exclusion was always here; the rest of this is the same rule applied properly.
+  // `profile.diversity` holds gender, nationality, LGBTQ+ status and disability status, and
+  // `account.dateOfBirth` sits alongside them — that is the most sensitive data this app collects
+  // anywhere, and a partially-filled form was writing all of it to browser storage where any
+  // script on the origin can read it back. Nobody decided that; it rode along because the draft
+  // persisted whole objects.
+  //
+  // Stripped rather than encrypted: a key kept next to the ciphertext protects nothing, and the
+  // draft exists to save typing, which these four dropdowns and a date picker barely involve.
   useEffect(() => {
     if (typeof window === "undefined") return;
+    const { dateOfBirth: _dateOfBirth, ...accountDraft } = account;
+    const { diversity: _diversity, ...profileDraft } = profile;
     const payload = {
       step,
-      account: { ...account, password: "" },
-      profile,
+      account: { ...accountDraft, password: "" },
+      profile: profileDraft,
       genres,
       tags,
       accountCreated,

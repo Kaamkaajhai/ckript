@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge, Button, Card, DataTable, SectionHeader, StatusPill } from "../ui";
 import { EXTERNAL_EVENT_PROVIDERS, providerName } from "../../../data/externalEventProviders";
 import ProviderMark from "../../../components/ProviderMark";
-import api from "../../../services/api";
+import { adminApi } from "../dashboardShared";
 
 /**
  * Claims that someone already paid to enter a challenge on another platform.
@@ -35,7 +35,7 @@ export default function ExternalRegistrationsSection() {
     let cancelled = false;
     (async () => {
       try {
-        const { data } = await api.get("/admin/external-registrations", {
+        const { data } = await adminApi.get("/admin/external-registrations", {
           params: { status: status || undefined, provider: provider || undefined, limit: 100 },
         });
         if (cancelled) return;
@@ -78,7 +78,7 @@ export default function ExternalRegistrationsSection() {
     }
     setBusy(`${decision}-${row._id}`);
     try {
-      await api.put(`/admin/external-registrations/${row._id}/${decision}`, { note });
+      await adminApi.put(`/admin/external-registrations/${row._id}/${decision}`, { note });
       setNotes((n) => ({ ...n, [row._id]: "" }));
       setActionError("");
       refresh();
