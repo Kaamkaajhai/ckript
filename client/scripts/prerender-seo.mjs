@@ -28,7 +28,7 @@ function escapeText(value = "") {
 
 function cleanSeoTagsOnce(html) {
   return html
-    .replace(/<title>[\s\S]*?<\/title>/i, "")
+    .replace(/<title>[\s\S]*?<\/title>/gi, "")
     .replace(/<meta\s+name="(?:description|keywords|robots|author|application-name|apple-mobile-web-app-title|theme-color)"[^>]*>\s*/gi, "")
     .replace(/<meta\s+property="og:[^"]+"[^>]*>\s*/gi, "")
     .replace(/<meta\s+name="twitter:[^"]+"[^>]*>\s*/gi, "")
@@ -42,8 +42,8 @@ function cleanSeoTagsOnce(html) {
  * One sweep is not enough. Each pattern above consumes a whole tag, so a tag nested inside another —
  * `<met<meta name="description" content="x">a name="description" content="y">` — has its inner tag
  * eaten while the outer halves are left behind, and they rejoin into a live tag at a position the
- * sweep has already walked past. The `<title>` replace is also non-global, so a second title would
- * survive a single pass outright.
+ * sweep has already walked past. Every pattern here is global for the same reason: a non-global
+ * `<title>` replace lets a second title survive a pass outright.
  *
  * That matters more here than in a runtime sanitiser: whatever this returns is written to disk as the
  * static HTML for a public route, so a stale <title> or description left in place ships as that
