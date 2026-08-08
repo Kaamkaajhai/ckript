@@ -21,10 +21,23 @@ const ALLOWED_PROTOCOLS = new Set(["http:", "https:", "blob:"]);
 
 /**
  * data: URLs are handled separately — `new URL("data:…").href` keeps the whole payload, so parsing
- * buys nothing, and the media type lives in the URL body where `.protocol` cannot see it. Matching
- * the media type explicitly is the check that matters.
+ * buys nothing, and the media type lives in the URL body where `.protocol` cannot see it.
+ *
+ * base64 is REQUIRED, and that is the substantive rule here rather than a formatting preference.
+ * A comma-form data URL carries its payload as literal text, so `data:image/svg+xml,<svg
+ * onload=...>` arrives with real angle brackets in it and the previous version of this function
+ * returned it verbatim. Percent-encoding those would have been theatre — the browser decodes the
+ * payload straight back. Requiring base64 is what actually settles it: the base64 alphabet contains
+ * no `<`, `>`, `"`, `'` or backtick, so the string cannot carry an attribute-breaking character no
+ * matter what it decodes to.
+ *
+ * Nothing real is lost. Every preview in this app is a `blob:` URL from `URL.createObjectURL`, and
+ * the comma form is useless for binary media anyway; only a hand-typed URL reaches this branch.
+ *
+ * SVG stays allowed. It is markup, but an <img> or <video> renders SVG in the browser's secure
+ * static mode, where scripts and external references do not run.
  */
-const DATA_MEDIA = /^data:(image|video|audio)\/[a-z0-9][a-z0-9.+-]*[;,]/i;
+const DATA_MEDIA = /^data:(image|video|audio)\/([a-z0-9][a-z0-9.+-]*);base64,([a-z0-9+/]+={0,2})$/i;
 
 /**
  * @param {unknown} url
@@ -76,7 +89,11 @@ export const safeMediaSrc = (url, { media = ["image"] } = {}) => {
   if (/^data:/i.test(cleaned)) {
     const match = DATA_MEDIA.exec(cleaned);
     if (!match) return "";
-    return media.includes(match[1].toLowerCase()) ? cleaned : "";
+    const [, kind, subtype, payload] = match;
+    if (!media.includes(kind.toLowerCase())) return "";
+    // Reassembled from the matched parts rather than returned as-is, so the string handed back is
+    // built here out of pieces that have each been checked, not the caller's string waved through.
+    return `data:${kind.toLowerCase()}/${subtype.toLowerCase()};base64,${payload}`;
   }
 
   let parsed;
