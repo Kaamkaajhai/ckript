@@ -85,6 +85,97 @@ describe("mobileRoutePolicy — experience selection", () => {
     })).toMatchObject({ experience: "desktop", reason: "unregistered-route" });
   });
 
+  /*
+   * Phase 2 bullet 5. Two routes, two different reasons, and the audience gate
+   * is the load-bearing part of both — so it is asserted from both sides rather
+   * than only from the side that works.
+   */
+  describe("/ai-tools — the dashboard under another name", () => {
+    it.each([writer, creator])("mounts the mobile dashboard for $role", (user) => {
+      /*
+       * App.jsx mounts /dashboard and /ai-tools with the IDENTICAL
+       * <DashboardRoute /> element and pages/Dashboard.jsx never reads the
+       * pathname. Left as a migration fallback, a mobile writer got the desktop
+       * dashboard at one alias and the mobile one at the other.
+       */
+      expect(resolveMobileExperience({
+        isMobile: true,
+        authLoading: false,
+        user,
+        pathname: "/ai-tools",
+      })).toMatchObject({
+        experience: "mobile",
+        routeId: "ai-tools",
+        screenId: "dashboard",
+      });
+    });
+
+    it("does not hand it to an industry audience, whose dashboard is different", () => {
+      expect(resolveMobileExperience({
+        isMobile: true,
+        authLoading: false,
+        user: producer,
+        pathname: "/ai-tools",
+      })).toMatchObject({
+        experience: "desktop",
+        disposition: "desktop-migration-fallback",
+        reason: "audience-not-implemented",
+      });
+    });
+  });
+
+  describe("/offer-holds — an industry screen in the writer phase", () => {
+    it.each([producer, { id: "investor-1", role: "investor" }, { id: "director-1", role: "director" }])(
+      "mounts the holds screen for $role",
+      (user) => {
+        expect(resolveMobileExperience({
+          isMobile: true,
+          authLoading: false,
+          user,
+          pathname: "/offer-holds",
+        })).toMatchObject({
+          experience: "mobile",
+          routeId: "offer-holds",
+          screenId: "holds",
+        });
+      },
+    );
+
+    it.each([writer, creator])("leaves $role on the desktop route", (user) => {
+      /*
+       * Not a preference. holdScript() 403s any role that is not
+       * investor/producer/director (scriptController.js:4770) and getMyHolds()
+       * queries { holder: req.user._id } — so this route's only endpoint
+       * returns [] for a writer unconditionally, forever. Mounting an
+       * empty-forever screen would be worse than the desktop fallback.
+       */
+        expect(resolveMobileExperience({
+          isMobile: true,
+          authLoading: false,
+          user,
+          pathname: "/offer-holds",
+        })).toMatchObject({
+          experience: "desktop",
+          disposition: "desktop-migration-fallback",
+          reason: "audience-not-implemented",
+        });
+    });
+
+    it("does not mount either screen for a signed-out visitor", () => {
+      ["/offer-holds", "/ai-tools"].forEach((pathname) => {
+        expect(resolveMobileExperience({
+          isMobile: true,
+          authLoading: false,
+          user: null,
+          pathname,
+        })).toMatchObject({
+          experience: "desktop",
+          reason: "authentication-required",
+        });
+      });
+    });
+  });
+
   it("leaves the preview route to its deterministic App.jsx fixture", () => {
     expect(resolveMobileExperience({
       isMobile: true,

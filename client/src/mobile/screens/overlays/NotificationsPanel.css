@@ -1,99 +1,112 @@
-.ckm .ckm-noti__layer {
-  position: absolute;
-  inset: 0;
-  z-index: 60;
-}
-.ckm .ckm-noti__scrim {
-  position: absolute;
-  inset: 0;
-  background: rgba(20, 18, 15, 0.16);
-}
-.ckm .ckm-noti {
-  position: absolute;
-  top: calc(96px + var(--ckm-safe-top));
-  right: 14px;
-  left: 52px;
-  background: #fff;
-  border: 1px solid var(--ckm-line);
-  border-radius: var(--ckm-r-lg);
-  overflow: hidden;
-  box-shadow: var(--ckm-shadow-pop);
-  transform-origin: top right;
-}
-.ckm .ckm-noti__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 14px;
-  border-bottom: 1px solid #f0ebe0;
-}
-.ckm .ckm-noti__title {
-  font: 700 13px/1 var(--ckm-body);
-}
-.ckm .ckm-noti__count {
-  color: var(--ckm-muted-2);
-  font-weight: 500;
-}
-.ckm .ckm-noti__markall {
-  border: none;
-  background: transparent;
-  font: 600 11px/1 var(--ckm-body);
-  color: var(--ckm-muted-2);
-  cursor: pointer;
-}
-.ckm .ckm-noti__markall:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
+/* The sheet's header (title, unread count, Mark all read, close) is rendered
+   by components/overlays/Sheet: ckm-bottom-sheet owns it. */
+
 .ckm .ckm-noti__list {
-  max-height: 320px;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 .ckm .ckm-noti__item {
+  position: relative;
   display: flex;
-  gap: 11px;
   align-items: flex-start;
-  padding: 12px 14px;
-  border-top: 1px solid var(--ckm-track);
-}
-.ckm .ckm-noti__item:first-child {
-  border-top: none;
+  gap: 11px;
+  padding: 12px 10px;
+  border-radius: 12px;
+  border-bottom: 1px solid var(--ckm-line-3);
 }
 .ckm .ckm-noti__item.is-unread {
-  background: var(--ckm-accent-soft);
+  background: var(--ckm-accent-tint);
+}
+.ckm .ckm-noti__item:last-child {
+  border-bottom: none;
 }
 .ckm .ckm-noti__icon {
-  width: 32px;
-  height: 32px;
-  flex: none;
-  border-radius: 10px;
-  background: #f2efe8;
-  color: var(--ckm-text-3);
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: none;
+  border-radius: 10px;
+  background: var(--ckm-bg-soft);
+  color: var(--ckm-text-3);
 }
 .ckm .ckm-noti__icon.is-unread {
-  background: #fbeeeb;
-  color: var(--ckm-accent);
+  background: #fff;
+  color: var(--ckm-accent-ink);
 }
 .ckm .ckm-noti__body {
   flex: 1;
   min-width: 0;
 }
+
+/*
+ * The row's tap target is this button, stretched over the whole item by its
+ * ::after. Dismiss and the decision buttons sit above it via z-index, so they
+ * are siblings — never children — of the thing that navigates.
+ */
+.ckm .ckm-noti__open {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+.ckm .ckm-noti__open::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+}
 .ckm .ckm-noti__text {
-  font: 400 12px/1.4 var(--ckm-body);
+  display: block;
+  font: 400 13px/1.45 var(--ckm-body);
+  color: var(--ckm-text-2);
+}
+.ckm .ckm-noti__text b {
+  font-weight: 700;
+  color: var(--ckm-ink);
 }
 .ckm .ckm-noti__time {
-  font: 400 10.5px/1 var(--ckm-body);
-  color: var(--ckm-muted-2);
-  margin-top: 4px;
+  display: block;
+  font: 500 11px/1 var(--ckm-body);
+  color: var(--ckm-text-3);
+  margin-top: 6px;
 }
-.ckm .ckm-noti__unread-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--ckm-accent);
+
+.ckm .ckm-noti__actions {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.ckm .ckm-noti__dismiss {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex: none;
-  margin-top: 4px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 9px;
+  background: none;
+  color: var(--ckm-text-3);
+  cursor: pointer;
+}
+/* 32px drawn, 44px reachable. */
+.ckm .ckm-noti__dismiss::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
 }

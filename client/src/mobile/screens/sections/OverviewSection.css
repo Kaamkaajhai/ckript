@@ -36,20 +36,34 @@
   color: var(--ckm-ink);
 }
 .ckm .ckm-ov__profile-sub {
+  /* was --ckm-muted at 3.36:1 on the warm card (2026-08-07 sweep) */
   font: 400 11.5px/1.35 var(--ckm-body);
-  color: var(--ckm-muted);
+  color: var(--ckm-text-3);
   margin-top: 3px;
 }
 .ckm .ckm-ov__edit {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* 44px minimum touch target reached without a 44px-tall pill: the visible
+     box stays 32px and the ::after below extends the hit region. */
+  position: relative;
   height: 32px;
   padding: 0 13px;
-  border: 1px solid #d7d0c2;
+  border: 1px solid var(--ckm-line-strong);
   background: #fff;
   border-radius: 9px;
   font: 600 11.5px/1 var(--ckm-body);
   color: var(--ckm-ink);
+  text-decoration: none;
   cursor: pointer;
+}
+.ckm .ckm-ov__edit::after {
+  content: "";
+  position: absolute;
+  inset: -6px -2px;
+  min-height: 44px;
 }
 
 /* ---- Hero ---- */
@@ -126,14 +140,16 @@
   background: #ece6da;
 }
 .ckm .ckm-ov__badge {
-  font: 700 9px/1 var(--ckm-body);
-  letter-spacing: 1.2px;
+  /* was 9px / --ckm-gold at 3.02:1 (2026-08-07 sweep) */
+  font: 700 11px/1 var(--ckm-body);
+  letter-spacing: 0.8px;
   text-transform: uppercase;
-  color: var(--ckm-gold);
-  background: #fdf7e8;
+  color: var(--ckm-gold-ink);
+  background: var(--ckm-gold-bg);
   border: 1px solid #f0d9a0;
   border-radius: 5px;
   padding: 4px 7px;
+  white-space: nowrap;
 }
 
 /* ---- At a Glance grid ---- */
@@ -157,21 +173,22 @@
   border-bottom: 1px solid var(--ckm-line-3);
 }
 .ckm .ckm-ov__glance-label {
+  /* was 8.5px / --ckm-muted-2 at 2.69:1 (2026-08-07 sweep) */
   display: flex;
   align-items: center;
   gap: 6px;
-  font: 700 8.5px/1 var(--ckm-body);
-  letter-spacing: 1px;
+  font: 700 11px/1.2 var(--ckm-body);
+  letter-spacing: 0.6px;
   text-transform: uppercase;
-  color: var(--ckm-muted-2);
+  color: var(--ckm-text-3);
 }
 .ckm .ckm-ov__glance-value {
   font: 500 28px/1 var(--ckm-display);
   margin-top: 9px;
 }
-.ckm .ckm-ov__glance-note {
-  font: 500 10px/1 var(--ckm-body);
-  color: var(--ckm-muted-2);
+.ckm .ckm-ov__glance-note:not(:empty) {
+  font: 500 11px/1 var(--ckm-body);
+  color: var(--ckm-text-3);
   margin-top: 6px;
 }
 .ckm .ckm-ov__glance-note.is-up {
@@ -198,8 +215,10 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font: 700 8.5px/1 var(--ckm-body);
-  letter-spacing: 1.1px;
+  /* was 8.5px (2026-08-07 sweep); #b7b0a4 on --ckm-ink is 8.5:1 so only the
+     size needed correcting here. */
+  font: 700 11px/1.2 var(--ckm-body);
+  letter-spacing: 0.6px;
   text-transform: uppercase;
   color: #b7b0a4;
 }
@@ -214,76 +233,102 @@
   margin-top: 10px;
 }
 .ckm .ckm-ov__score-out {
+  /* was #7a746a at 3.0:1 on --ckm-ink (2026-08-07 sweep) */
   font-size: 13px;
-  color: #7a746a;
+  color: #b7b0a4;
 }
 .ckm .ckm-ov__score-note {
-  font: 500 10.5px/1 var(--ckm-body);
-  color: #9b9488;
+  /* was 10.5px (2026-08-07 sweep) */
+  font: 500 11px/1.3 var(--ckm-body);
+  color: #b7b0a4;
   margin-top: 8px;
 }
 .ckm .ckm-ov__mover {
   flex: 1;
+  display: block;
   border: 1px solid var(--ckm-line);
   border-radius: var(--ckm-r-lg);
   padding: 15px 16px;
   background: #fff;
+  color: inherit;
+  text-decoration: none;
 }
 .ckm .ckm-ov__mover-head {
+  /* was 8.5px (2026-08-07 sweep) */
   display: flex;
   align-items: center;
   gap: 6px;
-  font: 700 8.5px/1 var(--ckm-body);
-  letter-spacing: 1.1px;
+  font: 700 11px/1.2 var(--ckm-body);
+  letter-spacing: 0.6px;
   text-transform: uppercase;
-  color: var(--ckm-accent);
+  color: var(--ckm-accent-ink);
 }
 .ckm .ckm-ov__mover-title {
+  display: block;
   font: 600 18px/1.15 var(--ckm-display);
   margin-top: 10px;
 }
 .ckm .ckm-ov__mover-note {
-  font: 600 10.5px/1 var(--ckm-body);
-  color: var(--ckm-green);
+  /* was 10.5px / --ckm-green (2026-08-07 sweep). It reads a view count, not a
+     rise, so the success colour was also making a claim the number does not. */
+  display: block;
+  font: 600 11px/1.2 var(--ckm-body);
+  color: var(--ckm-text-3);
   margin-top: 8px;
 }
 
 /* ---- Top scripts ---- */
 .ckm .ckm-ov__top {
-  margin-top: 10px;
-}
-.ckm .ckm-ov__top-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 11px 0;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
 }
 .ckm .ckm-ov__top-row.has-divider {
   border-bottom: 1px solid var(--ckm-track);
 }
+.ckm .ckm-ov__top-link {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  /* 11px → 12px vertical padding lifts the row past the 44px floor with the
+     13px title and 11px meta line inside it. */
+  padding: 12px 0;
+  min-height: 44px;
+  color: inherit;
+  text-decoration: none;
+}
 .ckm .ckm-ov__top-rank {
+  /* was --ckm-faint at 1.82:1 (2026-08-07 sweep) */
   font: 600 18px/1 var(--ckm-display);
-  color: var(--ckm-faint);
+  color: var(--ckm-text-3);
   width: 20px;
+  flex: none;
 }
 .ckm .ckm-ov__top-rank.is-first {
-  color: var(--ckm-accent);
+  color: var(--ckm-accent-ink);
 }
 .ckm .ckm-ov__top-main {
   flex: 1;
   min-width: 0;
 }
 .ckm .ckm-ov__top-title {
+  display: block;
   font: 600 13px/1.2 var(--ckm-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ckm .ckm-ov__top-meta {
-  font: 500 10px/1 var(--ckm-body);
-  color: var(--ckm-muted-2);
+  /* was 10px / --ckm-muted-2 (2026-08-07 sweep) */
+  display: block;
+  font: 500 11px/1.2 var(--ckm-body);
+  color: var(--ckm-text-3);
   margin-top: 4px;
 }
 .ckm .ckm-ov__top-views {
   font: 700 12px/1 var(--ckm-body);
   color: var(--ckm-ink);
+  flex: none;
 }
 
 /* ---- Full analytics ---- */
