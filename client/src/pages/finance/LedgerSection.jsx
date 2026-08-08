@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import api from "../../services/api";
+import api from "../../services/financeApi";
 import { Button, Card, DataTable, Pager, SectionHeader, StatusPill } from "../admin/ui";
 
 /**
