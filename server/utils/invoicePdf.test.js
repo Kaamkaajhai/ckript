@@ -8,7 +8,7 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { renderInvoicePdfBuffer } from "./invoicePdf.js";
-import { LOGO, BRAND } from "./brandAssets.js";
+import { LOGO, SIGNATURE, BRAND } from "./brandAssets.js";
 
 const scriptInvoice = () => ({
   _id: "68b3f0a41d2c9e5544a1c7e2",
@@ -77,6 +77,31 @@ describe("the brand assets a document depends on", () => {
   test("the accent is the red from the logo itself", () => {
     assert.equal(BRAND.accent.toUpperCase(), "#D14D37");
   });
+
+  test("the authorised signature ships inside server/, like the logo", () => {
+    // Same deploy trap the logo hit: an asset that only exists in a monorepo checkout silently
+    // degrades on a server-only deploy, and the invoices customers actually receive are the
+    // unsigned ones — while the code plainly says a signature is drawn.
+    assert.ok(SIGNATURE.path, "no signature asset is readable");
+    assert.match(SIGNATURE.path.replace(/\\/g, "/"), /\/server\/assets\//, "signature is not deploy-safe");
+  });
+
+  test("the signature's aspect matches the actual file, not a guess", () => {
+    // The constant and the asset drift apart the moment someone re-exports the signature. Read the
+    // real dimensions out of the PNG header and hold the ratio to them.
+    const png = fs.readFileSync(SIGNATURE.path);
+    assert.equal(png.subarray(1, 4).toString(), "PNG", "signature asset is not a PNG");
+    const width = png.readUInt32BE(16);
+    const height = png.readUInt32BE(20);
+    assert.ok(
+      Math.abs(SIGNATURE.ratio - width / height) < 0.01,
+      `SIGNATURE.ratio is ${SIGNATURE.ratio} but the asset is ${width}x${height} (${(width / height).toFixed(3)})`,
+    );
+
+    const [w, h] = SIGNATURE.boxForWidth(132);
+    assert.equal(w, 132);
+    assert.ok(Math.abs(w / h - SIGNATURE.ratio) < 0.02, "boxForWidth distorts the signature");
+  });
 });
 
 describe("the rendered invoice", () => {
@@ -95,6 +120,22 @@ describe("the rendered invoice", () => {
     assert.match(buf.toString("latin1"), /\/Subtype\s*\/Image/, "no image embedded — logo fell back");
   });
 
+  test("embeds the signature as well as the logo", async () => {
+    // Both are transparent PNGs, so each contributes an image plus its alpha mask. One image alone
+    // means the authorisation block fell back to the typeset name and nobody would notice from the
+    // code — which is exactly what this document used to do on purpose.
+    const buf = await render();
+    const images = (buf.toString("latin1").match(/\/Subtype\s*\/Image/g) || []).length;
+    assert.ok(images >= 3, `expected the logo and the signature, found ${images} image XObject(s)`);
+  });
+
+  test("the signature does not push the invoice onto a second page", async () => {
+    // The signature block is taller than the line of italic text it replaced. If it ever stops
+    // fitting, the symptom is a blank-looking second sheet on every invoice.
+    const buf = await render();
+    assert.equal(pageCount(buf), 1, "the signature block overflowed the page");
+  });
+
   test("a competition entry renders without a script and stays one page", async () => {
     const buf = await renderInvoicePdfBuffer({
       invoice: {
@@ -105,7 +146,10 @@ describe("the rendered invoice", () => {
         kind: "competition_registration",
         currency: "USD",
         amountCharged: 25,
-        rows: [{ item: "Competition Entry Fee", type: "registration", detail: "Global Script Challenge", amountLabel: "USD 25.00" }],
+        // "Registration", matching what competitionController actually emits — every other row type
+        // on a real invoice is capitalised, and a fixture that disagrees with production is a
+        // fixture that stops catching how production looks.
+        rows: [{ item: "Competition Entry Fee", type: "Registration", detail: "Global Script Challenge", amountLabel: "USD 25.00" }],
       },
       creatorName: "Aditi Rao",
       details: { title: "Entry Details", lines: ["Global Script Challenge", "Entry Fee: USD 25.00"] },

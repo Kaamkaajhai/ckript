@@ -49,6 +49,25 @@ export const CONTACTS = {
 };
 
 /**
+ * The company as it appears on a document: legal name, address, and who signs.
+ *
+ * These live here, as getters, for exactly the reason the block above does. invoicePdf.js carried a
+ * comment explaining the import-hoisting trap and then declared `const COMPANY_LOCATION =
+ * process.env.COMPANY_LOCATION || "Pune, Maharashtra, India"` on the next line — so the fix reached
+ * the email address and skipped the three constants beneath it. Every invoice printed the Pune
+ * address whatever the environment said, and setting COMPANY_LOCATION in .env would not have
+ * changed a thing.
+ */
+export const COMPANY = {
+  /** Legal name, as it should read on an invoice. */
+  get name() { return env("COMPANY_NAME", "CKRIPT"); },
+  /** Registered address, printed in the document footer. */
+  get location() { return env("COMPANY_LOCATION", "Pune, Maharashtra, India"); },
+  /** Who the authorised signature belongs to. */
+  get founder() { return env("FOUNDER_NAME", "Yash"); },
+};
+
+/**
  * The block that closes every outgoing template.
  *
  * All three addresses appear together on purpose: a reader who needs a different desk should not
