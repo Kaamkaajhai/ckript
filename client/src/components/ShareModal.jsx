@@ -33,9 +33,11 @@ const platforms = (script) => {
       id: "twitter",
       label: "Twitter / X",
       emoji: "𝕏",
-      color: "text-gray-900",
-      bg: "bg-gray-900/10",
-      border: "border-gray-900/15",
+      // gray-500, not gray-900: the five sibling platforms are mid-tone hues that read on both the
+      // white and the #0d1829 sheet, and the near-black original collapsed into the dark one.
+      color: "text-gray-500",
+      bg: "bg-gray-500/10",
+      border: "border-gray-500/15",
       href: `https://twitter.com/intent/tweet?text=${text}&url=${url}`,
     },
     {

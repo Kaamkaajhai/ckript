@@ -1970,7 +1970,7 @@ const Profile = () => {
                               {revealedProfileContact?.email || profile.email}
                             </a>
                           ) : (
-                            <span className={`text-[15px] italic ${dark ? "text-gray-500" : "text-gray-300"}`}>Not available</span>
+                            <span className={`text-[15px] italic ${dark ? "text-gray-500" : "text-gray-500"}`}>Not available</span>
                           )}
                         </div>
                         <div className="flex items-start justify-between gap-3 max-[640px]:flex-col max-[640px]:items-start">
@@ -1980,7 +1980,7 @@ const Profile = () => {
                               {revealedProfileContact?.phone || profile.phone}
                             </a>
                           ) : (
-                            <span className={`text-[15px] italic ${dark ? "text-gray-500" : "text-gray-300"}`}>Not available</span>
+                            <span className={`text-[15px] italic ${dark ? "text-gray-500" : "text-gray-500"}`}>Not available</span>
                           )}
                         </div>
                         <div>
@@ -2000,7 +2000,7 @@ const Profile = () => {
                               ))}
                             </div>
                           ) : (
-                            <p className={`text-[13px] italic ${dark ? "text-gray-500" : "text-gray-300"}`}>No links shared</p>
+                            <p className={`text-[13px] italic ${dark ? "text-gray-500" : "text-gray-500"}`}>No links shared</p>
                           )}
                         </div>
                       </div>

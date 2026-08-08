@@ -366,11 +366,11 @@ const ScriptReader = () => {
                   (!myReview || editingReview) ? (
                     <ReviewForm onSubmit={handleSubmitReview} loading={submitLoading} isEditing={!!editingReview} initialRating={editingReview?.rating || 0} initialComment={editingReview?.comment || ""} />
                   ) : (
-                    <div className={`bg-white rounded-2xl border shadow-sm p-5 text-center ${dark ? "bg-[#101e30] border-[#333]" : "border-gray-100"}`}>
+                    <div className={`rounded-2xl border shadow-sm p-5 text-center ${dark ? "bg-[#101e30] border-[#333]" : "bg-white border-gray-100"}`}>
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center mx-auto mb-3 ${dark ? "bg-emerald-500/15" : "bg-emerald-50"}`}>
                         <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                       </div>
-                      <p className="text-sm font-bold text-gray-800 mb-0.5">Review submitted</p>
+                      <p className={`text-sm font-bold mb-0.5 ${dark ? "text-gray-200" : "text-gray-800"}`}>Review submitted</p>
                       <p className="text-xs text-gray-400 font-medium">You can edit or delete your review from below.</p>
                     </div>
                   )

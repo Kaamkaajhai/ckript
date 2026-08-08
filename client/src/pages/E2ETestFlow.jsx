@@ -912,7 +912,7 @@ const E2ETestFlow = () => {
                   <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${step.badgeBg}`}>
                     <step.Icon className={`w-4.5 h-4.5 ${step.color}`} />
                   </div>
-                  <span className={`text-[10px] font-black ${dark ? "text-gray-600" : "text-gray-300"}`}>
+                  <span className={`text-[10px] font-black ${dark ? "text-gray-600" : "text-gray-500"}`}>
                     {String(step.index).padStart(2, "0")}
                   </span>
                 </div>
@@ -977,7 +977,7 @@ const E2ETestFlow = () => {
 
               {/* Connector line between steps */}
               {idx < STEPS.length - 1 && (
-                <div className={`mx-5 mb-0 pb-0 flex items-center gap-2 ${dark ? "text-gray-700" : "text-gray-200"}`}>
+                <div className={`mx-5 mb-0 pb-0 flex items-center gap-2 ${dark ? "text-gray-700" : "text-gray-400"}`}>
                   <div className={`flex-1 h-px ${dark ? "bg-[#1a3050]" : "bg-gray-100"}`} />
                   <ArrowRight size={12} />
                   <div className={`flex-1 h-px ${dark ? "bg-[#1a3050]" : "bg-gray-100"}`} />

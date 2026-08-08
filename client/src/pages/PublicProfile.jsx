@@ -336,7 +336,7 @@ const PublicProfile = () => {
                           ))}
                         </div>
                       ) : (
-                        <p className={`text-[13px] italic ${dark ? "text-gray-500" : "text-gray-300"}`}>No genres selected</p>
+                        <p className={`text-[13px] italic ${dark ? "text-gray-500" : "text-gray-500"}`}>No genres selected</p>
                       )}
                     </div>
 
@@ -349,7 +349,7 @@ const PublicProfile = () => {
                           ))}
                         </div>
                       ) : (
-                        <p className={`text-[13px] italic ${dark ? "text-gray-500" : "text-gray-300"}`}>No tags shared</p>
+                        <p className={`text-[13px] italic ${dark ? "text-gray-500" : "text-gray-500"}`}>No tags shared</p>
                       )}
                     </div>
                   </div>
@@ -391,13 +391,13 @@ const PublicProfile = () => {
                       <div className="flex items-start justify-between gap-3 max-[640px]:flex-col max-[640px]:items-start">
                         <span className={`text-[15px] ${dark ? "text-gray-400" : "text-gray-400"}`}>Company</span>
                         <span className={`text-[15px] font-semibold text-right max-[420px]:text-left break-words [overflow-wrap:anywhere] ${dark ? "text-gray-200" : "text-gray-700"}`}>
-                          {profile.industryProfile?.company || <span className={`italic font-normal ${dark ? "text-gray-500" : "text-gray-300"}`}>Not set</span>}
+                          {profile.industryProfile?.company || <span className={`italic font-normal ${dark ? "text-gray-500" : "text-gray-500"}`}>Not set</span>}
                         </span>
                       </div>
                       <div className="flex items-start justify-between gap-3 max-[640px]:flex-col max-[640px]:items-start">
                         <span className={`text-[15px] ${dark ? "text-gray-400" : "text-gray-400"}`}>Job Title</span>
                         <span className={`text-[15px] font-semibold text-right max-[420px]:text-left break-words [overflow-wrap:anywhere] ${dark ? "text-gray-200" : "text-gray-700"}`}>
-                          {profile.industryProfile?.jobTitle || <span className={`italic font-normal ${dark ? "text-gray-500" : "text-gray-300"}`}>Not set</span>}
+                          {profile.industryProfile?.jobTitle || <span className={`italic font-normal ${dark ? "text-gray-500" : "text-gray-500"}`}>Not set</span>}
                         </span>
                       </div>
                       <div className="flex items-start justify-between gap-3 max-[640px]:flex-col max-[640px]:items-start">
@@ -405,7 +405,7 @@ const PublicProfile = () => {
                         <span className={`text-[15px] font-semibold text-right max-[420px]:text-left break-words [overflow-wrap:anywhere] ${dark ? "text-gray-200" : "text-gray-700"}`}>
                           {profile.industryProfile?.subRole
                             ? formatIndustrySubRole(profile.industryProfile.subRole, profile.industryProfile?.subRoleOther)
-                            : <span className={`italic font-normal ${dark ? "text-gray-500" : "text-gray-300"}`}>Not set</span>}
+                            : <span className={`italic font-normal ${dark ? "text-gray-500" : "text-gray-500"}`}>Not set</span>}
                         </span>
                       </div>
                     </div>
@@ -431,7 +431,7 @@ const PublicProfile = () => {
                             ))}
                           </div>
                         ) : (
-                          <p className={`text-[13px] italic ${dark ? "text-gray-500" : "text-gray-300"}`}>No genres selected</p>
+                          <p className={`text-[13px] italic ${dark ? "text-gray-500" : "text-gray-500"}`}>No genres selected</p>
                         )}
                       </div>
 
@@ -444,7 +444,7 @@ const PublicProfile = () => {
                             ))}
                           </div>
                         ) : (
-                          <p className={`text-[13px] italic ${dark ? "text-gray-500" : "text-gray-300"}`}>No formats selected</p>
+                          <p className={`text-[13px] italic ${dark ? "text-gray-500" : "text-gray-500"}`}>No formats selected</p>
                         )}
                       </div>
 

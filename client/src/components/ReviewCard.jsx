@@ -59,7 +59,7 @@ const ReviewCard = ({ review, currentUserId, onEdit, onDelete }) => {
               onError={(e) => { e.target.style.display = "none"; }}
             />
           ) : (
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#111111]/10 to-[#333333]/10 flex items-center justify-center text-sm font-bold text-[#111111] shrink-0">
+            <div className={`w-10 h-10 rounded-xl bg-gradient-to-br from-[#111111]/10 to-[#333333]/10 flex items-center justify-center text-sm font-bold shrink-0 ${dark ? "text-gray-100" : "text-[#111111]"}`}>
               {review.user?.name?.charAt(0)?.toUpperCase() || "U"}
             </div>
           )}
@@ -72,7 +72,7 @@ const ReviewCard = ({ review, currentUserId, onEdit, onDelete }) => {
                 </span>
               )}
             </div>
-            <p className="text-[11px] text-gray-300 font-medium mt-0.5">{timeAgo(review.createdAt)}</p>
+            <p className={`text-[11px] font-medium mt-0.5 ${dark ? "text-gray-300" : "text-gray-400"}`}>{timeAgo(review.createdAt)}</p>
           </div>
 
           {/* Owner actions */}
@@ -80,7 +80,7 @@ const ReviewCard = ({ review, currentUserId, onEdit, onDelete }) => {
             <div className="flex gap-0.5 shrink-0 -mt-0.5">
               <button
                 onClick={() => onEdit?.(review)}
-                className="p-2 text-gray-300 hover:text-[#111111] hover:bg-[#111111]/[0.05] rounded-lg transition-colors"
+                className={`p-2 text-gray-300 rounded-lg transition-colors ${dark ? "hover:text-white hover:bg-white/[0.06]" : "hover:text-[#111111] hover:bg-[#111111]/[0.05]"}`}
                 title="Edit"
               >
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">

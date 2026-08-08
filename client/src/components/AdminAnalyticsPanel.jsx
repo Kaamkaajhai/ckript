@@ -283,7 +283,7 @@ const OverviewTab = ({
                             <p className={`text-xs font-bold uppercase tracking-wide ${isDark ? "text-gray-400" : "text-gray-500"}`}>Returning Visitor Alerts</p>
                             <p className={`mt-1 text-2xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>{alerts.length}</p>
                         </div>
-                        <button type="button" onClick={() => setAnalyticsSection("anonymous")} className="shrink-0 text-xs font-bold text-[#e79aa6] hover:text-[#e79aa6]">
+                        <button type="button" onClick={() => setAnalyticsSection("anonymous")} className="shrink-0 text-xs font-bold text-[var(--ad-accent-ink)] hover:text-[var(--ad-accent-ink)]">
                             View all →
                         </button>
                     </div>
@@ -305,7 +305,7 @@ const OverviewTab = ({
                             <p className={`text-xs font-bold uppercase tracking-wide ${isDark ? "text-gray-400" : "text-gray-500"}`}>Recent Login / Signup Events</p>
                             <p className={`mt-1 text-2xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>{recentAuthEvents.length}</p>
                         </div>
-                        <button type="button" onClick={() => setAnalyticsSection("registered")} className="shrink-0 text-xs font-bold text-[#e79aa6] hover:text-[#e79aa6]">
+                        <button type="button" onClick={() => setAnalyticsSection("registered")} className="shrink-0 text-xs font-bold text-[var(--ad-accent-ink)] hover:text-[var(--ad-accent-ink)]">
                             View all →
                         </button>
                     </div>
@@ -583,7 +583,7 @@ export default function AdminAnalyticsPanel({
                             <PanelHeading
                                 isDark={isDark}
                                 action={locations.length > 8 && (
-                                    <button type="button" onClick={() => setShowAllLocations((prev) => !prev)} className="text-xs font-bold text-[#e79aa6] hover:text-[#e79aa6]">
+                                    <button type="button" onClick={() => setShowAllLocations((prev) => !prev)} className="text-xs font-bold text-[var(--ad-accent-ink)] hover:text-[var(--ad-accent-ink)]">
                                         {showAllLocations ? "Hide full list" : `View all ${locations.length}`}
                                     </button>
                                 )}
@@ -609,7 +609,7 @@ export default function AdminAnalyticsPanel({
                             <PanelHeading
                                 isDark={isDark}
                                 action={(anonymousSummary.clickHeatmap || []).length > 0 && (
-                                    <button type="button" onClick={() => setShowRawClicks((prev) => !prev)} className="text-xs font-bold text-[#e79aa6] hover:text-[#e79aa6]">
+                                    <button type="button" onClick={() => setShowRawClicks((prev) => !prev)} className="text-xs font-bold text-[var(--ad-accent-ink)] hover:text-[var(--ad-accent-ink)]">
                                         {showRawClicks ? "Hide raw clicks" : "Show recent raw clicks"}
                                     </button>
                                 )}

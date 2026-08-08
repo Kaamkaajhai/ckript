@@ -123,7 +123,7 @@ const CreatePostModal = ({ onClose, onPostCreated }) => {
 
           {(image || video) && (
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-              <p className="text-sm text-gray-600 mb-2">Preview:</p>
+              <p className={`text-sm mb-2 ${dark ? 'text-gray-300' : 'text-gray-600'}`}>Preview:</p>
               {image && (
                 <img
                   src={safeMediaSrc(image, POST_MEDIA)}
