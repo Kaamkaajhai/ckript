@@ -1,6 +1,7 @@
 import { useContext, useMemo, useState } from "react";
 import { AuthContext } from "../../context/AuthContext";
-import api from "../../services/api";
+import api from "../../services/financeApi";
+import { resolveEffectiveUser } from "../../utils/adminSession";
 import AdminShell from "../admin/shell/AdminShell";
 import { Pager, ToastProvider, useToast } from "../admin/ui";
 import useFinanceData from "./useFinanceData";
@@ -127,7 +128,14 @@ function FinanceWorkspace({ canControl }) {
 }
 
 export default function FinanceHome() {
-  const { user } = useContext(AuthContext) || {};
+  const { user: signedInUser } = useContext(AuthContext) || {};
+
+  // An admin normally arrives here from the console, where signing in with the access code stores
+  // the session in sessionStorage and leaves the ordinary localStorage login alone. Asking only
+  // AuthContext meant that admin was greeted as whoever was signed in normally — usually their own
+  // account, with no finance role — and turned away from a page they administer. Read on every
+  // render rather than once, so signing in or out of the console lands without a reload.
+  const user = resolveEffectiveUser(signedInUser);
   const role = String(user?.role || "");
   const allowed = role === "finance" || role === "admin";
 
