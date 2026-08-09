@@ -203,7 +203,7 @@ const FeaturedProjectsPage = () => {
     (async () => {
       const [featuredRes, listRes] = await Promise.allSettled([
         api.get("/scripts/featured"),
-        api.get(`/scripts?${buildQueryParams({ sort, filters })}`),
+        api.get(`/scripts?${buildQueryParams({ sort, filters })}&goldOnly=true`),
       ]);
       // Every state write happens past this await, so a response that arrives
       // after the viewer moved on is dropped instead of overwriting the page.

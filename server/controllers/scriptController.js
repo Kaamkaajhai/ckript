@@ -3204,8 +3204,20 @@ export const getScripts = async (req, res) => {
     await expireApprovedUnpaidRequests();
     await expireActiveExclusiveLicenses();
 
-    const { genre, contentType, budget, sort, search, premium, minPrice, maxPrice } = req.query;
+    const { genre, contentType, budget, sort, search, premium, minPrice, maxPrice, goldOnly } = req.query;
     const query = { ...PUBLIC_SCRIPT_FILTER };
+
+    if (goldOnly === "true") {
+      const User = mongoose.model("User");
+      const goldUsers = await User.find({
+        $or: [
+          { role: { $ne: "writer" } },
+          { "subscription.plan": "gold" },
+          { "subscription.accessTier": "writer_gold" },
+        ]
+      }).select("_id").lean();
+      query.creator = { $in: goldUsers.map((u) => u._id) };
+    }
     // Each facet is an equality match, so it has to reach the query as a string. An object here would
     // be read by Mongo as an operator rather than as a value to compare.
     const genreFilter = asTrimmedString(genre);
