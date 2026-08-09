@@ -42,7 +42,7 @@ import { useAuthModal } from "../../context/AuthModalContext";
 import { usesAppShell, isWriterAudience } from "../../layouts/app-shell/shellPolicy";
 import {
   hasActiveFilmIndustryProfessionalAccess,
-  hasBusinessEmail,
+  isIndustryProfessionalWithPersonalEmail,
   isFilmIndustryProfessionalRole,
 } from "../../utils/industryAccess";
 import { getScriptCanonicalPath } from "../../utils/scriptPath";

@@ -5,7 +5,7 @@ import api from "../services/api";
 import { useDarkMode } from "../context/DarkModeContext";
 import { AuthContext } from "../context/AuthContext";
 import { useAuthModal } from "../context/AuthModalContext";
-import { isFilmIndustryProfessionalRole, hasBusinessEmail, hasActiveFilmIndustryProfessionalAccess } from "../utils/industryAccess";
+import { isFilmIndustryProfessionalRole, isIndustryProfessionalWithPersonalEmail, hasActiveFilmIndustryProfessionalAccess } from "../utils/industryAccess";
 import ProjectCard from "../components/ProjectCard";
 
 /* ── Constants ─────────────────────────────────────── */ 

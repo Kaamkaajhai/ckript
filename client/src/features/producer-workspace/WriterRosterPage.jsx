@@ -48,7 +48,7 @@ import { useAuthModal } from "../../context/AuthModalContext";
 import { usesAppShell } from "../../layouts/app-shell/shellPolicy";
 import {
   hasActiveFilmIndustryProfessionalAccess,
-  hasBusinessEmail,
+  isIndustryProfessionalWithPersonalEmail,
   isFilmIndustryProfessionalRole,
 } from "../../utils/industryAccess";
 import { getProfileCanonicalPath } from "../../utils/profilePath";
