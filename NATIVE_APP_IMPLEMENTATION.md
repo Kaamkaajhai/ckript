@@ -437,7 +437,9 @@ Register the prefix before implementing a page — in this table **and** in `cli
 | Top scripts | `ckm-top-scripts` |
 | Featured projects | `ckm-featured` |
 | Project detail/public project | `ckm-project-detail` / `ckm-public-project` |
-| Create project | `ckm-create-project` |
+| New project chooser | `ckm-new-project` (`screens/NewProject.css`, `/new-project` — added 2026-08-09, Phase 3 bullet 2. Its own family rather than part of `ckm-create-project`: a different route, a different shell, no data, and the wizard's prefix must stay answerable for the wizard's chrome alone) |
+| Create project | `ckm-create-project` (the wizard chrome: step position, panels, sticky footer) |
+| Full-screen screenplay editor | `ckm-editor` — allocated 2026-08-08, Phase 3 bullet 1. A separate family from `ckm-create-project` on purpose: the editor is a different shell mode (`immersive`, by per-slot override) with its own app bar, its own docked element/format bar and its own sheet set, and it will also be mounted from routes the create wizard is not. Sharing one prefix would make "which surface owns this rule" unanswerable. Code-side entry lands with the first stylesheet — `mobileCssContract.test.js` fails on a registered prefix no stylesheet uses |
 | Upload project | `ckm-upload-project` |
 | Project payment | `ckm-project-payment` |
 | Messages | `ckm-messages` |
@@ -654,13 +656,13 @@ Status vocabulary:
 | `/trending` | redirect to `/top-script` | preserve redirect | REDIRECT |
 | `/featured` | `features/featured-broadsheet` | `discovery/FeaturedProjectsMobile.jsx` | NOT STARTED |
 | `/search` | `pages/Search.jsx` | `discovery/SearchMobile.jsx` | NOT STARTED |
-| `/new-project` | `pages/NewProject.jsx` | intentional redirect/legacy disposition or `NewProjectMobile.jsx` after audit | NOT STARTED |
+| `/new-project` | `pages/NewProject.jsx` | `mobile/screens/NewProject.jsx` (`ckm-new-project`, `flow` shell) | **DONE** (2026-08-09, Phase 3 bullet 2). Two stacked cards, `startFresh` carried on the link and asserted by test. **Note: nothing links to this route on EITHER platform** — the Create entry in `writerNav.js` goes straight to `/create-project` with `fresh: true`, on desktop and mobile alike. It is deep-linkable and listed in `seo/seoRoutes.js`. See the open follow-up |
 | `/create-project`, `/create-project/:draftId` | `pages/CreateProject` | `projects/create/CreateProjectMobile.jsx` | NOT STARTED |
 | `/upload` | `pages/ScriptUpload.jsx` | `projects/upload/UploadProjectMobile.jsx` | NOT STARTED |
 | `/script/:id` | `pages/ScriptDetail.jsx` | `projects/project-detail/ProjectDetailMobile.jsx` | NOT STARTED |
 | `/script/:projectHeading/:writerUsername` | same detail page | same mobile detail component | NOT STARTED |
 | `/:projectHeading/:writerUsername` | same detail page/catch-all | same component; collision tests mandatory | NOT STARTED |
-| `/script/:id/pay` | `pages/ScriptPaymentPage.jsx` | `projects/payment/ProjectPaymentMobile.jsx` | NOT STARTED |
+| `/script/:id/pay` | `pages/ScriptPaymentPage.jsx` | `projects/payment/ProjectPaymentMobile.jsx` | NOT STARTED — **moved from Phase 3 to Phase 4 on 2026-08-09** by user decision. It is a buyer surface, and its money-adjacent states can only be honestly verified against the buyer screens it is reached from |
 | `/messages` | `features/messages-operator` | `messages/MessagesMobile.jsx` | NOT STARTED |
 | `/profile/:id?` | `pages/Profile.jsx` | `profiles/ProfileMobile.jsx` | NOT STARTED |
 
@@ -791,14 +793,16 @@ Phases are ordered to minimize architectural rework. Implement vertical slices: 
 
 ### Phase 3 — Project creation, upload, and screenplay tools
 
-- [ ] Research spike for mobile screenplay/editor workflows before final design.
-- [ ] Create project new/draft routes with save/resume and unsaved-change protection.
+- [x] Research spike for mobile screenplay/editor workflows before final design. *(2026-08-08. §4 gate run across all five routes at once. Headline: `ScreenplayEditor` is a controlled CodeMirror 6 host with an imperative `apiRef` and no desktop layout — mobile reuses it and rebuilds only the chrome, so the phase's biggest risk is a toolbar problem, not an editor problem. Nine decisions (D1–D9) and five defects/risks (DEF-1…DEF-5) recorded in §19.3.)*
+- [~] Create project new/draft routes with save/resume and unsaved-change protection. *(2026-08-09 — **save/resume core and `/new-project` done; the `/create-project` screens are not.** Delivered: `lib/workingDraft.js` (per-draft snapshot keys, so a resumed draft finally gets a local fallback — DEF-2; `step` **and** the Details sub-panel recorded, so resume lands where the writer left; a pure `chooseDraftRecovery` that refuses to clobber a co-writer), `lib/keepaliveSave.js` (measures the exit-save body against MDN's 64 KiB cap and **refuses to send** one that will not fit, instead of advancing the "saved" signature on a request the browser discards — DEF-1), both wired into `pages/CreateProject/` for **both platforms**, and the mobile `/new-project` chooser. Still open in this bullet: the mobile `/create-project` and `/create-project/:draftId` screens themselves, which the now-approved wireframe unblocks.)*
 - [ ] Upload workflow, validation, legal acceptance, progress, failure/retry, and success.
-- [ ] Screenplay editor touch toolbar, element selection, keyboard behavior, comments/presence, version history, reports, and title page.
+- [ ] Screenplay editor touch toolbar, element selection, keyboard behavior, comments/presence, version history, reports, and title page. *(Low-fidelity wireframe **approved by the user 2026-08-09** — §4.3's gate is passed and the editor's CSS may now be written. The approved structure: one route with two shell modes, a persistent docked Elements/Format row above the keyboard, every desktop rail as a one-at-a-time bottom sheet, and the real `ScreenplayEditor` mounted rather than forked.)*
 - [ ] AI creation/review tools and quota states.
 - [ ] File/image/video picker and interrupted-upload recovery.
 
 **Exit gate:** a writer can create or upload, leave, resume, validate, collaborate where allowed, and finish a project entirely on a supported phone.
+
+> `/script/:id/pay` **moved to Phase 4 on 2026-08-09** by user decision. It is a buyer surface and this gate is written entirely about a writer; its money-adjacent states cannot be honestly verified without the buyer screens it is reached from.
 
 ### Phase 4 — Discovery and project consumption
 
@@ -806,7 +810,7 @@ Phases are ordered to minimize architectural rework. Implement vertical slices: 
 - [ ] Top scripts and featured projects.
 - [ ] Project detail for every canonical route form.
 - [ ] Public shared project.
-- [ ] Share, bookmark, rating/review, purchase/payment, trailer/media, permissions, and restricted states.
+- [ ] Share, bookmark, rating/review, purchase/payment, trailer/media, permissions, and restricted states. *(Includes `/script/:id/pay`, **moved here from Phase 3 on 2026-08-09** by user decision: it is the buyer's checkout, its neighbours are all in this phase, and its states — already purchased, not approved for payment, free, gateway blocked, verification failed after charge — can only be verified against them. Razorpay Checkout is a third-party overlay outside our DOM; back during checkout must not orphan a charged payment.)*
 - [ ] Reader/preview modes and long-content performance.
 
 **Exit gate:** all project discovery-to-detail actions and deep links work for each relevant audience.
@@ -1126,11 +1130,18 @@ This is the section future agents update continuously. Keep newest session entri
 ```yaml
 plan_status: IN_PROGRESS
 current_phase: 3
-current_work_item: "PHASE 2 IS COMPLETE as of 2026-08-08 — all six bullets ticked and the exit gate verified by grep (zero live desktopOnly() call sites anywhere in client/src/mobile; DynamicIsland, BottomSheet, TopBar and BottomNav deleted and their prefixes retired). PHASE 3 (project creation, upload, and screenplay tools) is OPEN and NOT STARTED. Its first bullet is a research spike, not a page — see next_action."
-previous_work_item: "Phase 2 bullets 4, 5 and 6 (2026-08-08). Bullet 4: writer tab set approved as-is and now enforced by test. Bullet 5: /offer-holds built as a real industry screen over GET /scripts/holds; /ai-tools recorded as a dashboard alias because desktop mounts the identical element there. Bullet 6: no settings page exists to port on either platform, so the work was the /terms and /privacy canonical-link fix, first-ever account-surface test coverage, and pinning the logout/cache contract."
-last_completed_work_item: "Phase 2 bullet 6 — mobile/screens/overlays/AccountMenu.jsx (canonical /terms-of-service and /privacy-policy), mobile/screens/overlays/AccountMenu.test.jsx (new, 8 tests), mobile/mobileSession.test.js (new, 5 tests), and a correction to mobile/README.md, which still described the deleted desktopOnly()/DynamicIsland pattern as current behaviour."
-next_action: "Open PHASE 3 and claim its FIRST bullet: the research spike for mobile screenplay/editor workflows (§11 Phase 3 bullet 1). It is deliberately a spike rather than a page — the editor is the highest-risk surface in the whole plan, and §4.2 question 1 (screen vs sheet vs full-screen editor vs multi-step flow) has to be answered before any JSX. Do the §4 gate across the whole family at once, because these routes share state: /create-project, /create-project/:draftId, /new-project, /upload, /script/:id/pay. All five are DESKTOP_MIGRATION_FALLBACK today. Read the desktop sources first — pages/CreateProject/index.jsx and its steps/ directory, components/script-upload/ScriptUploadWorkspace.jsx, and features/script-workbench/ScriptWorkbenchPage.jsx — and read the server controllers for payload shapes rather than inferring them from client code; that discipline is what caught the review-mapping defect on 2026-08-07 and the three holds payload traps on 2026-08-08. Expect a third orphan hunt: /ai-tools, the holds backend and components/PrivacySettings.jsx were all declared-but-unbuilt, so verify each route actually renders something distinct before planning to port it. Phase 3's exit gate is demanding — a writer must be able to create or upload, LEAVE, RESUME, validate, collaborate where allowed, and finish entirely on a phone — so unsaved-change protection and interrupted-upload recovery are first-class, not polish. Independent and safe at any point, carried forward: (a) migrate ckm-tabs (components/SectionTabs) onto ckm-tabbar, the last legacy prefix with a caller; (b) add the dashboard socket refresh — desktop refetches on seven collab_* events, mobile still never refreshes after first load."
+current_work_item: "PHASE 3 IS OPEN. Bullet 1 (research spike) COMPLETE 2026-08-08. Bullet 2 is PARTIALLY COMPLETE as of 2026-08-09: the save/resume core landed for BOTH platforms (DEF-1 and DEF-2 are fixed) and the mobile /new-project screen shipped, but the mobile /create-project and /create-project/:draftId screens are NOT built. Both user decisions are now ANSWERED — the editor wireframe is APPROVED and /script/:id/pay has MOVED to Phase 4 — so nothing is blocked. Bullets 3-6 NOT STARTED."
+previous_work_item: "Phase 3 bullet 1 (2026-08-08) — the research spike: the §4 gate across all five creation routes at once, producing D1-D9 and DEF-1...DEF-5. Documentation only; no code changed."
+last_completed_work_item: "Phase 3 bullet 2, first half (2026-08-09). Shared/both-platform: pages/CreateProject/lib/workingDraft.js + lib/keepaliveSave.js (new, 42 unit tests), wired into pages/CreateProject/index.jsx and CreateProjectShell.jsx; LOCAL_WORKING_DRAFT_KEY removed from constants.js so the storage key has one owner. Mobile: screens/NewProject.jsx + .css + .render.test.jsx (10 tests), the route promoted to SCREEN in mobileRouteManifest.js and mounted in MobileRoutes.jsx, ckm-new-project registered in cssPrefixRegistry.js, and a `state` prop added to components/cards/Card.jsx's CardTitle."
+next_action: "Claim the SECOND HALF of §11 Phase 3 bullet 2 — the mobile /create-project and /create-project/:draftId screens — and go straight to code: the §4 gate is done (D1-D9 in the 2026-08-08 §19.3 entry), the low-fidelity wireframe is APPROVED (2026-08-09, artifact linked in that session's entry), and the save/resume core it sits on is already built and tested. Concretely: (a) build the editor chrome per D2-D5 — the manifest entry stays `flow`, and step 1 overrides the app-bar and bottom-nav slots on <MobileShell> to become immersive. This is the FIRST use of mobileShellModes.js's documented per-slot escape hatch, so it belongs in a named constant with a test, not inline JSX. (b) Dock the Elements/Format bar above the keyboard with the existing hooks/useKeyboardInset; it is ONE bar with a tab switch, not two stacked bars (approved wireframe, frame B). (c) Every desktop rail becomes a ckm-bottom-sheet summoned from the ⋯ overflow, one at a time. (d) Do NOT fork the editor: mount components/screenplay/ScreenplayEditor.jsx directly and drive it through its apiRef. (e) Register ckm-editor in mobile/theme/cssPrefixRegistry.js only when its first stylesheet exists — mobileCssContract.test.js fails on a registered prefix nothing uses. The save/resume plumbing is DONE and must be consumed, not re-invented: read pages/CreateProject/lib/workingDraft.js before writing any mobile persistence. Independent and safe at any point, carried forward: (i) DEF-3, the corkboard reorder, which is a live desktop WCAG failure and cheap to fix (moveScene is already pure); (ii) migrate ckm-tabs (components/SectionTabs) onto ckm-tabbar, the last legacy prefix with a caller; (iii) add the dashboard socket refresh — desktop refetches on seven collab_* events, mobile still never refreshes after first load."
 open_follow_ups:
+  - "DEF-3 (live desktop WCAG 2.1.1 failure, not just a mobile gap): components/screenplay/Corkboard.jsx reorders scenes with HTML5 draggable/onDragStart/onDrop only. Touch fires none of those, and there is no keyboard or button path to reorder at all — the card's only other control opens the scene. moveScene(text, from, to) is already pure, so Move up / Move down / Move to position is cheap and fixes both platforms (decision D6, §14)."
+  - "NOTHING LINKS TO /new-project ON EITHER PLATFORM. The mobile screen shipped 2026-08-09 and is correct, but the Create entry in layouts/app-shell/navigation/presets/writerNav.js points at /create-project with fresh:true — on desktop AND mobile — so the chooser is only reachable by typing the URL. Same shape as the /offer-holds finding: the preset feeds both platforms, so pointing Create at /new-project changes desktop too, and 'does Create mean open the editor or choose how to start' is a product decision. Ask before changing it."
+  - "Desktop copy defect, not fixed: pages/NewProject.jsx claims 'Auto-save every 30 seconds'. The editor debounces a save at 1s and runs an interval save every 3s. The mobile screen says what the code does; the desktop string was left alone rather than edited in a mobile session."
+  - "The exit save now REFUSES to send a body over 64 KiB rather than pretending it sent one. That is honest, but it means a long script's last ~3s of edits rely on the local snapshot alone on an OS kill. A real fix needs a server-side compact exit-save endpoint (the payload carries the script text three times because textContent, fountainContent and baseContent are the same Fountain string, and the server writes each independently). Worth doing before Phase 10."
+  - "DEF-4: the desktop /upload page's own phone breakpoints breach four of this plan's floors — .su-save-state is display:none at <=720px (the save indicator vanishes on phones), .su-detail-tabs button is font-size:0 at <=520px (sub-step tabs become bare numerals), .su-action-bar button min-width is 42px (under the 44px target), .su-mobile-phases button is 10.5px text with a 19x19px indicator. This is the evidence for decision D8: build a real mobile screen, reuse the vm prop shape, not the CSS."
+  - "DEF-5 (RISK, unverified — needs a real Android device): CodeMirror's placeholder extension has a reported Chrome-Android bug where tapping placeholder text does not raise the virtual keyboard. Our editor configures cmPlaceholder(\"INT. LOCATION - DAY\") and a brand-new script is a placeholder-only document, so this would be the first tap of the first session. A jsdom suite and a desktop CDP sweep can both pass while this is broken."
+  - "/upload accepts two query parameters the §9 route ledger does not record: ?draft=<id> (convert an editor draft to an upload) and ?edit=<id> (content-only revision, which posts to /collab/:id/revisions instead of /scripts/upload). Both need mobile coverage and a ledger entry."
   - "/offer-holds is deep-linkable but reachable from no navigation. The fix is a `holds` entry in layouts/app-shell/navigation/presets/industryNav.js's drawer, and it MUST land in the same change as a desktop holds screen — that preset feeds the desktop rail too, and on desktop /offer-holds still renders the dashboard."
   - "Holds WRITE actions are live server-side and unbuilt on both platforms (releaseHold, hold/quote, hold/create-order, hold/verify-payment). Destructive and money-adjacent: needs confirmation copy and a refund rule decided before implementation."
   - "components/PrivacySettings.jsx and PrivacySettingsWrapper.jsx have ZERO callers on either platform. Dead code, or an unbuilt feature — decide which before Phase 5 touches profiles."
@@ -1139,8 +1150,8 @@ open_follow_ups:
   - "The client test suite is flaky under full-suite concurrency — unrelated files fail on different runs. Re-run before investigating a red result."
 active_files: []
 known_blockers: []
-last_updated: "2026-08-08"
-updated_by: "Claude Phase 2 completion session (bullets 4, 5, 6)"
+last_updated: "2026-08-09"
+updated_by: "Claude Phase 3 bullet 2 session (save/resume core + /new-project + approved editor wireframe)"
 ```
 
 ### 19.2 Phase status
@@ -1150,7 +1161,7 @@ updated_by: "Claude Phase 2 completion session (bullets 4, 5, 6)"
 | 0. Foundation and route safety | COMPLETE | Codex, Claude | 2026-08-05 | 2026-08-05 | Route manifest/policy + 87-route coverage contract, stable preview fixture, shell-mode contract, route suspense/error boundary, expanded tokens, `.ckm` scoping + prefix registry contract, mobile analytics contract. 41 mobile tests in 7 files; full suite 583/585 (2 pre-existing AppShell failures); lint clean on all touched files; build + 53-route prerender pass; five-width CDP verification with a before/after computed-style diff |
 | 1. Shared system and chrome | COMPLETE | Claude | 2026-08-05 | 2026-08-07 | **Role-aware chrome (`ckm-appbar`, `ckm-navbar`, `navigation/mobileNav.js`, `hooks/useMobileNav.js`, `--ckm-accent-on-dark`):** 251 mobile tests in 22 files; full suite 792/794 (the same 2 pre-existing `AppShell.render.test.jsx` failures, re-confirmed by stashing this session's changes and watching the identical 2 fail); lint clean on touched files; build + 53-route prerender pass. CDP sweep at 320/360/390/430/768 over all four audiences' bars at every width: 0 undersized targets, 0 text under 11px, 0 unnamed controls, 0 elements past the 520px frame, 0 contrast failures, no horizontal page scroll, 16/16 labels rendered unclipped. Measured rather than assumed: the selected tab is `rgb(221,90,66)` at **5.13:1** on the `rgb(15,15,15)` bar with the glyph's `FILL` axis at **1** against the idle tab's **0** (so the state is not carried by colour alone), the idle label at 19.17:1, both badges at 4.72:1, the search label at 5.21:1; each tab measured 49px tall and 80–128px wide depending on viewport; exactly **1** `aria-current` with the class applied and **0** on a URL belonging to no tab. Real dispatched Tab keys walked 4 stops, one per destination, each showing a `rgb(255,255,255) 2px solid` ring — the shared terracotta ring is invisible on the dark bar, the same override the toast surface needed. Dashboard baseline recaptured at all five widths; the previous images are archived in `baselines/phase0-dashboard/pre-role-aware-chrome/`. State set (`ckm-toast`, `ckm-message`, `ckm-offline`, `ckm-skel` extended, `ckm-empty` reused; `useOnlineStatus`; the live-region exemption in `useInertBackground`): 206 mobile tests in 19 files; full suite 747/749 (the same 2 pre-existing AppShell failures); lint clean on touched files; build + 53-route prerender pass. CDP sweep at 320/360/390/430/768, every check at every width: 10 state surfaces with no target under 44×44, no text under 11px, no unnamed control, nothing past the 520px frame, no horizontal page scroll. The load-bearing evidence is the three things a unit suite cannot reach — (1) with a full-screen dialog open, the app bar / banner / scroll surface all measured `inert` while the toast layer measured live, and a toast raised beforehand was still tappable and still dismissible *from over the dialog*, which is the whole point of the exemption; (2) real `Network.emulateNetworkConditions` offline → `navigator.onLine === false`, the gold banner appearing with `role="status"` at 4.90:1, measured as displacing the scroll body rather than covering it, then the green recovery state with a 78×44 action that cleared on dismiss; (3) real timing in a real browser, since the unit suite stubs framer-motion — an acknowledgement still present at 3.4s and gone by 6.0s, a three-message queue advancing First → Second → error in order, and the error still on screen at t+15s. Also measured: the error toast's icon at 8.66:1 on ink, a white 2px focus ring reached by a real dispatched Tab, and the bottom-nav lift verified on the *dashboard* (standard shell) where the toast clears the tab bar by 23px. Overlay set + focus/scroll helpers (`ckm-overlay`, `ckm-bottom-sheet`, `ckm-dialog`, `ckm-confirm`, `ckm-action-sheet`; `hooks/` scroll lock, focus trap + restoration, inert background, reduced motion, keyboard inset): 179 mobile tests in 18 files; full suite 720/722 (same 2 pre-existing AppShell failures); lint clean on touched files; build + 53-route prerender pass. CDP sweep at 320/360/390/430/768 opening all four surfaces at every width — 22 controls per width, **zero** undersized targets, zero unnamed controls, zero text under 11px, zero overflow past the 520px frame, no horizontal page scroll. The load-bearing evidence is real dispatched keys: 14 forward Tabs and 6 Shift+Tabs per surface per width (400 key events in total) never once landed focus outside the surface; Escape closed the surface, cleared `inert`, released the scroll lock, restored the exact scroll position, and returned focus to the opening control; a destructive confirmation focused **Cancel** at every width; and with a confirm dialog stacked over an action sheet the lower layer measured inert, the upper live, focus inside the upper, and Escape closed only the top. Collection/display family (`ckm-list`, `ckm-row`, `ckm-load-more`, `ckm-card`, `ckm-badge`, `ckm-chip` extended, `ckm-chip-row`, `ckm-segmented`, `ckm-tabbar`): 138 mobile tests in 16 files; full suite 679/681 (same 2 pre-existing AppShell failures); lint clean on touched files; build + 53-route prerender pass; CDP sweep at 320/360/390/430/768 with 37 targets at every width, none under 44×44 (`::after` hit regions measured, not assumed), no text under 11px, no unnamed control, no nested interactive element, no orphan `<li>`, no horizontal page scroll; real-key traversal proved one Tab stop per tab bar, Arrow/Home/End with wrap, the accent focus ring on the focused tab, and the next Tab landing on the panel. Form family (`ckm-field`, `ckm-control`, `ckm-checkbox`, `ckm-radio`, `ckm-switch`, `ckm-file-picker`): 99 mobile tests in 12 files; full suite 640/642; build passes; CDP sweep at 320–768 with 18 controls, none under 16px text or 44px touch, every invalid control's error reachable via `aria-describedby`; virtual-keyboard proxy passes. Action primitives (`ckm-button`, `ckm-icon-button`, `ckm-back`, `ckm-page-header`) + `useMobileBack` + `/__mobile-primitives` harness. 68 mobile tests in 15 files; full suite 610/612 (same 2 pre-existing AppShell failures); lint clean on touched files; build + 53-route prerender pass; CDP sweep at 320/360/375/390/412/430/480/768 with all 32 controls ≥44×44 and no horizontal page scroll |
 | 2. Writer navigation/dashboard | COMPLETE | Claude | 2026-08-07 | 2026-08-08 | **ALL SIX BULLETS COMPLETE; exit gate met and verified by grep — zero live `desktopOnly()` call sites remain in `client/src/mobile`.** 2026-08-08 bullet 6: the §4 gate found there is no settings page to port on either platform (no `/settings` route, no settings page; desktop's whole account surface is `UserMenu.jsx`'s four entries plus Log out, which mobile already mirrors with a logout confirmation desktop lacks), and global auth/session already lives outside React and is inherited wholesale. Delivered instead: the `/terms` and `/privacy` alias links fixed to canonical (mobile was paying a redirect hop desktop does not), first-ever test coverage for the account surface, and the logout/cache contract pinned — `AuthContext.logout()` clears `"dashboard:"` and mobile writes `"dashboard:v1:"`, two strings nothing but that test connects. 358 mobile tests in 29 files; full suite 899/901 across three consecutive runs. NOTE for future sessions: this suite is flaky under full-suite concurrency (unrelated files fail on different runs) — re-run before investigating a red result. Prior: 2026-08-08: bullet 4 approved by the user as-is (Dashboard · Projects · Messages · Profile) and now enforced by `mobileNav.test.js` on labels, order, and Create's absence-from-bar/presence-in-rail-and-drawer. Bullet 5's premise was found wrong at the §4 gate — `/ai-tools` and `/offer-holds` are the *identical* `<DashboardRoute />` element as `/dashboard` (`App.jsx:582-583`), have been since `93055d0` (2026-02-25), and are linked from nowhere — so it resolved to: `/ai-tools` a documented dashboard alias, `/offer-holds` a real screen (`ckm-holds`) over `GET /scripts/holds`, a shipped backend that had **no client at all**. It is an INDUSTRY screen: `holdScript` 403s any non-investor/producer/director and `getMyHolds` is holder-scoped, so it returns `[]` for a writer forever. 345 mobile tests in 27 files (was 288/25); full suite 886/888 (same 2 pre-existing AppShell failures, re-confirmed by stashing); lint clean across `src/mobile`; build + 53-route prerender pass. Five-width CDP sweep (320/360/390/430/768) over the real component with the real stylesheets: 0 undersized targets, 0 text under 11px, 0 unnamed controls, 0 overflow, no horizontal scroll, frame never over 520px. The sweep earned its keep twice — it caught a real 2.69:1 contrast failure in this session's own CSS (`ckm-holds__terms-sep`, fixed to 0 failures) and one reported failure that turned out to be the `file://` harness collapsing the app-bar logo, run down rather than waved away. All three payload traps verified on screen: 6 link rows + 1 inert (deleted script), a DB-"active" row 90 days past its `endDate` reading **Lapsed**, and a `convertedToSale` row reading **Bought**. Prior: bullets 1 and 2 complete. 288 mobile tests in 25 files (was 251/22); full suite 829/831 (same 2 pre-existing AppShell failures, re-confirmed by stashing); lint clean; build + 53-route prerender pass. Five-width browser sweep (320/360/390/430/768) with 0 undersized targets, 0 text under 11px, 0 unnamed controls, 0 overflow, no horizontal scroll — on the shipped dashboard and, with the tabs temporarily restored, on Performance/Reviews/Projects and all overlays. Measured rather than assumed: 4/4 probe points on a project card resolve to the title's link while Share stays independently hittable; 14 dispatched Tabs escaped the AI sheet 0 times with the scroll surface and app bar both `inert`; Escape restored focus to `ckm-rev__details` exactly; the logout confirmation is `role="alertdialog"` focused on **Cancel**. The SectionTabs blocker was answered (option B) and implemented the same session — Projects/Reviews are `/dashboard?tab=…` destinations in the writer preset, which also exposed and fixed a NavBar defect marking **two** tabs `aria-current`. Final: full suite 835/837; `?tab=projects`/`?tab=reviews`/`?tab=performance` each verified clean at all five widths. |
-| 3. Creation/upload/editor | NOT STARTED | — | — | — | — |
+| 3. Creation/upload/editor | IN PROGRESS | Claude | 2026-08-08 | — | **2026-08-09 — bullet 2, first half: the save/resume core (both platforms) and the mobile `/new-project` screen.** Two defects the spike measured are now fixed rather than recorded. **DEF-1:** `lib/keepaliveSave.js` measures the exit-save body against MDN's 64 KiB keepalive cap and refuses to send one that will not fit, instead of advancing `lastDraftSignatureRef` on a request the browser silently discards. The crossing point is now computed by the suite from a 1,219-byte realistic page rather than quoted: **page 13 untrimmed, page 17 after dropping the derived page texts**, and a 100-page feature encodes to **510,233 bytes — 7.8× the cap**. **DEF-2:** `lib/workingDraft.js` gives every draft its own snapshot key, so `/create-project/:draftId` finally has a local fallback; the snapshot also records `step` **and** the Details sub-panel, and carries the server `updatedAt` this session loaded from so `chooseDraftRecovery` can tell "my edits never reached the server" (restore) from "a co-writer saved while I was gone" (ask, never clobber). Found and fixed in my own wiring before it shipped: with the snapshot effect no longer skipping `:draftId`, it ran on the *empty initial state* and cleared the snapshot microseconds before recovery could read it — the guard, and the effect-ordering it depends on, are both commented in place. Also delivered: an offline/failed `loadDraft` now offers the local snapshot instead of showing an empty editor over a draft that has content. Mobile `/new-project` (`ckm-new-project`, `flow` shell) promoted out of `DESKTOP_MIGRATION_FALLBACK`. **410 tests in 31 mobile+lib files** (was 358/29): 42 new unit tests across the two lib modules, 10 on the screen. Full suite **951/953** — the same 2 pre-existing `AppShell.render.test.jsx` failures, re-confirmed by stashing every change and watching the identical 2 fail. Lint clean on all touched files (`index.jsx`'s 4 pre-existing problems verified unchanged by the same stash). Build + 53-route prerender pass. Five-width CDP sweep (320/360/390/430/768) over the real component with the real stylesheets, driven through the DevTools Protocol directly (the Chrome extension was unavailable; Node 22's global `WebSocket` was the client): 0 undersized targets, 0 text under 11px, 0 unnamed controls, 0 overflow past the frame, no horizontal scroll on page or surface, frame 320→520px. **The sweep earned its keep twice.** It caught a real 2.69:1 contrast failure in this session's own CSS — the card chevron on `--ckm-muted-2` — fixed to `--ckm-muted` at **3.56:1**, clearing WCAG 1.4.11's 3:1 floor for a graphical object, and re-measured to 0 failures at every width. And it reported one overflow at 320px that was run down rather than waved away: the harness was measuring the *un-ligatured icon text* (`chevron_right`, ~206px wide) on a cold font cache. Proven, not assumed — awaiting `document.fonts.ready` cleared it, and re-running the widths in reverse order with no font wait moved the artifact off 320px entirely. Prior: bullet 1 (research spike) COMPLETE. §4 gate run across all five routes at once — ~11,300 lines of desktop source plus the server controllers. Deliverables in §19.3: full §4.1 inventory per route, §4.2 research with six primary/product sources, seven §4.2 answers, five §4.3 text wireframes, nine decisions, five defects/risks. Load-bearing finding: `components/screenplay/` is 4,579 lines of which only 2 files are desktop UI, and `ScreenplayEditor.jsx` is a controlled CodeMirror 6 host with a props interface and a 10-method imperative `apiRef` — mobile mounts the same component and rebuilds only chrome. DEF-1 measured rather than asserted: the `fetch(keepalive)` exit-save carries the script text three times against MDN's 64 KiB cap, so it silently drops beyond ~9–16 pages at realistic page density (bounded to ≤3 s of edits by the interval autosave, which is uncapped). DEF-3 is a live desktop WCAG 2.1.1 failure — corkboard reorder is HTML5-drag-only with no keyboard or button path. Two items await the user: the `/script/:id/pay` phase move and approval of a low-fidelity editor wireframe |
 | 4. Discovery/project consumption | NOT STARTED | — | — | — | — |
 | 5. Profiles/network/messages | NOT STARTED | — | — | — | — |
 | 6. Challenges/hall of fame | NOT STARTED | — | — | — | — |
@@ -1160,6 +1171,309 @@ updated_by: "Claude Phase 2 completion session (bullets 4, 5, 6)"
 | 10. Hardening/release | NOT STARTED | — | — | — | — |
 
 ### 19.3 Session log template
+
+#### 2026-08-09 (latest) — Claude (Claude Code) — Phase 3 bullet 2, first half (save/resume core, `/new-project`, editor wireframe approved)
+
+**Requested continuation:** "continue in native app implementaiotn".
+
+**Starting checkpoint verified before claiming (§20.4).** `git status` clean of mobile changes (the pending work is the user's own `client/public/sitemap.xml` edit, six untracked design files, and the previous session's uncommitted `NATIVE_APP_IMPLEMENTATION.md` — all preserved untouched); branch `feat/mobile-role-aware-chrome` at `aef9f11`. The previous entry's claims were checked rather than trusted: `mobileRouteManifest.js` did still hold all five creation routes as `DESKTOP_MIGRATION_FALLBACK`, and `index.jsx:958-959` did still return early on `draftId`.
+
+**Work item claimed:** §11 Phase 3 bullet 2. **Delivered in full: the save/resume core and `/new-project`. Not delivered: the mobile `/create-project` screens**, which the newly-approved wireframe unblocks for the next session. The bullet is marked `[~]`, not `[x]`.
+
+---
+
+##### Why the save/resume core came before any screen
+
+Bullet 2 names three things — new/draft routes, save/resume, unsaved-change protection — and two of the three are **not mobile problems**. DEF-1 and DEF-2 are defects in shared code that ship to desktop today. Building a mobile editor on top of a save path that silently discards long scripts would have meant building the mobile experience of a bug.
+
+So the order was: fix the persistence, then put a screen on it.
+
+##### DEF-1 — the exit save now refuses rather than pretends
+
+`queueKeepaliveDraftSave` posted the draft with `keepalive: true`. MDN caps those bodies at 64 KiB, the rejection arrives *after* `fetch()` returns, `.catch(() => {})` swallowed it, and `lastDraftSignatureRef` was advanced anyway — so the client believed it had saved, and `beforeunload` warned the writer their changes might be lost and then failed to save them.
+
+`lib/keepaliveSave.js` drops the derived `scriptPreviewPageTexts` (the server only writes fields that are not `undefined`, so omitting it is safe by the server's own contract), **measures** the encoded body, and returns no body at all when it will not fit. The caller then does not advance the signature, and `beforeunload` still warns — which is now true rather than decorative.
+
+The measurement is computed by the suite rather than quoted. Against a **1,219-byte realistic page**, the untrimmed payload crosses 64 KiB at **page 13**; trimmed, at **page 17**; a 100-page feature encodes to **510,233 bytes**, 7.8× the cap. The test asserts the crossing point falls in the 9–16 range the spike recorded, and a separate test asserts the page fixture itself stays between 1,200 and 2,000 bytes — otherwise every number above is decoration.
+
+**This is a mitigation, not a cure**, and it is recorded as such: a real fix needs a server-side compact exit-save, because the payload carries the same Fountain string three times (`textContent`, `fountainContent`, `baseContent`) and the server writes each independently.
+
+##### DEF-2 — resumed drafts get a snapshot, and it records *where* the writer was
+
+`lib/workingDraft.js` owns the storage key now (`LOCAL_WORKING_DRAFT_KEY` was deleted from `constants.js` — two copies of a storage key is how a safety net stops matching what it catches). Per-draft keys, with the historical bare key kept for brand-new scripts so nobody mid-script loses a snapshot to a rename. `pruneWorkingDrafts` exists because per-draft keys multiply.
+
+Two things beyond the literal defect:
+
+- **The snapshot records `step` AND `detailsStep`.** D7 asks resume to land on the panel the writer left, and Details is a mini-wizard of up to six sub-panels.
+- **Restoring is a decision, not a reflex.** `chooseDraftRecovery` is pure and separately tested. It compares the snapshot's `baseUpdatedAt` — the server version *this session started from* — against the server's current `updatedAt`. Same version → the snapshot is strictly ahead, restore it. Moved on → a co-writer or another device saved in between, so it **asks** (a notice in the shell's banner slot with *Restore my changes* / *Keep the saved version*) rather than overwriting someone's work. Deliberately compares identities, not timestamps: a device with a wrong clock still decides correctly, and there is a test for exactly that.
+
+##### A bug I introduced and caught before it shipped
+
+Removing the `draftId` early-return from the snapshot effect had a consequence I did not anticipate: on a resumed draft the effect now ran against the **empty initial state** — before `loadDraft` had returned — hit its "no content" branch, and called `clearLocalWorkingDraft()`, destroying the snapshot microseconds before recovery could read it. The fix is a guard on the hydration flag, and it depends on effect declaration order (recovery is declared above the writer, so it flips the flag first on the commit where the editor appears). Both the guard and the ordering it relies on are commented in place, because the next person to reorder those effects needs to know.
+
+##### One improvement the defects implied
+
+A `loadDraft` that fails for any reason other than 403/404/pending-invite now offers the local snapshot instead of rendering an empty editor over a draft that has content. On a phone that failure is usually "offline", and an empty editor is how a writer concludes their work is gone.
+
+---
+
+##### `/new-project` — the cheapest screen in the phase, and an honest finding about it
+
+Built to the §19.3 wireframe: `flow` shell, two stacked cards, three affordances each, whole card tappable with the link's accessible name kept to the title alone.
+
+**`startFresh` is the reason this screen has tests at all.** `/create-project` reads `location.state.startFresh` as an entry mode — it resets the wizard and drops the local working draft. Lose it and "New project" silently reopens whatever the writer last wrote, which reads as data corruption rather than a missing field. It travels on a real `<Link state=…>` (a new `state` prop on `CardTitle`) rather than an `onClick` + `navigate`, so long-press and open-in-new-tab survive; a test asserts it arrives, and a second asserts it is *not* sent to `/upload`, which has no such mode.
+
+**The finding: nothing links to `/new-project` on either platform.** The Create entry in `writerNav.js` points at `/create-project` with `fresh: true` — desktop and mobile alike — so the chooser is reachable only by typing the URL. It is deep-linkable and listed in `seo/seoRoutes.js`, so building it was right; pointing Create at it is a product decision that would change desktop too, and it is recorded as a follow-up rather than made unilaterally. Same shape as the `/offer-holds` finding, and handled the same way.
+
+**One copy correction, deliberate.** Desktop's card claims "Auto-save every 30 seconds"; the editor debounces at 1s and runs an interval save every 3s. The mobile copy says what the code does. The desktop string was left alone — editing it is not a mobile session's call — and recorded.
+
+---
+
+##### Verification
+
+**410 tests across the touched areas** (was 358): 42 new unit tests over the two lib modules, 10 over the screen. Full suite **951/953**, the same 2 pre-existing `AppShell.render.test.jsx` failures — re-confirmed by stashing every change in `client/src` and watching the identical 2 fail. Lint clean on every touched file; `index.jsx`'s 4 pre-existing problems verified byte-identical by the same stash. Build + 53-route prerender pass.
+
+**Five-width CDP sweep** at 320/360/390/430/768 over the real component with the real stylesheets. The Chrome extension was not connected, so the sweep was driven through the DevTools Protocol directly — Chrome headless with `--remote-debugging-port`, Node 22's global `WebSocket` as the CDP client, and a harness generated by rendering the actual component with `renderToStaticMarkup` against the actual CSS files. No browser-automation dependency was added to the project.
+
+Result at every width: 0 targets under 44×44 (`::after` hit regions measured through their positioned ancestor, not assumed), 0 text under 11px, 0 unnamed controls, 0 elements past the frame, no horizontal scroll on the page or the scroll surface, shell mode `flow` with no bottom nav, frame 320 → 520px.
+
+**The sweep earned its keep twice.**
+
+1. It caught a **real 2.69:1 contrast failure in this session's own CSS** — the card chevron on `--ckm-muted-2`. The chevron is `aria-hidden`, but it is the only visual signal that the card navigates, which makes it a graphical object under WCAG 1.4.11 with a 3:1 floor. Moved to `--ckm-muted`, measured at **3.56:1**, re-swept to **0 failures at every width**.
+2. It reported an overflow at 320px that **was run down rather than waved away**. The harness was measuring the un-ligatured icon *text* (`chevron_right`, ~206px wide) before the webfont landed. Proven two ways: awaiting `document.fonts.ready` cleared it, and re-running the widths in reverse with no font wait moved the artifact off 320px entirely — so it followed the first navigation of the session, not the width. A layout defect would not move.
+
+##### The two open user decisions — both answered
+
+- **`/script/:id/pay` moves to Phase 4.** Approved. §11, §9.4 and the Phase 3 exit-gate note updated.
+- **The low-fidelity editor wireframe is APPROVED**, so §4.3's gate is passed and the editor's CSS may be written. Four frames — editor at rest, typing with the docked bar riding the keyboard inset, a summoned Navigator sheet, and a flow step for contrast — published at <https://claude.ai/code/artifact/37cbc7e7-1b2d-4a41-8ac2-279af9fe333d>. What the approval settles: one route with two shell modes, a persistent docked Elements/Format row (one bar with a tab switch, not two), every desktop rail as a one-at-a-time bottom sheet, and the real `ScreenplayEditor` mounted rather than forked. What it explicitly does not settle: type, colour and spacing; the corkboard reorder replacement; and whether the first tap raises the Android keyboard on a placeholder-only document.
+
+#### 2026-08-08 — Claude (Claude Code) — Phase 3 bullet 1 (research spike: creation, upload and screenplay editor)
+
+**Requested continuation:** "continue in native app implementation".
+
+**Starting checkpoint verified before claiming (§20.4).** `git status` clean of mobile changes (the only pending work is the user's own `client/public/sitemap.xml` edit and six untracked design files, all preserved untouched); branch `feat/mobile-role-aware-chrome` at `aef9f11`. The previous entry's claims were checked rather than trusted: `mobileRouteManifest.js:135-140` does still hold all five routes as `DESKTOP_MIGRATION_FALLBACK`, and `writerNav.js` does still carry `mobileKeys: ["dashboard", "projects", "messages"]`.
+
+**Work item claimed:** §11 Phase 3 bullet 1 — the research spike. Deliberately a spike and not a page, because §4.2 question 1 has to be answered for the highest-risk surface in the plan before any JSX exists.
+
+**Scope of the gate:** all five routes at once, because they share state — `/new-project`, `/create-project`, `/create-project/:draftId`, `/upload`, `/script/:id/pay`. Roughly 11,300 lines of desktop source plus the server controllers.
+
+---
+
+##### The headline finding: the editor does not need to be rebuilt
+
+The plan has treated the screenplay editor as the largest unknown in the project. It is not, and the reason is that the screenplay feature is already factored the way §5.4 asks for.
+
+`components/screenplay/` is 4,579 lines across 32 files, and **only two of them are desktop UI** — `ScreenplayEditor.jsx` (352) and `ScreenplayFocusMode.jsx` (761). Everything else is pure logic with no DOM opinion: `classify.js`, `screenplayMode.js`, `paginate.js`, `pages.js`, `sceneIdentity.js`, `sceneReorder.js`, `emphasisRender`, `fdx.js`, `commentAnchor.js`, `lineCommentLayer.js`, `lockLayer.js`, `screenplayReports.js`.
+
+And `ScreenplayEditor.jsx` itself is **not desktop-shaped**. It is a controlled CodeMirror 6 host with a props interface (`value`, `onChange`, `readOnly`, `zoom`, `locks`, `comments`, `dark`) and an imperative `apiRef` exposing exactly the operations a toolbar needs — `setElementType`, `applyEmphasis`, `applyCase`, `applyCentered`, `scrollToLine`, `scrollToRange`, `getSelection`, `commentLine`, `focus`, `requestMeasure`. It renders one `<div>` and a comment composer. There is no rail, no ribbon, no fixed width, no hover dependency in the editor itself.
+
+**Decision: mobile mounts the same `ScreenplayEditor` component and builds different chrome around it.** No second editor, no second Fountain parser, no second pagination. That collapses Phase 3's risk from "port a rich editor to touch" to "design a touch toolbar for an existing editor API" — which is the ordinary work this plan is built for.
+
+---
+
+##### §4.1 functional inventory
+
+**`/new-project`** — `pages/NewProject.jsx`, 153 lines. A two-card chooser (Create / Upload). No data, no permissions beyond auth, no states. It navigates to `/create-project` with `location.state = { startFresh: true }`, which §5.2 explicitly requires mobile to preserve. The cheapest screen in the phase.
+
+**`/create-project` and `/create-project/:draftId`** — one component, `pages/CreateProject/`, 2,386 lines in `index.jsx` plus 5 steps, 5 components, 8 hooks and 4 lib modules. A five-step wizard where **step 2 is itself a mini-wizard** of up to six sub-panels (`DETAILS_STEPS`, filtered by film vs. publishing track), each with its own validation gate.
+
+| Concern | Detail |
+|---|---|
+| Entry modes | fresh (`state.startFresh` **or** `?fresh=1`), resumed draft (`:draftId`), local snapshot restore, competition mode (`?ctx=competition`) |
+| Editors | two, switched by format: CodeMirror/Fountain for screenplay formats, TipTap for `book`. Both are mounted at once; screenplay text is mirrored into TipTap on a 400 ms debounce so word count and the AI tools keep reading `editor.getText()` |
+| Save model | three concurrent paths — 1 s debounced autosave, 3 s interval autosave, and a `fetch(keepalive)` on `beforeunload`/`pagehide`/`visibilitychange`/unmount. Plus a 300 ms-debounced `localStorage` working-draft snapshot |
+| Permissions | owner / `full_admin` / `editor` / `merger` / `commenter` / viewer, split into `canEditContent`, `canComment`, `hasFullAccess`, `hasPublishAccess`; plus `competitionLocked`, `editApprovalLocked`, `accessDenied`, `invitePending` |
+| Gates | plan script limit (`GET /scripts/script-limit`, blocks *new* scripts only), `enforceGoldPlan()` on every Next and every AI tool |
+| Overlays | exit-confirm, drafts drawer, title page modal, version history, thumbnail cropper (`react-easy-crop`), summary-PDF confirm, under-review modal, grammar undo bar, import spinner, toast — **ten**, several portalled with hand-picked z-indexes from 100 to 10000 |
+| Collab | live presence, per-scene locks, scene comments with replies/resolve, three-way merge on save (`baseContent`) |
+| Server contract | `POST /scripts/draft` → 402 plan limit, 409 competition-locked, 409 non-draft, 409 edit-under-review, 410 deleted, 404 for a non-collaborator |
+
+**`/upload`** — `pages/ScriptUpload.jsx`, 2,389 lines, which renders exactly one thing: `<ScriptUploadWorkspace vm={workspaceVm} />` (834 lines). Same five phases, same six detail sub-steps. Also accepts **two query parameters the route ledger does not record** — `?draft=<id>` (convert an editor draft to an upload) and `?edit=<id>` (content-only revision of a published script, which posts to `/collab/:id/revisions` instead). PDF/DOCX text extraction via `POST /scripts/extract-pdf` (30 MB cap, 413 on overflow). Media caps read from the server, not guessed: **thumbnail 5 MB, pitch video 90 MB, trailer 250 MB** (`scriptController.js:6792-6804`).
+
+**`/script/:id/pay`** — `pages/ScriptPaymentPage.jsx`, 659 lines. Loads the script, computes base + 5 % buyer commission, requires up to four separate acceptance checkboxes (platform terms, writer terms, custom writer terms, rights summary), then drives **Razorpay Checkout** — a third-party script injected from `checkout.razorpay.com` that opens its own overlay outside our DOM. Verify via `POST /scripts/purchase/verify-payment`; invoice and acceptance PDFs are authenticated blob downloads.
+
+##### The orphan hunt — clean this time, but the scope is wrong in a different way
+
+The last two sessions each found a declared-but-unbuilt surface, so every component in this family was checked for callers. **All five routes render something real and distinct; there is no orphan here.** One adjacent check did move something, though: `features/script-workbench/ScriptWorkbenchPage.jsx`, which `next_action` named as a Phase 3 source, is **not** an editor. Its only caller is `pages/ScriptDetail.jsx:1687` — it is the script *reading* surface. It belongs to **Phase 4** (project consumption) and is out of scope here.
+
+**`/script/:id/pay` is in the wrong phase.** Phase 3's exit gate is entirely writer-facing — "a writer can create or upload, leave, resume, validate, collaborate where allowed, and finish a project". `/script/:id/pay` is a **buyer** surface: it is reached from a script detail page by an industry professional purchasing access, and a writer will never legitimately see it for their own script. Its neighbours — project detail, unlock, purchase — are all Phase 4 bullets. Building it here means building a buyer's checkout with none of the buyer's surrounding screens in place, and the money-adjacent states (already purchased, request not approved, payment released, gateway blocked) can only be honestly verified against those screens. **Recommendation: move `/script/:id/pay` to Phase 4.** Recorded as an open follow-up for the user rather than acted on unilaterally, since it changes a phase boundary the user approved.
+
+---
+
+##### §4.2 native interaction research
+
+Primary sources and two comparable products, per §4.2. Interaction patterns and hierarchy captured; no styling copied.
+
+- **CodeMirror 6 on mobile** — [codemirror.net](https://codemirror.net/) states it uses the platform's native selection and editing on phones, which is what makes the reuse decision above viable. The [changelog](https://codemirror.net/docs/changelog/) is a record of mobile-specific fixes (iOS dead-key composition getting stuck, iOS autocorrect-on-Enter splitting into two events, an Android virtual-keyboard regression from a composition workaround) — the surface is supported and actively maintained, not incidental.
+- **A specific, testable risk** — [discuss.CodeMirror #3370](https://discuss.codemirror.net/t/clicking-anywhere-on-the-placeholder-text-on-chrome-android-wont-pop-up-the-virtual-keyboard/3370): on **Chrome Android**, tapping placeholder text rendered by the `placeholder` extension does not raise the virtual keyboard (Firefox Android and iOS Safari are unaffected). Our editor configures `cmPlaceholder("INT. LOCATION - DAY")`, and **a brand-new script is a placeholder-only document** — so this is precisely the first tap of the first session. Must be verified on a real Android device; the fallback is a focus-forcing tap target over the empty document.
+- **`fetch` keepalive limit** — [MDN `RequestInit`](https://developer.mozilla.org/en-US/docs/Web/API/RequestInit): *"The body size for `keepalive` requests is limited to 64 kibibytes."* This produced DEF-1 below.
+- **Unload is unreliable on mobile** — [MDN `sendBeacon`](https://developer.mozilla.org/en-US/docs/Web/API/Navigator/sendBeacon) and [web.dev bfcache](https://web.dev/articles/bfcache): a backgrounded tab can be discarded without unload handlers running, the OS kills browser processes to reclaim memory, and people swipe apps closed. On a phone, "leaving the editor" is normally an app switch or an OS kill — **none of the three events the desktop save path listens for is dependable**. The durable snapshot, not the exit save, has to be the safety net.
+- **Final Draft Go (iPhone)** — [App Store listing](https://apps.apple.com/ca/app/final-draft-go/id1614876398). The most useful precedent, because it draws an explicit line between tablet and phone: an **Elements bar on iPad, a Menu on iPhone**, plus a one-finger swipe anywhere on screen as an accelerator for cycling elements. It also keeps a **Scene Navigator** as a distinct jump surface on the phone, keeps accurate page-view pagination rather than reflowing to a mobile layout, keeps reports (cast/scene/location), and retains pinch-zoom.
+- **WriterDuet** — [App Store listing](https://apps.apple.com/us/app/writerduet/id1237820649). Comparable because it is the collaborative one: "smart line types and one-touch icons" (a persistent quick-pick row rather than a dropdown), real-time collaboration across devices, a **left sidebar of widgets** rather than simultaneous rails, offline mode, and auto-snapshots with export from any point in history.
+
+**The convergent pattern across both products:** the phone gets *one* content surface at a time, element choice is a persistent one-touch row plus an overflow menu, and every rail the desktop shows side-by-side becomes a summoned panel. That is exactly what §8.1's `immersive` shell plus this project's existing `ckm-bottom-sheet` describe.
+
+**A caution, not a pattern to copy:** Final Draft Go's swipe-to-change-element would violate §14 ("no action available only by swipe") if shipped alone. Their own listing pairs it with the Menu. Ship the menu; a swipe accelerator is optional polish later.
+
+---
+
+##### §4.2 answers
+
+1. **Screen, sheet, or full-screen editor?** Three different answers in one family, which is why the family had to be gated together. `/new-project` is a plain screen. `/upload` and `/create-project` steps 2–5 are a **multi-step flow**. `/create-project` step 1 is a **full-screen editor** that owns its chrome. The editor and the flow are the *same route*, so the shell mode must change with the mode — see D2 below.
+2. **Top bar / body / sticky action / tabs / overflow.** Editor: a minimal app bar (back, title, save state, overflow), the document as the only scroll surface, a docked element/format bar above the keyboard, no bottom tabs. Flow: app bar with step position, one scrolling panel, a sticky Back/Next footer, no bottom tabs.
+3. **What becomes progressive disclosure.** Every desktop rail: scene navigator, pages, corkboard, people/presence, comments, reports, outline notes, title page, version history, export — all bottom sheets. Step 2's six sub-panels stay six sequential panels (they already are).
+4. **Back, cancellation, unsaved changes, keyboard, interrupted uploads.** The hardest quadrant, and the one that produced three of the five defects below. Covered by D6–D8.
+5. **Pagination/virtualization.** The drafts list needs `ckm-load-more`. The document itself must **not** be virtualized by us — CodeMirror already viewport-renders, and second-guessing it would break selection and scroll restoration. §15 says measure first; the measurement is that CM6 already does it.
+6. **Which actions need which states.** Save (idle/saving/saved/failed/blocked-by-plan/blocked-by-lock), file import (picking/extracting/failed/partial), media upload (queued/uploading/failed/retryable — the existing `pendingMediaRecovery` is the seed of this), publish (validating/submitting/under-review), and the destructive ones: discard draft, delete draft, competition submit (irreversible).
+7. **Screen reader.** The element bar is a toolbar whose current element is `aria-pressed`; the element change must be announced, because a sighted user sees the line re-indent and a blind user gets nothing. Save state is a polite live region. Validation errors already carry `fieldId` in the upload flow and connect via `aria-describedby` — that mechanism is sound and mobile should keep it rather than invent one.
+
+---
+
+##### §4.3 text wireframes
+
+```text
+Route            /new-project
+Audience         writer (auth required)
+Shell            flow  (app bar + back; no bottom tabs)
+App bar          Back · "New project"
+Body             two ckm-card rows, stacked, full-width:
+                   Write from scratch  → /create-project  (state: startFresh)
+                   Upload a file       → /upload
+                 each: title, one-line purpose, 3 bullet affordances, chevron
+Primary action   none (the two cards are the action)
+Overlays         none
+States           none — static content, no fetch
+Keyboard         n/a
+Back             history if present, else /dashboard
+Long text        cards wrap; no truncation
+Transformation   desktop's 2-col grid + hover lift → 2 stacked rows, pressed state
+```
+
+```text
+Route            /create-project   (mode A — the editor, step 1)
+Audience         writer: owner, or collaborator with editor/full_admin
+Shell            immersive  (screen-level override of the manifest's flow — see D2)
+App bar          Back · title (inline-editable) · save state · overflow (⋯)
+Body             ONE scroll surface: the real <ScreenplayEditor>, page-styled,
+                 title-page sheet above it when configured
+Docked bar       above the keyboard (useKeyboardInset):
+                   row 1  Elements — horizontally scrolling chip row
+                          (Scene · Action · Character · Dialogue · Parenthetical ·
+                           Transition · More…)
+                   row 2  Format   — B I U · AA aa · Center      (tab-switched)
+Overflow (⋯)     Navigator · Corkboard · Comments (badge) · People · Reports ·
+                 Outline notes · Title page · Version history ·
+                 Import · Export · Zoom · Continue to details
+Overlays         each of the above as a ckm-bottom-sheet; one at a time (§13)
+States           read-only (commenter/viewer) · locked scene (another writer) ·
+                 competition-locked · edit-under-review · plan limit ·
+                 offline · saving/saved/save-failed · importing · access removed ·
+                 invite pending
+Keyboard         docked bar tracks the inset; the caret line stays visible
+Back             dirty → one prompt: Keep editing / Save as draft / Discard
+Long text        no clamping anywhere in the document
+Transformation   3-pane IDE (left rail + center + right panel + ribbon)
+                 → 1 surface + 1 docked bar + summoned sheets
+```
+
+```text
+Route            /create-project   (mode B — details → publish, steps 2–5)
+Shell            flow
+App bar          Back · "Step N of 5 · <name>" · save state
+Body             one panel at a time; step 2 walks its own sub-panels
+Sticky footer    Back · Next  (Next = Publish on step 5), above the keyboard
+Overlays         thumbnail cropper (full-screen dialog), summary-PDF confirm,
+                 under-review acknowledgement, drafts sheet
+States           per-panel validation error tied to its field · plan-limit gate ·
+                 gold-plan gate · publishing vs film track · media upload
+                 progress/failure/retry · submitting
+Keyboard         footer lifts; the invalid field and its message stay visible
+Back             step-wise; at step 2 walks its sub-panels first; at step 1 → editor
+Transformation   desktop rail + footer pager → app-bar position + sticky footer
+```
+
+```text
+Route            /upload   (+ ?draft=<id>, ?edit=<id>)
+Shell            flow
+App bar          Back · "Step N of 5 · <name>" · save state
+Body             step 1 is the file picker: choose file → extracting → ready
+                 (name, size, detected pages) → replace/remove
+                 steps 2–5 mirror the create flow's panels
+Sticky footer    Back · Save draft · Next
+Overlays         cropper · media-retry · terms (full-screen, scrollable)
+States           no file · picking · extracting · extraction empty (scanned PDF) ·
+                 over 30 MB (413) · upload failed · partial media failure with
+                 per-file retry · cellular-data warning on large media ·
+                 content-only revision mode (?edit) · plan limit
+Keyboard         as create flow
+Back             dirty → prompt; a selected file is part of "dirty"
+Transformation   drag-and-drop zone → a tap target (drag/drop does not exist on
+                 touch); side tracker → app-bar position
+```
+
+```text
+Route            /script/:id/pay        ** recommend moving to Phase 4 **
+Audience         industry buyer (investor/producer/director), NOT the writer
+Shell            flow
+App bar          Back to project · "Complete purchase"
+Body             script summary · price breakdown (base + 5% commission = total) ·
+                 rights terms as an accordion · up to 4 acceptance checkboxes
+Sticky footer    single primary: "Pay ₹X" — disabled until every box is ticked
+Overlays         Razorpay Checkout — a THIRD-PARTY overlay we do not own
+States           loading · not approved for payment · already purchased ·
+                 free (₹0, no gateway) · gateway script blocked/failed to load ·
+                 verifying · verified + invoice · verification failed after charge
+Back             during checkout, back must not orphan a charged payment
+Transformation   2-col summary/terms → one column, terms as accordion
+```
+
+No low-fidelity visual wireframe is proposed for `/new-project` or the flow steps — they are conventional. **The editor warrants one before high-fidelity styling** (§4.3), and that is where the user's approval should be sought.
+
+---
+
+##### Decisions
+
+**D1 — Reuse the screenplay engine wholesale.** Mobile imports `ScreenplayEditor` and every pure module in `components/screenplay/`. No forked editor, parser, paginator or comment anchor. Consequence: a fix to Fountain classification lands on both platforms at once, which is the same argument §8.2 made for one navigation model.
+
+**D2 — One route, two shell modes, declared not improvised.** `/create-project` is `flow` in the manifest; step 1 overrides the app-bar and bottom-nav slots on `<MobileShell>` to become `immersive`. `mobileShellModes.js` already documents per-slot override as the supported escape hatch ("a screen may override an individual slot… so the override is always a visible decision"). This is the intended mechanism, not a workaround — but it is the first use of it, so the override belongs in a named constant with a test, not inline JSX.
+
+**D3 — Element switching is a persistent docked bar, not a dropdown.** Core elements as a horizontally scrolling `ckm-chip-row` docked above the keyboard via the existing `useKeyboardInset`; the rest in a `ckm-action-sheet`. Follows WriterDuet's one-touch row and Final Draft Go's iPhone Menu. No swipe-only affordance (§14).
+
+**D4 — The desktop selection pill cannot be ported.** `Step1Write.jsx:103-110` applies formatting through `onMouseDown` + `preventDefault()` to keep the selection alive. On touch there is no `mousedown` before the selection settles, and preventing a synthesized mouse event does not preserve a native touch selection. Mobile uses a **persistent Format row** on the same docked bar, applying to whatever `apiRef.getSelection()` reports. No selection-preserving trickery.
+
+**D5 — Every desktop rail becomes a bottom sheet, one at a time.** Navigator, corkboard, comments, people, reports, outline, title page, version history. §13's "opening one blocking overlay closes or suspends conflicting overlays" is already enforced by the Phase 1 overlay set.
+
+**D6 — Scene reorder needs a non-drag mechanism, and building it fixes desktop too.** See DEF-3. `moveScene(text, from, to)` is pure, so "Move up / Move down / Move to position…" is cheap and is the accessible primitive both platforms should have had.
+
+**D7 — Resume, not exit-save, is the mobile contract.** The durable local snapshot becomes the primary safety net, extended to cover `:draftId` (DEF-2), and the flow must resume into the exact step and sub-panel the writer left. The keepalive exit-save stays as a best-effort extra, but nothing may be *designed* to depend on it.
+
+**D8 — Build a real mobile `/upload` screen; do not adopt the responsive desktop page.** It is tempting — `ScriptUploadWorkspace.css` already has breakpoints at 900/720/520 px and a modern `su-*` BEM system with `role="switch"` and `aria-invalid`. But measured against this plan's floors, its phone layout fails in four specific ways (DEF-4), one of which hides the save-state indicator on exactly the devices most likely to lose work. The `vm` prop shape is the right seam to reuse; the CSS is not.
+
+**D9 — Large media needs an explicit mobile policy.** A 250 MB trailer over cellular is not a desktop problem. Required: per-file progress, cancel, a size/connection warning before starting, and the existing `pendingMediaRecovery` state promoted from a toast into a real retry surface.
+
+---
+
+##### Defects and risks found by the gate
+
+**DEF-1 — the exit save silently drops for any real screenplay.** `queueKeepaliveDraftSave` (`index.jsx:761`) posts `buildDraftPayload()` with `keepalive: true`. MDN: keepalive bodies are capped at 64 KiB. And the payload carries the script text **three times** — `textContent`, `fountainContent` and `baseContent` are the same Fountain string in screenplay mode — plus `scriptPreviewPageTexts`. Measured, not assumed: a JSON build of the real payload shape crosses 64 KiB at **48 pages** with a sparse 404-byte test page, and at **9–16 pages** at realistic page density (1,200–2,000 bytes/page). Beyond that the request is rejected, `.catch(() => {})` swallows it, and `lastDraftSignatureRef.current` is updated anyway — so the client believes it saved. `handleBeforeUnload` also warns the user their changes may be lost and then fails to save them. **Impact is bounded** — the 3 s interval autosave uses a normal `api.post` with no cap, so at most the last ~3 s of typing is lost — but it is a real silent failure on a data-loss path, on both platforms. Fix belongs with D7.
+
+**DEF-2 — resumed drafts get no local snapshot.** `index.jsx:958-959` returns early when `draftId` is set, so the `localStorage` working draft is written **only for brand-new scripts**. A writer who opens an existing draft at `/create-project/:draftId` and has the tab killed has no local fallback — exactly the scenario mobile makes common.
+
+**DEF-3 — scene reorder is drag-only, with no alternative.** `Corkboard.jsx` uses HTML5 `draggable` / `onDragStart` / `onDrop`. Touch devices do not fire those events, so the corkboard is inert on a phone. Its only other control (`:116`) opens a scene. There is **no keyboard or button path to reorder**, which is a live WCAG 2.1.1 failure on desktop today, not just a mobile gap. §14 requires an alternative to drag/reorder.
+
+**DEF-4 — the desktop upload page's own phone breakpoints breach four of this plan's floors.** From `ScriptUploadWorkspace.css`: `.su-save-state { display: none }` at ≤720 px removes the save indicator on phones; `.su-detail-tabs button { font-size: 0 }` at ≤520 px reduces the sub-step tabs to bare numerals; `.su-action-bar button { min-width: 42px }` is under the 44 px product target; `.su-mobile-phases button` sets 10.5 px text with a 19×19 px indicator. Evidence for D8.
+
+**DEF-5 (risk, unverified) — the first tap on a new script may not raise the Android keyboard.** See the CodeMirror thread above. Placeholder-only documents are exactly the new-script case. **Must be tested on a real Android device before the editor is called complete** — a jsdom suite and a desktop CDP sweep can both pass while this is broken.
+
+---
+
+##### What this spike did NOT do
+
+No JSX, no CSS, no route manifest change, no prefix registered in `cssPrefixRegistry.js` — that registry's contract test fails on any prefix no stylesheet uses, so `ckm-create-project`, `ckm-upload-project` and `ckm-project-payment` (already allocated in §7.2) get their code-side entries when their stylesheets land. One prefix is newly proposed and added to §7.2: **`ckm-editor`**, for the full-screen editor chrome, which is a different surface from the create wizard and must not share `ckm-create-project`.
+
+No test suite was run, because nothing executable changed.
+
+Two items need the user before implementation proceeds — both recorded as open follow-ups: the `/script/:id/pay` phase move, and approval of a low-fidelity editor wireframe before high-fidelity styling (§4.3).
 
 #### 2026-08-08 (later) — Claude (Claude Code) — Phase 2 bullet 6 (account/settings and global auth/session)
 
