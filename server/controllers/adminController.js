@@ -1175,7 +1175,9 @@ export const sendAudienceBroadcast = async (req, res) => {
         // Removed in-app notification creation for admin emails as requested
 
         const emailRecipients = recipients.filter((recipient) => String(recipient?.email || "").trim());
-        const emailResults = await Promise.allSettled(
+        
+        // Start email sending in the background to prevent lagging
+        Promise.allSettled(
             emailRecipients.map((recipient) =>
                 sendAdminBroadcastEmail(recipient.email, recipient.name, {
                     title,
@@ -1187,18 +1189,21 @@ export const sendAudienceBroadcast = async (req, res) => {
                     attachments,
                 })
             )
-        );
-
-        const emailSent = emailResults.filter((result) => result.status === "fulfilled" && result.value?.success).length;
-        const emailFailed = emailResults.length - emailSent;
+        ).then((emailResults) => {
+            const emailSent = emailResults.filter((result) => result.status === "fulfilled" && result.value?.success).length;
+            const emailFailed = emailResults.length - emailSent;
+            console.log(`[admin] Broadcast to ${audienceConfig.key} finished: ${emailSent} sent, ${emailFailed} failed.`);
+        }).catch((err) => {
+            console.error("[admin] Background broadcast failed:", err);
+        });
 
         return res.json({
-            message: `Broadcast sent to ${recipients.length} ${audienceConfig.key}.`,
+            message: `Broadcast started for ${recipients.length} ${audienceConfig.key}.`,
             audience: audienceConfig.key,
             notified: recipients.length,
             emailAttempted: emailRecipients.length,
-            emailSent,
-            emailFailed,
+            emailSent: "pending",
+            emailFailed: "pending",
         });
     } catch (error) {
         // This was `require('fs').writeFileSync('last_broadcast_error.txt', ...)`. In an ESM module
