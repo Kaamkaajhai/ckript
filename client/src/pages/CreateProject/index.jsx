@@ -48,6 +48,7 @@ import { useGrammarFix } from "./hooks/useGrammarFix";
 import { useAiCover } from "./hooks/useAiCover";
 import { useScreenplayCollab } from "./hooks/useScreenplayCollab";
 import { usePayloads } from "./hooks/usePayloads";
+import { useWriterPlanCheckout } from "../../hooks/useWriterPlanCheckout";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import { Skeleton } from "../../components/skeleton";
 import { buildPagePreviewTexts } from "./lib/preview";
@@ -125,9 +126,21 @@ const CreateProject = ({
   const { isDarkMode: dark, toggleDarkMode } = useDarkMode();
   const { user } = useContext(AuthContext);
   const { openPricingModal } = useAuthModal();
+  const { isWriter, hasGoldAccess } = useWriterPlanCheckout();
 
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    if (!user || !isWriter) return;
+    const hasSeenPricing = sessionStorage.getItem("createProjectPricingShown");
+
+    if (!hasGoldAccess && !hasSeenPricing) {
+      openPricingModal("writer");
+      sessionStorage.setItem("createProjectPricingShown", "true");
+    }
+  }, [user, isWriter, hasGoldAccess, openPricingModal]);
+
   const { draftId } = useParams();
   const shouldStartFresh = !draftId && (
     Boolean(location.state?.startFresh) || new URLSearchParams(location.search).get("fresh") === "1"

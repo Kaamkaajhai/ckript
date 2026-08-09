@@ -3204,8 +3204,20 @@ export const getScripts = async (req, res) => {
     await expireApprovedUnpaidRequests();
     await expireActiveExclusiveLicenses();
 
-    const { genre, contentType, budget, sort, search, premium, minPrice, maxPrice } = req.query;
+    const { genre, contentType, budget, sort, search, premium, minPrice, maxPrice, goldOnly } = req.query;
     const query = { ...PUBLIC_SCRIPT_FILTER };
+
+    if (goldOnly === "true") {
+      const User = mongoose.model("User");
+      const goldUsers = await User.find({
+        $or: [
+          { role: { $nin: ["writer", "creator"] } },
+          { "subscription.plan": "gold" },
+          { "subscription.accessTier": "writer_gold" },
+        ]
+      }).select("_id").lean();
+      query.creator = { $in: goldUsers.map((u) => u._id) };
+    }
     // Each facet is an equality match, so it has to reach the query as a string. An object here would
     // be read by Mongo as an operator rather than as a value to compare.
     const genreFilter = asTrimmedString(genre);
@@ -4969,8 +4981,9 @@ export const getFeaturedScripts = async (req, res) => {
       {
         $match: {
           $or: [
-            { "creatorDoc.role": { $ne: "writer" } },
-            { "creatorDoc.subscription.plan": { $in: ["silver", "gold"] } },
+            { "creatorDoc.role": { $nin: ["writer", "creator"] } },
+            { "creatorDoc.subscription.plan": "gold" },
+            { "creatorDoc.subscription.accessTier": "writer_gold" },
           ],
         },
       },
@@ -7522,5 +7535,72 @@ export const generateAiCover = async (req, res) => {
   }
 };
 
+// ─── Suggestions Endpoints ───
 
+export const getSimilarScripts = async (req, res) => {
+  try {
+    const { id } = req.params;
+    console.log(`[getSimilarScripts] Called for script ID: ${id}`);
+    const script = await Script.findById(id).select("genre contentType");
+    
+    if (!script) {
+      console.log(`[getSimilarScripts] Script not found for ID: ${id}`);
+      return res.status(404).json({ message: "Script not found" });
+    }
 
+    const query = {
+      ...PUBLIC_SCRIPT_FILTER,
+      _id: { $ne: script._id },
+    };
+
+    if (script.genre) query.genre = script.genre;
+    if (script.contentType) query.contentType = script.contentType;
+
+    let similar = await Script.find(query)
+      .populate("creator", "name profileImage role")
+      .sort({ views: -1, createdAt: -1 })
+      .limit(4)
+      .lean();
+    
+    console.log(`[getSimilarScripts] Initial matches: ${similar.length}`);
+
+    // If not enough scripts, fetch by just genre
+    if (similar.length < 4 && script.contentType) {
+      delete query.contentType;
+      query._id = { $nin: [script._id, ...similar.map(s => s._id)] };
+      const moreSimilar = await Script.find(query)
+        .populate("creator", "name profileImage role")
+        .sort({ views: -1, createdAt: -1 })
+        .limit(4 - similar.length)
+        .lean();
+      similar = [...similar, ...moreSimilar];
+      console.log(`[getSimilarScripts] Matches after genre fallback: ${similar.length}`);
+    }
+
+    // If still not enough scripts, fetch ANY published scripts
+    if (similar.length < 4) {
+      delete query.genre;
+      query._id = { $nin: [script._id, ...similar.map(s => s._id)] };
+      const evenMore = await Script.find(query)
+        .populate("creator", "name profileImage role")
+        .sort({ views: -1, createdAt: -1 })
+        .limit(4 - similar.length)
+        .lean();
+      similar = [...similar, ...evenMore];
+      console.log(`[getSimilarScripts] Matches after ANY fallback: ${similar.length}`);
+    }
+
+    console.log(`[getSimilarScripts] Returning ${similar.length} scripts`);
+
+    // Strip fullContent to keep payload small
+    similar = similar.map((s) => ({
+      ...s,
+      synopsis: s.synopsis ? s.synopsis.substring(0, 120) + (s.synopsis.length > 120 ? '...' : '') : null,
+      fullContent: undefined,
+    }));
+
+    res.json(similar);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

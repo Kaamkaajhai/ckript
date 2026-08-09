@@ -230,6 +230,7 @@ const AppShell = ({ children, variant = "page" }) => {
         toasts={notifications.toasts}
         onOpen={notifications.openNotification}
         onDismiss={notifications.dismissToast}
+        onExplicitDismiss={notifications.markNotificationRead}
         onDecideFollowRequest={notifications.decideFollowRequest}
       />
 

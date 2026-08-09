@@ -17,7 +17,8 @@ import {
   activateProjectSpotlight,
   getInvestorHomeFeed, getTopList,
   requestScriptPurchase, approveScriptPurchase, rejectScriptPurchase, getMyPurchaseRequests,
-  getScriptPdf, generateAiCover
+  getScriptPdf, generateAiCover,
+  getSimilarScripts
 } from "../controllers/scriptController.js";
 import {
   exportFountain,
@@ -157,6 +158,7 @@ router.post("/purchase-request", protect, requestScriptPurchase);
 router.get("/purchase-requests/mine", protect, getMyPurchaseRequests);
 router.put("/purchase-request/:id/approve", protect, approveScriptPurchase);
 router.put("/purchase-request/:id/reject", protect, rejectScriptPurchase);
+router.get("/:id/similar", protect, getSimilarScripts);
 router.get("/:id", protect, getScriptById);
 router.post("/unlock", protect, unlockScript);
 router.post("/hold", protect, holdScript);

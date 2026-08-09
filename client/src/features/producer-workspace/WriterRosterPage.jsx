@@ -48,7 +48,7 @@ import { useAuthModal } from "../../context/AuthModalContext";
 import { usesAppShell } from "../../layouts/app-shell/shellPolicy";
 import {
   hasActiveFilmIndustryProfessionalAccess,
-  hasBusinessEmail,
+  isIndustryProfessionalWithPersonalEmail,
   isFilmIndustryProfessionalRole,
 } from "../../utils/industryAccess";
 import { getProfileCanonicalPath } from "../../utils/profilePath";
@@ -149,8 +149,7 @@ const WriterRosterPage = () => {
    * hasBusinessEmail alone, which locked out FIP subscribers on a personal
    * address and told writers and readers they needed a business email.
    */
-  const isBlocked = isFilmIndustryProfessionalRole(user)
-    && !hasBusinessEmail(user?.email)
+  const isBlocked = isIndustryProfessionalWithPersonalEmail(user)
     && !hasActiveFilmIndustryProfessionalAccess(user);
 
   /* ── The register ─────────────────────────────────────────────────────── */

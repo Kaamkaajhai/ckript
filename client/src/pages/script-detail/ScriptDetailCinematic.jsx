@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import SocialShareButton from "../../components/SocialShareButton";
 import ProducerRatingCard from "../../components/ProducerRatingCard";
+import ProjectCard from "../../components/ProjectCard";
 import ScreenplayPdfViewer from "../../components/ScreenplayPdfViewer";
 import ScreenplayReadOnly from "../../components/ScreenplayReadOnly";
 import MeetingModal from "../../components/MeetingModal";
@@ -633,6 +634,22 @@ export default function ScriptDetailCinematic({ vm }) {
       <ConfirmDialog open={vm.showDeleteModal} onClose={() => vm.setShowDeleteModal(false)} title={`Delete “${text(script?.title)}”?`} description="The project will be removed from the writer profile and listings. Governed purchased/admin access may remain available." confirmLabel="Delete project" danger busy={vm.deleteLoading} onConfirm={vm.handleDeleteScript} />
       <Overlay open={mediaOpen} onClose={() => setMediaOpen(false)} kind="modal" title="Trailer preview" eyebrow="Project media"><div className="sd3-video-frame">{vm.canPlayTrailer ? <video src={vm.trailerPlaybackUrl} controls autoPlay playsInline onError={vm.handleTrailerPlaybackError} /> : <div><Film size={28} /><p>Trailer playback is unavailable.</p></div>}</div></Overlay>
       <MeetingModal isOpen={vm.showMeetingModal} onClose={() => vm.setShowMeetingModal(false)} writerId={script?.creator?._id} scriptId={script?._id} writerName={script?.creator?.name} scriptName={script?.title} onMeetingScheduled={vm.handleMeetingScheduled} />
+
+      {vm.similarScripts?.length > 0 && (
+        <section className="sd3-content" style={{ marginTop: "40px", marginBottom: "40px", display: "block" }}>
+          <header className="sd3-section-heading" style={{ marginBottom: "20px" }}>
+            <div>
+              <p className="sd3-eyebrow">Discover more</p>
+              <h2>Similar scripts you might like</h2>
+            </div>
+          </header>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {vm.similarScripts.map((similarScript) => (
+              <ProjectCard key={similarScript._id} project={similarScript} userName={similarScript.creator?.name || "Unknown"} />
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   );
 }

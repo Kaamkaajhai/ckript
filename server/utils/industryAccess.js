@@ -54,9 +54,7 @@ export const hasBusinessEmail = (email = "") => {
 export const isFilmIndustryProfessionalRole = (user = {}) =>
   FILM_PROFESSIONAL_ROLE_LIST.includes(String(user?.role || "").trim().toLowerCase());
 
-export const isIndustryProfessionalWithPersonalEmail = (user = {}) =>
-  isFilmIndustryProfessionalRole(user) &&
-  !hasBusinessEmail(user?.email);
+export const isIndustryProfessionalWithPersonalEmail = (user = {}) => false;
 
 export const isEligibleForFipFreeTier = (user = {}) =>
   isFilmIndustryProfessionalRole(user) &&

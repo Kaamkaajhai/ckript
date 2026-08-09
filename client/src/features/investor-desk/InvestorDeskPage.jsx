@@ -6,7 +6,7 @@ import { useAuthModal } from "../../context/AuthModalContext";
 import { usesAppShell } from "../../layouts/app-shell";
 import {
   hasActiveFilmIndustryProfessionalAccess,
-  hasBusinessEmail,
+  isIndustryProfessionalWithPersonalEmail,
   isFilmIndustryProfessionalRole,
 } from "../../utils/industryAccess";
 import { getScriptCanonicalPath } from "../../utils/scriptPath";
@@ -49,8 +49,7 @@ const InvestorDeskPage = () => {
   const [openIndex, setOpenIndex] = useState(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
-  const blocked = isFilmIndustryProfessionalRole(user)
-    && !hasBusinessEmail(user?.email)
+  const blocked = isIndustryProfessionalWithPersonalEmail(user)
     && !hasActiveFilmIndustryProfessionalAccess(user);
 
   const fetchFeed = useCallback(async () => {

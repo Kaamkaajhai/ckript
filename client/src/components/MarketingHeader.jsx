@@ -18,7 +18,7 @@ const isLinkActive = (pathname, to) => {
 
 const MarketingHeader = () => {
   const { user } = useContext(AuthContext);
-  const { openAuthModal, openAboutModal } = useAuthModal();
+  const { openAuthModal, openAboutModal, openPricingModal } = useAuthModal();
   const { pathname } = useLocation();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -86,14 +86,14 @@ const MarketingHeader = () => {
             <>
               <button
                 type="button"
-                onClick={() => openAuthModal()}
+                onClick={() => openPricingModal()}
                 className="text-sm text-gray-400 hover:text-white"
               >
                 Sign in
               </button>
               <button
                 type="button"
-                onClick={() => openAuthModal()}
+                onClick={() => openPricingModal()}
                 className="bg-white px-4 py-2 rounded-md text-[#0F172A] font-medium hover:bg-gray-100 transition-colors"
               >
                 Get Started
@@ -135,8 +135,8 @@ const MarketingHeader = () => {
             </>
           ) : (
             <>
-              <button type="button" className="text-left text-gray-300 hover:text-white" onClick={() => { setMenuOpen(false); openAuthModal(); }}>Sign in</button>
-              <button type="button" className="text-left text-gray-300 hover:text-white" onClick={() => { setMenuOpen(false); openAuthModal(); }}>Get Started</button>
+              <button type="button" className="text-left text-gray-300 hover:text-white" onClick={() => { setMenuOpen(false); openPricingModal(); }}>Sign in</button>
+              <button type="button" className="text-left text-gray-300 hover:text-white" onClick={() => { setMenuOpen(false); openPricingModal(); }}>Get Started</button>
             </>
           )}
         </div>
