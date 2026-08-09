@@ -137,8 +137,7 @@ const TopList = () => {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const isPersonalEmailBlocked =
-    isFilmIndustryProfessionalRole(user) &&
-    !hasBusinessEmail(user?.email) &&
+    isIndustryProfessionalWithPersonalEmail(user) &&
     !hasActiveFilmIndustryProfessionalAccess(user);
 
   const t = {

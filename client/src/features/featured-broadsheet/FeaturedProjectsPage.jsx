@@ -148,8 +148,7 @@ const FeaturedProjectsPage = () => {
    * a personal email address may browse featured metadata but not open a
    * project until it verifies a business email or takes the FIP plan.
    */
-  const isBlocked = isFilmIndustryProfessionalRole(user)
-    && !hasBusinessEmail(user?.email)
+  const isBlocked = isIndustryProfessionalWithPersonalEmail(user)
     && !hasActiveFilmIndustryProfessionalAccess(user);
 
   const mandate = useMemo(() => getMandate(user), [user]);

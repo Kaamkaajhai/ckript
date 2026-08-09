@@ -149,8 +149,7 @@ const WriterRosterPage = () => {
    * hasBusinessEmail alone, which locked out FIP subscribers on a personal
    * address and told writers and readers they needed a business email.
    */
-  const isBlocked = isFilmIndustryProfessionalRole(user)
-    && !hasBusinessEmail(user?.email)
+  const isBlocked = isIndustryProfessionalWithPersonalEmail(user)
     && !hasActiveFilmIndustryProfessionalAccess(user);
 
   /* ── The register ─────────────────────────────────────────────────────── */
