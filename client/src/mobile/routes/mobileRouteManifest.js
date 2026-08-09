@@ -142,8 +142,58 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
   migration("project-detail-canonical", "/script/:projectHeading/:writerUsername"),
   migration("messages", "/messages"),
   migration("profile", "/profile/:id?"),
-  migration("ai-tools", "/ai-tools"),
-  migration("offer-holds", "/offer-holds"),
+  /*
+   * /ai-tools is an ALIAS OF THE DASHBOARD, not a screen of its own — and that
+   * is desktop's behaviour, not a mobile shortcut. App.jsx mounts /dashboard,
+   * /ai-tools and /offer-holds with the *identical* <DashboardRoute /> element,
+   * and pages/Dashboard.jsx never reads the pathname. The route has rendered a
+   * plain dashboard since 93055d0 introduced it (2026-02-25) and nothing in the
+   * product links to it.
+   *
+   * Left as a migration fallback, a mobile writer got the DESKTOP dashboard here
+   * while getting the mobile one at /dashboard — the same page, two experiences,
+   * decided by which of two aliases they happened to open. Pointing it at the
+   * same screenId fixes that and matches desktop exactly.
+   *
+   * This is NOT a claim that the AI-tools feature is built. There are seven live
+   * AI endpoints (server/routes/aiRoutes.js) but each is consumed from the screen
+   * that owns the script; a hub over them needs a script picker, which is new
+   * product design. Recorded in plan §19.3 (2026-08-08) as an unbuilt feature.
+   */
+  {
+    id: "ai-tools",
+    pattern: "/ai-tools",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Desktop renders the dashboard at this URL; mobile renders the mobile dashboard. Alias, not a ported feature.",
+    audiences: [AUDIENCE.WRITER],
+    protection: "authenticated",
+    screenId: "dashboard",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
+
+  /*
+   * /offer-holds is an INDUSTRY screen, despite living in the plan's writer
+   * phase. The audience is decided by the server, not by preference:
+   * holdScript() 403s any role that is not investor/producer/director
+   * (scriptController.js:4770) and getMyHolds() queries { holder: req.user._id }
+   * (scriptController.js:4856). A writer can never be a holder, so this route's
+   * only endpoint returns [] for a writer unconditionally, forever.
+   *
+   * Writers keep the existing desktop route via fallbackDisposition — the same
+   * mechanism that keeps /dashboard writer-only.
+   */
+  {
+    id: "offer-holds",
+    pattern: "/offer-holds",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Industry holds screen over GET /scripts/holds — a shipped backend that had no client at all (plan §11 Phase 2 bullet 5).",
+    audiences: [AUDIENCE.INDUSTRY],
+    protection: "authenticated",
+    screenId: "holds",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
 
   migration("industry-home", "/home"),
   migration("mandates", "/mandates"),

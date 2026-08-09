@@ -73,7 +73,7 @@ const PostCard = ({ post }) => {
               className={`flex items-center gap-2 transition ${dark ? 'text-gray-400 hover:text-gray-200' : 'text-gray-700 hover:text-gray-900'}`}
             >
               {liked ? (
-                <svg className="w-6 h-6 text-[#111111] fill-current" viewBox="0 0 20 20">
+                <svg className={`w-6 h-6 fill-current ${dark ? 'text-white' : 'text-[#111111]'}`} viewBox="0 0 20 20">
                   <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" />
                 </svg>
               ) : (
@@ -103,10 +103,10 @@ const PostCard = ({ post }) => {
           {/* Save Button */}
           <button 
             onClick={() => setSaved(!saved)}
-            className={`transition ${dark ? 'text-gray-400 hover:text-[#111111]' : 'text-gray-700 hover:text-[#111111]'}`}
+            className={`transition ${dark ? 'text-gray-400 hover:text-white' : 'text-gray-700 hover:text-[#111111]'}`}
           >
             {saved ? (
-              <svg className="w-6 h-6 text-[#111111] fill-current" viewBox="0 0 20 20">
+              <svg className={`w-6 h-6 fill-current ${dark ? 'text-white' : 'text-[#111111]'}`} viewBox="0 0 20 20">
                 <path d="M5 4a2 2 0 012-2h6a2 2 0 012 2v14l-5-2.5L5 18V4z" />
               </svg>
             ) : (

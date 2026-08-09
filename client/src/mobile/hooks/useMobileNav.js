@@ -25,7 +25,7 @@ import { buildMobileNav, resolveActiveTabKey } from "../navigation/mobileNav";
 export function useMobileNav({ user: userOverride, msgCount = 0 } = {}) {
   const auth = useContext(AuthContext);
   const user = userOverride ?? auth?.user ?? null;
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
 
   const profilePath = useMemo(
     () => getProfileCanonicalPath(user, { viewerId: user?._id, viewerRole: user?.role }),
@@ -37,9 +37,14 @@ export function useMobileNav({ user: userOverride, msgCount = 0 } = {}) {
     [user, profilePath, msgCount],
   );
 
+  /*
+   * `search` is part of the answer, not decoration: a destination may be a
+   * query-string tab of a page (`/dashboard?tab=projects`), and on pathname
+   * alone it is indistinguishable from its host page.
+   */
   const activeTabKey = useMemo(
-    () => resolveActiveTabKey(nav.tabs, pathname),
-    [nav.tabs, pathname],
+    () => resolveActiveTabKey(nav.tabs, pathname, search),
+    [nav.tabs, pathname, search],
   );
 
   return { ...nav, activeTabKey };

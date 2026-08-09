@@ -299,8 +299,8 @@ export const BroadcastComposer = ({
     };
 
     return (
-        <div className={`rounded-2xl border mb-6 overflow-hidden ${isDark ? "bg-[#0f1d35] border-[#1a3050]" : "bg-white border-gray-200/60 shadow-sm"}`}>
-            <div className={`px-5 py-4 border-b flex justify-between items-center ${isDark ? "border-[#1a3050] bg-[#112240]" : "border-gray-100 bg-gray-50/50"}`}>
+        <div className={`rounded-2xl border mb-6 overflow-hidden bg-[var(--ad-surface)] border-[var(--ad-line)] shadow-sm`}>
+            <div className={`px-5 py-4 border-b flex justify-between items-center border-[var(--ad-line)] bg-[var(--ad-surface-2)]`}>
                 <h3 className={`text-sm font-extrabold uppercase tracking-wide ${isDark ? "text-gray-200" : "text-gray-800"}`}>
                     Campaign Builder - {audienceLabel}
                 </h3>
@@ -312,11 +312,11 @@ export const BroadcastComposer = ({
                     value={title}
                     onChange={(event) => onTitleChange(event.target.value)}
                     placeholder={`Subject line for ${audienceLabel}`}
-                    className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-100 placeholder:text-gray-500 focus:ring-[#8B1E1E]/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-[#8B1E1E]/30"}`}
+                    className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 bg-[var(--ad-surface-2)] border-[var(--ad-line-2)] text-[var(--ad-ink)] placeholder:text-[var(--ad-ink-3)] focus:ring-[var(--ad-accent)]`}
                 />
 
                 {/* Email Builder Canvas */}
-                <div className={`rounded-xl border overflow-hidden ${isDark ? "border-[#1a3050]" : "border-gray-200"}`}>
+                <div className={`rounded-xl border overflow-hidden border-[var(--ad-line)]`}>
                     <EmailBuilder blocks={blocks} setBlocks={setBlocks} />
                 </div>
 
@@ -327,7 +327,7 @@ export const BroadcastComposer = ({
                             value={actionUrl}
                             onChange={(event) => onActionUrlChange(event.target.value)}
                             placeholder="Optional Redirect Link (for old templates)"
-                            className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-100 placeholder:text-gray-500 focus:ring-[#8B1E1E]/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-[#8B1E1E]/30"}`}
+                            className={`w-full rounded-xl border px-4 py-3 text-sm focus:outline-none focus:ring-2 bg-[var(--ad-surface-2)] border-[var(--ad-line-2)] text-[var(--ad-ink)] placeholder:text-[var(--ad-ink-3)] focus:ring-[var(--ad-accent)]`}
                         />
                     </div>
                     
@@ -339,7 +339,7 @@ export const BroadcastComposer = ({
                             className="hidden"
                             onChange={handleFileChange}
                         />
-                        <label htmlFor={`attachment-${audienceLabel}`} className={`flex items-center justify-center cursor-pointer px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${isDark ? "border-[#1a3050] bg-[#132744] text-gray-300 hover:bg-[#1a3050]" : "border-gray-200 bg-white text-gray-600 hover:bg-gray-50"}`}>
+                        <label htmlFor={`attachment-${audienceLabel}`} className={`flex items-center justify-center cursor-pointer px-4 py-3 rounded-xl border text-sm font-medium transition-colors border-[var(--ad-line-2)] bg-[var(--ad-surface-2)] text-[var(--ad-ink-2)] hover:bg-[var(--ad-surface-3)]`}>
                             <Paperclip size={16} className="mr-2" />
                             Attach Files
                         </label>
@@ -350,7 +350,7 @@ export const BroadcastComposer = ({
                 {attachments.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                         {attachments.map((file, i) => (
-                            <div key={i} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs border ${isDark ? "bg-[#132744] border-[#1a3050] text-gray-300" : "bg-gray-50 border-gray-200 text-gray-700"}`}>
+                            <div key={i} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs border bg-[var(--ad-surface-2)] border-[var(--ad-line)] text-[var(--ad-ink-2)]`}>
                                 <span className="truncate max-w-[150px]">{file.name}</span>
                                 <button onClick={() => removeFile(i)} className="text-gray-400 hover:text-red-500">
                                     <X size={14} />
@@ -360,12 +360,15 @@ export const BroadcastComposer = ({
                     </div>
                 )}
 
-                <div className="flex justify-end pt-2 border-t border-gray-100 dark:border-[#1a3050] mt-2">
+                <div className="flex justify-end pt-2 border-t border-[var(--ad-line)] mt-2">
                     <button
                         type="button"
                         onClick={onSend}
                         disabled={sending || !title.trim() || blocks.length === 0}
-                        className={`px-8 py-3 rounded-xl text-sm font-bold shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isDark ? "bg-[#8B1E1E] text-white hover:bg-[#721818]" : "bg-[#8B1E1E] text-white hover:bg-[#721818]"}`}
+                        // Both branches of the old ternary were identical #8B1E1E — the retired brand
+                        // red, close enough to the current accent to look deliberate and wrong enough
+                        // to sit half a step off every other primary button in the console.
+                        className="px-8 py-3 rounded-xl text-sm font-bold shadow-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-[var(--ad-accent)] text-[var(--ad-ink-invert)] hover:bg-[var(--ad-accent-hover)]"
                     >
                         {sending ? "Sending..." : `Launch Campaign to ${audienceLabel}`}
                     </button>
@@ -699,14 +702,14 @@ export const ScoreModal = ({ script, isDark, onClose, onSave }) => {
                             <input type="range" min="0" max="100" value={scores[d.key]}
                                 onChange={(e) => setScores((p) => ({ ...p, [d.key]: Number(e.target.value) }))}
                                 className="w-full h-2 rounded-full appearance-none cursor-pointer accent-[#a83a4d]"
-                                style={{ background: `linear-gradient(to right, #3b82f6 ${scores[d.key]}%, ${isDark ? "#2e2828" : "#e5e7eb"} ${scores[d.key]}%)` }}
+                                style={{ background: `linear-gradient(to right, var(--ad-accent) ${scores[d.key]}%, var(--ad-line) ${scores[d.key]}%)` }}
                             />
                         </div>
                     ))}
                     <div>
                         <label className={`text-sm font-semibold block mb-1.5 ${isDark ? "text-gray-300" : "text-gray-700"}`}>Feedback</label>
                         <textarea rows={3} value={scores.feedback} onChange={(e) => setScores((p) => ({ ...p, feedback: e.target.value }))}
-                            className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none resize-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-[#a83a4d]/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-[#a83a4d]"}`}
+                            className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none resize-none border bg-[var(--ad-surface-2)] border-[var(--ad-line-2)] text-[var(--ad-ink)] focus:border-[var(--ad-accent)]`}
                             placeholder="Write your feedback..."
                         />
                     </div>
@@ -714,7 +717,7 @@ export const ScoreModal = ({ script, isDark, onClose, onSave }) => {
                         <div key={key}>
                             <label className={`text-sm font-semibold block mb-1.5 ${isDark ? "text-gray-300" : "text-gray-700"}`}>{label}</label>
                             <textarea rows={4} value={scores[key]} onChange={(e) => setScores((p) => ({ ...p, [key]: e.target.value }))}
-                                className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none resize-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-[#a83a4d]/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-[#a83a4d]"}`}
+                                className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none resize-none border bg-[var(--ad-surface-2)] border-[var(--ad-line-2)] text-[var(--ad-ink)] focus:border-[var(--ad-accent)]`}
                                 placeholder={placeholder}
                             />
                         </div>
@@ -734,7 +737,7 @@ export const ScoreModal = ({ script, isDark, onClose, onSave }) => {
 
 // ─── Search Bar ───
 export const SearchBar = ({ value, onChange, placeholder, isDark }) => (
-    <div className={`flex items-center rounded-xl overflow-hidden border ${isDark ? "bg-[#0b1426] border-[#2e2828]" : "bg-gray-50 border-gray-200"}`}>
+    <div className={`flex items-center rounded-xl overflow-hidden border bg-[var(--ad-surface-2)] border-[var(--ad-line-2)]`}>
         <div className="pl-3.5">
             <Icon d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" className={`w-4 h-4 ${isDark ? "text-gray-500" : "text-gray-400"}`} />
         </div>
@@ -963,12 +966,12 @@ export const DiscountCodeFormModal = ({ initial, onClose, onSave, isDark }) => {
                     <div className="grid grid-cols-2 gap-4">
                         <div className="col-span-2">
                             <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Code (e.g. WELCOME50)</label>
-                            <input required type="text" name="code" value={formData.code} onChange={handleChange} className={`w-full uppercase rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-[#a83a4d]/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-[#a83a4d]"}`} placeholder="DISCOUNT20" />
+                            <input required type="text" name="code" value={formData.code} onChange={handleChange} className={`w-full uppercase rounded-xl px-4 py-2.5 text-sm outline-none border bg-[var(--ad-surface-2)] border-[var(--ad-line-2)] text-[var(--ad-ink)] focus:border-[var(--ad-accent)]`} placeholder="DISCOUNT20" />
                         </div>
                         
                         <div>
                             <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Type</label>
-                            <select name="discountType" value={formData.discountType} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200" : "bg-gray-50 border-gray-200 text-gray-800"}`}>
+                            <select name="discountType" value={formData.discountType} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border bg-[var(--ad-surface-2)] border-[var(--ad-line-2)] text-[var(--ad-ink)]`}>
                                 <option value="percentage">Percentage (%)</option>
                                 <option value="flat">Flat Amount (₹)</option>
                             </select>
@@ -976,37 +979,37 @@ export const DiscountCodeFormModal = ({ initial, onClose, onSave, isDark }) => {
                         
                         <div>
                             <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Value</label>
-                            <input required type="number" min="1" step="any" name="discountValue" value={formData.discountValue} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-[#a83a4d]/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-[#a83a4d]"}`} placeholder={formData.discountType === "percentage" ? "1-100" : "Amount in ₹"} />
+                            <input required type="number" min="1" step="any" name="discountValue" value={formData.discountValue} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border bg-[var(--ad-surface-2)] border-[var(--ad-line-2)] text-[var(--ad-ink)] focus:border-[var(--ad-accent)]`} placeholder={formData.discountType === "percentage" ? "1-100" : "Amount in ₹"} />
                         </div>
 
                         <div>
                             <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Max Uses Globally (0 = unlimited)</label>
-                            <input type="number" min="0" name="maxUses" value={formData.maxUses} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-[#a83a4d]/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-[#a83a4d]"}`} />
+                            <input type="number" min="0" name="maxUses" value={formData.maxUses} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border bg-[var(--ad-surface-2)] border-[var(--ad-line-2)] text-[var(--ad-ink)] focus:border-[var(--ad-accent)]`} />
                         </div>
 
                         <div>
                             <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Max Uses Per User (0 = unlimited)</label>
-                            <input type="number" min="0" name="maxUsesPerUser" value={formData.maxUsesPerUser} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-[#a83a4d]/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-[#a83a4d]"}`} />
+                            <input type="number" min="0" name="maxUsesPerUser" value={formData.maxUsesPerUser} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border bg-[var(--ad-surface-2)] border-[var(--ad-line-2)] text-[var(--ad-ink)] focus:border-[var(--ad-accent)]`} />
                         </div>
 
                         <div>
                             <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Min Purchase (₹) (0 = none)</label>
-                            <input type="number" min="0" name="minPurchaseAmount" value={formData.minPurchaseAmount} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-[#a83a4d]/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-[#a83a4d]"}`} />
+                            <input type="number" min="0" name="minPurchaseAmount" value={formData.minPurchaseAmount} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border bg-[var(--ad-surface-2)] border-[var(--ad-line-2)] text-[var(--ad-ink)] focus:border-[var(--ad-accent)]`} />
                         </div>
 
                         <div>
                             <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Max Discount (₹) (0 = none)</label>
-                            <input type="number" min="0" name="maxDiscountAmount" value={formData.maxDiscountAmount} onChange={handleChange} disabled={formData.discountType === 'flat'} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border disabled:opacity-50 ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-[#a83a4d]/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-[#a83a4d]"}`} />
+                            <input type="number" min="0" name="maxDiscountAmount" value={formData.maxDiscountAmount} onChange={handleChange} disabled={formData.discountType === 'flat'} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border disabled:opacity-50 bg-[var(--ad-surface-2)] border-[var(--ad-line-2)] text-[var(--ad-ink)] focus:border-[var(--ad-accent)]`} />
                         </div>
 
                         <div className="col-span-2">
                             <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Valid Until</label>
-                            <input required type="date" name="validUntil" value={formData.validUntil} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-[#a83a4d]/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-[#a83a4d]"}`} />
+                            <input required type="date" name="validUntil" value={formData.validUntil} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border bg-[var(--ad-surface-2)] border-[var(--ad-line-2)] text-[var(--ad-ink)] focus:border-[var(--ad-accent)]`} />
                         </div>
 
                         <div className="col-span-2">
                             <label className={`block text-xs font-bold mb-1.5 ${isDark ? "text-gray-400" : "text-gray-600"}`}>Description (Optional)</label>
-                            <input type="text" name="description" value={formData.description} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-[#a83a4d]/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-[#a83a4d]"}`} placeholder="e.g. Winter Sale 2024" />
+                            <input type="text" name="description" value={formData.description} onChange={handleChange} className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none border bg-[var(--ad-surface-2)] border-[var(--ad-line-2)] text-[var(--ad-ink)] focus:border-[var(--ad-accent)]`} placeholder="e.g. Winter Sale 2024" />
                         </div>
 
                         {isEdit && (
@@ -1047,7 +1050,7 @@ export const RejectInvestorModal = ({ investor, onClose, onConfirm, isDark }) =>
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     placeholder="Rejection reason (optional)..."
-                    className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none resize-none border ${isDark ? "bg-[#0b1426] border-[#2e2828] text-gray-200 focus:border-red-500/50" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-red-400"}`}
+                    className={`w-full rounded-xl px-4 py-2.5 text-sm outline-none resize-none border bg-[var(--ad-surface-2)] border-[var(--ad-line-2)] text-[var(--ad-ink)] focus:border-[var(--ad-danger)]`}
                 />
                 <div className="flex items-center justify-end gap-3 mt-4">
                     <button onClick={onClose} className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${isDark ? "text-gray-400 hover:bg-[#2e2828]" : "text-gray-500 hover:bg-gray-100"}`}>Cancel</button>

@@ -17,16 +17,27 @@
 }
 
 .ckm .ckm-tabs__btn {
+  /*
+   * 2026-08-07 (Phase 2). Three measured failures fixed together, from the
+   * five-width sweep: the label was 9px (floor is 11px), the control was 29px
+   * tall (floor is 44px), and the idle colour was --ckm-muted at 3.41:1 on the
+   * track (floor is 4.5:1). It is the primary way into the dashboard's
+   * sections, so it was also the least defensible place to miss all three.
+   */
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--ckm-touch-target, 44px);
   border: none;
   cursor: pointer;
-  padding: 10px 0;
-  font: 700 9px/1 var(--ckm-body);
-  letter-spacing: 0.7px;
+  padding: 10px 4px;
+  font: 700 11px/1.2 var(--ckm-body);
+  letter-spacing: 0.6px;
   text-transform: uppercase;
   transition: color 0.15s ease, background 0.15s ease;
   background: transparent;
-  color: var(--ckm-muted);
+  color: var(--ckm-text-3);
 }
 
 .ckm .ckm-tabs__btn + .ckm-tabs__btn {

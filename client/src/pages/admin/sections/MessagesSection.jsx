@@ -122,7 +122,7 @@ const MessagesSection = () => {
                                                                     </div>
                                                                 ) : msg.fileUrl ? (
                                                                     <div className="space-y-2">
-                                                                        <div className={`rounded-lg px-2.5 py-2 ${isWriterMessage ? (isDark ? "bg-[#0b1426]" : "bg-white") : (isDark ? "bg-[#521221]/25" : "bg-[#f7edee]/60")}`}>
+                                                                        <div className={`rounded-lg px-2.5 py-2 ${isWriterMessage ? "bg-[var(--ad-surface-2)]" : "bg-[var(--ad-accent-soft)]"}`}>
                                                                             <p className="text-xs font-semibold truncate">{msg.fileName || "Attachment"}</p>
                                                                             <p className={`text-[10px] ${isDark ? "text-gray-400" : "text-gray-500"}`}>{formatFileSize(msg.fileSize)}</p>
                                                                             <a href={resolveMediaUrl(msg.fileUrl)} target="_blank" rel="noreferrer" className={`inline-block mt-1 text-xs underline ${isDark ? "text-[#e79aa6]" : "text-[#a83a4d]"}`}>Open file</a>
@@ -147,7 +147,7 @@ const MessagesSection = () => {
                                                 onClick={() => scrollAdminMessagesToBottom("smooth")}
                                                 aria-label="Scroll to latest message"
                                                 title="Scroll to latest"
-                                                className={`absolute right-4 bottom-[78px] z-20 w-10 h-10 rounded-full flex items-center justify-center shadow-md border ${isDark ? "bg-[#221d1d] border-[#1c2a3a] text-gray-200 hover:bg-[#1a3354]" : "bg-white border-gray-200 text-gray-700 hover:bg-gray-50"}`}
+                                                className="absolute right-4 bottom-[78px] z-20 w-10 h-10 rounded-full flex items-center justify-center shadow-md border bg-[var(--ad-surface)] border-[var(--ad-line-2)] text-[var(--ad-ink)] hover:bg-[var(--ad-surface-2)]"
                                             >
                                                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24" aria-hidden="true">
                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -187,7 +187,7 @@ const MessagesSection = () => {
                                                     type="button"
                                                     onClick={handlePickMessageAttachment}
                                                     disabled={uploadingMessageAttachment || !activeMessageUser}
-                                                    className={`w-12 h-12 shrink-0 rounded-full inline-flex items-center justify-center transition-colors ${uploadingMessageAttachment || !activeMessageUser ? (isDark ? "bg-[#122540] text-gray-500" : "bg-gray-200 text-gray-400") : (isDark ? "bg-[#10233f] text-gray-200 hover:bg-[#153156]" : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-100")}`}
+                                                    className={`w-12 h-12 shrink-0 rounded-full inline-flex items-center justify-center border transition-colors ${uploadingMessageAttachment || !activeMessageUser ? "bg-[var(--ad-surface-3)] border-transparent text-[var(--ad-ink-4)]" : "bg-[var(--ad-surface)] border-[var(--ad-line-2)] text-[var(--ad-ink)] hover:bg-[var(--ad-surface-2)]"}`}
                                                     title={uploadingMessageAttachment ? "Uploading..." : "Attach file"}
                                                 >
                                                     {uploadingMessageAttachment ? (
@@ -212,12 +212,19 @@ const MessagesSection = () => {
                                                         }
                                                     }}
                                                     placeholder="Reply with text or attach file..."
-                                                    className={`flex-1 resize-none h-12 rounded-xl px-4 py-3 text-base border focus:outline-none focus:ring-2 ${isDark ? "bg-[#061327] border-[#204777] text-gray-100 placeholder:text-[#5c7190] focus:ring-[#a83a4d]/30" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-400 focus:ring-[#a83a4d]"}`}
+                                                    // Was a navy field inside a warm composer, with a #5c7190 placeholder at 3.7:1
+                                                    // — under the 4.5:1 text minimum. --ad-ink-3 is the lightest ink the palette
+                                                    // allows to carry text.
+                                                    className="flex-1 resize-none h-12 rounded-xl px-4 py-3 text-base border bg-[var(--ad-surface-2)] border-[var(--ad-line-2)] text-[var(--ad-ink)] placeholder:text-[var(--ad-ink-3)] focus:outline-none focus:ring-2 focus:ring-[var(--ad-accent)]"
                                                 />
                                                 <button
                                                     onClick={handleSendAdminMessage}
                                                     disabled={uploadingMessageAttachment || (!messageText.trim() && !messageAttachment)}
-                                                    className={`w-12 h-12 shrink-0 rounded-full inline-flex items-center justify-center transition-colors ${(!uploadingMessageAttachment && (messageText.trim() || messageAttachment)) ? (isDark ? "bg-[#10233f] text-[#e79aa6] hover:bg-[#153156]" : "bg-[#a83a4d] text-white hover:bg-[#922f41]") : (isDark ? "bg-[#122540] text-gray-500" : "bg-gray-200 text-gray-400")}`}
+                                                    // Enabled and disabled were #10233f and #122540 — a per-channel difference of
+                                                    // 2/2/1, about 1.03:1. The admin could not tell a Send button that would fire
+                                                    // from one that was inert. Now the live state carries the accent fill and the
+                                                    // dead one a flat surface, which differ in both hue and lightness.
+                                                    className={`w-12 h-12 shrink-0 rounded-full inline-flex items-center justify-center transition-colors ${(!uploadingMessageAttachment && (messageText.trim() || messageAttachment)) ? "bg-[var(--ad-accent)] text-[var(--ad-ink-invert)] hover:bg-[var(--ad-accent-hover)]" : "bg-[var(--ad-surface-3)] text-[var(--ad-ink-4)]"}`}
                                                     title="Send message"
                                                 >
                                                     <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

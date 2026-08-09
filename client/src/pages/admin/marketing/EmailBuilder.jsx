@@ -235,7 +235,13 @@ export default function EmailBuilder({ blocks, setBlocks }) {
                     <a 
                       href={ctaBlock.url || '#'} 
                       onClick={e => e.preventDefault()}
-                      className="inline-flex items-center justify-center px-8 py-3 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm shadow-blue-200"
+                      // #8B1E1E, matching `brandRed` in compiler/emailCompiler.js, because this is a
+                      // PREVIEW of an email — not an admin control. It was bg-blue-600 while the
+                      // compiler sent red, so the one screen whose entire job is showing what the
+                      // recipient will get was showing a button colour no recipient ever sees.
+                      // Hardcoded rather than tokenised on purpose: the sent email cannot resolve a
+                      // CSS variable, so the preview must track the compiler's literal.
+                      className="inline-flex items-center justify-center px-8 py-3 rounded-lg bg-[#8B1E1E] text-white text-sm font-semibold hover:bg-[#721818] transition-colors shadow-sm"
                     >
                       {ctaBlock.text}
                     </a>

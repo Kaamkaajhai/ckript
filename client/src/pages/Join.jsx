@@ -445,13 +445,13 @@ const Join = () => {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-[13px] font-semibold text-[#8fa2b8] mb-2">Full name</label>
+              <label className="block text-[13px] font-semibold reader-muted mb-2">Full name</label>
               <input type="text" placeholder="Your full name"
                 className="w-full px-4 py-3 bg-[#0b121c] border border-[#243447] rounded-xl text-[15px] text-white placeholder-[#506074] outline-none focus:border-[#3f5d7a] focus:ring-2 focus:ring-[#3f5d7a]/20 transition-all duration-200"
                 value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required />
             </div>
             <div>
-              <label className="block text-[13px] font-semibold text-[#8fa2b8] mb-2">Email address</label>
+              <label className="block text-[13px] font-semibold reader-muted mb-2">Email address</label>
               <input type="email" placeholder="you@example.com"
                 className={`w-full px-4 py-3 bg-[#0b121c] border rounded-xl text-[15px] text-white placeholder-[#506074] outline-none focus:ring-2 transition-all duration-200 ${
                   emailError
@@ -473,7 +473,7 @@ const Join = () => {
               )}
             </div>
             <div>
-              <label className="block text-[13px] font-semibold text-[#8fa2b8] mb-2">Referral code (optional)</label>
+              <label className="block text-[13px] font-semibold reader-muted mb-2">Referral code (optional)</label>
               <input
                 type="text"
                 placeholder="Enter referral code or writer username"
@@ -481,14 +481,14 @@ const Join = () => {
                 value={referralCode}
                 onChange={(e) => setReferralCode(e.target.value.slice(0, REFERRAL_MAX_LENGTH))}
               />
-              <p className="mt-1.5 text-[11px] text-[#8fa2b8]">
+              <p className="mt-1.5 text-[11px] reader-muted">
                 You and your referrer both get 15 credits after successful signup verification.
               </p>
             </div>
             {requiresContactDetails && (
               <div className="reader-address-card rounded-xl border border-[#243447] bg-[#0a111b] p-4 space-y-3">
                 <div className="flex items-center gap-2">
-                  <MapPin size={15} className="text-[#8fa2b8]" />
+                  <MapPin size={15} className="reader-muted" />
                   <label className="text-[13px] font-semibold text-[#c8d4e3]">Address details</label>
                   <button
                     type="button"
@@ -522,7 +522,7 @@ const Join = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {isOutsideIndia && (
                     <div>
-                      <label className="block text-[12px] font-semibold text-[#8fa2b8] mb-1.5">Country</label>
+                      <label className="block text-[12px] font-semibold reader-muted mb-1.5">Country</label>
                       <input
                         type="text"
                         value={addressFields.country}
@@ -538,7 +538,7 @@ const Join = () => {
                   )}
 
                   <div>
-                    <label className="block text-[12px] font-semibold text-[#8fa2b8] mb-1.5">
+                    <label className="block text-[12px] font-semibold reader-muted mb-1.5">
                       {isOutsideIndia ? "Postal code" : "ZIP code"}
                     </label>
                     <input
@@ -560,7 +560,7 @@ const Join = () => {
                   </div>
 
                   <div>
-                    <label className="block text-[12px] font-semibold text-[#8fa2b8] mb-1.5">State</label>
+                    <label className="block text-[12px] font-semibold reader-muted mb-1.5">State</label>
                     <input
                       type="text"
                       value={addressFields.state}
@@ -575,7 +575,7 @@ const Join = () => {
                   </div>
 
                   <div>
-                    <label className="block text-[12px] font-semibold text-[#8fa2b8] mb-1.5">City</label>
+                    <label className="block text-[12px] font-semibold reader-muted mb-1.5">City</label>
                     <input
                       type="text"
                       value={addressFields.city}
@@ -591,7 +591,7 @@ const Join = () => {
                 </div>
 
                 <div>
-                  <label className="block text-[12px] font-semibold text-[#8fa2b8] mb-1.5">Street address</label>
+                  <label className="block text-[12px] font-semibold reader-muted mb-1.5">Street address</label>
                   <input
                     type="text"
                     value={addressFields.street}
@@ -606,11 +606,11 @@ const Join = () => {
                 </div>
 
                 {zipLookupLoading && !isOutsideIndia && (
-                  <p className="text-[11px] text-[#8fa2b8]">Looking up ZIP code and auto-filling city/state...</p>
+                  <p className="text-[11px] reader-muted">Looking up ZIP code and auto-filling city/state...</p>
                 )}
 
                 {isOutsideIndia && (
-                  <p className="text-[11px] text-[#8fa2b8]">Enter country and postal code exactly as used in your region.</p>
+                  <p className="text-[11px] reader-muted">Enter country and postal code exactly as used in your region.</p>
                 )}
 
                 {addressError && (
@@ -623,7 +623,7 @@ const Join = () => {
             )}
             {requiresContactDetails && (
               <div>
-                <label className="block text-[13px] font-semibold text-[#8fa2b8] mb-2">Phone number</label>
+                <label className="block text-[13px] font-semibold reader-muted mb-2">Phone number</label>
                 <div className="relative">
                   <Phone size={15} className="absolute left-3.5 top-3.5 text-[#506074]" />
                   <input
@@ -651,7 +651,7 @@ const Join = () => {
               </div>
             )}
             <div>
-              <label className="block text-[13px] font-semibold text-[#8fa2b8] mb-2">Password</label>
+              <label className="block text-[13px] font-semibold reader-muted mb-2">Password</label>
               <PasswordInput placeholder="Create a strong password"
                 className="w-full px-4 py-3 bg-[#0b121c] border border-[#243447] rounded-xl text-[15px] text-white placeholder-[#506074] outline-none focus:border-[#3f5d7a] focus:ring-2 focus:ring-[#3f5d7a]/20 transition-all duration-200"
                 value={formData.password}
@@ -664,7 +664,7 @@ const Join = () => {
                 required />
               {showPasswordReqs && (
                 <div className="reader-password-hint mt-2 p-3 bg-[#0a111b] rounded-lg border border-[#1f2b3c]">
-                  <p className="text-[11px] font-semibold text-[#8fa2b8] mb-2">Password Requirements:</p>
+                  <p className="text-[11px] font-semibold reader-muted mb-2">Password Requirements:</p>
                   <div className="space-y-1">
                     <div className={`flex items-center gap-2 text-[11px] font-medium transition-colors ${passwordValidation.length ? 'text-emerald-400' : 'text-[#6e7f95]'}`}>
                       <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
@@ -701,7 +701,7 @@ const Join = () => {
               )}
             </div>
             <div>
-              <label className="block text-[13px] font-semibold text-[#8fa2b8] mb-2">Confirm password</label>
+              <label className="block text-[13px] font-semibold reader-muted mb-2">Confirm password</label>
               <PasswordInput placeholder="Re-enter your password"
                 className={`w-full px-4 py-3 bg-[#0b121c] border rounded-xl text-[15px] text-white placeholder-[#506074] outline-none focus:ring-2 transition-all duration-200 ${
                   passwordMismatch

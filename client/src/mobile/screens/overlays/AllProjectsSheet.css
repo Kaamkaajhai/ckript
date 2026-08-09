@@ -1,54 +1,43 @@
-.ckm .ckm-allp__head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-}
-.ckm .ckm-allp__eyebrow {
-  font: 700 9.5px/1 var(--ckm-body);
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: var(--ckm-accent);
-}
-.ckm .ckm-allp__title {
-  font: 600 23px/1.1 var(--ckm-display);
-  margin-top: 6px;
-}
-.ckm .ckm-allp__close {
-  width: 34px;
-  height: 34px;
-  flex: none;
-  border-radius: 50%;
-  border: 1px solid var(--ckm-line);
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
+/* The sheet's header (title, count, close) is rendered by
+   components/overlays/Sheet: ckm-bottom-sheet owns it. */
 
 .ckm .ckm-allp__list {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  margin-top: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 .ckm .ckm-allp__row {
   display: flex;
   gap: 12px;
   align-items: center;
+  min-height: var(--ckm-touch-target, 44px);
   border: 1px solid var(--ckm-line);
   border-radius: 14px;
   padding: 10px;
   background: #fff;
-  cursor: pointer;
+  color: inherit;
+  text-decoration: none;
   text-align: left;
   width: 100%;
 }
 .ckm .ckm-allp__thumb {
-  width: 70px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  width: 56px;
   height: 52px;
+  padding: 7px;
   border-radius: 9px;
   flex: none;
+  background: var(--ckm-bg-soft);
+}
+.ckm .ckm-allp__thumb-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
 }
 .ckm .ckm-allp__main {
   flex: 1;
@@ -58,14 +47,18 @@
 }
 .ckm .ckm-allp__name {
   font: 700 13px/1.2 var(--ckm-body);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .ckm .ckm-allp__meta {
-  font: 500 10px/1.2 var(--ckm-body);
-  color: var(--ckm-muted-2);
+  /* was 10px / --ckm-muted-2 (2026-08-07 sweep) */
+  font: 500 11px/1.3 var(--ckm-body);
+  color: var(--ckm-text-3);
   margin-top: 4px;
 }
 .ckm .ckm-allp__meta.is-rejected {
-  color: var(--ckm-red);
+  color: var(--ckm-red-ink);
 }
 .ckm .ckm-allp__score {
   display: inline-flex;
@@ -77,36 +70,40 @@
   font: 800 13px/1 var(--ckm-body);
 }
 .ckm .ckm-allp__score-out {
-  font: 600 8px/1 var(--ckm-body);
-  color: var(--ckm-faint);
+  /* was 8px / --ckm-faint (2026-08-07 sweep) */
+  font: 600 11px/1 var(--ckm-body);
+  color: var(--ckm-text-3);
 }
 .ckm .ckm-allp__badge {
-  font: 600 9px/1 var(--ckm-body);
-  padding: 5px 8px;
+  /* One badge, not three tone variants: the row already carries its status in
+     the meta line and in the thumb's dot, so the badge repeats the word rather
+     than adding a fourth colour code to read. */
+  font: 600 11px/1 var(--ckm-body);
+  padding: 6px 9px;
   border-radius: 7px;
   flex: none;
-}
-.ckm .ckm-allp__badge--gold {
-  color: var(--ckm-gold);
-  background: var(--ckm-gold-bg);
-}
-.ckm .ckm-allp__badge--red {
-  color: var(--ckm-red);
-  background: var(--ckm-red-bg);
+  white-space: nowrap;
+  color: var(--ckm-text-3);
+  background: var(--ckm-bg-soft);
 }
 
 .ckm .ckm-allp__pager {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   margin-top: 20px;
 }
+.ckm .ckm-allp__pnav,
+.ckm .ckm-allp__pnum {
+  /* The pager is the one place on this sheet where every control is reached by
+     thumb, so all of them are a full touch target rather than 34px. */
+  min-width: var(--ckm-touch-target, 44px);
+  height: var(--ckm-touch-target, 44px);
+}
 .ckm .ckm-allp__pnav {
-  width: 34px;
-  height: 34px;
   border-radius: 50%;
-  border: 1px solid #e4ddd0;
+  border: 1px solid var(--ckm-line-strong);
   background: #fff;
   color: var(--ckm-ink);
   display: flex;
@@ -115,13 +112,11 @@
   cursor: pointer;
 }
 .ckm .ckm-allp__pnav:disabled {
-  border-color: #efe9df;
-  color: #dcd5c8;
+  border-color: var(--ckm-line-2);
+  color: var(--ckm-faint);
   cursor: default;
 }
 .ckm .ckm-allp__pnum {
-  width: 34px;
-  height: 34px;
   border-radius: 9px;
   border: none;
   background: transparent;
@@ -133,4 +128,9 @@
   background: var(--ckm-ink);
   color: #fff;
   font-weight: 700;
+}
+.ckm .ckm-allp__pgap {
+  color: var(--ckm-text-3);
+  font: 600 13px/1 var(--ckm-body);
+  padding: 0 2px;
 }

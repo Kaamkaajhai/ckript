@@ -1,0 +1,16 @@
+# Caching, and why the two rules below must disagree.
+#
+# This is the root of the stale-chunk failure, not just a performance setting. index.html is the one
+# file that names the current build's hashed entry bundle. If a browser keeps a cached copy, it goes
+# on booting last week's entry bundle, which asks for chunk hashes the newest deploy has already
+# replaced — and every lazy route 404s. Revalidating index.html on each visit is what makes a deploy
+# actually reach the user.
+#
+# Everything under /assets is content-hashed by Vite: a changed file gets a new name, so the old one
+# can be cached forever and never needs revalidating. That is what `immutable` is for.
+
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable

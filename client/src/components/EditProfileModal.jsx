@@ -782,7 +782,7 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                       />
                     ) : (
                       <div className="w-[72px] h-[72px] rounded-full bg-[#1e3a5f]/10 border-2 border-dashed border-gray-300 flex items-center justify-center">
-                        <span className="text-2xl font-bold text-[#1e3a5f]">
+                        <span className={`text-2xl font-bold ${dark ? 'text-white/80' : 'text-[#1e3a5f]'}`}>
                           {formData.name ? formData.name.charAt(0).toUpperCase() : "?"}
                         </span>
                       </div>
@@ -1141,7 +1141,7 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
               </div>
               {selectedGenres.length > 0 && (
                 <p className="text-xs text-gray-500">
-                  <span className="font-semibold text-[#0f2544]">{selectedGenres.length}</span> genre{selectedGenres.length !== 1 ? "s" : ""} selected
+                  <span className={`font-semibold ${dark ? 'text-white/80' : 'text-[#0f2544]'}`}>{selectedGenres.length}</span> genre{selectedGenres.length !== 1 ? "s" : ""} selected
                 </p>
               )}
             </motion.div>
@@ -1396,7 +1396,7 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                 </div>
                 {investorGenres.length > 0 && (
                   <p className={`text-xs mt-2 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>
-                    <span className="font-semibold text-[#0f2544]">{investorGenres.length}</span> genre{investorGenres.length !== 1 ? 's' : ''} selected
+                    <span className={`font-semibold ${dark ? 'text-white/80' : 'text-[#0f2544]'}`}>{investorGenres.length}</span> genre{investorGenres.length !== 1 ? 's' : ''} selected
                   </p>
                 )}
               </div>

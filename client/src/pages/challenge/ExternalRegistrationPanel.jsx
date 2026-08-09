@@ -35,7 +35,7 @@ const MAX_SCREENSHOT_BYTES = 8 * 1024 * 1024;
 const StatusBanner = ({ tone, icon: Icon, title, children }) => {
   const palette = {
     pending: { bg: "var(--ckc-blush)", border: "var(--ckc-accent)", ink: "var(--ckc-accent-text)" },
-    approved: { bg: "rgba(16,122,86,0.08)", border: "rgba(16,122,86,0.4)", ink: "rgb(13,102,72)" },
+    approved: { bg: "var(--ckc-cream)", border: "var(--ckc-rule)", ink: "var(--ckc-ink)" },
     rejected: { bg: "var(--ckc-blush)", border: "var(--ckc-accent)", ink: "var(--ckc-accent-text)" },
   }[tone];
 

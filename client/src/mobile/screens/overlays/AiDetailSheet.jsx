@@ -1,32 +1,66 @@
-import Icon from "../../components/Icon";
-import BottomSheet from "../../components/BottomSheet";
+import Sheet from "../../components/overlays/Sheet";
 import { aiDetailFor } from "../../data/dashboardData";
 import "./AiDetailSheet.css";
 
 /*
- * AiDetailSheet — the full AI analysis for a single script, presented as a
- * bottom sheet (reference screen 02). Opens from any AI review card's
- * "Details" action. When a script has hand-authored detail it is used
- * verbatim; otherwise the sheet derives a faithful breakdown from the
- * review's own bars so every card leads somewhere real.
+ * AiDetailSheet — the full AI analysis for a single script. Opens from any AI
+ * review card's "Details" action.
+ *
+ * 2026-08-07 (plan §11 Phase 2), three changes:
+ *
+ *  • It is a real `Sheet` (ckm-bottom-sheet) rather than the dashboard-era
+ *    `BottomSheet`, so it gets the focus trap, scroll lock, `inert` background
+ *    and focus restoration that the old primitive never had — and its drag is
+ *    bound to the grip, so dragging the analysis scrolls it instead of
+ *    dismissing it. Its own close button goes away with it: `Sheet` renders
+ *    the accessible one.
+ *  • The strengths, weaknesses and recommendations are the model's own words,
+ *    from `/dashboard/reviews`. They used to be generated from the bar labels
+ *    ("Structure lands with confidence") — sentences no model ever wrote,
+ *    attributed to one.
+ *  • Audience and comparables render as text. They were passed through
+ *    `dangerouslySetInnerHTML`, which is defensible for a hand-written fixture
+ *    string and not defensible at all once the string is model output stored
+ *    on a script.
  */
-export default function AiDetailSheet({ review, open, onClose }) {
+
+function DetailList({ kicker, accent = false, items, ordered = false }) {
+  if (!items?.length) return null;
+  const List = ordered ? "ol" : "ul";
+
+  return (
+    <div>
+      <div className={`ckm-aid__list-kicker${accent ? " ckm-aid__list-kicker--accent" : ""}`}>
+        {kicker}
+      </div>
+      <List className="ckm-aid__list">
+        {items.map((item, i) => (
+          <li key={`${kicker}-${i}`} className="ckm-aid__list-item">
+            <span className={`ckm-aid__dash${accent ? " ckm-aid__dash--accent" : ""}`} aria-hidden="true">
+              {ordered ? i + 1 : "—"}
+            </span>
+            {item}
+          </li>
+        ))}
+      </List>
+    </div>
+  );
+}
+
+export default function AiDetailSheet({ review, open, onClose, returnFocusTo = null }) {
   const detail = review ? aiDetailFor(review) : null;
 
   return (
-    <BottomSheet open={open && !!review} onClose={onClose} height="88%" label="AI analysis detail">
+    <Sheet
+      open={open && !!review}
+      onClose={onClose}
+      title={review?.title || "AI analysis"}
+      description="AI-Powered Analysis"
+      returnFocusTo={returnFocusTo}
+      className="ckm-aid__sheet"
+    >
       {detail && (
         <div className="ckm-aid">
-          <div className="ckm-aid__head">
-            <div>
-              <div className="ckm-aid__eyebrow">AI-Powered Analysis</div>
-              <h3 className="ckm-aid__title">{review.title}</h3>
-            </div>
-            <button type="button" className="ckm-aid__close" onClick={onClose} aria-label="Close">
-              <Icon name="close" size={20} color="var(--ckm-text-3)" />
-            </button>
-          </div>
-
           <div className="ckm-aid__overall">
             <div className="ckm-aid__overall-col">
               <div className="ckm-aid__overall-kicker">Overall</div>
@@ -36,49 +70,45 @@ export default function AiDetailSheet({ review, open, onClose }) {
               </span>
             </div>
             <div className="ckm-aid__divider" />
-            <p className="ckm-aid__quote">“{detail.quote}”</p>
+            {detail.quote && <p className="ckm-aid__quote">“{detail.quote}”</p>}
           </div>
 
-          <div className="ckm-aid__facets">
-            {detail.facets.map((f) => (
-              <div key={f.label} className="ckm-aid__facet">
-                <div className="ckm-aid__facet-label">{f.label}</div>
-                <div className="ckm-aid__facet-value">{f.value}</div>
-              </div>
-            ))}
-          </div>
+          {detail.facets.length > 0 && (
+            <div className="ckm-aid__facets">
+              {detail.facets.map((f) => (
+                <div key={f.label} className="ckm-aid__facet">
+                  <div className="ckm-aid__facet-label">{f.label}</div>
+                  <div className="ckm-aid__facet-value">{f.value}</div>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="ckm-aid__lists">
-            <div>
-              <div className="ckm-aid__list-kicker ckm-aid__list-kicker--accent">Strengths</div>
-              <div className="ckm-aid__list">
-                {detail.strengths.map((s) => (
-                  <div key={s} className="ckm-aid__list-item">
-                    <span className="ckm-aid__dash ckm-aid__dash--accent">—</span>
-                    {s}
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className="ckm-aid__list-kicker">To Improve</div>
-              <div className="ckm-aid__list">
-                {detail.improve.map((s) => (
-                  <div key={s} className="ckm-aid__list-item">
-                    <span className="ckm-aid__dash">—</span>
-                    {s}
-                  </div>
-                ))}
-              </div>
-            </div>
+            <DetailList kicker="Strengths" accent items={detail.strengths} />
+            <DetailList kicker="To Improve" items={detail.improve} />
           </div>
 
-          <div className="ckm-aid__audience">
-            <div className="ckm-aid__list-kicker">Audience &amp; Comparables</div>
-            <p className="ckm-aid__audience-body" dangerouslySetInnerHTML={{ __html: detail.audience }} />
-          </div>
+          <DetailList kicker="Recommendations" items={detail.recommendations} ordered />
+
+          {(detail.audienceFit || detail.comparables) && (
+            <div className="ckm-aid__audience">
+              {detail.audienceFit && (
+                <>
+                  <div className="ckm-aid__list-kicker">Audience &amp; Market</div>
+                  <p className="ckm-aid__audience-body">{detail.audienceFit}</p>
+                </>
+              )}
+              {detail.comparables && (
+                <>
+                  <div className="ckm-aid__list-kicker">Comparable Titles</div>
+                  <p className="ckm-aid__audience-body">{detail.comparables}</p>
+                </>
+              )}
+            </div>
+          )}
         </div>
       )}
-    </BottomSheet>
+    </Sheet>
   );
 }

@@ -37,24 +37,32 @@ export default function Hero() {
             see LandingNav for the page variant used everywhere else. */}
         <LandingNav variant="stage" />
 
-        {/* Hero content */}
-        <h1 className="ckl-hero-title">
-          The Journey from
-          <br />
-          Page to Screen
-          <span className="ckl-hero-title-dot" />
-        </h1>
-        <span className="ckl-hero-line" />
-        <p className="ckl-hero-desc">
-          Ckript brings powerful writing tools and a modern marketplace together, helping writers create exceptional scripts and producers discover the next great story worth producing.
-        </p>
-        <div className="ckl-hero-buttons">
-          <button type="button" onClick={openProducerOnboarding} className="ckl-hero-btn-primary hov-btn-lift">
-            Browse Scripts
-          </button>
-          <button type="button" onClick={() => openAboutModal()} className="ckl-hero-btn-text hov-underline">
-            Meet the Platform
-          </button>
+        {/* Hero content.
+            One column rather than four independently-positioned elements: the rule, paragraph and
+            buttons now sit below whatever height the title actually takes. They used to be pinned to
+            hardcoded `top` values measured against a two-line title, so adding a third line pushed
+            the title straight through them. */}
+        <div className="ckl-hero-content">
+          <h1 className="ckl-hero-title">
+            Ckript
+            <br />
+            The Journey from
+            <br />
+            Page to Screen
+            <span className="ckl-hero-title-dot" />
+          </h1>
+          <span className="ckl-hero-line" />
+          <p className="ckl-hero-desc">
+            Ckript brings powerful writing tools and a modern marketplace together, helping writers create exceptional scripts and producers discover the next great story worth producing.
+          </p>
+          <div className="ckl-hero-buttons">
+            <button type="button" onClick={openProducerOnboarding} className="ckl-hero-btn-primary hov-btn-lift">
+              Browse Scripts
+            </button>
+            <button type="button" onClick={() => openAboutModal()} className="ckl-hero-btn-text hov-underline">
+              Meet the Platform
+            </button>
+          </div>
         </div>
       </div>
     </section>

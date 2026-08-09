@@ -43,7 +43,10 @@ describe("buildNav — writer", () => {
   // nav. This is the guard for that.
   it("keeps the mobile bottom nav intact when the rail grows", () => {
     const { mobile } = forWriter();
-    expect(paths(mobile)).toEqual(["/dashboard", "/create-project", "/messages", "/profile/ada"]);
+    // 2026-08-07: Create gave its compact slot to Projects (see writerNav's
+    // note). Create stays in the rail and drawer, and is the dashboard hero's
+    // primary action, so it is still one tap from home.
+    expect(paths(mobile)).toEqual(["/dashboard", "/dashboard?tab=projects", "/messages", "/profile/ada"]);
     expect(mobile.length).toBeLessThanOrEqual(MOBILE_SLOTS);
     expect(mobile.every(Boolean)).toBe(true);
   });

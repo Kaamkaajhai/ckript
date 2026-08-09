@@ -13,6 +13,10 @@ vi.mock("../screens/Dashboard", () => ({
   ),
 }));
 
+vi.mock("../screens/Holds", () => ({
+  default: () => <main data-testid="mobile-holds">Mobile holds</main>,
+}));
+
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 let container;
@@ -58,6 +62,19 @@ describe("MobileRoutes", () => {
 
   it("does not silently turn an unmatched URL into the dashboard", async () => {
     const el = await mount("/messages");
+    expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
+  });
+
+  it("renders the same dashboard at /ai-tools, because desktop does", async () => {
+    // App.jsx mounts the identical <DashboardRoute /> element at both URLs.
+    // The alias must not be a second, differently-built dashboard.
+    const el = await mount("/ai-tools");
+    expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeTruthy();
+  });
+
+  it("renders the holds screen at /offer-holds — and not the dashboard", async () => {
+    const el = await mount("/offer-holds", { user: { role: "producer" } });
+    expect(el.querySelector('[data-testid="mobile-holds"]')).toBeTruthy();
     expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
   });
 

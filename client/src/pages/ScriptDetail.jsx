@@ -1406,7 +1406,7 @@ const ScriptDetail = () => {
                   </button>
                 </div>
                 <div className="rounded-xl border border-amber-500/30 bg-amber-500/8 p-4">
-                  <p className="text-[11px] font-bold uppercase tracking-wide mb-1 text-amber-500">Premium Plan</p>
+                  <p className={`text-[11px] font-bold uppercase tracking-wide mb-1 ${isDarkMode ? "text-amber-500" : "text-amber-700"}`}>Premium Plan</p>
                   <p className={`text-sm font-semibold mb-0.5 ${t.title}`}>Film Industry Professional</p>
                   <p className={`text-[12px] leading-relaxed mb-3 ${t.muted}`}>
                     Full access to scripts, writer profiles, and verified contact details (email, phone &amp; links) for up to 15 writers per month.
@@ -1414,7 +1414,7 @@ const ScriptDetail = () => {
                   <button
                     type="button"
                     onClick={() => openPricingModal()}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition"
+                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold border transition ${isDarkMode ? "border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20" : "border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100"}`}
                   >
                     <BadgeCheck className="h-3.5 w-3.5" />
                     Get the Plan
@@ -1439,7 +1439,7 @@ const ScriptDetail = () => {
         {loadError && <p className={`max-w-md mx-auto mt-2 mb-5 text-sm ${t.muted}`}>{loadError}</p>}
         <div className="flex items-center justify-center gap-3">
           {loadError && <button type="button" onClick={() => fetchScript()} className={`px-4 py-2 rounded-xl text-sm font-semibold border ${t.btnPrim}`}>Retry</button>}
-          <Link to="/search" className="text-[#1e3a5f] hover:underline text-sm font-semibold">Browse scripts</Link>
+          <Link to="/search" className={`hover:underline text-sm font-semibold ${isDarkMode ? "text-blue-300" : "text-[#1e3a5f]"}`}>Browse scripts</Link>
         </div>
       </div>
     );

@@ -23,7 +23,7 @@ const ScoresSection = () => {
                     <div>
                         <div className="flex items-center justify-between mb-5">
                             <h2 className={`text-xl font-extrabold ${isDark ? "text-white" : "text-gray-900"}`}>Score Rankings</h2>
-                            <div className={`flex rounded-xl overflow-hidden border ${isDark ? "border-[#2e2828] bg-[#0b1426]" : "border-gray-200 bg-gray-50"}`}>
+                            <div className="flex rounded-xl overflow-hidden border border-[var(--ad-line)] bg-[var(--ad-surface-2)]">
                                 {[{ k: "ai", l: "AI Scores" }, { k: "platform", l: "Platform" }, { k: "reader", l: "Reader" }].map((t) => (
                                     <button key={t.k} onClick={() => setScoreSubTab(t.k)}
                                         className={`px-4 py-2 text-sm font-bold transition-all ${scoreSubTab === t.k

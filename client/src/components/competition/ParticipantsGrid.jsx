@@ -5,11 +5,14 @@ import api from "../../services/api";
 const ParticipantsGrid = ({ totalParticipants = 0, prizePool }) => {
   const total = totalParticipants || 0;
 
+  // The card backgrounds must come from .ckc-card, never inline: an inline background outranks the
+  // themed class, and these numerals are var(--ckc-ink) — near-white in dark mode. A pinned white
+  // fill under them put white-on-white stats on every dark-mode challenge page.
   return (
     <div className="grid gap-6 sm:grid-cols-3 mt-4">
       <div 
         className="ckc-card flex flex-col items-center justify-center text-center p-8 shadow-sm transition-all hover:shadow-md" 
-        style={{ borderRadius: '12px', border: '1px solid var(--ckc-rule)', background: 'linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(249,250,251,1) 100%)' }}
+        style={{ borderRadius: '12px', border: '1px solid var(--ckc-rule)' }}
       >
         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: 'rgba(59, 130, 246, 0.1)' }}>
           <Users className="h-8 w-8" style={{ color: '#3b82f6' }} />
@@ -24,7 +27,7 @@ const ParticipantsGrid = ({ totalParticipants = 0, prizePool }) => {
 
       <div 
         className="ckc-card flex flex-col items-center justify-center text-center p-8 shadow-sm transition-all hover:shadow-md" 
-        style={{ borderRadius: '12px', border: '1px solid var(--ckc-rule)', background: 'linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(249,250,251,1) 100%)' }}
+        style={{ borderRadius: '12px', border: '1px solid var(--ckc-rule)' }}
       >
         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)' }}>
           <Building2 className="h-8 w-8" style={{ color: '#10b981' }} />
@@ -39,7 +42,7 @@ const ParticipantsGrid = ({ totalParticipants = 0, prizePool }) => {
 
       <div 
         className="ckc-card flex flex-col items-center justify-center text-center p-8 shadow-sm transition-all hover:shadow-md" 
-        style={{ borderRadius: '12px', border: '1px solid var(--ckc-rule)', background: 'linear-gradient(180deg, rgba(255,255,255,1) 0%, rgba(249,250,251,1) 100%)' }}
+        style={{ borderRadius: '12px', border: '1px solid var(--ckc-rule)' }}
       >
         <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full" style={{ backgroundColor: 'rgba(234, 179, 8, 0.1)' }}>
           <Trophy className="h-8 w-8" style={{ color: '#eab308' }} />

@@ -98,13 +98,20 @@ mobile/
   The shell adds `scroll_depth`, which the global tracker cannot see because the
   mobile app locks the document and scrolls its own surface.
 
-## Migration fallback and the "desktop-only" pattern
+## Migration fallback
 
-Only the writer Dashboard is implemented as a native-style route. Direct visits
-to other canonical URLs use the existing desktop page during migration. Some
-actions inside Dashboard still call `island.desktopOnly(feature)` and show a
-polished **Dynamic Island** hint; those are tracked Phase 2 work and are not the
-final product behavior.
+Direct visits to canonical URLs that have no native-style screen yet use the
+existing desktop page during migration. Implemented screens are the writer
+Dashboard (`/dashboard`, and `/ai-tools`, which desktop mounts as the identical
+element) and the industry holds screen (`/offer-holds`).
+
+> **The `desktopOnly()` pattern is gone (2026-08-07, plan §11 Phase 2 and §2.8).**
+> Dashboard actions used to call `island.desktopOnly(feature)` and show a
+> Dynamic Island hint — an avatar menu whose four entries were four routes that
+> render fine on a phone answered all four with "use a computer". Every call
+> site is now a real destination or a real in-place behaviour, and
+> `components/DynamicIsland.*` was deleted with its last caller. `ckm-toast` is
+> the transient-message surface. Do not reintroduce either.
 
 No new screen may rely on an unregistered fallback. The coverage test requires
 every `App.jsx` route to declare `screen`, `redirect`, `dev-only`, or an explicit

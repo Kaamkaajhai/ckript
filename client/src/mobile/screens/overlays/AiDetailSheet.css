@@ -1,32 +1,6 @@
-.ckm .ckm-aid__head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-.ckm .ckm-aid__eyebrow {
-  font: 700 9.5px/1 var(--ckm-body);
-  letter-spacing: 1.5px;
-  text-transform: uppercase;
-  color: var(--ckm-accent);
-}
-.ckm .ckm-aid__title {
-  font: 600 23px/1.1 var(--ckm-display);
-  margin-top: 6px;
-}
-.ckm .ckm-aid__close {
-  width: 34px;
-  height: 34px;
-  flex: none;
-  border-radius: 50%;
-  border: 1px solid var(--ckm-line);
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
+/* The sheet's own header (title, description, close) is rendered by
+   components/overlays/Sheet: ckm-bottom-sheet owns it. What is left in this
+   file is the analysis itself. */
 .ckm .ckm-aid__overall {
   display: flex;
   gap: 16px;
@@ -38,10 +12,10 @@
   width: 92px;
 }
 .ckm .ckm-aid__overall-kicker {
-  font: 700 9px/1 var(--ckm-body);
-  letter-spacing: 1.6px;
+  font: 700 11px/1.2 var(--ckm-body);
+  letter-spacing: 0.6px;
   text-transform: uppercase;
-  color: var(--ckm-accent);
+  color: var(--ckm-accent-ink);
 }
 .ckm .ckm-aid__overall-score {
   font: 500 56px/1 var(--ckm-display);
@@ -76,10 +50,10 @@
   border-top: 1px solid #f0ebe0;
 }
 .ckm .ckm-aid__facet-label {
-  font: 700 8px/1 var(--ckm-body);
-  letter-spacing: 0.8px;
+  font: 700 11px/1.2 var(--ckm-body);
+  letter-spacing: 0.5px;
   text-transform: uppercase;
-  color: var(--ckm-muted-2);
+  color: var(--ckm-text-3);
 }
 .ckm .ckm-aid__facet-value {
   font: 400 13px/1.2 var(--ckm-display);
@@ -88,35 +62,40 @@
 
 .ckm .ckm-aid__lists {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  /* Two 11px columns at 320px is not two columns, it is two ransom notes. */
+  grid-template-columns: 1fr;
   gap: 22px;
   margin-top: 16px;
   padding-top: 16px;
   border-top: 1px solid #f0ebe0;
 }
 .ckm .ckm-aid__list-kicker {
-  font: 700 9px/1 var(--ckm-body);
-  letter-spacing: 1.3px;
+  font: 700 11px/1.2 var(--ckm-body);
+  letter-spacing: 0.6px;
   text-transform: uppercase;
-  color: var(--ckm-muted-2);
-  margin-bottom: 9px;
+  color: var(--ckm-text-3);
+  margin: 14px 0 9px;
 }
 .ckm .ckm-aid__list-kicker--accent {
-  color: var(--ckm-accent);
+  color: var(--ckm-accent-ink);
 }
 .ckm .ckm-aid__list {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
 .ckm .ckm-aid__list-item {
   display: flex;
   gap: 8px;
-  font: 400 11.5px/1.4 var(--ckm-body);
+  font: 400 12px/1.45 var(--ckm-body);
   color: var(--ckm-text-3);
 }
 .ckm .ckm-aid__dash {
-  color: var(--ckm-faint);
+  flex: none;
+  color: var(--ckm-text-3);
 }
 .ckm .ckm-aid__dash--accent {
   color: var(--ckm-accent);
@@ -128,9 +107,13 @@
   border-top: 1px solid #f0ebe0;
 }
 .ckm .ckm-aid__audience-body {
-  font: 400 11.5px/1.6 var(--ckm-body);
+  font: 400 12px/1.6 var(--ckm-body);
   color: var(--ckm-text-3);
+  margin-bottom: 4px;
 }
-.ckm .ckm-aid__audience-body i {
-  font-family: var(--ckm-display);
+
+@media (min-width: 380px) {
+  .ckm .ckm-aid__lists {
+    grid-template-columns: 1fr 1fr;
+  }
 }

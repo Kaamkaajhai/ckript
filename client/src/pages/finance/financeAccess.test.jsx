@@ -16,7 +16,7 @@ import { act } from "react";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
-const { PremiumTable, WriterPlansTable, BankReviewsTable, PaymentsTable } =
+const { PremiumTable, WriterPlansTable, BankReviewsTable, PaymentsTable, ChallengesTable } =
   await import("./FinanceSections.jsx");
 const { ADMIN_NAV_GROUPS } = await import("../admin/shell/adminNavGroups.js");
 const { TABS } = await import("../admin/dashboardShared.jsx");
@@ -114,6 +114,65 @@ describe("transactions are read-only for everyone", () => {
     const row = { _id: "t1", user: { name: "Rhea Kapoor" }, type: "credit", amount: 499, currency: "INR", status: "paid", createdAt: "2026-02-02" };
     const text = render(<PaymentsTable {...base} rows={[row]} />);
     expect(text).toContain("Rhea Kapoor");
+    expect(buttonLabels().some((l) => CONTROLS.includes(l))).toBe(false);
+  });
+
+  it('names a "credit" row as the writer payout it is', () => {
+    // The raw enum read like the retired credits feature. It is not: scriptController writes these
+    // to credit a writer's wallet on every sale. The misreading nearly got every payout filtered
+    // out of the accountant's view, so the label is the guard against repeating that.
+    const payout = { _id: "t2", user: { name: "Aarav Sharma" }, type: "credit", amount: 45000, currency: "INR", status: "completed", description: 'Script purchase payout: "The Salt Road"', createdAt: "2026-02-03" };
+    const text = render(<PaymentsTable {...base} rows={[payout]} />);
+    expect(text).toContain("Writer payout");
+    expect(text).not.toMatch(/\bcredit\b/);
+  });
+
+  it("still names the types it does not rewrite", () => {
+    for (const [type, label] of [["refund", "Refund"], ["commission", "Commission"], ["subscription", "Subscription"]]) {
+      const text = render(<PaymentsTable {...base} rows={[{ _id: type, user: { name: "X" }, type, amount: 1, currency: "INR", status: "completed", createdAt: "2026-02-03" }]} />);
+      expect(text).toContain(label);
+    }
+  });
+
+  it("falls back to the raw type rather than blanking an unknown one", () => {
+    // A new enum value must still be visible in the books, even before anyone names it here.
+    const text = render(<PaymentsTable {...base} rows={[{ _id: "t9", user: { name: "X" }, type: "escrow_hold", amount: 1, currency: "INR", status: "completed", createdAt: "2026-02-03" }]} />);
+    expect(text).toContain("escrow_hold");
+  });
+});
+
+describe("challenge entries come from the ledger, so free entries are visible", () => {
+  // The point of sourcing this from LedgerEntry rather than Transaction or Invoice: an entry granted
+  // by an admin, or approved from a third-party registration, writes neither of those. Built on
+  // payments alone the section would report a competition as emptier than it was.
+  const paid = {
+    _id: "l1", user: { name: "Aarav Sharma", email: "aarav@example.in" },
+    label: "48-Hour Script Challenge", settlement: "paid", provider: "razorpay",
+    amountMinor: 9900, listPriceMinor: 9900, currency: "INR", occurredAt: "2026-02-04",
+  };
+  const granted = {
+    _id: "l2", user: { name: "Rhea Kapoor", email: "rhea@example.in" },
+    label: "48-Hour Script Challenge", settlement: "granted", provider: "none",
+    amountMinor: 0, listPriceMinor: 9900, currency: "INR", occurredAt: "2026-02-05",
+  };
+
+  it("shows a paid entry with what was charged", () => {
+    const text = render(<ChallengesTable {...base} rows={[paid]} />);
+    expect(text).toContain("Aarav Sharma");
+    expect(text).toContain("48-Hour Script Challenge");
+    expect(text).toContain("paid");
+  });
+
+  it("shows a granted entry, and states what it was worth rather than charging nothing", () => {
+    const text = render(<ChallengesTable {...base} total={1} rows={[granted]} />);
+    expect(text).toContain("Rhea Kapoor");
+    expect(text).toContain("granted");
+    // Zero charged must not read as a sale of nothing; the list price is what it cost the business.
+    expect(text).toMatch(/99/);
+  });
+
+  it("offers no controls — an accountant reads challenge entries, never edits them", () => {
+    render(<ChallengesTable {...base} rows={[paid, granted]} />);
     expect(buttonLabels().some((l) => CONTROLS.includes(l))).toBe(false);
   });
 });
