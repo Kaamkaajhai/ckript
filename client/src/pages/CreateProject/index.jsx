@@ -63,7 +63,65 @@ import Step5Publish from "./steps/Step5Publish";
 import CreateProjectShell from "./CreateProjectShell";
 import "./createProjectEditor.css";
 
-const CreateProject = () => {
+/*
+ * THE CHROME SEAM (plan §11 Phase 3, mode B).
+ *
+ * Everything below this line — every piece of create-project state, the
+ * autosave loop, the draft signature, the keepalive exit save, the working-draft
+ * snapshot, validation, publish — is platform-neutral and is published through
+ * `CreateProjectContext`. What is NOT neutral is the chrome that reads it:
+ * `CreateProjectShell` is a three-pane desktop workspace, and a phone needs a
+ * one-panel flow with a sticky footer.
+ *
+ * So the chrome is injected rather than forked. Two props, both defaulted so an
+ * unchanged desktop call site (`<CreateProject />` in App.jsx) renders exactly
+ * what it rendered before:
+ *
+ *   Shell         the chrome component. Desktop passes nothing and gets
+ *                 CreateProjectShell; mobile passes its own.
+ *   nativeChrome  the native chrome owns the modal surfaces listed below, so
+ *                 this orchestrator must NOT also render its desktop ones. Two
+ *                 exit confirmations stacked on one screen is worse than none,
+ *                 and a `position: fixed` desktop toast lands on top of the
+ *                 mobile editor's docked bar.
+ *
+ * `nativeChrome` suppresses exactly six surfaces, and each is replaced by a
+ * mobile equivalent rather than dropped: the exit-as-draft confirmation
+ * (→ ckm-action-sheet + ckm-confirm), the drafts drawer (→ a ckm-bottom-sheet),
+ * the toast (→ the mobile ToastProvider), the under-review acknowledgement
+ * (→ ckm-dialog), the thumbnail cropper (→ ckm-dialog) and the title-page
+ * configurator (→ ckm-dialog). Nothing else is conditional: the grammar undo
+ * bar and focus mode have no mobile caller and so can never open there, and
+ * suppressing them would be dead code pretending to be a decision.
+ *
+ * One thing deliberately NOT suppressed: `VersionHistoryModal`. It is a shared
+ * component with its own scroll and its own close, the mobile editor has no
+ * control that opens it (version history is a Phase 3 bullet 4 sheet), and
+ * hiding a surface nothing can reach would be the same dead code.
+ */
+const CreateProject = ({
+  Shell = CreateProjectShell,
+  nativeChrome = false,
+  /* The orchestrator's outermost element. Desktop wants a page-width block that
+     clips horizontal overflow; the mobile app shell wants a flex column that
+     passes its height straight down, because `.ckm-shell` is `height: 100%` and
+     a default-height div between it and `.ckm-root` collapses the whole screen
+     to its content. The class name stays on the mobile side of the seam. */
+  hostClassName = "w-full overflow-x-hidden",
+} = {}) => {
+  /* The two props move together or not at all. `nativeChrome` REMOVES the exit
+     confirmation, the drafts drawer, the toast and three modals on the promise
+     that something else is rendering them; paired with the desktop shell that
+     promise is false, and the failure mode is silent — a writer taps Exit and
+     nothing happens. Caught here rather than left to be discovered. */
+  if (import.meta.env?.DEV && nativeChrome && Shell === CreateProjectShell) {
+    console.error(
+      "[create-project] `nativeChrome` was passed with the desktop CreateProjectShell. "
+      + "It suppresses the exit confirmation, drafts drawer, toast, under-review, cropper and "
+      + "title-page surfaces on the assumption a native chrome owns them — pass that chrome as `Shell`."
+    );
+  }
+
   const { isDarkMode: dark, toggleDarkMode } = useDarkMode();
   const { user } = useContext(AuthContext);
   const { openPricingModal } = useAuthModal();
@@ -405,6 +463,16 @@ const CreateProject = () => {
   const [titlePage, setTitlePage] = useState(null);
   const [showTitlePageModal, setShowTitlePageModal] = useState(false);
   const titlePageActive = Boolean(titlePage && Object.values(titlePage).some((v) => String(v || "").trim()));
+  /* Hoisted out of the desktop modal's JSX so the mobile title-page dialog
+     applies the SAME rule: an all-blank set of fields is not an empty title
+     page, it is no title page at all (`null`), which is what `titlePageActive`
+     and the PDF/Fountain exports test for. Two chromes deciding that
+     independently is how one of them starts exporting a blank sheet. */
+  const saveTitlePage = (fields) => {
+    const cleaned = fields && Object.values(fields).some((v) => String(v || "").trim()) ? fields : null;
+    setTitlePage(cleaned);
+    setSaved(false);
+  };
   // Editor zoom — scales how big the text LOOKS while writing (like Ctrl +/− in Docs). Purely visual:
   // the underlying Fountain text, page count, and export are unaffected. 1 = 100%.
   const [editorZoom, setEditorZoom] = useState(1);
@@ -1915,7 +1983,7 @@ const CreateProject = () => {
   const ctx = {
     hasFullAccess, hasPublishAccess,
     competitionMode, competition, competitionEntry, competitionPhase, competitionServerNow, refreshCompetition,
-    BUYER_COMMISSION_RATE, FORMAT_PRICE_GUIDE, ZOOM_MIN, addRole, addWriter, updateWriter, removeWriter, moveWriter, writers, addSceneComment, adjustZoom, agreementRef, aiBtnCls, aiCoverAttempts, aiCoverHistory, aiCoverIndex, autoSaveInFlightRef, buildDraftPayload, buildRightsPayload, buildScriptPreviewPayload, buyerCommissionAmount, buyerTotalPayable, canComment, canEditContent, cardCls, charCount, chipCls, classification, clearLocalWorkingDraft, collabClearEditRequest, collabCommentsVersion, collabEditRequest, collabLocks, collabMyUserId, collabPeople, collabReleaseHeld, collabRequestEdit, collabSetActiveScene, collabVisibility, confirmExitDiscard, confirmExitSaveDraft, creationBlocked, creationBlockedRef, currentElement, dark, deleteSceneComment, detailsStep, detailsSubSteps, discardingRef, downloadSubmissionSummaryPdf, downloadWatermarkedImage, draftId, drafts, editApprovalLocked, editor, editorZoom, effectivePrice, emphasisState, enforceGoldPlan, error, escapeHtml, estimatedPages, exitGuardRef, exiting, exportMenuOpen, exportingScreenplay, fetchDrafts, filmDetails, focusMode, focusedCommentId, formData, formatDuration, formatInfo, generateAiCover, getDraftSignature, getEditorPlainText, getInvalidRoleAgeRangeMessage, grammarLoading, grammarNotes, handleAddComment, handleAnalyzeFormatting, handleApplyThumbnail, handleBack, handleCaretLine, handleChange, handleDeleteDraft, handleDownloadMainContentPdf, handleExitEditor, handleExportScreenplay, handleFixGrammar, handleFocusComment, handleGenerateMetadata, handleGenerateProse, handleGrammarClick, handleGrammarKeep, handleGrammarUndo, handleImportScreenplayFile, handleNext, handleOutlineChange, handlePitchVideoSelect, handleProseClick, handlePublish, handleReorderScene, handleReplyComment, handleSave, handleScreenplayChange, handleSynopsisChange, handleThumbnailSelect, handleTrailerSelect, handleUnderReviewContinue, hasMeaningfulDraft, importNotice, inputCls, isCommentOrphaned, isEditingExistingScriptFlow, isGeneratingAiCover, isPremium, isScreenplayFormat, isThumbnailEditorOpen, lastDraftSignatureRef, lastSaved, legal, loadDraft, loadedScriptStatus, loading, loadingDrafts, localDraftHydratedRef, location, metaLoadingField, metaNotice, moreMenuOpen, navigate, openPricingModal, openThumbnailEditor, openUnderReviewModal, outlineNotes, outlineWithSceneIds, pageStatus, peopleEnriched, pitchVideoFile, pitchVideoInputRef, pitchVideoMeta, pitchVideoMetaLoading, pitchVideoPreviewUrl, preGrammarContent, presenceBySceneId, presenceEnabled, presenceScenes, previewPageTexts, previewPageTextsSignatureRef, proseLoading, publishReadiness, publishReviewItems, publishSummaryRows, publishingDetails, purchasedServiceCredits, queueKeepaliveDraftSave, queueKeepaliveDraftSaveRef, removeRole, resetThumbnailEditor, runWorkingDraftRecovery, applyWorkingDraftSnapshot, pendingRecovery, acceptPendingRecovery, dismissPendingRecovery, reviewRedirectTimerRef, rightsLicensing, roles, sanitizePdfFileName, saveBlockedRef, saved, saving, sceneComments, sceneSynopses, screenplayApiRef, screenplayEnabled, screenplayFileInputRef, screenplayMirrorTimer, screenplayOutline, screenplayValue, screenplayValueRef, scriptId, scriptIdRef, scriptLimit, scriptPrice, selectedPublishServices, services, setAiCoverAttempts, setAiCoverHistory, setAiCoverIndex, setCanComment, setCanEditContent, setCharCount, setClassification, setCollabVisibility, setCommentResolved, setCurrentElement, setDetailsStep, setDrafts, setEditApprovalLocked, setEditorZoom, setEmphasisState, setError, setExiting, setExportMenuOpen, setExportingScreenplay, setFilmDetails, setFocusMode, setFocusedCommentId, setFormData, setGrammarLoading, setGrammarNotes, setImportNotice, setIsGeneratingAiCover, setIsPremium, setLastSaved, setLegal, setLoadedScriptStatus, setLoading, setLoadingDrafts, setMetaLoadingField, setMetaNotice, setMoreMenuOpen, setOutlineNotes, setPitchVideoFile, setPitchVideoMeta, setPitchVideoMetaLoading, setPitchVideoPreviewUrl, setPreGrammarContent, setPreviewPageTexts, setProseLoading, setPublishingDetails, setPurchasedServiceCredits, setRightsLicensing, setRoles, setSaved, setSaving, setSceneSynopses, setScreenplayEnabled, setScreenplayValue, setScriptId, setScriptLimit, setScriptPrice, setServices, setShowDrafts, setShowExitConfirm, setShowTitlePageModal, setShowUnderReviewModal, setShowUndoBar, setShowVersionHistory, setStep, setTagsInput, setTargetFilm, setTargetPublishing, setThumbnailCrop, setThumbnailCropPixels, setThumbnailFile, setThumbnailPreviewUrl, setThumbnailRotation, setThumbnailZoom, setTitle, setTitlePage, setToastMessage, setTrailerFile, setTrailerMeta, setTrailerMetaLoading, setTrailerPreviewUrl, setWordCount, shouldStartFresh, showDrafts, showExitConfirm, showTitlePageModal, showToast, showUnderReviewModal, showUndoBar, showVersionHistory, step, stepContentRef, tagsInput, targetFilm, targetPublishing, textToParagraphHtml, thumbnailApplying, thumbnailCrop, thumbnailCropPixels, thumbnailFile, thumbnailInputRef, thumbnailPreviewUrl, thumbnailRotation, thumbnailSourceUrl, thumbnailZoom, title, titlePage, titlePageActive, toastMessage, toggleChip, toggleDarkMode, trailerFile, trailerInputRef, trailerMeta, trailerMetaLoading, trailerPreviewUrl, trailerWorkflowHint, updateRoleAge, updateRoleField, uploadSelectedProjectMedia, useScreenplayEditor, user, validateStep, wordCount, writerPayout,
+    BUYER_COMMISSION_RATE, FORMAT_PRICE_GUIDE, ZOOM_MIN, addRole, addWriter, updateWriter, removeWriter, moveWriter, writers, addSceneComment, adjustZoom, agreementRef, aiBtnCls, aiCoverAttempts, aiCoverHistory, aiCoverIndex, autoSaveInFlightRef, buildDraftPayload, buildRightsPayload, buildScriptPreviewPayload, buyerCommissionAmount, buyerTotalPayable, canComment, canEditContent, cardCls, charCount, chipCls, classification, clearLocalWorkingDraft, collabClearEditRequest, collabCommentsVersion, collabEditRequest, collabLocks, collabMyUserId, collabPeople, collabReleaseHeld, collabRequestEdit, collabSetActiveScene, collabVisibility, confirmExitDiscard, confirmExitSaveDraft, creationBlocked, creationBlockedRef, currentElement, dark, deleteSceneComment, detailsStep, detailsSubSteps, discardingRef, downloadSubmissionSummaryPdf, downloadWatermarkedImage, draftId, drafts, editApprovalLocked, editor, editorZoom, effectivePrice, emphasisState, enforceGoldPlan, error, escapeHtml, estimatedPages, exitGuardRef, exiting, exportMenuOpen, exportingScreenplay, fetchDrafts, filmDetails, focusMode, focusedCommentId, formData, formatDuration, formatInfo, generateAiCover, getDraftSignature, getEditorPlainText, getInvalidRoleAgeRangeMessage, grammarLoading, grammarNotes, handleAddComment, handleAnalyzeFormatting, handleApplyThumbnail, handleBack, handleCaretLine, handleChange, handleDeleteDraft, handleDownloadMainContentPdf, handleExitEditor, handleExportScreenplay, handleFixGrammar, handleFocusComment, handleGenerateMetadata, handleGenerateProse, handleGrammarClick, handleGrammarKeep, handleGrammarUndo, handleImportScreenplayFile, handleNext, handleOutlineChange, handlePitchVideoSelect, handleProseClick, handlePublish, handleReorderScene, handleReplyComment, handleSave, handleScreenplayChange, handleSynopsisChange, handleThumbnailSelect, handleTrailerSelect, handleUnderReviewContinue, hasMeaningfulDraft, importNotice, inputCls, isCommentOrphaned, isEditingExistingScriptFlow, isGeneratingAiCover, isPremium, isScreenplayFormat, isThumbnailEditorOpen, lastDraftSignatureRef, lastSaved, legal, loadDraft, loadedScriptStatus, loading, loadingDrafts, localDraftHydratedRef, location, metaLoadingField, metaNotice, moreMenuOpen, navigate, openPricingModal, openThumbnailEditor, openUnderReviewModal, outlineNotes, outlineWithSceneIds, pageStatus, peopleEnriched, pitchVideoFile, pitchVideoInputRef, pitchVideoMeta, pitchVideoMetaLoading, pitchVideoPreviewUrl, preGrammarContent, presenceBySceneId, presenceEnabled, presenceScenes, previewPageTexts, previewPageTextsSignatureRef, proseLoading, publishReadiness, publishReviewItems, publishSummaryRows, publishingDetails, purchasedServiceCredits, queueKeepaliveDraftSave, queueKeepaliveDraftSaveRef, removeRole, resetThumbnailEditor, runWorkingDraftRecovery, applyWorkingDraftSnapshot, pendingRecovery, acceptPendingRecovery, dismissPendingRecovery, reviewRedirectTimerRef, rightsLicensing, roles, sanitizePdfFileName, saveBlockedRef, saveTitlePage, saved, saving, sceneComments, sceneSynopses, screenplayApiRef, screenplayEnabled, screenplayFileInputRef, screenplayMirrorTimer, screenplayOutline, screenplayValue, screenplayValueRef, scriptId, scriptIdRef, scriptLimit, scriptPrice, selectedPublishServices, services, setAiCoverAttempts, setAiCoverHistory, setAiCoverIndex, setCanComment, setCanEditContent, setCharCount, setClassification, setCollabVisibility, setCommentResolved, setCurrentElement, setDetailsStep, setDrafts, setEditApprovalLocked, setEditorZoom, setEmphasisState, setError, setExiting, setExportMenuOpen, setExportingScreenplay, setFilmDetails, setFocusMode, setFocusedCommentId, setFormData, setGrammarLoading, setGrammarNotes, setImportNotice, setIsGeneratingAiCover, setIsPremium, setLastSaved, setLegal, setLoadedScriptStatus, setLoading, setLoadingDrafts, setMetaLoadingField, setMetaNotice, setMoreMenuOpen, setOutlineNotes, setPitchVideoFile, setPitchVideoMeta, setPitchVideoMetaLoading, setPitchVideoPreviewUrl, setPreGrammarContent, setPreviewPageTexts, setProseLoading, setPublishingDetails, setPurchasedServiceCredits, setRightsLicensing, setRoles, setSaved, setSaving, setSceneSynopses, setScreenplayEnabled, setScreenplayValue, setScriptId, setScriptLimit, setScriptPrice, setServices, setShowDrafts, setShowExitConfirm, setShowTitlePageModal, setShowUnderReviewModal, setShowUndoBar, setShowVersionHistory, setStep, setTagsInput, setTargetFilm, setTargetPublishing, setThumbnailCrop, setThumbnailCropPixels, setThumbnailFile, setThumbnailPreviewUrl, setThumbnailRotation, setThumbnailZoom, setTitle, setTitlePage, setToastMessage, setTrailerFile, setTrailerMeta, setTrailerMetaLoading, setTrailerPreviewUrl, setWordCount, shouldStartFresh, showDrafts, showExitConfirm, showTitlePageModal, showToast, showUnderReviewModal, showUndoBar, showVersionHistory, step, stepContentRef, tagsInput, targetFilm, targetPublishing, textToParagraphHtml, thumbnailApplying, thumbnailCrop, thumbnailCropPixels, thumbnailFile, thumbnailInputRef, thumbnailPreviewUrl, thumbnailRotation, thumbnailSourceUrl, thumbnailZoom, title, titlePage, titlePageActive, toastMessage, toggleChip, toggleDarkMode, trailerFile, trailerInputRef, trailerMeta, trailerMetaLoading, trailerPreviewUrl, trailerWorkflowHint, updateRoleAge, updateRoleField, uploadSelectedProjectMedia, useScreenplayEditor, user, validateStep, wordCount, writerPayout,
   };
 
   if (accessDenied) {
@@ -1968,9 +2036,9 @@ const CreateProject = () => {
 
   return (
     <CreateProjectContext.Provider value={ctx}>
-    <div className="w-full overflow-x-hidden">
+    <div className={hostClassName}>
       {/* -- Exit-as-draft confirmation -- */}
-      {showExitConfirm && (
+      {showExitConfirm && !nativeChrome && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
           onClick={() => { if (!exiting) setShowExitConfirm(false); }}>
           <div onClick={(e) => e.stopPropagation()}
@@ -2002,7 +2070,7 @@ const CreateProject = () => {
 
       {/* -- Drafts Drawer -- */}
       <AnimatePresence>
-        {showDrafts && (
+        {showDrafts && !nativeChrome && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden mb-6">
             <div className={`${cardCls} p-4`}>
               <div className="flex items-center justify-between mb-3">
@@ -2081,19 +2149,17 @@ const CreateProject = () => {
         />
       )}
 
-      <TitlePageModal
-        key={showTitlePageModal ? "tp-open" : "tp-closed"}
-        open={showTitlePageModal}
-        initial={titlePage}
-        defaultTitle={title}
-        dark={dark}
-        onClose={() => setShowTitlePageModal(false)}
-        onSave={(fields) => {
-          const cleaned = fields && Object.values(fields).some((v) => String(v || "").trim()) ? fields : null;
-          setTitlePage(cleaned);
-          setSaved(false);
-        }}
-      />
+      {!nativeChrome && (
+        <TitlePageModal
+          key={showTitlePageModal ? "tp-open" : "tp-closed"}
+          open={showTitlePageModal}
+          initial={titlePage}
+          defaultTitle={title}
+          dark={dark}
+          onClose={() => setShowTitlePageModal(false)}
+          onSave={saveTitlePage}
+        />
+      )}
 
       <VersionHistoryModal
         open={showVersionHistory}
@@ -2130,7 +2196,7 @@ const CreateProject = () => {
         }}
       />
 
-      {showUnderReviewModal && createPortal(
+      {showUnderReviewModal && !nativeChrome && createPortal(
         <AnimatePresence>
           <motion.div
             key="under-review-modal-bg"
@@ -2252,7 +2318,7 @@ const CreateProject = () => {
       )}
 
       {/* --- Thumbnail Crop/Rotate Modal --- */}
-      {isThumbnailEditorOpen && thumbnailSourceUrl && createPortal(
+      {isThumbnailEditorOpen && thumbnailSourceUrl && !nativeChrome && createPortal(
         <AnimatePresence>
           <motion.div
             key="thumbnail-modal-bg"
@@ -2396,14 +2462,21 @@ const CreateProject = () => {
 
       <div ref={stepContentRef} />
 
-      {/* -- Step Content (wrapped by the unified shell) ------ */}
-      <CreateProjectShell>
-        {step === 1 ? <Step1Write />
-          : step === 2 ? <Step2Details />
-            : step === 3 ? <Step3Classify />
-              : step === 4 ? <Step4FilmInfo />
-                : <Step5Publish />}
-      </CreateProjectShell>
+      {/* -- Step Content (wrapped by the injected chrome) ------
+           A native chrome renders its own step bodies from the same context, so
+           it is handed `null` rather than desktop JSX it would have to remember
+           to ignore. That is the difference between a seam and a trapdoor: with
+           `null`, a chrome that forgets renders nothing and the omission is
+           obvious; with an ignored child, it silently keeps working until
+           someone edits a desktop step and wonders why mobile did not change. */}
+      <Shell>
+        {nativeChrome ? null
+          : step === 1 ? <Step1Write />
+            : step === 2 ? <Step2Details />
+              : step === 3 ? <Step3Classify />
+                : step === 4 ? <Step4FilmInfo />
+                  : <Step5Publish />}
+      </Shell>
 
       {/* Full-screen Loading Overlay for File Imports */}
       <AnimatePresence>
@@ -2433,7 +2506,7 @@ const CreateProject = () => {
       </AnimatePresence>
 
       {/* Professional Toast Notification */}
-      {toastMessage && (
+      {toastMessage && !nativeChrome && (
         <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-[100] animate-in fade-in zoom-in-95 slide-in-from-bottom-8 duration-300">
           <div className={`flex items-center gap-3.5 px-5 py-3.5 rounded-2xl shadow-[0_12px_40px_-10px_rgba(0,0,0,0.15)] dark:shadow-[0_12px_40px_-10px_rgba(0,0,0,0.5)] backdrop-blur-xl border ${
             toastMessage.type === 'error' ? 'bg-white/90 dark:bg-[#1f1313]/90 border-red-200/60 dark:border-red-900/60 text-red-900 dark:text-red-200' :

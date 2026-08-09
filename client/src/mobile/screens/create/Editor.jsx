@@ -7,9 +7,10 @@ import Button from "../../components/buttons/Button";
 import IconButton from "../../components/buttons/IconButton";
 import InlineMessage from "../../components/feedback/InlineMessage";
 import ActionSheet from "../../components/overlays/ActionSheet";
-import ConfirmDialog from "../../components/overlays/ConfirmDialog";
 import MobileShell from "../../shell/MobileShell";
 import EditorDock from "./EditorDock";
+import ExitFlow from "./overlays/ExitFlow";
+import TitlePageDialog from "./overlays/TitlePageDialog";
 import {
   buildEditorOverflowItems,
   describeSaveState,
@@ -46,32 +47,30 @@ import "./Editor.css";
  * and none of it is re-implemented here — which is also why "save/resume" needed
  * no mobile-specific work beyond showing the writer what it decided.
  *
- * NOT MOUNTED BY A ROUTE YET. `/create-project` stays a desktop migration
- * fallback until mode B (steps 2–5) exists, because promoting the route with an
- * unported wizard would put desktop form markup on the phone the moment a writer
- * taps "Continue to details" — exactly what plan §2.2 forbids. The development
- * harness at /__mobile-editor mounts this surface in the meantime.
+ * LIVE SINCE 2026-08-09 (mode B). `/create-project` and `/create-project/:draftId`
+ * are SCREEN routes now, and `CreateProjectChrome` mounts this whenever
+ * `step === 1`. "Continue to details" hands over to `Wizard` — the reason the
+ * route could not be promoted until that existed, since a promoted route whose
+ * next step is desktop Tailwind form markup is what plan §2.2 forbids.
  */
 export default function Editor() {
   const {
     canEditContent, collabLocks, collabMyUserId, collabRequestEdit,
     competitionMode, creationBlocked, currentElement, dark, editor, editorZoom,
-    emphasisState, enforceGoldPlan, error, exiting, exportingScreenplay,
+    emphasisState, enforceGoldPlan, error, exportingScreenplay,
     focusedCommentId, handleCaretLine, handleExitEditor, handleExportScreenplay,
     handleImportScreenplayFile, handleNext, handleScreenplayChange, hasFullAccess,
     importNotice, isScreenplayFormat, lastSaved, saved, saving, sceneComments,
     screenplayApiRef, screenplayEnabled, screenplayFileInputRef, screenplayValue,
     setCurrentElement, setEmphasisState, setError, setScreenplayEnabled,
-    setShowExitConfirm, setShowTitlePageModal, setTitle, setSaved, showExitConfirm,
+    setShowTitlePageModal, setTitle, setSaved,
     title, titlePage, titlePageActive, useScreenplayEditor,
-    confirmExitDiscard, confirmExitSaveDraft,
     pendingRecovery, acceptPendingRecovery, dismissPendingRecovery,
   } = useCreateProject();
 
   const [dockTab, setDockTab] = useState(EDITOR_DOCK_TAB.ELEMENTS);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
-  const [discardOpen, setDiscardOpen] = useState(false);
   const overflowRef = useRef(null);
 
   const save = describeSaveState({ saving, saved, lastSaved });
@@ -261,50 +260,19 @@ export default function Editor() {
             ]}
           />
 
-          {/* Unsaved-change protection. Three outcomes, one of which destroys
-              work, so it is a sheet of named actions rather than a two-button
-              confirm: "Discard" and "Keep editing" must not be adjacent
-              same-shaped buttons. The destructive item does not act — it hands
-              over to a confirmation, which is ActionSheet's documented contract
-              for exactly this case. */}
-          <ActionSheet
-            open={Boolean(showExitConfirm) && !discardOpen}
-            onClose={() => { if (!exiting) setShowExitConfirm(false); }}
-            title="Leave the editor?"
-            description="This project will be waiting in My projects."
-            cancelLabel="Keep editing"
-            items={[
-              {
-                id: "save",
-                label: exiting ? "Saving…" : "Save as draft & exit",
-                hint: "Finish it later from My projects",
-                icon: "save",
-                disabled: exiting,
-                onSelect: confirmExitSaveDraft,
-              },
-              {
-                id: "discard",
-                label: "Discard & exit",
-                hint: "This draft is deleted",
-                icon: "delete",
-                destructive: true,
-                disabled: exiting,
-                onSelect: () => setDiscardOpen(true),
-              },
-            ]}
-          />
+          {/* Unsaved-change protection. Hoisted into `overlays/ExitFlow` when
+              the wizard arrived: leaving with unsaved work is one contract, and
+              the mode a writer happens to be in must not change what happens to
+              their draft. The three-outcome sheet and its discard confirmation
+              are unchanged — see that file for why it is a sheet and not a
+              two-button dialog. */}
+          <ExitFlow />
 
-          <ConfirmDialog
-            open={discardOpen}
-            destructive
-            pending={exiting}
-            title="Discard this draft?"
-            message="Everything written in this session is deleted. This cannot be undone."
-            confirmLabel="Discard & exit"
-            cancelLabel="Keep editing"
-            onCancel={() => setDiscardOpen(false)}
-            onConfirm={confirmExitDiscard}
-          />
+          {/* The title-page configurator, opened from the TitlePageSheet below.
+              A ckm-dialog rather than the desktop modal, which `nativeChrome`
+              suppresses: that one has no dialog role, no focus trap and a
+              footer that puts "Remove title page" next to "Save changes". */}
+          <TitlePageDialog />
         </>
       )}
     >

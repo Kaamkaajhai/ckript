@@ -184,6 +184,18 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     note: "Connectivity condition, rendered by MobileShell so no screen mounts a second one.",
   },
 
+  // --- Media attachment family (Phase 3, decision D12) ------------------
+  // One attachable asset, the cover cropper and the buyer preview, shared by
+  // /create-project and /upload. Lifted out of screens/create/Wizard.css on
+  // 2026-08-09 rather than copied: both routes ask a writer for the same three
+  // files against the same three ceilings, and two copies of that control is
+  // how one of them ends up advertising a limit the other does not enforce.
+  "ckm-media": {
+    kind: SHARED_COMPONENT,
+    owner: "components/media/Media.css",
+    note: "MediaSlot (slot, drop target, preview, per-file upload progress), CoverCropDialog's stage and sliders, PreviewDialog's page list.",
+  },
+
   "ckm-gallery": {
     kind: PAGE_FAMILY,
     owner: "dev/PrimitiveGallery.css",
@@ -234,6 +246,28 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     owner: "screens/create/Editor.css",
     family: "create",
     note: "Top bar, page surface and docked Elements/Format bar. The editor itself is components/screenplay/ScreenplayEditor and carries no ckm-* classes.",
+  },
+
+  // The publish wizard — /create-project steps 2–5, "mode B". The light
+  // counterpart to ckm-editor's dark chrome, and the second half of what makes
+  // the route promotable: one prefix could not answer for an immersive dark
+  // editor and a flow-mode form at the same time.
+  "ckm-create-project": {
+    kind: PAGE_FAMILY,
+    owner: "screens/create/Wizard.css",
+    family: "create",
+    note: "App bar, progress line, panel layout, sticky footer and the title-page overlay. The media slots, the cropper and the buyer preview moved to ckm-media on 2026-08-09 when /upload needed the same three surfaces.",
+  },
+
+  // The upload flow at /upload — a sibling of ckm-create-project, not a reuse
+  // of it. The two routes look alike because they share the form family and the
+  // shell, but they ask different questions in a different order, so one prefix
+  // answering for both would mean neither stylesheet could be read on its own.
+  "ckm-upload": {
+    kind: PAGE_FAMILY,
+    owner: "screens/upload/Upload.css",
+    family: "upload",
+    note: "App bar, progress line, panel layout, the script file picker's states, the sticky footer and the submitted screen.",
   },
 });
 

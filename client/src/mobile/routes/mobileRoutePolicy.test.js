@@ -176,6 +176,67 @@ describe("mobileRoutePolicy — experience selection", () => {
     });
   });
 
+  describe("the creation flow", () => {
+    it.each(["/create-project", "/create-project/abc123"])("mounts the mobile flow at %s", (pathname) => {
+      expect(resolveMobileExperience({
+        isMobile: true,
+        authLoading: false,
+        user: creator,
+        pathname,
+      })).toMatchObject({
+        experience: "mobile",
+        screenId: "create-project",
+      });
+    });
+
+    /*
+     * `?ctx=competition` replaces the whole publish wizard with a deadline bar
+     * and a one-way Submit, and neither is ported. Without the exclusion a
+     * competition writer would get the mobile editor and NO way to submit their
+     * entry — worse than the desktop page, not merely different from it.
+     */
+    it.each(["/create-project", "/create-project/abc123"])(
+      "hands competition mode back to desktop at %s",
+      (pathname) => {
+        expect(resolveMobileExperience({
+          isMobile: true,
+          authLoading: false,
+          user: creator,
+          pathname,
+          search: "?ctx=competition",
+        })).toMatchObject({
+          experience: "desktop",
+          disposition: "desktop-migration-fallback",
+          reason: "competition-mode-not-ported",
+        });
+      },
+    );
+
+    it("keeps the mobile flow for every other query, including the fresh-start flag", () => {
+      // `?fresh=1` is an entry mode the mobile screen fully covers; only the
+      // declared exclusion may send a route back to desktop.
+      ["?fresh=1", "?ctx=marketplace", "", "?ctx=competitionish"].forEach((search) => {
+        expect(resolveMobileExperience({
+          isMobile: true,
+          authLoading: false,
+          user: creator,
+          pathname: "/create-project",
+          search,
+        })).toMatchObject({ experience: "mobile" });
+      });
+    });
+
+    it("does not mount the flow for an industry audience or a signed-out visitor", () => {
+      expect(resolveMobileExperience({
+        isMobile: true, authLoading: false, user: producer, pathname: "/create-project",
+      })).toMatchObject({ experience: "desktop", reason: "audience-not-implemented" });
+
+      expect(resolveMobileExperience({
+        isMobile: true, authLoading: false, user: null, pathname: "/create-project",
+      })).toMatchObject({ experience: "desktop", reason: "authentication-required" });
+    });
+  });
+
   it("leaves the preview route to its deterministic App.jsx fixture", () => {
     expect(resolveMobileExperience({
       isMobile: true,

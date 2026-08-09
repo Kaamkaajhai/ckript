@@ -369,7 +369,68 @@ const getFileNameFromUrl = (url = "") => {
   }
 };
 
-const ScriptUpload = () => {
+/*
+ * The chrome seam (added 2026-08-09, plan §11 Phase 3 bullet 3).
+ *
+ * Everything above and below this line is platform-neutral: the extraction, the
+ * draft conversion, the content-only revision path, the plan gate, validation,
+ * the media recovery and the submit payload. What is NOT neutral is
+ * `ScriptUploadWorkspace`, a three-column desktop workspace with a tracker rail,
+ * a helper rail and an action bar whose own phone breakpoints breach four of the
+ * mobile plan's floors (DEF-4).
+ *
+ * So the chrome is injected rather than forked, exactly as
+ * `pages/CreateProject/index.jsx` injects its `Shell`:
+ *
+ *   • `Workspace`      — which component draws the page. Defaults to the desktop
+ *                        one, so App.jsx's `<ScriptUpload />` renders precisely
+ *                        what it rendered before.
+ *   • `nativeChrome`   — suppresses the desktop-only surfaces that a native
+ *                        chrome replaces, and routes the three early-return
+ *                        states through the view model instead of returning
+ *                        markup that no injected chrome could ever reach.
+ *   • `hostClassName`  — `.ckm-shell` is `height: 100%` and needs a host that
+ *                        passes the height through. Purely a mobile concern, so
+ *                        it stays on the mobile side of the seam.
+ *
+ * `nativeChrome` changes exactly four things in this file, and every one of them
+ * is REPLACED rather than dropped:
+ *
+ *   1–3. the three early returns above (access refused, an `?edit=` load still
+ *        resolving, the post-submit screen) become view-model flags, because an
+ *        early return happens before any injected chrome and can therefore never
+ *        be re-drawn by one;
+ *   4.   the portal-rendered thumbnail cropper — a Tailwind modal with a
+ *        hand-rolled focus trap — is not rendered, because the native chrome
+ *        mounts the shared `ckm-media` cropper, which inherits Phase 1's already
+ *        tested trap, scroll lock and focus restoration.
+ *
+ * The toast needs no flag: `ScriptUploadWorkspace` is what draws it, so a chrome
+ * that replaces the workspace replaces the toast too. `state.toastMessage` stays
+ * on the view model and `useUploadToasts` forwards it to the app-wide layer, so
+ * nothing is swallowed.
+ */
+const ScriptUpload = ({
+  Workspace = ScriptUploadWorkspace,
+  nativeChrome = false,
+  hostClassName = "",
+}) => {
+  /*
+   * Paired wrongly, `nativeChrome` is a silent failure: it removes the cropper
+   * and three whole screens on the promise that something else renders them, and
+   * the desktop workspace renders none of the four. A writer would tap a cover
+   * and watch nothing happen. DEV-only, because it is a wiring mistake, not a
+   * runtime condition.
+   */
+  if (import.meta.env?.DEV && nativeChrome && Workspace === ScriptUploadWorkspace) {
+    console.error(
+      "[script-upload] `nativeChrome` was passed with the desktop ScriptUploadWorkspace. "
+      + "That flag suppresses the thumbnail cropper and the access-denied, edit-resolving and "
+      + "submitted screens on the assumption a native chrome owns them — pass that chrome as "
+      + "`Workspace`.",
+    );
+  }
+
   const { user } = useContext(AuthContext);
   const { isDarkMode } = useDarkMode();
   const { openPricingModal } = useAuthModal();
@@ -491,6 +552,9 @@ const ScriptUpload = () => {
   const [pitchVideoMeta, setPitchVideoMeta] = useState(null);
   const [pitchVideoMetaLoading, setPitchVideoMetaLoading] = useState(false);
   const [pendingMediaRecovery, setPendingMediaRecovery] = useState(null);
+  // { thumbnail?: { percent, status }, trailer?: …, pitchVideo?: … } — see
+  // `postMedia` below. Empty until a submit actually starts sending files.
+  const [mediaProgress, setMediaProgress] = useState({});
   const [thumbnailPreviewUrl, setThumbnailPreviewUrl] = useState("");
   const [trailerPreviewUrl, setTrailerPreviewUrl] = useState("");
   const [trailerMeta, setTrailerMeta] = useState(null);
@@ -1675,6 +1739,45 @@ const ScriptUpload = () => {
     };
   }, [isThumbnailEditorOpen, resetThumbnailEditor]);
 
+  /*
+   * Per-file upload progress (decision D14, 2026-08-09).
+   *
+   * These three requests carry up to 5 MB, 250 MB and 90 MB, and until now they
+   * reported nothing at all — the only progress bar anywhere on this page was
+   * the SIMULATED one in `handleFileSelect` (a setInterval adding 10% every
+   * 200ms and stopping at 90%, DEF-9). A 250 MB trailer on a phone connection is
+   * minutes of a screen that looks frozen, and a writer who concludes it has
+   * hung and backgrounds the tab loses the upload.
+   *
+   * `onUploadProgress` needs no new dependency: it is an axios feature and
+   * `services/api.js` already exports an axios instance. Shared code, so both
+   * platforms get it.
+   */
+  const trackMediaProgress = (type, next) => setMediaProgress((current) => ({
+    ...current,
+    [type]: { ...(current[type] || {}), ...next },
+  }));
+
+  const postMedia = (type, url, formData) => {
+    trackMediaProgress(type, { percent: 0, status: "uploading" });
+    return api.post(url, formData, {
+      onUploadProgress: (event) => {
+        // `event.total` is absent when the body length is unknown (a stream, or
+        // a proxy that strips it). A percentage computed from an unknown total
+        // is the invented number DEF-9 is about, so the bar simply stays where
+        // it is and the caller keeps showing "uploading".
+        if (!event.total) return;
+        trackMediaProgress(type, {
+          percent: Math.min(100, Math.round((event.loaded / event.total) * 100)),
+          status: "uploading",
+        });
+      },
+    }).then(
+      (response) => { trackMediaProgress(type, { percent: 100, status: "done" }); return response; },
+      (error) => { trackMediaProgress(type, { status: "failed" }); throw error; },
+    );
+  };
+
   const uploadMediaForScript = async (targetScriptId, requestedTypes = null) => {
     const shouldUpload = (type) => !Array.isArray(requestedTypes) || requestedTypes.includes(type);
     const mediaTasks = [];
@@ -1684,7 +1787,7 @@ const ScriptUpload = () => {
       thumbnailFormData.append("thumbnail", thumbnailFile);
       mediaTasks.push({
         type: "thumbnail",
-        request: api.post(`/scripts/${targetScriptId}/upload-thumbnail`, thumbnailFormData),
+        request: postMedia("thumbnail", `/scripts/${targetScriptId}/upload-thumbnail`, thumbnailFormData),
       });
     }
 
@@ -1693,7 +1796,7 @@ const ScriptUpload = () => {
       trailerFormData.append("trailer", trailerFile);
       mediaTasks.push({
         type: "trailer",
-        request: api.post(`/scripts/${targetScriptId}/upload-trailer`, trailerFormData),
+        request: postMedia("trailer", `/scripts/${targetScriptId}/upload-trailer`, trailerFormData),
       });
     }
 
@@ -1702,7 +1805,7 @@ const ScriptUpload = () => {
       pitchFormData.append("pitchVideo", pitchVideoFile);
       mediaTasks.push({
         type: "pitchVideo",
-        request: api.post(`/scripts/${targetScriptId}/upload-pitch-video`, pitchFormData),
+        request: postMedia("pitchVideo", `/scripts/${targetScriptId}/upload-pitch-video`, pitchFormData),
       });
     }
 
@@ -1919,8 +2022,22 @@ const ScriptUpload = () => {
     }
   };
 
+  /*
+   * THE THREE EARLY RETURNS ARE DESKTOP-ONLY UNDER `nativeChrome`.
+   *
+   * Each of them returns before the workspace is rendered at all, so an injected
+   * chrome can never reach them — which is how the desktop `accessDenied` markup
+   * on `/create-project` ended up as a still-open follow-up in the plan's §19.1.
+   * Rather than repeat that, the three conditions are published on the view
+   * model (`state.accessDenied`, `state.isEditModeResolving`,
+   * `state.submissionSuccess`) and the native chrome draws its own.
+   *
+   * Desktop's branches are untouched: same conditions, same order, same markup.
+   */
+  const accessDenied = !["creator", "writer"].includes(user?.role);
+
   // Access control
-  if (!["creator", "writer"].includes(user?.role)) {
+  if (accessDenied && !nativeChrome) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 sm:p-10 max-w-sm text-center">
@@ -1932,7 +2049,7 @@ const ScriptUpload = () => {
     );
   }
 
-  if (isEditModeResolving) {
+  if (isEditModeResolving && !nativeChrome) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="flex flex-col items-center gap-4">
@@ -1943,7 +2060,7 @@ const ScriptUpload = () => {
     );
   }
 
-  if (submissionSuccess) {
+  if (submissionSuccess && !nativeChrome) {
     return (
       <ScriptUploadSuccess
         projectTitle={submissionSuccess.projectTitle}
@@ -2019,6 +2136,9 @@ const ScriptUpload = () => {
     mode: {
       isContentOnlyEditMode,
       editId,
+      // Read by the native chrome to tell "converting an editor draft" from a
+      // fresh upload; the desktop workspace does not distinguish them.
+      draftId,
     },
     state: {
       step,
@@ -2075,6 +2195,33 @@ const ScriptUpload = () => {
       customPriceInput,
       useCustomPrice,
       toastMessage,
+
+      /*
+       * Read only by a native chrome. The desktop workspace never needs them
+       * because this file renders each of these itself — the three early
+       * returns above, and the thumbnail cropper portal below.
+       */
+      accessDenied,
+      isEditModeResolving,
+      submissionSuccess,
+      editApprovalLocked,
+      mediaProgress,
+      thumbnailEditor: {
+        open: isThumbnailEditorOpen,
+        imageUrl: thumbnailSourceUrl,
+        aspect: THUMBNAIL_ASPECT,
+        crop: thumbnailCrop,
+        zoom: thumbnailZoom,
+        rotation: thumbnailRotation,
+        applying: thumbnailApplying,
+        onCropChange: setThumbnailCrop,
+        onZoomChange: setThumbnailZoom,
+        onRotationChange: setThumbnailRotation,
+        onCropComplete: setThumbnailCropPixels,
+        onCancel: resetThumbnailEditor,
+        onApply: handleApplyThumbnail,
+        description: "Drag the image to choose the best angle. Covers are 16:10.",
+      },
     },
     actions: {
       handleDrop,
@@ -2113,6 +2260,10 @@ const ScriptUpload = () => {
         setThumbnailFile(file);
       },
       handleThumbnailSelect,
+      // Re-opens the cropper on an already-chosen cover. Desktop has no such
+      // control — once a cover is applied the only way to re-frame it is to pick
+      // the file again — so the mobile media slot's "Adjust" action needs it.
+      openThumbnailEditor,
       setAiCoverHistoryIndex: (nextIndex) => {
         if (nextIndex < 0 || nextIndex >= aiCoverHistory.length) return;
         setAiCoverIndex(nextIndex);
@@ -2237,9 +2388,22 @@ const ScriptUpload = () => {
     },
   };
 
+  /*
+   * A native chrome owns the whole frame: it mounts `MobileShell`, which is
+   * `height: 100%` and therefore needs a host that passes the height through.
+   * Desktop keeps the bare fragment it has always rendered.
+   */
+  if (nativeChrome) {
+    return (
+      <div className={hostClassName}>
+        <Workspace vm={workspaceVm} />
+      </div>
+    );
+  }
+
   return (
     <>
-      <ScriptUploadWorkspace vm={workspaceVm} />
+      <Workspace vm={workspaceVm} />
       {isThumbnailEditorOpen && thumbnailSourceUrl && createPortal(
         <AnimatePresence>
           <Motion.div

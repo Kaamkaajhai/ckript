@@ -5,8 +5,11 @@ import MobileRouteBoundary from "../shell/MobileRouteBoundary";
 const Dashboard = lazy(() => import("../screens/Dashboard"));
 const Holds = lazy(() => import("../screens/Holds"));
 const NewProject = lazy(() => import("../screens/NewProject"));
+const CreateProjectRoute = lazy(() => import("../screens/create/CreateProjectRoute"));
+const UploadRoute = lazy(() => import("../screens/upload/UploadRoute"));
 const PrimitiveGallery = lazy(() => import("../dev/PrimitiveGallery"));
-const EditorHarness = lazy(() => import("../dev/EditorHarness"));
+const CreateHarness = lazy(() => import("../dev/CreateHarness"));
+const UploadHarness = lazy(() => import("../dev/UploadHarness"));
 
 /*
  * MobileRoutes lives inside the app's one existing BrowserRouter. Canonical
@@ -45,12 +48,22 @@ export default function MobileRoutes({
     return <MobileRouteBoundary><PrimitiveGallery /></MobileRouteBoundary>;
   }
 
-  // The screenplay editor has no production URL yet — /create-project stays a
-  // desktop migration fallback until the publish wizard (mode B) is ported — so
-  // this is the only place the real chrome, the real CSS and the real CodeMirror
-  // meet a real browser. See mobile/dev/EditorHarness.jsx.
-  if (devScreen === "editor") {
-    return <MobileRouteBoundary><EditorHarness /></MobileRouteBoundary>;
+  // The create-project chrome over a deterministic fixture. /create-project is
+  // a real route now, but it authenticates, fetches drafts and autosaves, so it
+  // renders a different screen on every run — this is where the real chrome,
+  // the real CSS and the real CodeMirror meet a real browser in a state a sweep
+  // can measure twice. See mobile/dev/CreateHarness.jsx.
+  if (devScreen === "create") {
+    return <MobileRouteBoundary><CreateHarness /></MobileRouteBoundary>;
+  }
+
+  // The upload flow over a deterministic view model. The live route
+  // authenticates, fetches the plan limit, extracts a PDF and uploads media, so
+  // it renders a different screen on every run — this is where the real chrome
+  // and the real CSS meet a real browser in a state a sweep can measure twice.
+  // See mobile/dev/UploadHarness.jsx.
+  if (devScreen === "upload") {
+    return <MobileRouteBoundary><UploadHarness /></MobileRouteBoundary>;
   }
 
   if (preview) {
@@ -68,6 +81,13 @@ export default function MobileRoutes({
         <Route path="/ai-tools" element={dashboard} />
         <Route path="/offer-holds" element={<Holds user={user} />} />
         <Route path="/new-project" element={<NewProject />} />
+        {/* Both patterns mount the same component: the orchestrator reads
+            :draftId through useParams, so there is nothing to hand over. */}
+        <Route path="/create-project" element={<CreateProjectRoute />} />
+        <Route path="/create-project/:draftId" element={<CreateProjectRoute />} />
+        {/* One route, and its two query forms (?draft=, ?edit=) need no
+            entries of their own — the orchestrator reads them itself. */}
+        <Route path="/upload" element={<UploadRoute />} />
         {/* Defensive no-op: policy prevents this branch from mounting for an
             unfinished route, and it must never substitute Dashboard. */}
         <Route path="*" element={null} />
