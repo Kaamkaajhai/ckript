@@ -106,6 +106,39 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Recover a boot that failed because the ENTRY bundle is missing.
+
+         There is a matching handler in src/utils/recoverFromStaleBuild.js, but it can only catch a
+         missing LAZY chunk: it ships inside the entry bundle, so if that is the file that 404s it
+         never runs and the page stays blank forever. This has to live in the HTML, which is always
+         served and — thanks to the must-revalidate rule in public/_headers — is always current.
+
+         The trigger is a deploy landing between the browser reading this HTML and fetching the
+         script it names. Reloading re-reads the HTML, which now names the new bundle.
+
+         Once per tab, for the same reason as the other handler: if the bundle is missing for a
+         reason reloading cannot cure, an unguarded retry spins the page forever. -->
+    <script>
+      (function () {
+        var KEY = "ckript:reloaded-for-stale-build";
+        window.addEventListener(
+          "error",
+          function (event) {
+            var el = event.target;
+            if (!el || el.tagName !== "SCRIPT" || !el.src) return;
+            if (el.src.indexOf("/assets/") === -1) return;
+            try {
+              if (sessionStorage.getItem(KEY) === "1") return;
+              sessionStorage.setItem(KEY, "1");
+            } catch (e) {
+              return; // no way to count attempts → never reload, rather than risk a loop
+            }
+            window.location.reload();
+          },
+          true // capture: resource errors do not bubble
+        );
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
