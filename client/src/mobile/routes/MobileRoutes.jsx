@@ -4,6 +4,7 @@ import MobileRouteBoundary from "../shell/MobileRouteBoundary";
 
 const Dashboard = lazy(() => import("../screens/Dashboard"));
 const Holds = lazy(() => import("../screens/Holds"));
+const NewProject = lazy(() => import("../screens/NewProject"));
 const PrimitiveGallery = lazy(() => import("../dev/PrimitiveGallery"));
 
 /*
@@ -57,6 +58,7 @@ export default function MobileRoutes({
             the mobile one at the other. See the manifest note. */}
         <Route path="/ai-tools" element={dashboard} />
         <Route path="/offer-holds" element={<Holds user={user} />} />
+        <Route path="/new-project" element={<NewProject />} />
         {/* Defensive no-op: policy prevents this branch from mounting for an
             unfinished route, and it must never substitute Dashboard. */}
         <Route path="*" element={null} />

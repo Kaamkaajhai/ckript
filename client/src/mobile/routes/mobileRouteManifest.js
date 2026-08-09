@@ -132,7 +132,26 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
   redirect("trending-alias", "/trending"),
   migration("featured", "/featured"),
   migration("follow-requests", "/follow-requests"),
-  migration("new-project", "/new-project"),
+  /*
+   * The chooser that opens the creation flow. A `flow` shell, not `standard`:
+   * this is step zero of creating a project, and leaving the tab bar up invites
+   * a writer out of a flow they have not begun. Its two destinations
+   * (/create-project, /upload) are still migration fallbacks, so this screen is
+   * a real mobile entry point into the desktop wizard until Phase 3 finishes —
+   * which is the correct order, because the entry point is what decides whether
+   * `startFresh` reaches the wizard at all (§5.2).
+   */
+  {
+    id: "new-project",
+    pattern: "/new-project",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native-style chooser for the two creation paths (plan §11 Phase 3 bullet 2).",
+    audiences: [AUDIENCE.WRITER],
+    protection: "authenticated",
+    screenId: "new-project",
+    shell: MOBILE_SHELL_MODE.FLOW,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
   migration("create-project", "/create-project"),
   migration("create-project-draft", "/create-project/:draftId"),
   migration("upload", "/upload"),

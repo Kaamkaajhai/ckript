@@ -216,6 +216,13 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
   // screen is a single list with no sections and no overlays of its own, so a
   // second prefix would be a file with nothing in it.
   "ckm-holds": { kind: PAGE_FAMILY, owner: "screens/Holds.css", family: "holds" },
+
+  // --- Project creation (Phase 3) ---------------------------------------
+  // The chooser at /new-project. Its own family rather than part of
+  // ckm-create-project: it is a different route with a different shell, it
+  // fetches nothing, and the wizard's prefix has to stay answerable for the
+  // wizard's chrome alone.
+  "ckm-new-project": { kind: PAGE_FAMILY, owner: "screens/NewProject.css", family: "create" },
 });
 
 /*
