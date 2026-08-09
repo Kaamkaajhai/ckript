@@ -7574,6 +7574,18 @@ export const getSimilarScripts = async (req, res) => {
       similar = [...similar, ...moreSimilar];
     }
 
+    // If still not enough scripts, fetch ANY published scripts
+    if (similar.length < 4) {
+      delete query.genre;
+      query._id = { $nin: [script._id, ...similar.map(s => s._id)] };
+      const evenMore = await Script.find(query)
+        .populate("creator", "name profileImage role")
+        .sort({ views: -1, createdAt: -1 })
+        .limit(4 - similar.length)
+        .lean();
+      similar = [...similar, ...evenMore];
+    }
+
     // Strip fullContent to keep payload small
     similar = similar.map((s) => ({
       ...s,
