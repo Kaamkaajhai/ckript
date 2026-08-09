@@ -239,6 +239,7 @@ const ScriptDetail = () => {
   const [showMeetingModal, setShowMeetingModal] = useState(false);
   const [meetingSent, setMeetingSent] = useState(false);
   const [meetingStats, setMeetingStats] = useState(null);
+  const [similarScripts, setSimilarScripts] = useState([]);
   const viewStartRef = useRef(Date.now());
   const noticeTimerRef = useRef(null);
   const browserOrigin = typeof window !== "undefined" ? window.location.origin : "";
@@ -745,6 +746,12 @@ const ScriptDetail = () => {
         : `/scripts/${id}`;
       const { data } = await api.get(endpoint);
       setScript(data);
+
+      if (data?._id) {
+        api.get(`/scripts/${data._id}/similar`)
+          .then(res => setSimilarScripts(res.data))
+          .catch(err => console.error("Failed to load similar scripts", err));
+      }
 
       const canonicalPath = getScriptCanonicalPath(data || {});
       if (canonicalPath && canonicalPath !== location.pathname) {
@@ -1793,6 +1800,7 @@ const ScriptDetail = () => {
           formatTrailerAmount,
           trailerLoading,
           handleGenerateTrailer,
+          similarScripts,
         }}
       />
   );

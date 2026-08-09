@@ -7535,5 +7535,54 @@ export const generateAiCover = async (req, res) => {
   }
 };
 
+// ─── Suggestions Endpoints ───
 
+export const getSimilarScripts = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const script = await Script.findById(id).select("genre contentType");
+    
+    if (!script) {
+      return res.status(404).json({ message: "Script not found" });
+    }
 
+    const query = {
+      ...PUBLIC_SCRIPT_FILTER,
+      _id: { $ne: script._id },
+    };
+
+    if (script.genre) query.genre = script.genre;
+    // Don't enforce contentType strictly if we don't have many scripts, but prioritize it.
+    // Since we're doing a simple match, let's just use it as a filter if available.
+    if (script.contentType) query.contentType = script.contentType;
+
+    let similar = await Script.find(query)
+      .populate("creator", "name profileImage role")
+      .sort({ views: -1, createdAt: -1 })
+      .limit(4)
+      .lean();
+    
+    // If not enough scripts, fetch by just genre
+    if (similar.length < 4 && script.contentType) {
+      delete query.contentType;
+      query._id = { $nin: [script._id, ...similar.map(s => s._id)] };
+      const moreSimilar = await Script.find(query)
+        .populate("creator", "name profileImage role")
+        .sort({ views: -1, createdAt: -1 })
+        .limit(4 - similar.length)
+        .lean();
+      similar = [...similar, ...moreSimilar];
+    }
+
+    // Strip fullContent to keep payload small
+    similar = similar.map((s) => ({
+      ...s,
+      synopsis: s.synopsis ? s.synopsis.substring(0, 120) + (s.synopsis.length > 120 ? '...' : '') : null,
+      fullContent: undefined,
+    }));
+
+    res.json(similar);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
