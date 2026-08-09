@@ -221,6 +221,19 @@ export function useShellNotifications({ user, navigate }) {
     return target;
   }, [dismissToast, navigate, user]);
 
+  const markNotificationRead = useCallback(async (id) => {
+    if (!id) return;
+    try {
+      await api.put(`/notifications/${id}/read`);
+    } catch {}
+    setNotifications((prev) => {
+      const target = prev.find((n) => n._id === id);
+      if (target && !target.read) setUnreadCount((c) => Math.max(0, c - 1));
+      return prev.map((n) => (n._id === id ? { ...n, read: true } : n));
+    });
+    dismissToast(id);
+  }, [dismissToast]);
+
   const decideFollowRequest = useCallback(async (notification, decision) => {
     const fromUserId = notification?.from?._id || notification?.from;
     if (!fromUserId) return;
@@ -258,13 +271,14 @@ export function useShellNotifications({ user, navigate }) {
     markAllRead,
     deleteNotification,
     openNotification,
+    markNotificationRead,
     decideFollowRequest,
     dismissToast,
     dismissAllToasts,
   }), [
     notifications, unreadCount, messageCount, toasts,
     refresh, acknowledgeAll, markAllRead, deleteNotification,
-    openNotification, decideFollowRequest, dismissToast, dismissAllToasts,
+    openNotification, markNotificationRead, decideFollowRequest, dismissToast, dismissAllToasts,
   ]);
 }
 

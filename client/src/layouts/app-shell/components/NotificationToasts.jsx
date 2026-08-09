@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AnimatePresence, motion as Motion } from "framer-motion";
 import { MatIcon } from "../navigation/icons.jsx";
 import {
@@ -13,9 +13,17 @@ const SETTLED = { opacity: 1, x: 0, scale: 1 };
 const EXIT = { opacity: 0, x: 80, scale: 0.9 };
 const SPRING = { type: "spring", stiffness: 200, damping: 26 };
 
-const ToastItem = ({ notification, onOpen, onDismiss, onDecideFollowRequest }) => {
+const ToastItem = ({ notification, onOpen, onDismiss, onExplicitDismiss, onDecideFollowRequest }) => {
   const [showModal, setShowModal] = useState(false);
   const isLong = notification.message && notification.message.length > 120;
+
+  useEffect(() => {
+    if (showModal) return;
+    const timer = setTimeout(() => {
+      onDismiss(notification._id);
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [notification._id, onDismiss, showModal]);
 
   return (
     <>
@@ -78,7 +86,7 @@ const ToastItem = ({ notification, onOpen, onDismiss, onDecideFollowRequest }) =
               <button
                 type="button"
                 className="ck-btn ck-btn--ghost ck-btn--sm"
-                onClick={() => onDismiss(notification._id)}
+                onClick={() => (onExplicitDismiss ? onExplicitDismiss(notification._id) : onDismiss(notification._id))}
               >
                 Dismiss
               </button>
@@ -144,9 +152,10 @@ const ToastItem = ({ notification, onOpen, onDismiss, onDecideFollowRequest }) =
  * @param {Array} props.toasts
  * @param {Function} props.onOpen
  * @param {Function} props.onDismiss
+ * @param {Function} props.onExplicitDismiss
  * @param {Function} props.onDecideFollowRequest
  */
-const NotificationToasts = ({ toasts = [], onOpen, onDismiss, onDecideFollowRequest }) => (
+const NotificationToasts = ({ toasts = [], onOpen, onDismiss, onExplicitDismiss, onDecideFollowRequest }) => (
   <div className="ck-notif-popup">
     <AnimatePresence initial={false}>
       {toasts.map((notification) => (
@@ -155,6 +164,7 @@ const NotificationToasts = ({ toasts = [], onOpen, onDismiss, onDecideFollowRequ
           notification={notification}
           onOpen={onOpen}
           onDismiss={onDismiss}
+          onExplicitDismiss={onExplicitDismiss}
           onDecideFollowRequest={onDecideFollowRequest}
         />
       ))}
