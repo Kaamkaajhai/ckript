@@ -1172,16 +1172,7 @@ export const sendAudienceBroadcast = async (req, res) => {
             return res.status(404).json({ message: `No active ${audienceConfig.key} found` });
         }
 
-        const notificationMessage = `${title}\n\n${content}`.trim();
-        await Notification.insertMany(
-            recipients.map((recipient) => ({
-                user: recipient._id,
-                type: "admin_alert",
-                from: req.user?._id,
-                message: notificationMessage,
-            })),
-            { ordered: false }
-        ).catch(() => null);
+        // Removed in-app notification creation for admin emails as requested
 
         const emailRecipients = recipients.filter((recipient) => String(recipient?.email || "").trim());
         const emailResults = await Promise.allSettled(
