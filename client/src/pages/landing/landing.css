@@ -47,6 +47,10 @@
 @keyframes ckl-fadeDown { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes ckl-fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes ckl-growLineC { from { opacity: 0; transform: translateX(-50%) scaleY(0); } to { opacity: 1; transform: translateX(-50%) scaleY(1); } }
+/* Same grow, for a rule centred by its layout rather than by translateX. The -C variants bake the
+   centring into the transform, so using one on a flex-centred element shoves it half its own width
+   to the left. */
+@keyframes ckl-growLine { from { opacity: 0; transform: scaleY(0); } to { opacity: 1; transform: scaleY(1); } }
 @keyframes ckl-dotPulse { 0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; } 50% { transform: translate(-50%, -50%) scale(1.4); opacity: .7; } }
 @keyframes ckl-marquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
 

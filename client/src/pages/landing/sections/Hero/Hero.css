@@ -56,12 +56,27 @@
 .ckl .ckl-hero-decor-2 > img { transform: translate(105px, -120px) rotate(5.44deg) scale(1.05); }
 
 /* ── Hero content ─────────────────────────────────────────────── */
-.ckl .ckl-hero-title {
-  margin: 0;
-  padding: 0;
+/* The column that holds the title, rule, paragraph and buttons.
+
+   Only this wrapper is positioned; everything inside it stacks. The gaps below are the ones the
+   original composition used — measured off the two-line layout as 504→528, 574→594 and 722→728 —
+   so at two lines this renders pixel-identical to the handoff, and at three it pushes the stack
+   down instead of letting the title run through it. Anchored at the title's original 248px, which
+   leaves the nav (ends at 104px) the same 144px of air it always had. */
+.ckl .ckl-hero-content {
   position: absolute;
   top: 248px;
   left: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 2;
+}
+
+.ckl .ckl-hero-title {
+  margin: 0;
+  padding: 0;
   width: 100%;
   text-align: center;
   font-family: var(--ck-serif);
@@ -69,7 +84,6 @@
   font-size: 114px;
   line-height: 128px;
   color: var(--ck-ink);
-  z-index: 2;
   opacity: 0;
   animation: ckl-fadeUp 1s .18s cubic-bezier(.2, .7, .2, 1) forwards;
 }
@@ -81,47 +95,36 @@
   margin-left: 18px;
   vertical-align: 1px;
 }
+/* The three below are centred by the column, so they use the NON-`-C` keyframes: the `-C` variants
+   bake translateX(-50%) into the transform and would drag a flex-centred element off to the left. */
 .ckl .ckl-hero-line {
-  position: absolute;
-  top: 528px;
-  left: 50%;
+  margin-top: 24px;
   width: 1px;
   height: 46px;
   background: #bdbbb5;
-  transform: translateX(-50%);
   transform-origin: top;
-  z-index: 2;
   opacity: 0;
-  animation: ckl-growLineC .7s .55s ease forwards;
+  animation: ckl-growLine .7s .55s ease forwards;
 }
 .ckl .ckl-hero-desc {
-  position: absolute;
-  top: 594px;
-  left: 50%;
-  transform: translateX(-50%);
+  margin: 20px 0 0;
   width: 530px;
-  margin: 0;
   text-align: center;
   font-family: var(--ck-body);
   font-weight: 400;
   font-size: 22px;
   line-height: 32px;
   color: #33312e;
-  z-index: 2;
   opacity: 0;
-  animation: ckl-fadeUpC .9s .5s cubic-bezier(.2, .7, .2, 1) forwards;
+  animation: ckl-fadeUp .9s .5s cubic-bezier(.2, .7, .2, 1) forwards;
 }
 .ckl .ckl-hero-buttons {
-  position: absolute;
-  top: 728px;
-  left: 50%;
-  transform: translateX(-50%);
+  margin-top: 6px;
   display: flex;
   align-items: center;
   gap: 54px;
-  z-index: 2;
   opacity: 0;
-  animation: ckl-fadeUpC .9s .65s cubic-bezier(.2, .7, .2, 1) forwards;
+  animation: ckl-fadeUp .9s .65s cubic-bezier(.2, .7, .2, 1) forwards;
 }
 .ckl .ckl-hero-btn-primary {
   display: flex;
@@ -172,9 +175,15 @@
     align-items: center !important;
   }
 
+  /* The column is already a centred stack, so mobile only has to stop it being positioned and let
+     it be a normal child of the flex stage. The per-element un-pinning below is what this rule
+     replaces; the elements themselves are static now. */
+  .ckl .ckl-hero-content {
+    position: static !important;
+    width: 100% !important;
+  }
+
   .ckl .ckl-hero-title {
-    position: relative !important;
-    top: auto !important;
     margin-top: 50px !important;
     font-size: 56px !important;
     line-height: 1.1 !important;
