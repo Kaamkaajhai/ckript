@@ -4970,7 +4970,8 @@ export const getFeaturedScripts = async (req, res) => {
         $match: {
           $or: [
             { "creatorDoc.role": { $ne: "writer" } },
-            { "creatorDoc.subscription.plan": { $in: ["silver", "gold"] } },
+            { "creatorDoc.subscription.plan": "gold" },
+            { "creatorDoc.subscription.accessTier": "writer_gold" },
           ],
         },
       },
