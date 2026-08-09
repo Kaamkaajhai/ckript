@@ -403,6 +403,9 @@ function RootExperience({ children }) {
     authLoading: loading,
     user,
     pathname: location.pathname,
+    // A route may declare a query it deliberately does not cover — see
+    // `excludeQuery` in the manifest, and /create-project?ctx=competition.
+    search: location.search,
     isDev: import.meta.env.DEV,
   });
 
@@ -605,6 +608,45 @@ function App() {
                     <AuthContext.Provider value={{ user: { name: "Arshad Rahman", role: "creator", token: "preview" }, loading: false, logout: () => {} }}>
                       <Suspense fallback={null}>
                         <MobileApp devScreen="primitives" />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
+              )}
+              {import.meta.env.DEV && (
+                /* Phase 3 create-project harness, both modes — see
+                   mobile/dev/CreateHarness.jsx. /create-project is a real mobile
+                   route now, but it authenticates, fetches drafts and autosaves,
+                   so it cannot be measured twice and get the same answer. The
+                   risks that matter here (touch targets, contrast on the dark
+                   chrome, the docked bar over the caret line, a 29-chip genre
+                   row at 320px) are only measurable in a browser. */
+                <Route
+                  path="/__mobile-create"
+                  element={
+                    <AuthContext.Provider value={{ user: { name: "Arshad Rahman", role: "creator", token: "preview" }, loading: false, logout: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="create" />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
+              )}
+              {import.meta.env.DEV && (
+                /* Phase 3 upload harness — see mobile/dev/UploadHarness.jsx.
+                   /upload is a real mobile route now, but it authenticates,
+                   fetches the plan limit, posts a PDF to the extractor and
+                   uploads media, so it renders a different screen on every run.
+                   The risks that matter here (touch targets, a 48-chip genre row
+                   at 320px, the sticky footer over the publish panel's last
+                   field, the agreement region's scroll containment) are only
+                   measurable in a browser. */
+                <Route
+                  path="/__mobile-upload"
+                  element={
+                    <AuthContext.Provider value={{ user: { name: "Arshad Rahman", role: "creator", token: "preview" }, loading: false, logout: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="upload" />
                       </Suspense>
                     </AuthContext.Provider>
                   }

@@ -57,7 +57,35 @@ mobile/
   components/           Reusable chrome, each with a co-located .css:
                          StatusBar, TopBar, SectionTabs, BottomNav,
                          DynamicIsland, BottomSheet, Skeleton, EmptyState, Icon.
+    media/             `ckm-media` — the attachment family shared by
+                       /create-project and /upload: MediaSlot (one attachable
+                       asset, its picker and its per-file upload progress),
+                       CoverCropDialog (prop-driven; each route supplies its own
+                       cropper state) and PreviewDialog (the buyer's page
+                       window). Promoted out of screens/create/ on 2026-08-09
+                       rather than copied — both routes ask for the same three
+                       files against the same three ceilings.
   screens/
+    create/            /create-project, two surfaces on one route.
+                       `ckm-editor`: Editor.jsx (immersive shell + top bar +
+                       overflow + exit flow), EditorDock.jsx (the one docked
+                       Elements/Format bar) and editorChrome.js. It mounts the
+                       SHARED components/screenplay/ScreenplayEditor; there is no
+                       mobile fork of the editor.
+                       `ckm-create-project`: Wizard.jsx + wizardChrome.js, ten
+                       panels in panels/, overlays in overlays/.
+                       CreateProjectChrome.jsx chooses between them by `step`.
+    upload/            /upload and its ?draft= / ?edit= forms (`ckm-upload`).
+                       Upload.jsx (the ten-panel flow), uploadChrome.js (the
+                       chrome as data — position, footer, overflow, save state),
+                       panels/UploadPanels.jsx, UploadStates.jsx (the three
+                       surfaces desktop expresses as early returns) and
+                       ScriptUploadChrome.jsx, which chooses between all four.
+                       NOTE the name: ScriptUploadChrome.jsx, not
+                       UploadChrome.jsx — it shares a directory with
+                       uploadChrome.js, and a case-insensitive filesystem
+                       resolves the two to the same module, whose symptom is a
+                       silently undefined default export.
     Dashboard.jsx      The one built screen. Owns tab state, overlay state and
                        the notifications model.
     sections/          Overview · Performance · Reviews · Projects.
@@ -93,6 +121,15 @@ mobile/
 - A screen renders **one** `<MobileShell>` and never its own app frame. The
   shell mode (declared in the route manifest) decides which chrome exists; the
   shell owns the single scroll surface.
+- A screen may override an individual chrome **slot**, and exactly one does:
+  the editor is `immersive` (which allows no chrome at all) with `appBar` and
+  `bottomNav` forced back on, via the exported `EDITOR_SHELL_SLOTS`. Overrides
+  must be named constants, never object literals in JSX — the shell publishes
+  the changed slots as `data-shell-slots` so the exception is visible in the
+  DOM, and an unknown slot name logs loudly in development.
+  Putting the editor's bars in the shell's slots is not cosmetic: slots are
+  `flex: none` siblings of the scroll surface, so the docked toolbar
+  *displaces* the script rather than covering the line being typed.
 - The global `AnalyticsBootstrap` already emits sessions, `page_enter`,
   `page_exit` and clicks for mobile URLs — never re-fire them from a screen.
   The shell adds `scroll_depth`, which the global tracker cannot see because the
@@ -123,6 +160,30 @@ documented migration disposition.
 data and no authenticated API calls. This keeps visual regression captures
 stable and prevents the fake preview identity from triggering session-expiry
 redirects. It exists only in development.
+
+`/__mobile-primitives` is the shared primitive/state harness.
+
+`/__mobile-create` mounts the whole create-project chrome — the screenplay
+editor (mode A) *and* the publish wizard (mode B) — over a fixture
+`CreateProjectContext`, with the real stylesheets and the real CodeMirror.
+It replaced `/__mobile-editor` on 2026-08-09 when `/create-project` was
+promoted to a real mobile route.
+
+Promotion did not remove the need for a harness: the live route authenticates,
+fetches drafts, autosaves and opens a collaboration socket, so it renders a
+different screen on every run. Navigate to a state rather than clicking into
+one — `?step=2..5`, `?panel=basics|story|cast|progress|access|media`, and
+`?state=recovery|error|exit|readonly|prose|blocked|submitted|crop|titlepage|saving`.
+
+`/__mobile-upload` does the same for the upload chrome, over a fixture `vm`
+rather than a fixture context — because that is the seam: `pages/ScriptUpload.jsx`
+hands one view model to whichever chrome is mounted, so a harness is a fixture of
+that object and nothing else. If the shape drifts, the harness stops compiling.
+
+Same argument for its existence: the live route authenticates, fetches the plan
+limit, posts a PDF to the extractor and uploads media. Navigate to a state —
+`?step=1..5`, `?panel=basics|story|cast|progress|access|media`, and
+`?state=extracting|ready|error|blocked|locked|recovery|crop|denied|resolving|submitted|contentonly|uploading|saving`.
 
 ## What is wired for real
 

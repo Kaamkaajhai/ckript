@@ -109,6 +109,7 @@ export function CardTitle({
   as = "h3",
   to = null,
   href = null,
+  state = undefined,
   onClick = null,
   className = "",
   children,
@@ -121,7 +122,12 @@ export function CardTitle({
   if (to) {
     return (
       <Heading className={classes} {...rest}>
-        <Link className={linkClass} to={to}>{children}</Link>
+        {/* `state` rather than an onClick+navigate: some destinations read
+            location.state as part of their contract (plan §5.2 — /create-project
+            treats `startFresh` as an entry mode), and swapping the link for a
+            handler would cost long-press, middle-click and open-in-new-tab to
+            carry one field. */}
+        <Link className={linkClass} to={to} state={state}>{children}</Link>
       </Heading>
     );
   }

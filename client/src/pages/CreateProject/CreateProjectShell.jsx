@@ -25,8 +25,16 @@ const CreateProjectShell = ({ children }) => {
     scriptLimit, setError, setDetailsStep, setExportMenuOpen, setFocusMode, setScreenplayEnabled, setShowDrafts,
     setShowVersionHistory, setSaved, setStep, setTitle, step, title, toggleDarkMode,
     useScreenplayEditor, currentElement, wordCount, scriptId, collabMyUserId,
-    competitionMode, hasFullAccess, hasPublishAccess
+    competitionMode, hasFullAccess, hasPublishAccess,
+    pendingRecovery, acceptPendingRecovery, dismissPendingRecovery
   } = useCreateProject();
+
+  // Unsaved work found on this device that the server does not have — AND the saved copy moved on
+  // since this session's base, so restoring would overwrite whatever landed in between. That is a
+  // choice for the writer, never an automatic one.
+  const recoveredAt = pendingRecovery?.updatedAt
+    ? new Date(pendingRecovery.updatedAt).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" })
+    : null;
 
   const activeStep = STEPS[step - 1];
   const isWrite = step === 1;
@@ -188,6 +196,44 @@ const CreateProjectShell = ({ children }) => {
               );
             })}
           </div>
+          )}
+
+          {/* Recovery slot — unsaved work found on this device, where the saved copy has also
+              changed since. Offered, never applied: the writer decides which one survives. */}
+          {pendingRecovery && (
+            <div style={{ flex: "none", padding: "12px 16px 0" }}>
+              <div
+                role="status"
+                className={`rounded-2xl border p-4 flex items-start gap-3.5 ${dark ? "border-sky-500/25 bg-sky-500/[0.08]" : "border-sky-200 bg-sky-50"}`}
+              >
+                <svg className={`w-6 h-6 shrink-0 mt-0.5 ${dark ? "text-sky-400" : "text-sky-500"}`} fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-bold ${dark ? "text-sky-200" : "text-sky-900"}`}>
+                    Unsaved changes from this device were found{recoveredAt ? ` (${recoveredAt})` : ""}.
+                  </p>
+                  <p className={`text-[13px] mt-0.5 ${dark ? "text-sky-100/80" : "text-sky-800"}`}>
+                    The saved version has also changed since then, so these were not restored automatically.
+                    Restoring replaces what you see now.
+                  </p>
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    <button
+                      type="button"
+                      onClick={acceptPendingRecovery}
+                      className={`px-3.5 py-2 rounded-lg text-[13px] font-bold transition ${dark ? "bg-sky-400 text-[#06121a] hover:bg-sky-300" : "bg-sky-600 text-white hover:bg-sky-700"}`}
+                    >
+                      Restore my changes
+                    </button>
+                    <button
+                      type="button"
+                      onClick={dismissPendingRecovery}
+                      className={`px-3.5 py-2 rounded-lg text-[13px] font-bold transition ${dark ? "bg-white/10 text-sky-100 hover:bg-white/15" : "bg-white text-sky-900 border border-sky-200 hover:bg-sky-100"}`}
+                    >
+                      Keep the saved version
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Banner slot — plan-limit gate + inline errors, pinned above the body. */}
