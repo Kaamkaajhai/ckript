@@ -1967,8 +1967,8 @@ const AdminDashboard = () => {
         try {
             // Login as admin — store token ONLY in sessionStorage (does NOT affect user's localStorage session)
             const { data } = await axios.post(`${API_BASE_URL}/auth/login`, {
-                email: "admin@ckript.com",
-                password: "admin123",
+                email: import.meta.env.VITE_ADMIN_EMAIL || "admin@ckript.com",
+                password: import.meta.env.VITE_ADMIN_PASSWORD || "admin123",
                 adminCode: enteredCode,
             });
             sessionStorage.setItem("admin-session", JSON.stringify(data));

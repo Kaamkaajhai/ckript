@@ -25,6 +25,7 @@ import ProducerRatingCard from "../../components/ProducerRatingCard";
 import ScreenplayPdfViewer from "../../components/ScreenplayPdfViewer";
 import ScreenplayReadOnly from "../../components/ScreenplayReadOnly";
 import MeetingModal from "../../components/MeetingModal";
+import ProjectCard from "../../components/ProjectCard";
 import { formatCurrency } from "../../utils/currency";
 import { getScriptWriters, formatWriterNames, getCreditTypeLabel as creditLabel } from "../../utils/writerCredits";
 import { useScrollLock } from "../../hooks/useScrollLock";
@@ -641,6 +642,22 @@ export default function ScriptWorkbenchPage({ vm }) {
                   <div className="swb-spec"><span className="swb-spec__k">Published</span><span className="swb-spec__v">{vm.formatDate(script?.publishedAt || script?.createdAt)}</span></div>
                 </article>
 
+              </div>
+            </section>
+          )}
+
+          {/* SIMILAR SCRIPTS */}
+          {vm.similarScripts?.length > 0 && (
+            <section className="swb-panel is-active" style={{ marginTop: 40, borderTop: "1px solid var(--border, #e5e7eb)", paddingTop: 30, display: "block" }}>
+              <h3 className="swb-sect-title" style={{ marginBottom: 20 }}>Similar scripts you might like</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {vm.similarScripts.map((similarScript) => (
+                  <ProjectCard 
+                    key={similarScript._id} 
+                    project={similarScript} 
+                    userName={similarScript.creator?.name || "Unknown"} 
+                  />
+                ))}
               </div>
             </section>
           )}

@@ -7540,9 +7540,11 @@ export const generateAiCover = async (req, res) => {
 export const getSimilarScripts = async (req, res) => {
   try {
     const { id } = req.params;
+    console.log(`[getSimilarScripts] Called for script ID: ${id}`);
     const script = await Script.findById(id).select("genre contentType");
     
     if (!script) {
+      console.log(`[getSimilarScripts] Script not found for ID: ${id}`);
       return res.status(404).json({ message: "Script not found" });
     }
 
@@ -7552,8 +7554,6 @@ export const getSimilarScripts = async (req, res) => {
     };
 
     if (script.genre) query.genre = script.genre;
-    // Don't enforce contentType strictly if we don't have many scripts, but prioritize it.
-    // Since we're doing a simple match, let's just use it as a filter if available.
     if (script.contentType) query.contentType = script.contentType;
 
     let similar = await Script.find(query)
@@ -7562,6 +7562,8 @@ export const getSimilarScripts = async (req, res) => {
       .limit(4)
       .lean();
     
+    console.log(`[getSimilarScripts] Initial matches: ${similar.length}`);
+
     // If not enough scripts, fetch by just genre
     if (similar.length < 4 && script.contentType) {
       delete query.contentType;
@@ -7572,6 +7574,7 @@ export const getSimilarScripts = async (req, res) => {
         .limit(4 - similar.length)
         .lean();
       similar = [...similar, ...moreSimilar];
+      console.log(`[getSimilarScripts] Matches after genre fallback: ${similar.length}`);
     }
 
     // If still not enough scripts, fetch ANY published scripts
@@ -7584,7 +7587,10 @@ export const getSimilarScripts = async (req, res) => {
         .limit(4 - similar.length)
         .lean();
       similar = [...similar, ...evenMore];
+      console.log(`[getSimilarScripts] Matches after ANY fallback: ${similar.length}`);
     }
+
+    console.log(`[getSimilarScripts] Returning ${similar.length} scripts`);
 
     // Strip fullContent to keep payload small
     similar = similar.map((s) => ({
