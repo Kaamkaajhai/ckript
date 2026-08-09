@@ -98,6 +98,8 @@ const AdminDashboard = () => {
 
     // ─── Code Gate — always prompt on every visit ───
     const [authorized, setAuthorized] = useState(false);
+    const [emailInput, setEmailInput] = useState("");
+    const [passwordInput, setPasswordInput] = useState("");
     const [codeInput, setCodeInput] = useState("");
     const [codeError, setCodeError] = useState("");
     const [codeLoading, setCodeLoading] = useState(false);
@@ -1967,13 +1969,15 @@ const AdminDashboard = () => {
         try {
             // Login as admin — store token ONLY in sessionStorage (does NOT affect user's localStorage session)
             const { data } = await axios.post(`${API_BASE_URL}/auth/login`, {
-                email: "admin@ckript.com",
-                password: "admin123",
+                email: emailInput.trim(),
+                password: passwordInput,
                 adminCode: enteredCode,
             });
             sessionStorage.setItem("admin-session", JSON.stringify(data));
             clearAdminScriptAccess();
             setAuthorized(true);
+            setEmailInput("");
+            setPasswordInput("");
             setCodeInput("");
         } catch (error) {
             const apiMessage = error?.response?.data?.message;
@@ -2011,21 +2015,36 @@ const AdminDashboard = () => {
                         <h1 className="text-2xl font-extrabold text-white">Admin Panel</h1>
                         <p className="text-sm mt-1 text-gray-500">Enter access code to continue</p>
                     </div>
-                    <form onSubmit={handleCodeSubmit}>
+                    <form onSubmit={handleCodeSubmit} className="space-y-4">
+                        <input
+                            type="email"
+                            value={emailInput}
+                            onChange={(e) => { setEmailInput(e.target.value); setCodeError(""); }}
+                            placeholder="Admin Email"
+                            className="w-full px-4 py-3.5 rounded-xl text-center text-lg font-bold outline-none border bg-[var(--ad-surface-2)] border-[var(--ad-line-2)] text-[var(--ad-ink)] placeholder:text-[var(--ad-ink-3)] focus:border-[var(--ad-accent)] focus:ring-2 focus:ring-[var(--ad-accent)]/25 transition-all"
+                            required
+                        />
+                        <PasswordInput
+                            value={passwordInput}
+                            onChange={(e) => { setPasswordInput(e.target.value); setCodeError(""); }}
+                            placeholder="Password"
+                            className="w-full px-4 py-3.5 rounded-xl text-center text-lg font-bold outline-none border bg-[var(--ad-surface-2)] border-[var(--ad-line-2)] text-[var(--ad-ink)] placeholder:text-[var(--ad-ink-3)] focus:border-[var(--ad-accent)] focus:ring-2 focus:ring-[var(--ad-accent)]/25 transition-all"
+                            required
+                        />
                         <PasswordInput
                             value={codeInput}
                             onChange={(e) => { setCodeInput(e.target.value); setCodeError(""); }}
                             placeholder="Access Code"
-                            autoFocus
                             className="w-full px-4 py-3.5 rounded-xl text-center text-lg font-bold tracking-[0.3em] outline-none border bg-[var(--ad-surface-2)] border-[var(--ad-line-2)] text-[var(--ad-ink)] placeholder:text-[var(--ad-ink-3)] focus:border-[var(--ad-accent)] focus:ring-2 focus:ring-[var(--ad-accent)]/25 transition-all"
+                            required
                         />
                         {codeError && (
                             <p className="text-red-400 text-sm font-semibold mt-2 text-center">{codeError}</p>
                         )}
                         <button
                             type="submit"
-                            disabled={codeLoading || !codeInput}
-                            className="w-full mt-4 py-3.5 rounded-xl text-sm font-bold bg-gradient-to-r from-[#7a2233] to-purple-500 text-white hover:from-[#7a2233] hover:to-purple-600 transition-all disabled:opacity-50 shadow-lg hover:shadow-xl hover:shadow-[#a83a4d]/20"
+                            disabled={codeLoading || !codeInput || !emailInput || !passwordInput}
+                            className="w-full py-3.5 rounded-xl text-sm font-bold bg-gradient-to-r from-[#7a2233] to-purple-500 text-white hover:from-[#7a2233] hover:to-purple-600 transition-all disabled:opacity-50 shadow-lg hover:shadow-xl hover:shadow-[#a83a4d]/20"
                         >
                             {codeLoading ? (
                                 <span className="flex items-center justify-center gap-2">
