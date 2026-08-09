@@ -34,12 +34,9 @@ export const writerNav = ({ profilePath, msgCount }) => ({
   ],
 
   // Grouped exactly like the reference drawer:
-  //   Dashboard · Search | Create · Upload | Challenge · My Competitions | Messages
+  //   Dashboard | Create · Upload | Challenge · My Competitions | Messages
   drawer: [
     { key: "dashboard",    path: "/dashboard",       label: "Dashboard",       icon: "home", exact: true },
-    { key: "projects",     path: "/dashboard?tab=projects", label: "My Projects", icon: "projects" },
-    { key: "reviews",      path: "/dashboard?tab=reviews",  label: "Reviews & Insights", icon: "sparkles" },
-    { key: "search",       path: "/search",          label: "Search Projects", icon: "search" },
     { divider: true },
     { key: "create",       path: "/create-project",  label: "Create Project",  icon: "ideas", fresh: true },
     { key: "upload",       path: "/upload",          label: "Upload Project",  icon: "upload" },
