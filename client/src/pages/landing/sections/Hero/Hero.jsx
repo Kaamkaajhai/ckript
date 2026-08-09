@@ -39,6 +39,8 @@ export default function Hero() {
 
         {/* Hero content */}
         <h1 className="ckl-hero-title">
+          Ckript
+          <br />
           The Journey from
           <br />
           Page to Screen
