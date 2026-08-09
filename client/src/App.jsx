@@ -606,6 +606,23 @@ function App() {
                   }
                 />
               )}
+              {import.meta.env.DEV && (
+                /* Phase 3 screenplay-editor harness — see mobile/dev/EditorHarness.jsx.
+                   The editor chrome has no production URL until the publish
+                   wizard is ported, and its real risks (touch targets, contrast
+                   on dark chrome, the docked bar over the caret line) are only
+                   measurable in a browser. */
+                <Route
+                  path="/__mobile-editor"
+                  element={
+                    <AuthContext.Provider value={{ user: { name: "Arshad Rahman", role: "creator", token: "preview" }, loading: false, logout: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="editor" />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
+              )}
               <Route path="/:id" element={<SingleSegmentProfileOrReferralRoute />} />
             </Routes>
             </RootExperience>

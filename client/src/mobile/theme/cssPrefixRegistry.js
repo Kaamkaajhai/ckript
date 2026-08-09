@@ -223,6 +223,18 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
   // fetches nothing, and the wizard's prefix has to stay answerable for the
   // wizard's chrome alone.
   "ckm-new-project": { kind: PAGE_FAMILY, owner: "screens/NewProject.css", family: "create" },
+
+  // The screenplay editor's chrome — /create-project step 1, "mode A". A
+  // separate prefix from ckm-create-project by design (§7.2, the 2026-08-08
+  // spike): the editor is a dark immersive surface with a docked toolbar, the
+  // wizard is a light stepper with a sticky footer, and one prefix answering
+  // for both would mean neither file could be read on its own.
+  "ckm-editor": {
+    kind: PAGE_FAMILY,
+    owner: "screens/create/Editor.css",
+    family: "create",
+    note: "Top bar, page surface and docked Elements/Format bar. The editor itself is components/screenplay/ScreenplayEditor and carries no ckm-* classes.",
+  },
 });
 
 /*

@@ -58,6 +58,16 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     shell: MOBILE_SHELL_MODE.DETAIL,
   },
   {
+    id: "mobile-editor-harness",
+    pattern: "/__mobile-editor",
+    disposition: MOBILE_ROUTE_DISPOSITION.DEV_ONLY,
+    reason: "Development-only harness for the screenplay editor chrome (plan §11, Phase 3). "
+      + "It exists because /create-project is still a migration fallback: the chrome is built and "
+      + "tested but has no production URL until the publish wizard (mode B) is ported.",
+    screenId: "create-project-editor",
+    shell: MOBILE_SHELL_MODE.IMMERSIVE,
+  },
+  {
     id: "writer-dashboard",
     pattern: "/dashboard",
     disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,

@@ -1,7 +1,13 @@
 import { useCallback, useRef } from "react";
 import { useMobileScrollDepth } from "../analytics/useMobileScrollDepth";
 import OfflineBanner from "../components/feedback/OfflineBanner";
-import { getShellModeConfig, isMobileShellMode, MOBILE_SHELL_MODE } from "./mobileShellModes";
+import {
+  assertShellSlotOverride,
+  changedShellSlots,
+  isMobileShellMode,
+  MOBILE_SHELL_MODE,
+  resolveShellSlots,
+} from "./mobileShellModes";
 import "./MobileShell.css";
 
 /*
@@ -26,6 +32,7 @@ import "./MobileShell.css";
  */
 export default function MobileShell({
   mode = MOBILE_SHELL_MODE.STANDARD,
+  slots = null,
   screenId = "",
   appBar = null,
   children,
@@ -39,7 +46,15 @@ export default function MobileShell({
   ...rest
 }) {
   const resolvedMode = isMobileShellMode(mode) ? mode : MOBILE_SHELL_MODE.STANDARD;
-  const config = getShellModeConfig(resolvedMode);
+
+  // A screen may override an individual slot (§8.1), and the editor is the
+  // first to need it: it is an `immersive` surface that nonetheless keeps a top
+  // bar and a bottom bar of its own. The override must arrive as a named,
+  // exported constant — never an object literal in JSX — so the exception is
+  // greppable and testable rather than a detail of one render.
+  if (import.meta.env?.DEV) assertShellSlotOverride(slots, screenId);
+  const config = resolveShellSlots(resolvedMode, slots);
+  const overriddenSlots = changedShellSlots(resolvedMode, slots);
 
   // The shell always needs its own handle on the scroll surface (analytics).
   // A screen that also needs it passes an `onScrollNode` callback rather than
@@ -69,6 +84,7 @@ export default function MobileShell({
     <div
       className={rootClass}
       data-shell-mode={resolvedMode}
+      data-shell-slots={overriddenSlots.length ? overriddenSlots.join(" ") : undefined}
       data-screen-id={screenId || undefined}
       {...rest}
     >

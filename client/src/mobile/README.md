@@ -58,6 +58,13 @@ mobile/
                          StatusBar, TopBar, SectionTabs, BottomNav,
                          DynamicIsland, BottomSheet, Skeleton, EmptyState, Icon.
   screens/
+    create/            The screenplay editor's chrome (`ckm-editor`): Editor.jsx
+                       (immersive shell + top bar + overflow + exit flow),
+                       EditorDock.jsx (the one docked Elements/Format bar) and
+                       editorChrome.js (the chrome as data — slot override,
+                       element/format model, overflow policy). It mounts the
+                       SHARED components/screenplay/ScreenplayEditor; there is no
+                       mobile fork of the editor. No route yet — see below.
     Dashboard.jsx      The one built screen. Owns tab state, overlay state and
                        the notifications model.
     sections/          Overview · Performance · Reviews · Projects.
@@ -93,6 +100,15 @@ mobile/
 - A screen renders **one** `<MobileShell>` and never its own app frame. The
   shell mode (declared in the route manifest) decides which chrome exists; the
   shell owns the single scroll surface.
+- A screen may override an individual chrome **slot**, and exactly one does:
+  the editor is `immersive` (which allows no chrome at all) with `appBar` and
+  `bottomNav` forced back on, via the exported `EDITOR_SHELL_SLOTS`. Overrides
+  must be named constants, never object literals in JSX — the shell publishes
+  the changed slots as `data-shell-slots` so the exception is visible in the
+  DOM, and an unknown slot name logs loudly in development.
+  Putting the editor's bars in the shell's slots is not cosmetic: slots are
+  `flex: none` siblings of the scroll surface, so the docked toolbar
+  *displaces* the script rather than covering the line being typed.
 - The global `AnalyticsBootstrap` already emits sessions, `page_enter`,
   `page_exit` and clicks for mobile URLs — never re-fire them from a screen.
   The shell adds `scroll_depth`, which the global tracker cannot see because the
@@ -123,6 +139,17 @@ documented migration disposition.
 data and no authenticated API calls. This keeps visual regression captures
 stable and prevents the fake preview identity from triggering session-expiry
 redirects. It exists only in development.
+
+`/__mobile-primitives` is the shared primitive/state harness.
+
+`/__mobile-editor` mounts the screenplay editor over a fixture
+`CreateProjectContext` — the real chrome, the real stylesheets and the real
+CodeMirror, with `?state=recovery|error|exit|readonly|prose`. It exists because
+`/create-project` is **still a desktop migration fallback**: the route carries
+both the editor (mode A, built) and the publish wizard (mode B, steps 2–5, not
+built), and promoting it with an unported wizard would put desktop form markup
+on the phone the moment a writer taps "Continue to details" — the thing plan
+§2.2 forbids. Retire this route when the wizard lands and the route is promoted.
 
 ## What is wired for real
 

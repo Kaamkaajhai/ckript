@@ -6,6 +6,7 @@ const Dashboard = lazy(() => import("../screens/Dashboard"));
 const Holds = lazy(() => import("../screens/Holds"));
 const NewProject = lazy(() => import("../screens/NewProject"));
 const PrimitiveGallery = lazy(() => import("../dev/PrimitiveGallery"));
+const EditorHarness = lazy(() => import("../dev/EditorHarness"));
 
 /*
  * MobileRoutes lives inside the app's one existing BrowserRouter. Canonical
@@ -42,6 +43,14 @@ export default function MobileRoutes({
   // surface directly instead — production never reaches this branch.
   if (devScreen === "primitives") {
     return <MobileRouteBoundary><PrimitiveGallery /></MobileRouteBoundary>;
+  }
+
+  // The screenplay editor has no production URL yet — /create-project stays a
+  // desktop migration fallback until the publish wizard (mode B) is ported — so
+  // this is the only place the real chrome, the real CSS and the real CodeMirror
+  // meet a real browser. See mobile/dev/EditorHarness.jsx.
+  if (devScreen === "editor") {
+    return <MobileRouteBoundary><EditorHarness /></MobileRouteBoundary>;
   }
 
   if (preview) {

@@ -370,10 +370,25 @@ const smartEnter = (view) => {
   return true;
 };
 
+/* Escape releases focus from the editor — the escape hatch that binding Tab
+   makes mandatory (WCAG 2.1.2, No Keyboard Trap).
+
+   Tab cycles the element type, which is the screenplay convention every editor
+   in this category uses and worth keeping. The cost is that Tab no longer moves
+   focus, so a keyboard or switch user who enters the script has no way out, and
+   the toolbar that follows the editor in DOM order becomes unreachable. This is
+   CodeMirror's documented answer for editors that capture Tab, and it was
+   measured rather than assumed: ten real dispatched Tab keys against the mobile
+   editor never left `.cm-content`, and each one mutated the document.
+
+   `blur()` rather than a focus-move: where focus should land next is the
+   platform's decision, and after the blur the next Tab resumes the document's
+   own order. */
 const screenplayKeymap = Prec.highest(
   keymap.of([
     { key: "Enter", run: smartEnter },
     { key: "Tab", run: (v) => cycle(v, 1), shift: (v) => cycle(v, -1) },
+    { key: "Escape", run: (v) => { v.contentDOM.blur(); return true; } },
   ])
 );
 

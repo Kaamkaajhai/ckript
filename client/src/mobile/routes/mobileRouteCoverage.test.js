@@ -12,6 +12,7 @@ import { isMobileShellMode } from "../shell/mobileShellModes";
  */
 const APP_ROUTE_PATTERNS = [
   "/",
+  "/__mobile-editor",
   "/__mobile-preview",
   "/__mobile-primitives",
   "/:id",
