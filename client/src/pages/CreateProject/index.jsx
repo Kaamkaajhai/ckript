@@ -28,8 +28,17 @@ import { getScenes } from "../../components/screenplay/sceneIdentity";
 import { moveScene } from "../../components/screenplay/sceneReorder";
 import { fdxToFountain } from "../../components/screenplay/fdx";
 import { formatScreenplayLikeText } from "../../utils/screenplayText";
-import { allFormats, DETAILS_STEPS, DRAFT_ENDPOINT, LOCAL_WORKING_DRAFT_KEY, SCRIPT_UPLOAD_TERMS_VERSION } from "./constants";
+import { allFormats, DETAILS_STEPS, DRAFT_ENDPOINT, SCRIPT_UPLOAD_TERMS_VERSION } from "./constants";
 import { getContentTypeFromFormat, FORMAT_PAGE_RANGES } from "./lib/format";
+import {
+  buildWorkingDraftSnapshot,
+  chooseDraftRecovery,
+  clearWorkingDraft,
+  pruneWorkingDrafts,
+  readWorkingDraft,
+  writeWorkingDraft,
+} from "./lib/workingDraft";
+import { encodeKeepaliveBody } from "./lib/keepaliveSave";
 import { THUMBNAIL_ASPECT } from "./lib/imageCrop";
 import { useThumbnailEditor } from "./hooks/useThumbnailEditor";
 import { useVideoUploads } from "./hooks/useVideoUploads";
@@ -133,6 +142,16 @@ const CreateProject = () => {
   const saveBlockedRef = useRef(false);
   const localDraftHydratedRef = useRef(false);
   const previewPageTextsSignatureRef = useRef("");
+  // The server document's `updatedAt` that THIS editing session loaded. The local snapshot records
+  // it, and recovery compares it back — that is what separates "the server never got my last edits"
+  // from "a co-writer saved while I was away", without trusting this device's clock.
+  const serverUpdatedAtRef = useRef(null);
+  // A snapshot found on disk that holds work the server does not have, where the server copy ALSO
+  // moved on since this session loaded it. Never auto-applied: the writer chooses.
+  const [pendingRecovery, setPendingRecovery] = useState(null);
+  // The exit save was skipped because the browser would have rejected the body (see lib/keepaliveSave).
+  // Recorded so the leaving-the-page warning stays truthful rather than claiming a save that did not happen.
+  const keepaliveRefusedRef = useRef(false);
 
   const [previewPageTexts, setPreviewPageTexts] = useState([]);
 
@@ -674,13 +693,29 @@ const CreateProject = () => {
       lastDraftSignatureRef.current = `${(data.title || "Untitled Draft").trim()}::${String(data.textContent || "").length}:${String(data.textContent || "").slice(0, 120)}:${String(data.textContent || "").slice(-120)}`;
       // Merge base for duet saves: the exact server content this session started from.
       savedBaseContentRef.current = String(data.fountainContent || data.textContent || "");
+      // The server version this session is based on. Written into every local snapshot, and read
+      // back on the next resume to tell "my edits never reached the server" apart from "someone
+      // else saved while I was gone".
+      serverUpdatedAtRef.current = data.updatedAt ? String(data.updatedAt) : null;
       setSaved(true);
       setShowDrafts(false);
+      // Only now is there a server copy to weigh a local snapshot against (DEF-2 / D7).
+      runWorkingDraftRecoveryRef.current({
+        updatedAt: serverUpdatedAtRef.current,
+        content: savedBaseContentRef.current,
+      });
     } catch (err) {
       if (err?.response?.data?.reason === "pending_invite") {
         setInvitePending(true);
       } else if (err?.response?.status === 403 || err?.response?.status === 404) {
         setAccessDenied(true);
+      } else {
+        // The draft could not be fetched at all — offline, or a transient server error. The local
+        // snapshot is then the only copy this device can show, and showing an empty editor over a
+        // draft that has content is how a writer concludes their work is gone. Nothing is written
+        // back until the network returns, and the save path's three-way merge still protects a
+        // co-writer when it does.
+        runWorkingDraftRecoveryRef.current(null);
       }
     }
   }, [editor]);
@@ -758,6 +793,17 @@ const CreateProject = () => {
       }
     }
 
+    // A keepalive body over 64 KiB is rejected by the browser AFTER fetch() returns, so sending one
+    // and swallowing the rejection told this client it had saved when it had not. Measure first.
+    const encoded = encodeKeepaliveBody(payload);
+    if (!encoded.withinLimit) {
+      keepaliveRefusedRef.current = true;
+      // Deliberately do NOT advance lastDraftSignatureRef: nothing was sent, so the interval
+      // autosave must still see this content as unsaved, and the local snapshot is the record.
+      return false;
+    }
+    keepaliveRefusedRef.current = false;
+
     fetch(DRAFT_ENDPOINT, {
       method: "POST",
       keepalive: true,
@@ -766,7 +812,7 @@ const CreateProject = () => {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         "X-Draft-Save-Reason": reason,
       },
-      body: JSON.stringify(payload),
+      body: encoded.body,
     }).catch(() => {});
 
     lastDraftSignatureRef.current = signature;
@@ -824,6 +870,10 @@ const CreateProject = () => {
       // Advance the merge base to what we just sent, so the next save transmits only the delta since
       // this point and the server can replay it onto a co-writer's concurrent changes.
       savedBaseContentRef.current = String(payload.textContent || "");
+      // Advance the snapshot's base with it, so the version this session is "based on" tracks every
+      // successful save. Without this, the second resume of a long session always looks like a
+      // conflict — the base would still name the version the tab opened with.
+      if (data?.updatedAt) serverUpdatedAtRef.current = String(data.updatedAt);
       // Synchronously record the id so a save that fires before React re-renders still UPDATES.
       scriptIdRef.current = data._id;
       setScriptId(data._id);
@@ -855,13 +905,12 @@ const CreateProject = () => {
     }
   }, [buildDraftPayload, editApprovalLocked, editor, fetchDrafts, getDraftSignature, hasMeaningfulDraft, loadedScriptStatus, scriptId]);
 
+  // One snapshot per draft (see lib/workingDraft). A brand-new script keeps the bare key it has
+  // always used; a resumed draft gets its own, which is the whole point — the previous code wrote a
+  // snapshot ONLY for scripts that had never been saved, i.e. never for the ones with work to lose.
   const clearLocalWorkingDraft = useCallback(() => {
-    try {
-      localStorage.removeItem(LOCAL_WORKING_DRAFT_KEY);
-    } catch {
-      // Ignore localStorage failures in private mode/restricted environments.
-    }
-  }, []);
+    clearWorkingDraft(draftId);
+  }, [draftId]);
 
   useEffect(() => {
     if (!shouldStartFresh) return;
@@ -914,49 +963,100 @@ const CreateProject = () => {
     }
   }, [clearLocalWorkingDraft, editor, location.key, shouldStartFresh]);
 
-  const restoreLocalWorkingDraft = useCallback(() => {
-    if (!editor || localDraftHydratedRef.current || draftId || shouldStartFresh) return;
+  // Put a snapshot back into the wizard — content, title, and the position the writer left from
+  // (step AND the Details sub-panel; the sub-step effect clamps it to the current track's panels).
+  const applyWorkingDraftSnapshot = useCallback((snapshot) => {
+    if (!editor || !snapshot) return;
 
-    localDraftHydratedRef.current = true;
-    try {
-      const raw = localStorage.getItem(LOCAL_WORKING_DRAFT_KEY);
-      if (!raw) return;
-
-      const data = JSON.parse(raw);
-      if (!data || typeof data !== "object") return;
-      if (data.userId && user?._id && data.userId !== user._id) return;
-
-      if (typeof data.title === "string") {
-        setTitle(data.title);
-      }
-
-      if (typeof data.textContent === "string" && data.textContent.trim()) {
-        editor.commands.setContent(data.textContent);
-      }
-
-      if (typeof data.fountainContent === "string" && data.fountainContent.trim()) {
-        setScreenplayValue(data.fountainContent);
-      }
-
-      if (typeof data.step === "number" && data.step >= 1 && data.step <= 5) {
-        setStep(data.step);
-      }
-
-      if (typeof data.scriptId === "string" && data.scriptId.trim()) {
-        setScriptId(data.scriptId);
-        setLoadedScriptStatus("draft");
-      }
-    } catch {
-      // Ignore invalid/stale local snapshots.
+    if (typeof snapshot.title === "string") {
+      setTitle(snapshot.title);
     }
-  }, [draftId, editor, shouldStartFresh, user?._id]);
+    if (typeof snapshot.textContent === "string" && snapshot.textContent.trim()) {
+      editor.commands.setContent(snapshot.textContent);
+    }
+    if (typeof snapshot.fountainContent === "string" && snapshot.fountainContent.trim()) {
+      setScreenplayValue(snapshot.fountainContent);
+    }
+    if (typeof snapshot.scriptId === "string" && snapshot.scriptId.trim()) {
+      setScriptId(snapshot.scriptId);
+      setLoadedScriptStatus("draft");
+    }
+
+    const restoredStep = Number(snapshot.step);
+    if (Number.isFinite(restoredStep) && restoredStep >= 1 && restoredStep <= 5) {
+      setStep(restoredStep);
+    }
+    const restoredDetailsStep = Number(snapshot.detailsStep);
+    if (Number.isFinite(restoredDetailsStep) && restoredDetailsStep >= 0) {
+      setDetailsStep(restoredDetailsStep);
+    }
+
+    // Restored content has not been sent anywhere yet — saying "Saved" here is the same lie the
+    // keepalive path used to tell.
+    setSaved(false);
+  }, [editor]);
+
+  /**
+   * Decide what to do with the snapshot on this device.
+   *
+   * A brand-new script has no server copy to weigh it against, so it is restored outright. A
+   * resumed draft runs this AFTER loadDraft, because the snapshot only matters where it disagrees
+   * with what the server just sent — and if the server copy moved on since this session's base
+   * (a co-writer saved, or another device did), it is the writer's call, not ours.
+   */
+  const runWorkingDraftRecovery = useCallback((server = null) => {
+    if (!editor || localDraftHydratedRef.current || shouldStartFresh) return;
+    localDraftHydratedRef.current = true;
+
+    const snapshot = readWorkingDraft(draftId);
+    const { action } = chooseDraftRecovery({ snapshot, userId: user?._id || null, server });
+
+    if (action === "discard") {
+      clearWorkingDraft(draftId);
+      return;
+    }
+    if (action === "none") return;
+    if (action === "conflict") {
+      setPendingRecovery(snapshot);
+      return;
+    }
+    applyWorkingDraftSnapshot(snapshot);
+  }, [applyWorkingDraftSnapshot, draftId, editor, shouldStartFresh, user?._id]);
+
+  // Held in a ref so loadDraft can call it without taking it as a dependency — loadDraft's identity
+  // drives the draft-loading effect, and re-running that would refetch the script on every render.
+  const runWorkingDraftRecoveryRef = useRef(runWorkingDraftRecovery);
+  runWorkingDraftRecoveryRef.current = runWorkingDraftRecovery;
 
   useEffect(() => {
-    restoreLocalWorkingDraft();
-  }, [restoreLocalWorkingDraft]);
+    // A resumed draft waits for loadDraft, which calls the recovery itself once the server copy is
+    // in hand. There is nothing to compare against until then.
+    if (draftId) return;
+    runWorkingDraftRecovery();
+  }, [draftId, runWorkingDraftRecovery]);
+
+  // Snapshots are per draft and they accumulate, so clear out ones nobody is coming back for.
+  useEffect(() => { pruneWorkingDrafts(); }, []);
+
+  const acceptPendingRecovery = useCallback(() => {
+    if (!pendingRecovery) return;
+    applyWorkingDraftSnapshot(pendingRecovery);
+    setPendingRecovery(null);
+  }, [applyWorkingDraftSnapshot, pendingRecovery]);
+
+  const dismissPendingRecovery = useCallback(() => {
+    clearWorkingDraft(draftId);
+    setPendingRecovery(null);
+  }, [draftId]);
 
   useEffect(() => {
-    if (!editor || draftId) return;
+    if (!editor) return;
+    // Until recovery has run, this component's state is the EMPTY initial state, not the writer's
+    // document — and the "no content" branch below clears the snapshot. Writing or clearing before
+    // then would destroy the very snapshot we are about to read. This guard is why the recovery
+    // effect is declared above this one: on the commit where the editor first exists, recovery runs
+    // first and flips the flag.
+    if (!localDraftHydratedRef.current) return;
 
     const html = editor.getHTML();
     const plainText = String(html).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -968,28 +1068,25 @@ const CreateProject = () => {
       clearLocalWorkingDraft();
       return;
     }
+    // Don't overwrite the snapshot the writer has not answered for yet.
+    if (pendingRecovery) return;
 
     const timeoutId = setTimeout(() => {
-      try {
-        localStorage.setItem(
-          LOCAL_WORKING_DRAFT_KEY,
-          JSON.stringify({
-            userId: user?._id || null,
-            scriptId: scriptId || null,
-            title,
-            textContent: html,
-            fountainContent: screenplayValue,
-            step,
-            updatedAt: Date.now(),
-          })
-        );
-      } catch {
-        // Ignore localStorage write failures.
-      }
+      writeWorkingDraft(draftId, buildWorkingDraftSnapshot({
+        userId: user?._id || null,
+        scriptId: scriptId || draftId || null,
+        draftId,
+        title,
+        textContent: html,
+        fountainContent: screenplayValue,
+        step,
+        detailsStep,
+        baseUpdatedAt: serverUpdatedAtRef.current,
+      }));
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [charCount, clearLocalWorkingDraft, draftId, editor, scriptId, step, title, user?._id, wordCount, screenplayValue]);
+  }, [charCount, clearLocalWorkingDraft, detailsStep, draftId, editor, pendingRecovery, scriptId, step, title, user?._id, wordCount, screenplayValue]);
 
   // Debounced autosave while typing title/content.
   useEffect(() => {
@@ -1027,7 +1124,10 @@ const CreateProject = () => {
 
     const handleBeforeUnload = (event) => {
       const queued = queueKeepaliveDraftSaveRef.current("beforeunload");
-      if (!queued) return;
+      // Warn when a save is in flight (keepalive may still not land) AND when the exit save was
+      // refused for being over the browser's 64 KiB cap — in that case the work really is unsaved
+      // on the server, and this warning plus the local snapshot are all that stand behind it.
+      if (!queued && !keepaliveRefusedRef.current) return;
       event.preventDefault();
       event.returnValue = "";
     };
@@ -1815,7 +1915,7 @@ const CreateProject = () => {
   const ctx = {
     hasFullAccess, hasPublishAccess,
     competitionMode, competition, competitionEntry, competitionPhase, competitionServerNow, refreshCompetition,
-    BUYER_COMMISSION_RATE, FORMAT_PRICE_GUIDE, ZOOM_MIN, addRole, addWriter, updateWriter, removeWriter, moveWriter, writers, addSceneComment, adjustZoom, agreementRef, aiBtnCls, aiCoverAttempts, aiCoverHistory, aiCoverIndex, autoSaveInFlightRef, buildDraftPayload, buildRightsPayload, buildScriptPreviewPayload, buyerCommissionAmount, buyerTotalPayable, canComment, canEditContent, cardCls, charCount, chipCls, classification, clearLocalWorkingDraft, collabClearEditRequest, collabCommentsVersion, collabEditRequest, collabLocks, collabMyUserId, collabPeople, collabReleaseHeld, collabRequestEdit, collabSetActiveScene, collabVisibility, confirmExitDiscard, confirmExitSaveDraft, creationBlocked, creationBlockedRef, currentElement, dark, deleteSceneComment, detailsStep, detailsSubSteps, discardingRef, downloadSubmissionSummaryPdf, downloadWatermarkedImage, draftId, drafts, editApprovalLocked, editor, editorZoom, effectivePrice, emphasisState, enforceGoldPlan, error, escapeHtml, estimatedPages, exitGuardRef, exiting, exportMenuOpen, exportingScreenplay, fetchDrafts, filmDetails, focusMode, focusedCommentId, formData, formatDuration, formatInfo, generateAiCover, getDraftSignature, getEditorPlainText, getInvalidRoleAgeRangeMessage, grammarLoading, grammarNotes, handleAddComment, handleAnalyzeFormatting, handleApplyThumbnail, handleBack, handleCaretLine, handleChange, handleDeleteDraft, handleDownloadMainContentPdf, handleExitEditor, handleExportScreenplay, handleFixGrammar, handleFocusComment, handleGenerateMetadata, handleGenerateProse, handleGrammarClick, handleGrammarKeep, handleGrammarUndo, handleImportScreenplayFile, handleNext, handleOutlineChange, handlePitchVideoSelect, handleProseClick, handlePublish, handleReorderScene, handleReplyComment, handleSave, handleScreenplayChange, handleSynopsisChange, handleThumbnailSelect, handleTrailerSelect, handleUnderReviewContinue, hasMeaningfulDraft, importNotice, inputCls, isCommentOrphaned, isEditingExistingScriptFlow, isGeneratingAiCover, isPremium, isScreenplayFormat, isThumbnailEditorOpen, lastDraftSignatureRef, lastSaved, legal, loadDraft, loadedScriptStatus, loading, loadingDrafts, localDraftHydratedRef, location, metaLoadingField, metaNotice, moreMenuOpen, navigate, openPricingModal, openThumbnailEditor, openUnderReviewModal, outlineNotes, outlineWithSceneIds, pageStatus, peopleEnriched, pitchVideoFile, pitchVideoInputRef, pitchVideoMeta, pitchVideoMetaLoading, pitchVideoPreviewUrl, preGrammarContent, presenceBySceneId, presenceEnabled, presenceScenes, previewPageTexts, previewPageTextsSignatureRef, proseLoading, publishReadiness, publishReviewItems, publishSummaryRows, publishingDetails, purchasedServiceCredits, queueKeepaliveDraftSave, queueKeepaliveDraftSaveRef, removeRole, resetThumbnailEditor, restoreLocalWorkingDraft, reviewRedirectTimerRef, rightsLicensing, roles, sanitizePdfFileName, saveBlockedRef, saved, saving, sceneComments, sceneSynopses, screenplayApiRef, screenplayEnabled, screenplayFileInputRef, screenplayMirrorTimer, screenplayOutline, screenplayValue, screenplayValueRef, scriptId, scriptIdRef, scriptLimit, scriptPrice, selectedPublishServices, services, setAiCoverAttempts, setAiCoverHistory, setAiCoverIndex, setCanComment, setCanEditContent, setCharCount, setClassification, setCollabVisibility, setCommentResolved, setCurrentElement, setDetailsStep, setDrafts, setEditApprovalLocked, setEditorZoom, setEmphasisState, setError, setExiting, setExportMenuOpen, setExportingScreenplay, setFilmDetails, setFocusMode, setFocusedCommentId, setFormData, setGrammarLoading, setGrammarNotes, setImportNotice, setIsGeneratingAiCover, setIsPremium, setLastSaved, setLegal, setLoadedScriptStatus, setLoading, setLoadingDrafts, setMetaLoadingField, setMetaNotice, setMoreMenuOpen, setOutlineNotes, setPitchVideoFile, setPitchVideoMeta, setPitchVideoMetaLoading, setPitchVideoPreviewUrl, setPreGrammarContent, setPreviewPageTexts, setProseLoading, setPublishingDetails, setPurchasedServiceCredits, setRightsLicensing, setRoles, setSaved, setSaving, setSceneSynopses, setScreenplayEnabled, setScreenplayValue, setScriptId, setScriptLimit, setScriptPrice, setServices, setShowDrafts, setShowExitConfirm, setShowTitlePageModal, setShowUnderReviewModal, setShowUndoBar, setShowVersionHistory, setStep, setTagsInput, setTargetFilm, setTargetPublishing, setThumbnailCrop, setThumbnailCropPixels, setThumbnailFile, setThumbnailPreviewUrl, setThumbnailRotation, setThumbnailZoom, setTitle, setTitlePage, setToastMessage, setTrailerFile, setTrailerMeta, setTrailerMetaLoading, setTrailerPreviewUrl, setWordCount, shouldStartFresh, showDrafts, showExitConfirm, showTitlePageModal, showToast, showUnderReviewModal, showUndoBar, showVersionHistory, step, stepContentRef, tagsInput, targetFilm, targetPublishing, textToParagraphHtml, thumbnailApplying, thumbnailCrop, thumbnailCropPixels, thumbnailFile, thumbnailInputRef, thumbnailPreviewUrl, thumbnailRotation, thumbnailSourceUrl, thumbnailZoom, title, titlePage, titlePageActive, toastMessage, toggleChip, toggleDarkMode, trailerFile, trailerInputRef, trailerMeta, trailerMetaLoading, trailerPreviewUrl, trailerWorkflowHint, updateRoleAge, updateRoleField, uploadSelectedProjectMedia, useScreenplayEditor, user, validateStep, wordCount, writerPayout,
+    BUYER_COMMISSION_RATE, FORMAT_PRICE_GUIDE, ZOOM_MIN, addRole, addWriter, updateWriter, removeWriter, moveWriter, writers, addSceneComment, adjustZoom, agreementRef, aiBtnCls, aiCoverAttempts, aiCoverHistory, aiCoverIndex, autoSaveInFlightRef, buildDraftPayload, buildRightsPayload, buildScriptPreviewPayload, buyerCommissionAmount, buyerTotalPayable, canComment, canEditContent, cardCls, charCount, chipCls, classification, clearLocalWorkingDraft, collabClearEditRequest, collabCommentsVersion, collabEditRequest, collabLocks, collabMyUserId, collabPeople, collabReleaseHeld, collabRequestEdit, collabSetActiveScene, collabVisibility, confirmExitDiscard, confirmExitSaveDraft, creationBlocked, creationBlockedRef, currentElement, dark, deleteSceneComment, detailsStep, detailsSubSteps, discardingRef, downloadSubmissionSummaryPdf, downloadWatermarkedImage, draftId, drafts, editApprovalLocked, editor, editorZoom, effectivePrice, emphasisState, enforceGoldPlan, error, escapeHtml, estimatedPages, exitGuardRef, exiting, exportMenuOpen, exportingScreenplay, fetchDrafts, filmDetails, focusMode, focusedCommentId, formData, formatDuration, formatInfo, generateAiCover, getDraftSignature, getEditorPlainText, getInvalidRoleAgeRangeMessage, grammarLoading, grammarNotes, handleAddComment, handleAnalyzeFormatting, handleApplyThumbnail, handleBack, handleCaretLine, handleChange, handleDeleteDraft, handleDownloadMainContentPdf, handleExitEditor, handleExportScreenplay, handleFixGrammar, handleFocusComment, handleGenerateMetadata, handleGenerateProse, handleGrammarClick, handleGrammarKeep, handleGrammarUndo, handleImportScreenplayFile, handleNext, handleOutlineChange, handlePitchVideoSelect, handleProseClick, handlePublish, handleReorderScene, handleReplyComment, handleSave, handleScreenplayChange, handleSynopsisChange, handleThumbnailSelect, handleTrailerSelect, handleUnderReviewContinue, hasMeaningfulDraft, importNotice, inputCls, isCommentOrphaned, isEditingExistingScriptFlow, isGeneratingAiCover, isPremium, isScreenplayFormat, isThumbnailEditorOpen, lastDraftSignatureRef, lastSaved, legal, loadDraft, loadedScriptStatus, loading, loadingDrafts, localDraftHydratedRef, location, metaLoadingField, metaNotice, moreMenuOpen, navigate, openPricingModal, openThumbnailEditor, openUnderReviewModal, outlineNotes, outlineWithSceneIds, pageStatus, peopleEnriched, pitchVideoFile, pitchVideoInputRef, pitchVideoMeta, pitchVideoMetaLoading, pitchVideoPreviewUrl, preGrammarContent, presenceBySceneId, presenceEnabled, presenceScenes, previewPageTexts, previewPageTextsSignatureRef, proseLoading, publishReadiness, publishReviewItems, publishSummaryRows, publishingDetails, purchasedServiceCredits, queueKeepaliveDraftSave, queueKeepaliveDraftSaveRef, removeRole, resetThumbnailEditor, runWorkingDraftRecovery, applyWorkingDraftSnapshot, pendingRecovery, acceptPendingRecovery, dismissPendingRecovery, reviewRedirectTimerRef, rightsLicensing, roles, sanitizePdfFileName, saveBlockedRef, saved, saving, sceneComments, sceneSynopses, screenplayApiRef, screenplayEnabled, screenplayFileInputRef, screenplayMirrorTimer, screenplayOutline, screenplayValue, screenplayValueRef, scriptId, scriptIdRef, scriptLimit, scriptPrice, selectedPublishServices, services, setAiCoverAttempts, setAiCoverHistory, setAiCoverIndex, setCanComment, setCanEditContent, setCharCount, setClassification, setCollabVisibility, setCommentResolved, setCurrentElement, setDetailsStep, setDrafts, setEditApprovalLocked, setEditorZoom, setEmphasisState, setError, setExiting, setExportMenuOpen, setExportingScreenplay, setFilmDetails, setFocusMode, setFocusedCommentId, setFormData, setGrammarLoading, setGrammarNotes, setImportNotice, setIsGeneratingAiCover, setIsPremium, setLastSaved, setLegal, setLoadedScriptStatus, setLoading, setLoadingDrafts, setMetaLoadingField, setMetaNotice, setMoreMenuOpen, setOutlineNotes, setPitchVideoFile, setPitchVideoMeta, setPitchVideoMetaLoading, setPitchVideoPreviewUrl, setPreGrammarContent, setPreviewPageTexts, setProseLoading, setPublishingDetails, setPurchasedServiceCredits, setRightsLicensing, setRoles, setSaved, setSaving, setSceneSynopses, setScreenplayEnabled, setScreenplayValue, setScriptId, setScriptLimit, setScriptPrice, setServices, setShowDrafts, setShowExitConfirm, setShowTitlePageModal, setShowUnderReviewModal, setShowUndoBar, setShowVersionHistory, setStep, setTagsInput, setTargetFilm, setTargetPublishing, setThumbnailCrop, setThumbnailCropPixels, setThumbnailFile, setThumbnailPreviewUrl, setThumbnailRotation, setThumbnailZoom, setTitle, setTitlePage, setToastMessage, setTrailerFile, setTrailerMeta, setTrailerMetaLoading, setTrailerPreviewUrl, setWordCount, shouldStartFresh, showDrafts, showExitConfirm, showTitlePageModal, showToast, showUnderReviewModal, showUndoBar, showVersionHistory, step, stepContentRef, tagsInput, targetFilm, targetPublishing, textToParagraphHtml, thumbnailApplying, thumbnailCrop, thumbnailCropPixels, thumbnailFile, thumbnailInputRef, thumbnailPreviewUrl, thumbnailRotation, thumbnailSourceUrl, thumbnailZoom, title, titlePage, titlePageActive, toastMessage, toggleChip, toggleDarkMode, trailerFile, trailerInputRef, trailerMeta, trailerMetaLoading, trailerPreviewUrl, trailerWorkflowHint, updateRoleAge, updateRoleField, uploadSelectedProjectMedia, useScreenplayEditor, user, validateStep, wordCount, writerPayout,
   };
 
   if (accessDenied) {

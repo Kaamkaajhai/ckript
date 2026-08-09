@@ -4,7 +4,9 @@ import { SCRIPT_UPLOAD_TERMS_TEXT, SCRIPT_UPLOAD_TERMS_VERSION } from "../../con
 export { SCRIPT_UPLOAD_TERMS_VERSION };
 
 export const DRAFT_ENDPOINT = `${(import.meta.env.VITE_API_URL || "http://localhost:5002").replace(/\/api\/?$/, "").replace(/\/$/, "")}/api/scripts/draft`;
-export const LOCAL_WORKING_DRAFT_KEY = "create-project-working-draft-v1";
+/* The local working-draft key moved to lib/workingDraft.js, which now owns reading, writing,
+   per-draft key derivation and the recovery decision. Two copies of a storage key is how a
+   safety net quietly stops matching the thing it is meant to catch. */
 
 /* -- Format catalogs --------------------------------- */
 export const filmFormats = [
