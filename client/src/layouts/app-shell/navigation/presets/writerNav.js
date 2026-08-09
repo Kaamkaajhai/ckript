@@ -25,7 +25,6 @@ export const writerNav = ({ profilePath, msgCount }) => ({
 
   rail: [
     { key: "dashboard", path: "/dashboard",      label: "Dashboard",      icon: "dashboard", exact: true },
-    { key: "projects",  path: "/dashboard?tab=projects", label: "Projects", icon: "projects" },
     { key: "create",    path: "/create-project", label: "Create",         icon: "create", fresh: true },
     { key: "upload",    path: "/upload",         label: "Upload",         icon: "upload" },
     { key: "challenge", path: "/challenge",      label: "Challenge",      icon: "challenge" },
@@ -34,12 +33,9 @@ export const writerNav = ({ profilePath, msgCount }) => ({
   ],
 
   // Grouped exactly like the reference drawer:
-  //   Dashboard · Search | Create · Upload | Challenge · My Competitions | Messages
+  //   Dashboard | Create · Upload | Challenge · My Competitions | Messages
   drawer: [
     { key: "dashboard",    path: "/dashboard",       label: "Dashboard",       icon: "home", exact: true },
-    { key: "projects",     path: "/dashboard?tab=projects", label: "My Projects", icon: "projects" },
-    { key: "reviews",      path: "/dashboard?tab=reviews",  label: "Reviews & Insights", icon: "sparkles" },
-    { key: "search",       path: "/search",          label: "Search Projects", icon: "search" },
     { divider: true },
     { key: "create",       path: "/create-project",  label: "Create Project",  icon: "ideas", fresh: true },
     { key: "upload",       path: "/upload",          label: "Upload Project",  icon: "upload" },
@@ -59,7 +55,7 @@ export const writerNav = ({ profilePath, msgCount }) => ({
    * keeps its place in the rail and drawer — whereas a writer's own project
    * list had no entry point anywhere in the compact bar.
    */
-  mobileKeys: ["dashboard", "projects", "messages"],
+  mobileKeys: ["dashboard", "create", "messages"],
 
   /*
    * The drawer's contextual list. Writers see the projects they are actively
