@@ -1,1 +1,20 @@
-/* /index.html 200
+# A missing build asset must 404, not fall through to the SPA shell.
+#
+# This file used to be the catch-all alone. Because the host answers an unmatched path with
+# index.html at status 200, a request for a hashed chunk that no longer exists — /assets/Landing-
+# DMENHW6G.js after a deploy replaced it — came back as HTML with `Content-Type: text/html`, and the
+# browser refused it with:
+#
+#   Failed to load module script: Expected a JavaScript-or-Wasm module script but the server
+#   responded with a MIME type of "text/html"
+#
+# Every lazy route died at once — Landing, AppShell, Dashboard, Profile, and each icon chunk — so
+# the page rendered blank with no clue pointing at the deploy. A 404 says the true thing instead,
+# and is what the runtime recovery in main.jsx keys off.
+#
+# Existing files still win: the host serves a real static file before consulting these rules, so
+# this only ever catches assets that are genuinely gone.
+/assets/*  /assets/:splat  404
+
+# Everything else is a client-side route.
+/*  /index.html  200
