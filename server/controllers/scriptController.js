@@ -3211,7 +3211,7 @@ export const getScripts = async (req, res) => {
       const User = mongoose.model("User");
       const goldUsers = await User.find({
         $or: [
-          { role: { $ne: "writer" } },
+          { role: { $nin: ["writer", "creator"] } },
           { "subscription.plan": "gold" },
           { "subscription.accessTier": "writer_gold" },
         ]
@@ -4981,7 +4981,7 @@ export const getFeaturedScripts = async (req, res) => {
       {
         $match: {
           $or: [
-            { "creatorDoc.role": { $ne: "writer" } },
+            { "creatorDoc.role": { $nin: ["writer", "creator"] } },
             { "creatorDoc.subscription.plan": "gold" },
             { "creatorDoc.subscription.accessTier": "writer_gold" },
           ],
