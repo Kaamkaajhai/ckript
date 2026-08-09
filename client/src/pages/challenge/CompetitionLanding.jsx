@@ -1,6 +1,6 @@
 import { useContext, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { ChevronDown, Trophy, Award, Sparkles, Mail, ExternalLink } from "lucide-react";
+import { ChevronDown, Trophy, Award, Sparkles, Mail, ExternalLink, ArrowLeft } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
 import { useAuthModal } from "../../context/AuthModalContext";
 import useCompetition from "../../components/competition/useCompetition";
@@ -269,6 +269,14 @@ const CompetitionLanding = () => {
         {/* Masthead — eyebrow, name, the one-line stake. The clock sits directly beneath it because
             a 48-hour challenge IS its countdown. */}
         <header className="py-12 sm:py-16">
+          <button 
+            onClick={() => navigate(-1)}
+            className="mb-6 inline-flex items-center gap-2 text-sm font-medium opacity-70 transition hover:opacity-100"
+            style={{ color: "var(--ckc-ink)" }}
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </button>
           <div className="ckc-masthead">
             <p className="ckc-meta inline-flex items-center gap-2">
               <Trophy className="h-3.5 w-3.5" aria-hidden="true" /> Ckript Competition
