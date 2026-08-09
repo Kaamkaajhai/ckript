@@ -25,7 +25,6 @@ export const writerNav = ({ profilePath, msgCount }) => ({
 
   rail: [
     { key: "dashboard", path: "/dashboard",      label: "Dashboard",      icon: "dashboard", exact: true },
-    { key: "projects",  path: "/dashboard?tab=projects", label: "Projects", icon: "projects" },
     { key: "create",    path: "/create-project", label: "Create",         icon: "create", fresh: true },
     { key: "upload",    path: "/upload",         label: "Upload",         icon: "upload" },
     { key: "challenge", path: "/challenge",      label: "Challenge",      icon: "challenge" },
@@ -56,7 +55,7 @@ export const writerNav = ({ profilePath, msgCount }) => ({
    * keeps its place in the rail and drawer — whereas a writer's own project
    * list had no entry point anywhere in the compact bar.
    */
-  mobileKeys: ["dashboard", "projects", "messages"],
+  mobileKeys: ["dashboard", "create", "messages"],
 
   /*
    * The drawer's contextual list. Writers see the projects they are actively
