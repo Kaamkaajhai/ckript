@@ -47,7 +47,6 @@ export default function Hero() {
           <span className="ckl-hero-title-dot" />
         </h1>
         <span className="ckl-hero-line" />
-        <span className="ckl-hero-line" />
         <p className="ckl-hero-desc">
           Ckript brings powerful writing tools and a modern marketplace together, helping writers create exceptional scripts and producers discover the next great story worth producing.
         </p>
