@@ -840,9 +840,14 @@ const AdminDashboard = () => {
                     break;
                 }
                 case "writers": {
+                    console.log("Fetching writers and creators...");
                     const { data } = await adminApi.get(`/admin/users?role=writer&page=${page}&search=${encodeURIComponent(activeSearch)}`);
                     const { data: data2 } = await adminApi.get(`/admin/users?role=creator&page=${page}&search=${encodeURIComponent(activeSearch)}`);
-                    setUsers([...data.users, ...data2.users]); setTotalPages(Math.max(data.totalPages, data2.totalPages)); setTotal(data.total + data2.total);
+                    console.log("Writers response:", data, "Creators response:", data2);
+                    
+                    setUsers([...(data?.users || []), ...(data2?.users || [])]);
+                    setTotalPages(Math.max(data?.totalPages || 1, data2?.totalPages || 1));
+                    setTotal((data?.total || 0) + (data2?.total || 0));
                     break;
                 }
                 case "swa-approved": {
@@ -1207,22 +1212,12 @@ const AdminDashboard = () => {
         try {
             const activeSearch = (search || "").trim();
             switch (tab) {
-                case "investors": {
-                    const { data } = await adminApi.get(`/admin/users?role=investor&limit=0&search=${encodeURIComponent(activeSearch)}`);
-                    return data.users;
-                }
-                case "writers": {
-                    const { data } = await adminApi.get(`/admin/users?role=writer&limit=0&search=${encodeURIComponent(activeSearch)}`);
-                    const { data: data2 } = await adminApi.get(`/admin/users?role=creator&limit=0&search=${encodeURIComponent(activeSearch)}`);
-                    return [...data.users, ...data2.users];
-                }
-                case "swa-approved": {
-                    const { data } = await adminApi.get(`/admin/users?role=writer&isSwaApproved=true&limit=0&search=${encodeURIComponent(activeSearch)}`);
-                    return data.users;
-                }
+                case "investors":
+                case "writers":
+                case "swa-approved":
                 case "readers": {
-                    const { data } = await adminApi.get(`/admin/users?role=reader&limit=0&search=${encodeURIComponent(activeSearch)}`);
-                    return data.users;
+                    const { data } = await adminApi.get(`/admin/users?limit=0&search=${encodeURIComponent(activeSearch)}`);
+                    return data?.users || [];
                 }
                 case "deleted-requests": {
                     const { data } = await adminApi.get(`/admin/users/deleted-requests?limit=0&search=${encodeURIComponent(activeSearch)}`);

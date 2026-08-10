@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-const uri = process.env.MONGO_URI || 'mongodb+srv://ckript:Yashu%40123@cluster0.x9mv4pb.mongodb.net/ckript';
+const uri = process.env.MONGO_URI;
 mongoose.connect(uri).then(async () => {
   const coll = mongoose.connection.collection('scripts');
   const scriptId = "6a4833f39075fb0d246f1b19"; // check upload (published)
