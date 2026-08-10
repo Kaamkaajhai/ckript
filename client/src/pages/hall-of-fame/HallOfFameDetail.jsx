@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Trophy, Award, Sparkles, ArrowLeft, ExternalLink } from "lucide-react";
+import { Trophy, Award, Sparkles, ArrowLeft, ExternalLink, X, User } from "lucide-react";
 import publicApi from "../../services/publicApi";
 import { Section, Card, Stat, Avatar } from "../../components/competition/ui";
 import { rewardLabel, yearSuffix } from "../../components/competition/labels";
@@ -99,6 +99,7 @@ const HallOfFameDetail = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [selectedJudge, setSelectedJudge] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -260,7 +261,13 @@ const HallOfFameDetail = () => {
             <Section title="Judges">
               <div className="ckc-grid">
                 {competition.judges.map((judge, i) => (
-                  <Card key={i}>
+                  <Card 
+                    key={i}
+                    onClick={() => setSelectedJudge(judge)}
+                    className="cursor-pointer hover:shadow-md transition-all duration-200 hover:-translate-y-1"
+                    role="button"
+                    tabIndex={0}
+                  >
                     <div className="flex items-start gap-3">
                       <Avatar src={judge.photoUrl} name={judge.name} size={48} />
                       <div className="min-w-0">
@@ -359,6 +366,84 @@ const HallOfFameDetail = () => {
           </Card>
         </Section>
       </div>
+
+      {/* Judge Detail Modal */}
+      {selectedJudge && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => setSelectedJudge(null)}
+          style={{ margin: 0 }}
+        >
+          <div 
+            className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="relative p-6">
+              <button 
+                onClick={() => setSelectedJudge(null)}
+                className="absolute top-4 right-4 p-2 text-gray-500 hover:text-black transition-colors rounded-full hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              <div className="flex items-center gap-4 mb-6">
+                {selectedJudge.photoUrl ? (
+                  <img src={selectedJudge.photoUrl} alt="" className="h-20 w-20 rounded-full object-cover shadow-sm" />
+                ) : (
+                  <div className="h-20 w-20 rounded-full flex items-center justify-center text-gray-400" style={{ background: "var(--ckc-cream)" }}>
+                    <User className="w-8 h-8" />
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-xl font-bold" style={{ color: "var(--ckc-ink)" }}>{selectedJudge.name}</h3>
+                  <p className="font-medium mt-1" style={{ color: "var(--ckc-accent-text)" }}>{selectedJudge.title}</p>
+                  
+                  {selectedJudge.company && (
+                    <div className="text-sm mt-1" style={{ color: "var(--ckc-muted)" }}>
+                      {selectedJudge.companyLink ? (
+                        <a href={externalUrl(selectedJudge.companyLink)} target="_blank" rel="noreferrer noopener" className="hover:underline flex items-center gap-1 transition-colors hover:text-[#111]">
+                          {selectedJudge.company} <ExternalLink className="w-3 h-3" />
+                        </a>
+                      ) : (
+                        <span>{selectedJudge.company}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {selectedJudge.bio && (
+                <div className="mb-6">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wide mb-2" style={{ color: "var(--ckc-ink)" }}>About {selectedJudge.name}</h4>
+                  <p className="whitespace-pre-wrap leading-relaxed text-sm" style={{ color: "var(--ckc-body)" }}>{selectedJudge.bio}</p>
+                </div>
+              )}
+
+              {selectedJudge.companyBio && (
+                <div className="mb-6 p-4 rounded-lg" style={{ background: "var(--ckc-cream)" }}>
+                  <h4 className="text-[10px] font-bold uppercase tracking-wide mb-2" style={{ color: "var(--ckc-ink)" }}>About {selectedJudge.company}</h4>
+                  <p className="whitespace-pre-wrap leading-relaxed text-sm" style={{ color: "var(--ckc-body)" }}>{selectedJudge.companyBio}</p>
+                </div>
+              )}
+
+              {(selectedJudge.linkedin || selectedJudge.imdb) && (
+                <div className="flex gap-4 mt-6 pt-4" style={{ borderTop: "1px solid var(--ckc-rule)" }}>
+                  {selectedJudge.linkedin && (
+                    <a href={externalUrl(selectedJudge.linkedin)} target="_blank" rel="noreferrer noopener" className="text-sm font-medium text-[#0A66C2] hover:underline">
+                      LinkedIn
+                    </a>
+                  )}
+                  {selectedJudge.imdb && (
+                    <a href={externalUrl(selectedJudge.imdb)} target="_blank" rel="noreferrer noopener" className="text-sm font-medium text-[#E4B714] hover:underline">
+                      IMDb
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

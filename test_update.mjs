@@ -9,37 +9,13 @@ async function run() {
 
   console.log("Connected to MongoDB");
   
-  // Find a competition
-  const comp = await Competition.findOne();
+  const comp = await Competition.findById("6a6a38b6588d5f7cb41a2a90");
   if (!comp) {
     console.log("No competition found");
     process.exit(0);
   }
   
   console.log("Found competition:", comp.name);
-  
-  // Try to update it the same way the controller does
-  const CONTENT_FIELDS = [
-    "name", "shortName", "tagline", "shortDescription", "host", "language", "timezone", 
-    "eventType", "competitionCategory", "difficulty", "expectedParticipants", "estimatedReadingTime",
-    "featuredBadge", "trendingBadge", "newBadge", "highlights", "seo", "automation",
-    "theme", "overview", "eligibility", "format", "prizes", "detailedPrizes", "rules",
-    "faq", "judges", "sponsors", "communityLinks", "resources",
-    "bannerUrl", "mobileBannerUrl", "cardThumbnailUrl", "ogImageUrl", "logoUrl", "backgroundImageUrl", "gallery",
-    "cardConfig", "prizePool", "visibility", "referralTiers",
-  ];
-  
-  const incoming = {
-    rules: [""],
-    faq: [{ q: "", a: "" }],
-    eligibility: "",
-    format: "Some format",
-    // Simulate what AdminCompetitionsEditor might send
-  };
-  
-  for (const field of CONTENT_FIELDS) {
-    if (incoming[field] !== undefined) comp[field] = incoming[field];
-  }
 
   try {
     await comp.save();
