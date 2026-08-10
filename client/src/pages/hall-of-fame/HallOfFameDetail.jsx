@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { Trophy, Award, Sparkles, ArrowLeft, ExternalLink } from "lucide-react";
+import { Trophy, Award, Sparkles, ArrowLeft, ExternalLink, X, User } from "lucide-react";
 import publicApi from "../../services/publicApi";
 import { Section, Card, Stat, Avatar } from "../../components/competition/ui";
 import { rewardLabel, yearSuffix } from "../../components/competition/labels";
@@ -99,6 +99,8 @@ const HallOfFameDetail = () => {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
+  const [selectedJudge, setSelectedJudge] = useState(null);
+  const [selectedSponsor, setSelectedSponsor] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -260,14 +262,52 @@ const HallOfFameDetail = () => {
             <Section title="Judges">
               <div className="ckc-grid">
                 {competition.judges.map((judge, i) => (
-                  <Card key={i}>
+                  <Card 
+                    key={i}
+                    onClick={() => setSelectedJudge(judge)}
+                    className="cursor-pointer hover:shadow-md transition-all duration-200 hover:-translate-y-1"
+                    role="button"
+                    tabIndex={0}
+                  >
                     <div className="flex items-start gap-3">
                       <Avatar src={judge.photoUrl} name={judge.name} size={48} />
                       <div className="min-w-0">
                         <p className="ckc-title ckc-h3">{judge.name}</p>
-                        {judge.title ? <p className="ckc-meta" style={{ marginTop: 5 }}>{judge.title}</p> : null}
+                        {judge.title ? (
+                          <p className="ckc-meta" style={{ marginTop: 5 }}>
+                            {judge.title}
+                            {judge.company ? (
+                              <>
+                                {" @ "}
+                                {judge.companyLink ? (
+                                  <a href={externalUrl(judge.companyLink)} target="_blank" rel="noreferrer noopener" className="hover:underline hover:text-[#111] transition-colors text-inherit">
+                                    {judge.company}
+                                  </a>
+                                ) : (
+                                  judge.company
+                                )}
+                              </>
+                            ) : ""}
+                          </p>
+                        ) : judge.company ? (
+                          <p className="ckc-meta" style={{ marginTop: 5 }}>
+                            {judge.companyLink ? (
+                              <a href={externalUrl(judge.companyLink)} target="_blank" rel="noreferrer noopener" className="hover:underline hover:text-[#111] transition-colors text-inherit">
+                                {judge.company}
+                              </a>
+                            ) : (
+                              judge.company
+                            )}
+                          </p>
+                        ) : null}
                         {judge.bio ? (
                           <p style={{ marginTop: 10, fontSize: 14, lineHeight: 1.6, color: "var(--ckc-muted)" }}>{judge.bio}</p>
+                        ) : null}
+                        {judge.companyBio ? (
+                          <div className="mt-4 text-sm" style={{ color: "var(--ckc-muted)" }}>
+                            <p className="font-semibold text-[10px] uppercase tracking-wide mb-1" style={{ color: "var(--ckc-ink)" }}>About {judge.company}</p>
+                            <p className="line-clamp-3">{judge.companyBio}</p>
+                          </div>
                         ) : null}
                       </div>
                     </div>
@@ -281,10 +321,9 @@ const HallOfFameDetail = () => {
         {competition.sponsors?.length ? (
           <>
             <hr className="ckc-rule" />
-            <Section title="Sponsors">
+            <Section title="Community Partners">
               <div className="flex flex-wrap items-center gap-5">
                 {competition.sponsors.map((sponsor, i) => {
-                  const href = externalUrl(sponsor.url);
                   const mark = (
                     <span className="flex items-center gap-3">
                       {sponsor.logoUrl
@@ -293,21 +332,16 @@ const HallOfFameDetail = () => {
                       {sponsor.tier ? <span className="ckc-chip">{sponsor.tier}</span> : null}
                     </span>
                   );
-                  // A sponsor with no usable link still belongs on the record — as a card, not as a
-                  // focusable anchor that goes nowhere.
-                  return href ? (
-                    <a
+                  
+                  return (
+                    <button
                       key={i}
-                      href={href}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="ckc-card"
+                      onClick={() => setSelectedSponsor(sponsor)}
+                      className="ckc-card transition hover:opacity-80 focus:outline-none cursor-pointer"
                       style={{ padding: "12px 16px" }}
                     >
                       {mark}
-                    </a>
-                  ) : (
-                    <span key={i} className="ckc-card" style={{ padding: "12px 16px" }}>{mark}</span>
+                    </button>
                   );
                 })}
               </div>
@@ -327,6 +361,136 @@ const HallOfFameDetail = () => {
           </Card>
         </Section>
       </div>
+
+      {/* Judge Detail Modal */}
+      {selectedJudge && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => setSelectedJudge(null)}
+          style={{ margin: 0 }}
+        >
+          <div 
+            className="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="relative p-6">
+              <button 
+                onClick={() => setSelectedJudge(null)}
+                className="absolute top-4 right-4 p-2 text-gray-500 hover:text-black transition-colors rounded-full hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              <div className="flex items-center gap-4 mb-6">
+                {selectedJudge.photoUrl ? (
+                  <img src={selectedJudge.photoUrl} alt="" className="h-20 w-20 rounded-full object-cover shadow-sm" />
+                ) : (
+                  <div className="h-20 w-20 rounded-full flex items-center justify-center text-gray-400" style={{ background: "var(--ckc-cream)" }}>
+                    <User className="w-8 h-8" />
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-xl font-bold" style={{ color: "var(--ckc-ink)" }}>{selectedJudge.name}</h3>
+                  <p className="font-medium mt-1" style={{ color: "var(--ckc-accent-text)" }}>{selectedJudge.title}</p>
+                  
+                  {selectedJudge.company && (
+                    <div className="text-sm mt-1" style={{ color: "var(--ckc-muted)" }}>
+                      {selectedJudge.companyLink ? (
+                        <a href={externalUrl(selectedJudge.companyLink)} target="_blank" rel="noreferrer noopener" className="hover:underline flex items-center gap-1 transition-colors hover:text-[#111]">
+                          {selectedJudge.company} <ExternalLink className="w-3 h-3" />
+                        </a>
+                      ) : (
+                        <span>{selectedJudge.company}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {selectedJudge.bio && (
+                <div className="mb-6">
+                  <h4 className="text-[10px] font-bold uppercase tracking-wide mb-2" style={{ color: "var(--ckc-ink)" }}>About {selectedJudge.name}</h4>
+                  <p className="whitespace-pre-wrap leading-relaxed text-sm" style={{ color: "var(--ckc-body)" }}>{selectedJudge.bio}</p>
+                </div>
+              )}
+
+              {selectedJudge.companyBio && (
+                <div className="mb-6 p-4 rounded-lg" style={{ background: "var(--ckc-cream)" }}>
+                  <h4 className="text-[10px] font-bold uppercase tracking-wide mb-2" style={{ color: "var(--ckc-ink)" }}>About {selectedJudge.company}</h4>
+                  <p className="whitespace-pre-wrap leading-relaxed text-sm" style={{ color: "var(--ckc-body)" }}>{selectedJudge.companyBio}</p>
+                </div>
+              )}
+
+              {(selectedJudge.linkedin || selectedJudge.imdb) && (
+                <div className="flex gap-4 mt-6 pt-4" style={{ borderTop: "1px solid var(--ckc-rule)" }}>
+                  {selectedJudge.linkedin && (
+                    <a href={externalUrl(selectedJudge.linkedin)} target="_blank" rel="noreferrer noopener" className="text-sm font-medium text-[#0A66C2] hover:underline">
+                      LinkedIn
+                    </a>
+                  )}
+                  {selectedJudge.imdb && (
+                    <a href={externalUrl(selectedJudge.imdb)} target="_blank" rel="noreferrer noopener" className="text-sm font-medium text-[#E4B714] hover:underline">
+                      IMDb
+                    </a>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sponsor Detail Modal */}
+      {selectedSponsor && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => setSelectedSponsor(null)}
+          style={{ margin: 0 }}
+        >
+          <div 
+            className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="relative p-6">
+              <button 
+                onClick={() => setSelectedSponsor(null)}
+                className="absolute top-4 right-4 p-2 text-gray-500 hover:text-black transition-colors rounded-full hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              <div className="flex flex-col items-center text-center mb-6 pt-4">
+                {selectedSponsor.logoUrl ? (
+                  <img src={selectedSponsor.logoUrl} alt={selectedSponsor.name} className="h-24 object-contain mb-4" />
+                ) : (
+                  <div className="h-20 w-20 rounded-full flex items-center justify-center text-gray-400 mb-4" style={{ background: "var(--ckc-cream)" }}>
+                    <span className="font-bold text-xl">{selectedSponsor.name.charAt(0)}</span>
+                  </div>
+                )}
+                
+                <h3 className="text-xl font-bold" style={{ color: "var(--ckc-ink)" }}>{selectedSponsor.name}</h3>
+                {selectedSponsor.tier && (
+                  <span className="ckc-chip mt-2">{selectedSponsor.tier}</span>
+                )}
+              </div>
+
+              {selectedSponsor.description && (
+                <div className="mb-6">
+                  <p className="whitespace-pre-wrap leading-relaxed text-sm text-center" style={{ color: "var(--ckc-body)" }}>{selectedSponsor.description}</p>
+                </div>
+              )}
+
+              {selectedSponsor.url && (
+                <div className="flex justify-center mt-6 pt-4" style={{ borderTop: "1px solid var(--ckc-rule)" }}>
+                  <a href={externalUrl(selectedSponsor.url)} target="_blank" rel="noreferrer noopener" className="ckc-btn flex items-center gap-2">
+                    Visit Website <ExternalLink className="w-4 h-4" />
+                  </a>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

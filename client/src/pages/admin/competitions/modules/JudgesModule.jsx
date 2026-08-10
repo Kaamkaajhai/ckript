@@ -1,5 +1,6 @@
 import React from "react";
 import { Plus, Trash2, ImageIcon } from "lucide-react";
+import { adminApi } from "../../../AdminDashboard";
 
 export default function JudgesModule({ data, onChange }) {
   const judges = data.judges || [];
@@ -7,7 +8,7 @@ export default function JudgesModule({ data, onChange }) {
   const addJudge = () => {
     onChange("judges", [
       ...judges,
-      { name: "", title: "", company: "", bio: "", photoUrl: "", imdb: "", linkedin: "", featured: false }
+      { name: "", title: "", company: "", companyLink: "", bio: "", photoUrl: "", imdb: "", linkedin: "", featured: false }
     ]);
   };
 
@@ -52,7 +53,7 @@ export default function JudgesModule({ data, onChange }) {
                 
                 {/* Photo Upload Area */}
                 <div className="ml-6 w-32 shrink-0 space-y-3">
-                  <div className="w-32 h-32 rounded-xl border-2 border-dashed border-[#ccc] overflow-hidden bg-white flex items-center justify-center">
+                  <div className="w-32 h-32 rounded-xl border-2 border-dashed border-[#ccc] overflow-hidden bg-white flex relative items-center justify-center group">
                     {judge.photoUrl ? (
                       <img src={judge.photoUrl} alt={judge.name} className="w-full h-full object-cover" />
                     ) : (
@@ -61,14 +62,68 @@ export default function JudgesModule({ data, onChange }) {
                         <span className="text-[10px] font-bold uppercase tracking-wider">Photo</span>
                       </div>
                     )}
+                    <label className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center text-white text-xs font-bold cursor-pointer transition-opacity">
+                      Upload
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={async (e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            try {
+                              const formData = new FormData();
+                              formData.append("image", file);
+                              const { data: resData } = await adminApi.post("/admin/competitions/upload", formData, {
+                                headers: { "Content-Type": "multipart/form-data" }
+                              });
+                              updateJudge(idx, "photoUrl", resData.url);
+                            } catch (err) {
+                              alert("Failed to upload image.");
+                            }
+                          }
+                        }}
+                      />
+                    </label>
                   </div>
-                  <input
-                    type="text"
-                    value={judge.photoUrl}
-                    onChange={(e) => updateJudge(idx, "photoUrl", e.target.value)}
-                    placeholder="Image URL"
-                    className="w-full px-2 py-1.5 bg-white border border-[#e4e2e0] rounded-lg text-xs focus:outline-none focus:border-[#111]"
-                  />
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={judge.photoUrl}
+                      onChange={(e) => updateJudge(idx, "photoUrl", e.target.value)}
+                      placeholder="Image URL"
+                      className="w-full px-2 py-1.5 bg-white border border-[#e4e2e0] rounded-lg text-xs focus:outline-none focus:border-[#111]"
+                    />
+                    <div className="relative">
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        id={`judge-upload-${idx}`}
+                        className="hidden" 
+                        onChange={async (e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            try {
+                              const formData = new FormData();
+                              formData.append("image", file);
+                              const { data: resData } = await adminApi.post("/admin/competitions/upload", formData, {
+                                headers: { "Content-Type": "multipart/form-data" }
+                              });
+                              updateJudge(idx, "photoUrl", resData.url);
+                            } catch (err) {
+                              alert("Failed to upload image.");
+                            }
+                          }
+                        }}
+                      />
+                      <label 
+                        htmlFor={`judge-upload-${idx}`}
+                        className="flex items-center justify-center w-full px-2 py-1.5 bg-[#f5f5f5] hover:bg-[#eaeaea] text-[#333] border border-[#e4e2e0] rounded-lg text-xs font-medium cursor-pointer transition-colors"
+                      >
+                        Upload Photo
+                      </label>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Details Area */}
@@ -104,6 +159,39 @@ export default function JudgesModule({ data, onChange }) {
                       placeholder="Bio will appear in the judge modal..."
                       rows={2}
                       className="w-full px-3 py-2 bg-white border border-[#e4e2e0] rounded-lg text-sm focus:outline-none focus:border-[#111] resize-y"
+                    />
+                  </div>
+
+                  <div className="col-span-1 md:col-span-2 space-y-1">
+                    <label className="block text-[10px] font-bold text-[#888] uppercase tracking-wide">Brand / Company Name</label>
+                    <input
+                      type="text"
+                      value={judge.company || ""}
+                      onChange={(e) => updateJudge(idx, "company", e.target.value)}
+                      placeholder="e.g. Netflix, Universal Pictures"
+                      className="w-full px-3 py-2 bg-white border border-[#e4e2e0] rounded-lg text-sm focus:outline-none focus:border-[#111]"
+                    />
+                  </div>
+
+                  <div className="col-span-1 md:col-span-2 space-y-1">
+                    <label className="block text-[10px] font-bold text-[#888] uppercase tracking-wide">Company Bio</label>
+                    <textarea
+                      value={judge.companyBio || ""}
+                      onChange={(e) => updateJudge(idx, "companyBio", e.target.value)}
+                      placeholder="About the brand or company..."
+                      rows={2}
+                      className="w-full px-3 py-2 bg-white border border-[#e4e2e0] rounded-lg text-sm focus:outline-none focus:border-[#111] resize-y"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-[#888] uppercase tracking-wide">Brand/Company Link (Optional)</label>
+                    <input
+                      type="text"
+                      value={judge.companyLink || ""}
+                      onChange={(e) => updateJudge(idx, "companyLink", e.target.value)}
+                      placeholder="https://company.com"
+                      className="w-full px-3 py-2 bg-white border border-[#e4e2e0] rounded-lg text-xs text-[#666] focus:outline-none focus:border-[#111]"
                     />
                   </div>
 
