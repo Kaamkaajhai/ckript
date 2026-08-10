@@ -321,7 +321,7 @@ const HallOfFameDetail = () => {
         {competition.sponsors?.length ? (
           <>
             <hr className="ckc-rule" />
-            <Section title="Sponsors">
+            <Section title="Community Partners">
               <div className="flex flex-wrap items-center gap-5">
                 {competition.sponsors.map((sponsor, i) => {
                   const mark = (

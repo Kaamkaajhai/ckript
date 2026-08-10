@@ -477,7 +477,7 @@ const CompetitionLanding = () => {
         ) : null}
 
         {competition.sponsors?.length ? (
-          <Section id="sponsors" title="Sponsors">
+          <Section id="sponsors" title="Community Partners">
             <div className="flex flex-wrap items-center gap-6">
               {competition.sponsors.map((sponsor, i) => {
                 const mark = sponsor.logoUrl
