@@ -7,7 +7,7 @@ export default function JudgesModule({ data, onChange }) {
   const addJudge = () => {
     onChange("judges", [
       ...judges,
-      { name: "", title: "", company: "", bio: "", photoUrl: "", imdb: "", linkedin: "", featured: false }
+      { name: "", title: "", company: "", companyLink: "", bio: "", photoUrl: "", imdb: "", linkedin: "", featured: false }
     ]);
   };
 
@@ -170,6 +170,17 @@ export default function JudgesModule({ data, onChange }) {
                       placeholder="About the brand or company..."
                       rows={2}
                       className="w-full px-3 py-2 bg-white border border-[#e4e2e0] rounded-lg text-sm focus:outline-none focus:border-[#111] resize-y"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-[10px] font-bold text-[#888] uppercase tracking-wide">Brand/Company Link (Optional)</label>
+                    <input
+                      type="text"
+                      value={judge.companyLink || ""}
+                      onChange={(e) => updateJudge(idx, "companyLink", e.target.value)}
+                      placeholder="https://company.com"
+                      className="w-full px-3 py-2 bg-white border border-[#e4e2e0] rounded-lg text-xs text-[#666] focus:outline-none focus:border-[#111]"
                     />
                   </div>
 

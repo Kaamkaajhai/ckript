@@ -268,10 +268,29 @@ const HallOfFameDetail = () => {
                         {judge.title ? (
                           <p className="ckc-meta" style={{ marginTop: 5 }}>
                             {judge.title}
-                            {judge.company ? ` @ ${judge.company}` : ""}
+                            {judge.company ? (
+                              <>
+                                {" @ "}
+                                {judge.companyLink ? (
+                                  <a href={externalUrl(judge.companyLink)} target="_blank" rel="noreferrer noopener" className="hover:underline hover:text-[#111] transition-colors text-inherit">
+                                    {judge.company}
+                                  </a>
+                                ) : (
+                                  judge.company
+                                )}
+                              </>
+                            ) : ""}
                           </p>
                         ) : judge.company ? (
-                          <p className="ckc-meta" style={{ marginTop: 5 }}>{judge.company}</p>
+                          <p className="ckc-meta" style={{ marginTop: 5 }}>
+                            {judge.companyLink ? (
+                              <a href={externalUrl(judge.companyLink)} target="_blank" rel="noreferrer noopener" className="hover:underline hover:text-[#111] transition-colors text-inherit">
+                                {judge.company}
+                              </a>
+                            ) : (
+                              judge.company
+                            )}
+                          </p>
                         ) : null}
                         {judge.bio ? (
                           <p style={{ marginTop: 10, fontSize: 14, lineHeight: 1.6, color: "var(--ckc-muted)" }}>{judge.bio}</p>

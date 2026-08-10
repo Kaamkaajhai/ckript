@@ -436,7 +436,18 @@ const CompetitionLanding = () => {
                       <p className="truncate" style={{ fontWeight: 500, color: "var(--ckc-ink)" }}>{judge.name}</p>
                       <p className="ckc-meta truncate" style={{ marginTop: 3 }}>
                         {judge.title}
-                        {judge.company ? ` @ ${judge.company}` : ""}
+                        {judge.company ? (
+                          <>
+                            {" @ "}
+                            {judge.companyLink ? (
+                              <a href={externalUrl(judge.companyLink)} target="_blank" rel="noreferrer noopener" className="hover:underline hover:text-[#111] transition-colors text-inherit">
+                                {judge.company}
+                              </a>
+                            ) : (
+                              judge.company
+                            )}
+                          </>
+                        ) : ""}
                       </p>
                     </div>
                   </div>
