@@ -318,18 +318,48 @@ const HallOfFameDetail = () => {
           </>
         ) : null}
 
-        {competition.sponsors?.length ? (
+        {(competition.sponsors?.filter(s => s.tier !== 'Community')?.length > 0) ? (
           <>
             <hr className="ckc-rule" />
-            <Section title="Community Partners">
+            <Section title="Sponsors">
               <div className="flex flex-wrap items-center gap-5">
-                {competition.sponsors.map((sponsor, i) => {
+                {competition.sponsors.filter(s => s.tier !== 'Community').map((sponsor, i) => {
                   const mark = (
                     <span className="flex items-center gap-3">
                       {sponsor.logoUrl
                         ? <img src={sponsor.logoUrl} alt={sponsor.name} className="h-8 object-contain" />
                         : <span style={{ fontSize: 14, fontWeight: 500, color: "var(--ckc-ink)" }}>{sponsor.name}</span>}
-                      {sponsor.tier ? <span className="ckc-chip">{sponsor.tier}</span> : null}
+                      {sponsor.tier ? <span className="ckc-chip">{sponsor.tier === 'Headline' ? 'Headline Partner' : sponsor.tier === 'Media' ? 'Media Partner' : `${sponsor.tier} Sponsor`}</span> : null}
+                    </span>
+                  );
+                  
+                  return (
+                    <button
+                      key={i}
+                      onClick={() => setSelectedSponsor(sponsor)}
+                      className="ckc-card transition hover:opacity-80 focus:outline-none cursor-pointer"
+                      style={{ padding: "12px 16px" }}
+                    >
+                      {mark}
+                    </button>
+                  );
+                })}
+              </div>
+            </Section>
+          </>
+        ) : null}
+
+        {(competition.sponsors?.filter(s => s.tier === 'Community')?.length > 0) ? (
+          <>
+            <hr className="ckc-rule" />
+            <Section title="Community Partners">
+              <div className="flex flex-wrap items-center gap-5">
+                {competition.sponsors.filter(s => s.tier === 'Community').map((sponsor, i) => {
+                  const mark = (
+                    <span className="flex items-center gap-3">
+                      {sponsor.logoUrl
+                        ? <img src={sponsor.logoUrl} alt={sponsor.name} className="h-8 object-contain" />
+                        : <span style={{ fontSize: 14, fontWeight: 500, color: "var(--ckc-ink)" }}>{sponsor.name}</span>}
                     </span>
                   );
                   
