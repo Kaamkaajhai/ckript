@@ -253,6 +253,16 @@ export const adminUpdateCompetition = async (req, res) => {
     }
 
     const incoming = normalizeContent({ ...rest });
+    
+    // Clean up stale base64 images from hot-reloaded frontend state
+    if (Array.isArray(incoming.judges)) {
+      incoming.judges.forEach(j => {
+        if (typeof j.photoUrl === 'string' && j.photoUrl.startsWith('data:image')) {
+          j.photoUrl = '';
+        }
+      });
+    }
+
     for (const field of CONTENT_FIELDS) {
       if (incoming[field] !== undefined) competition[field] = incoming[field];
     }
@@ -260,10 +270,8 @@ export const adminUpdateCompetition = async (req, res) => {
     await competition.save();
     return res.json({ competition, phase: getCompetitionPhase(competition) });
   } catch (error) {
-    console.error("[competition admin] update failed:", error?.message || error);
-    // Fixed string, like every other handler here. Mongoose cast/validation errors carry schema
-    // paths and raw values; the detail belongs in the log above, not in the browser.
-    return res.status(500).json({ message: "Failed to update the competition." });
+    console.error("[competition admin] update failed:", error?.stack || error);
+    return res.status(500).json({ message: "Failed to update the competition.", error: error?.stack || error?.message });
   }
 };
 
