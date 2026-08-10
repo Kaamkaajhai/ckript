@@ -5,7 +5,8 @@ async function test() {
     const db = mongoose.connection.db;
     const admin = await db.collection('users').findOne({role: 'admin'});
     
-    const sessionId = Math.random().toString(36).substring(7);
+    const crypto = require('crypto');
+    const sessionId = crypto.randomBytes(16).toString('hex');
     await db.collection('users').updateOne(
         { _id: admin._id },
         { $push: { activeSessions: { sessionId, lastSeen: new Date() } } }

@@ -9,7 +9,8 @@ mongoose.connect(process.env.MONGO_URI || process.env.MONGODB_URI).then(async ()
     const admin = await db.collection('users').findOne({ role: 'admin' });
     
     // Add a dummy session to the admin to bypass session check
-    const sessionId = Math.random().toString(36).substring(7);
+    const crypto = await import('crypto');
+    const sessionId = crypto.randomBytes(16).toString('hex');
     await db.collection('users').updateOne(
         { _id: admin._id },
         { $push: { activeSessions: { sessionId, lastSeen: new Date() } } }
