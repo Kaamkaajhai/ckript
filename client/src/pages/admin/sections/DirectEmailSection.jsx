@@ -30,10 +30,10 @@ const DirectEmailSection = () => {
                     </div>
                     <div className="p-5">
                         <input
-                            type="email"
+                            type="text"
                             value={directUserEmail}
                             onChange={(e) => setDirectUserEmail(e.target.value)}
-                            placeholder="Enter exact user email (e.g. jdoe@example.com)"
+                            placeholder="Enter exact user email or multiple comma-separated emails (e.g. jdoe@example.com, alice@test.com)"
                             // focus ring was #8B1E1E — the RETIRED brand red, not the current accent.
                             className="w-full rounded-xl border px-4 py-3 text-sm bg-[var(--ad-surface-2)] border-[var(--ad-line-2)] text-[var(--ad-ink)] placeholder:text-[var(--ad-ink-3)] focus:outline-none focus:ring-2 focus:ring-[var(--ad-accent)]"
                         />

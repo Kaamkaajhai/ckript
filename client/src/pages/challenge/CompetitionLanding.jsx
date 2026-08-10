@@ -476,10 +476,37 @@ const CompetitionLanding = () => {
           </Section>
         ) : null}
 
-        {competition.sponsors?.length ? (
-          <Section id="sponsors" title="Community Partners">
+        {(competition.sponsors?.filter(s => s.tier !== 'Community')?.length > 0) ? (
+          <Section id="sponsors" title="Sponsors">
+            <div className="flex flex-wrap items-end gap-8">
+              {competition.sponsors.filter(s => s.tier !== 'Community').map((sponsor, i) => {
+                const mark = sponsor.logoUrl
+                  ? <img src={sponsor.logoUrl} alt={sponsor.name} className="h-12 object-contain" />
+                  : <span style={{ fontWeight: 500, color: "var(--ckc-ink)" }}>{sponsor.name}</span>;
+                
+                const displayTier = sponsor.tier === 'Headline' ? 'Headline Partner' : sponsor.tier === 'Media' ? 'Media Partner' : sponsor.tier ? `${sponsor.tier} Sponsor` : '';
+
+                return (
+                  <button 
+                    key={i} 
+                    onClick={() => setSelectedSponsor(sponsor)}
+                    className="flex flex-col items-center gap-2 opacity-80 transition hover:opacity-100 hover:scale-105 cursor-pointer focus:outline-none"
+                  >
+                    {mark}
+                    {displayTier && (
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-gray-500">{displayTier}</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </Section>
+        ) : null}
+
+        {(competition.sponsors?.filter(s => s.tier === 'Community')?.length > 0) ? (
+          <Section id="community-partners" title="Community Partners">
             <div className="flex flex-wrap items-center gap-6">
-              {competition.sponsors.map((sponsor, i) => {
+              {competition.sponsors.filter(s => s.tier === 'Community').map((sponsor, i) => {
                 const mark = sponsor.logoUrl
                   ? <img src={sponsor.logoUrl} alt={sponsor.name} className="h-10 object-contain" />
                   : <span style={{ fontWeight: 500, color: "var(--ckc-ink)" }}>{sponsor.name}</span>;

@@ -1130,12 +1130,20 @@ export const sendAudienceBroadcast = async (req, res) => {
             const targetEmail = String(req.body?.targetEmail || "").trim();
             if (!targetEmail) return res.status(400).json({ message: "Target email is required for direct-user broadcast." });
             
+            const emailList = targetEmail.split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
+            if (emailList.length === 0) return res.status(400).json({ message: "Valid target email is required." });
+            
             audienceConfig = {
                 key: "direct-user",
-                audienceLabel: `specific user (${targetEmail})`,
+                audienceLabel: emailList.length === 1 ? `specific user (${emailList[0]})` : `specific users (${emailList.length})`,
                 getRecipients: async () => {
-                    const user = await User.findOne({ email: targetEmail.toLowerCase() }).select("_id name email").lean();
-                    return user ? [user] : [];
+                    const users = await User.find({ email: { $in: emailList } }).select("_id name email").lean();
+                    const foundEmails = new Set(users.map(u => u.email));
+                    
+                    const missingEmails = emailList.filter(e => !foundEmails.has(e));
+                    const missingRecipients = missingEmails.map(e => ({ name: "User", email: e }));
+                    
+                    return [...users, ...missingRecipients];
                 }
             };
         } else {
