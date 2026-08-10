@@ -138,6 +138,146 @@ const countdownTargetFor = (phase, dates = {}) => {
   if (phase === "registration_closed") return { target: dates.startsAt, label: "Competition starts in" };
   if (phase === "live") return { target: dates.endsAt, label: "Time remaining" };
   return { target: null, label: "" };
+import { useContext, useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { ChevronDown, Trophy, Award, Sparkles, Mail, ExternalLink, ArrowLeft, X, User } from "lucide-react";
+import { AuthContext } from "../../context/AuthContext";
+import { useAuthModal } from "../../context/AuthModalContext";
+import useCompetition from "../../components/competition/useCompetition";
+// Both /challenge/c/:slug and /hall-of-fame/:slug expose the same `slug` param, so this renders
+// unchanged under either route.
+import CompetitionRecord from "../hall-of-fame/HallOfFameDetail";
+import CountdownTimer from "../../components/competition/CountdownTimer";
+import PhaseTimeline from "../../components/competition/PhaseTimeline";
+import ParticipantsGrid from "../../components/competition/ParticipantsGrid";
+import { COMPANY } from "../../constants/company";
+import externalUrl from "../../utils/externalUrl";
+import "./challenge.css";
+import { JUDGING_CRITERIA, ELIGIBILITY_EXAMPLES } from "./constants";
+
+const Section = ({ id, title, children, subtitle }) => (
+  <section id={id} className="scroll-mt-24 py-10">
+    <h2 className="ckc-title ckc-h2">{title}</h2>
+    {subtitle ? <p className="ckc-lede" style={{ marginTop: 8 }}>{subtitle}</p> : null}
+    <div className="mt-6">{children}</div>
+  </section>
+);
+
+const Card = ({ children, className = "", onClick, role, tabIndex }) => (
+  <div 
+    className={`ckc-card ckc-card-pad ${className}`} 
+    onClick={onClick}
+    role={role}
+    tabIndex={tabIndex}
+  >
+    {children}
+  </div>
+);
+
+// Rank reads by WEIGHT, not by a different hue per prize — a gold/silver/coral trio turned the
+// prize grid into a paint chart, and none of these is the thing that is live.
+const PrizeCard = ({ icon: Icon, title, items = [], accent }) => (
+  <Card>
+    <div className="flex items-center gap-2">
+      <Icon className="h-5 w-5" style={{ color: accent }} aria-hidden="true" />
+      <h3 className="ckc-title ckc-h3">{title}</h3>
+    </div>
+    <ul className="mt-4 space-y-2">
+      {items.length ? items.map((item, i) => (
+        <li key={i} className="flex gap-2" style={{ fontSize: 14, lineHeight: 1.55, color: "var(--ckc-body)" }}>
+          <span style={{ color: "var(--ckc-muted)" }} aria-hidden="true">•</span>
+          <span>{item}</span>
+        </li>
+      )) : <li style={{ fontSize: 14, color: "var(--ckc-muted)" }}>To be announced.</li>}
+    </ul>
+  </Card>
+);
+
+const FaqItem = ({ item }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="py-4" style={{ borderBottom: "1px solid var(--ckc-rule)" }}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="flex w-full items-center justify-between gap-4 text-left"
+      >
+        <span style={{ fontWeight: 500, color: "var(--ckc-ink)" }}>{item.q}</span>
+        <ChevronDown
+          className={`h-5 w-5 shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+          style={{ color: "var(--ckc-muted)" }}
+          aria-hidden="true"
+        />
+      </button>
+      {open ? (
+        <p className="mt-3 whitespace-pre-line" style={{ fontSize: 14, lineHeight: 1.65, color: "var(--ckc-body)" }}>
+          {item.a}
+        </p>
+      ) : null}
+    </div>
+  );
+};
+
+// The top placing keeps the accent; the rest are quiet. Same rule the shared WinnerCard uses in the
+// Hall of Fame, so a result reads the same wherever it appears. Keyed off the label the call sites
+// already pass — "Winner" is the only fixed one.
+const AWARD_ACCENT = { Winner: "var(--ckc-accent-text)" };
+
+const WinnerCard = ({ label, person }) => {
+  if (!person) return null;
+  return (
+    <Card>
+      <p
+        className="ckc-meta"
+        style={{ color: AWARD_ACCENT[label] || "var(--ckc-muted)", paddingBottom: 12, borderBottom: "1px solid var(--ckc-rule)" }}
+      >
+        {label}
+      </p>
+      <p className="ckc-title" style={{ marginTop: 16, fontSize: "1.1875rem" }}>{person.name}</p>
+      {person.scriptTitle ? (
+        <p style={{ marginTop: 6, fontFamily: "var(--ckc-display)", fontStyle: "italic", fontSize: "1.0625rem", color: "var(--ckc-ink)" }}>
+          {person.scriptTitle}
+        </p>
+      ) : null}
+      {/* Only when it is not already the heading — otherwise the award name printed twice. */}
+      {person.specialTitle && person.specialTitle !== label ? (
+        <p className="ckc-meta" style={{ marginTop: 10 }}>{person.specialTitle}</p>
+      ) : null}
+      {person.logline ? (
+        <>
+          <p style={{ marginTop: 12, fontSize: 14, lineHeight: 1.6, color: "var(--ckc-muted)" }}>{person.logline}</p>
+          {/* Same note the shared WinnerCard carries: a logline is either the writer's pitch or the
+              AI's reading of their script, and the reader gets to tell which. */}
+          {person.loglineByAi ? (
+            <p className="ckc-meta" style={{ marginTop: 7 }}>AI-generated logline</p>
+          ) : null}
+        </>
+      ) : null}
+    </Card>
+  );
+};
+
+// Hoisted so React keeps one component identity across renders — a component declared inside the
+// page body would be a brand-new type every render and remount on every countdown tick.
+const CtaButton = ({ cta, className = "" }) => (
+  <button
+    type="button"
+    onClick={cta.onClick}
+    disabled={cta.disabled}
+    className={`ckc-btn ${className}`}
+  >
+    {cta.label}
+  </button>
+);
+
+// The next date the page counts down to, per phase.
+const countdownTargetFor = (phase, dates = {}) => {
+  if (phase === "announced") return { target: dates.regOpensAt, label: "Registration opens in" };
+  if (phase === "registration_open") return { target: dates.regClosesAt, label: "Registration closes in" };
+  if (phase === "registration_closed") return { target: dates.startsAt, label: "Competition starts in" };
+  if (phase === "live") return { target: dates.endsAt, label: "Time remaining" };
+  return { target: null, label: "" };
 };
 
 const CompetitionLanding = () => {
@@ -146,6 +286,7 @@ const CompetitionLanding = () => {
   const { openAuthModal } = useAuthModal();
   const [activeTab, setActiveTab] = useState("brief");
   const [selectedJudge, setSelectedJudge] = useState(null);
+  const [selectedSponsor, setSelectedSponsor] = useState(null);
   // /challenge/c/:slug names its competition; the hook falls back to "the active one" when it is
   // absent, which is how every pre-hub entry point still works.
   const { slug } = useParams();
@@ -479,17 +620,19 @@ const CompetitionLanding = () => {
           <Section id="sponsors" title="Sponsors">
             <div className="flex flex-wrap items-center gap-6">
               {competition.sponsors.map((sponsor, i) => {
-                const href = externalUrl(sponsor.url);
                 const mark = sponsor.logoUrl
                   ? <img src={sponsor.logoUrl} alt={sponsor.name} className="h-10 object-contain" />
                   : <span style={{ fontWeight: 500, color: "var(--ckc-ink)" }}>{sponsor.name}</span>;
-                // A sponsor with no usable link is still a sponsor — show the mark, but not as a
-                // focusable anchor that goes nowhere.
-                return href ? (
-                  <a key={i} href={href} target="_blank" rel="noreferrer noopener" className="opacity-80 transition hover:opacity-100">
+                
+                return (
+                  <button 
+                    key={i} 
+                    onClick={() => setSelectedSponsor(sponsor)}
+                    className="opacity-80 transition hover:opacity-100 hover:scale-105 cursor-pointer focus:outline-none"
+                  >
                     {mark}
-                  </a>
-                ) : <span key={i} className="opacity-80">{mark}</span>;
+                  </button>
+                );
               })}
             </div>
           </Section>
@@ -636,6 +779,58 @@ const CompetitionLanding = () => {
                       IMDb
                     </a>
                   )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Sponsor Detail Modal */}
+      {selectedSponsor && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => setSelectedSponsor(null)}
+          style={{ margin: 0 }}
+        >
+          <div 
+            className="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="relative p-6">
+              <button 
+                onClick={() => setSelectedSponsor(null)}
+                className="absolute top-4 right-4 p-2 text-gray-500 hover:text-black transition-colors rounded-full hover:bg-gray-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              
+              <div className="flex flex-col items-center text-center mb-6 pt-4">
+                {selectedSponsor.logoUrl ? (
+                  <img src={selectedSponsor.logoUrl} alt={selectedSponsor.name} className="h-24 object-contain mb-4" />
+                ) : (
+                  <div className="h-20 w-20 rounded-full flex items-center justify-center text-gray-400 mb-4" style={{ background: "var(--ckc-cream)" }}>
+                    <span className="font-bold text-xl">{selectedSponsor.name.charAt(0)}</span>
+                  </div>
+                )}
+                
+                <h3 className="text-xl font-bold" style={{ color: "var(--ckc-ink)" }}>{selectedSponsor.name}</h3>
+                {selectedSponsor.tier && (
+                  <span className="ckc-chip mt-2">{selectedSponsor.tier}</span>
+                )}
+              </div>
+
+              {selectedSponsor.description && (
+                <div className="mb-6">
+                  <p className="whitespace-pre-wrap leading-relaxed text-sm text-center" style={{ color: "var(--ckc-body)" }}>{selectedSponsor.description}</p>
+                </div>
+              )}
+
+              {selectedSponsor.url && (
+                <div className="flex justify-center mt-6 pt-4" style={{ borderTop: "1px solid var(--ckc-rule)" }}>
+                  <a href={externalUrl(selectedSponsor.url)} target="_blank" rel="noreferrer noopener" className="ckc-btn flex items-center gap-2">
+                    Visit Website <ExternalLink className="w-4 h-4" />
+                  </a>
                 </div>
               )}
             </div>
