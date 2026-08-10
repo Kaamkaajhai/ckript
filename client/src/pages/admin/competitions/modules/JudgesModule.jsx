@@ -1,5 +1,6 @@
 import React from "react";
 import { Plus, Trash2, ImageIcon } from "lucide-react";
+import { adminApi } from "../../../AdminDashboard";
 
 export default function JudgesModule({ data, onChange }) {
   const judges = data.judges || [];
@@ -67,14 +68,19 @@ export default function JudgesModule({ data, onChange }) {
                         type="file" 
                         accept="image/*" 
                         className="hidden" 
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files[0];
                           if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              updateJudge(idx, "photoUrl", reader.result);
-                            };
-                            reader.readAsDataURL(file);
+                            try {
+                              const formData = new FormData();
+                              formData.append("image", file);
+                              const { data: resData } = await adminApi.post("/admin/competitions/upload", formData, {
+                                headers: { "Content-Type": "multipart/form-data" }
+                              });
+                              updateJudge(idx, "photoUrl", resData.url);
+                            } catch (err) {
+                              alert("Failed to upload image.");
+                            }
                           }
                         }}
                       />
@@ -94,14 +100,19 @@ export default function JudgesModule({ data, onChange }) {
                         accept="image/*"
                         id={`judge-upload-${idx}`}
                         className="hidden" 
-                        onChange={(e) => {
+                        onChange={async (e) => {
                           const file = e.target.files[0];
                           if (file) {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              updateJudge(idx, "photoUrl", reader.result);
-                            };
-                            reader.readAsDataURL(file);
+                            try {
+                              const formData = new FormData();
+                              formData.append("image", file);
+                              const { data: resData } = await adminApi.post("/admin/competitions/upload", formData, {
+                                headers: { "Content-Type": "multipart/form-data" }
+                              });
+                              updateJudge(idx, "photoUrl", resData.url);
+                            } catch (err) {
+                              alert("Failed to upload image.");
+                            }
                           }
                         }}
                       />
