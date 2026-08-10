@@ -1203,6 +1203,39 @@ const AdminDashboard = () => {
         }
     };
 
+    const fetchAllTabData = async (tab, search) => {
+        try {
+            const activeSearch = (search || "").trim();
+            switch (tab) {
+                case "investors": {
+                    const { data } = await adminApi.get(`/admin/users?role=investor&limit=0&search=${encodeURIComponent(activeSearch)}`);
+                    return data.users;
+                }
+                case "writers": {
+                    const { data } = await adminApi.get(`/admin/users?role=writer&limit=0&search=${encodeURIComponent(activeSearch)}`);
+                    const { data: data2 } = await adminApi.get(`/admin/users?role=creator&limit=0&search=${encodeURIComponent(activeSearch)}`);
+                    return [...data.users, ...data2.users];
+                }
+                case "swa-approved": {
+                    const { data } = await adminApi.get(`/admin/users?role=writer&isSwaApproved=true&limit=0&search=${encodeURIComponent(activeSearch)}`);
+                    return data.users;
+                }
+                case "readers": {
+                    const { data } = await adminApi.get(`/admin/users?role=reader&limit=0&search=${encodeURIComponent(activeSearch)}`);
+                    return data.users;
+                }
+                case "deleted-requests": {
+                    const { data } = await adminApi.get(`/admin/users/deleted-requests?limit=0&search=${encodeURIComponent(activeSearch)}`);
+                    return data.requests;
+                }
+            }
+            return [];
+        } catch (e) {
+            console.error("Failed to fetch all tab data", e);
+            return [];
+        }
+    };
+
     const openWriterConversation = async (writerUser) => {
         if (!writerUser?._id) return;
 

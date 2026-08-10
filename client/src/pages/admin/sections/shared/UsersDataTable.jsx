@@ -33,6 +33,7 @@ export default function UsersDataTable({
   onDeleteUser = null,
   userActionLoading = "",
   exportName = "users",
+  fetchAllData = null,
 }) {
   const hasRowActions = Boolean(onLoginAs || onViewUser || onFreezeUser || onUnfreezeUser
     || onGrantPremium || onRemovePremium || onDeleteUser);
@@ -132,6 +133,7 @@ export default function UsersDataTable({
       search={false}
       paginate={false}
       exportName={exportName}
+      fetchAllData={fetchAllData}
       empty={{ title: "No users found" }}
     />
   );

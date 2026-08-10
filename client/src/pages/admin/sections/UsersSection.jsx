@@ -20,6 +20,7 @@ const TITLES = {
 const UsersSection = () => {
   const {
     activeTab,
+    fetchAllTabData,
     filmBroadcastContent,
     filmBroadcastLink,
     filmBroadcastTitle,
@@ -30,6 +31,7 @@ const UsersSection = () => {
     handleRemovePremiumFromUser,
     handleSendAudienceBroadcast,
     hasSearch,
+    search,
     isDark,
     page,
     setFilmBroadcastContent,
@@ -88,6 +90,7 @@ const UsersSection = () => {
         <UsersDataTable
           users={filteredUsers}
           exportName={activeTab}
+          fetchAllData={() => fetchAllTabData(activeTab, search)}
           onViewUser={setSelectedUserDetail}
           onFreezeUser={(user) => handleFreezeToggleUser(user, true)}
           onUnfreezeUser={(user) => handleFreezeToggleUser(user, false)}

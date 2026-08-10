@@ -525,7 +525,7 @@ export const getUsers = async (req, res) => {
     try {
         const { role, search, page = 1, limit = 20, isPremium, hasActiveWriterPlan, isSwaApproved } = req.query;
         const pageNumber = Math.max(Number(page) || 1, 1);
-        const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+        const pageLimit = Number(limit) === 0 ? 0 : Math.min(Math.max(Number(limit) || 20, 1), 100);
         const filter = { role: { $ne: "admin" }, isDeactivated: { $ne: true } };
         if (role && typeof role === 'string') filter.role = role;
         if (isPremium === 'true') {
@@ -568,7 +568,7 @@ export const getUsers = async (req, res) => {
             users,
             total,
             page: pageNumber,
-            totalPages: Math.ceil(total / pageLimit),
+            totalPages: pageLimit === 0 ? 1 : Math.ceil(total / pageLimit),
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -711,7 +711,7 @@ export const getDeletedAccountRequests = async (req, res) => {
     try {
         const { page = 1, limit = 20, search = "", role = "" } = req.query;
         const pageNumber = Math.max(Number(page) || 1, 1);
-        const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+        const pageLimit = Number(limit) === 0 ? 0 : Math.min(Math.max(Number(limit) || 20, 1), 100);
         const normalizedRole = String(role || "").trim().toLowerCase();
 
         const filter = {
@@ -766,7 +766,7 @@ export const getDeletedAccountRequests = async (req, res) => {
             requests: rows,
             total,
             page: pageNumber,
-            totalPages: Math.ceil(total / pageLimit),
+            totalPages: pageLimit === 0 ? 1 : Math.ceil(total / pageLimit),
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
