@@ -1,5 +1,6 @@
 import React from "react";
 import { Plus, Trash2, ImageIcon } from "lucide-react";
+import { adminApi } from "../../dashboardShared";
 
 export default function SponsorsModule({ data, onChange }) {
   const sponsors = data.sponsors || [];
@@ -52,7 +53,7 @@ export default function SponsorsModule({ data, onChange }) {
                 
                 {/* Logo Area */}
                 <div className="ml-6 w-32 shrink-0 space-y-3">
-                  <div className="w-32 h-32 rounded-xl border border-[#e4e2e0] overflow-hidden bg-white flex items-center justify-center p-4">
+                  <div className="w-32 h-32 rounded-xl border border-[#e4e2e0] overflow-hidden bg-white flex relative items-center justify-center p-4 group">
                     {sponsor.logoUrl ? (
                       <img src={sponsor.logoUrl} alt={sponsor.name} className="max-w-full max-h-full object-contain" />
                     ) : (
@@ -61,6 +62,29 @@ export default function SponsorsModule({ data, onChange }) {
                         <span className="text-[10px] font-bold uppercase tracking-wider text-center">Logo<br/>(Transparent)</span>
                       </div>
                     )}
+                    <label className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center text-white text-xs font-bold cursor-pointer transition-opacity">
+                      Upload
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={async (e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            try {
+                              const formData = new FormData();
+                              formData.append("image", file);
+                              const { data: resData } = await adminApi.post("/admin/competitions/upload", formData, {
+                                headers: { "Content-Type": "multipart/form-data" }
+                              });
+                              updateSponsor(idx, "logoUrl", resData.url);
+                            } catch (err) {
+                              alert("Failed to upload image.");
+                            }
+                          }
+                        }}
+                      />
+                    </label>
                   </div>
                   <input
                     type="text"
