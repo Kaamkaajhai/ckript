@@ -348,6 +348,7 @@ export default function CreateHarness() {
     generateAiCover: noop,
     isGeneratingAiCover: false,
     aiCoverAttempts: 0,
+    aiCoverRemaining: requested === "quota" ? 0 : 15,
     aiCoverHistory: [],
     aiCoverIndex: 0,
     setAiCoverIndex: noop,

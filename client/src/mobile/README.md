@@ -173,7 +173,7 @@ Promotion did not remove the need for a harness: the live route authenticates,
 fetches drafts, autosaves and opens a collaboration socket, so it renders a
 different screen on every run. Navigate to a state rather than clicking into
 one — `?step=2..5`, `?panel=basics|story|cast|progress|access|media`, and
-`?state=recovery|error|exit|readonly|prose|blocked|submitted|crop|titlepage|saving`.
+`?state=recovery|error|exit|readonly|prose|blocked|submitted|crop|titlepage|saving|quota`.
 
 `/__mobile-upload` does the same for the upload chrome, over a fixture `vm`
 rather than a fixture context — because that is the seam: `pages/ScriptUpload.jsx`
@@ -183,7 +183,7 @@ that object and nothing else. If the shape drifts, the harness stops compiling.
 Same argument for its existence: the live route authenticates, fetches the plan
 limit, posts a PDF to the extractor and uploads media. Navigate to a state —
 `?step=1..5`, `?panel=basics|story|cast|progress|access|media`, and
-`?state=extracting|ready|error|blocked|locked|recovery|crop|denied|resolving|submitted|contentonly|uploading|saving`.
+`?state=extracting|ready|error|blocked|locked|recovery|crop|denied|resolving|submitted|contentonly|uploading|saving|quota`.
 
 ## What is wired for real
 

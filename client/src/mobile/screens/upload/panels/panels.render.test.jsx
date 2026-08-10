@@ -49,7 +49,7 @@ const baseVm = ({ state = {}, actions = {}, mode = {}, user = {}, ...rest } = {}
     tagsInput: "", uploadedFile: null, existingUploadedFile: null, textContent: "",
     pdfPageTexts: [], pdfTextExtracted: false, fromDraft: false, isExtracting: false,
     thumbnailFile: null, thumbnailPreviewUrl: "",
-    isGeneratingAiCover: false, aiCoverAttempts: 0, aiCoverHistory: [], aiCoverIndex: 0,
+    isGeneratingAiCover: false, aiCoverAttempts: 0, aiCoverRemaining: 15, aiCoverHistory: [], aiCoverIndex: 0,
     trailerFile: null, trailerPreviewUrl: "", trailerMetaLabel: "",
     pitchVideoFile: null, pitchVideoPreviewUrl: "", pitchVideoMetaLabel: "",
     metaLoadingField: "", metaNotice: { field: "", text: "" },
@@ -465,11 +465,20 @@ describe("MediaPanel", () => {
       state: {
         thumbnailFile: { name: "ai-cover-2.jpg", size: 1 }, thumbnailPreviewUrl: "blob:x",
         aiCoverHistory: [{ name: "a", size: 1 }, { name: "b", size: 1 }], aiCoverIndex: 1,
-        aiCoverAttempts: 2,
+        aiCoverAttempts: 2, aiCoverRemaining: 13,
       },
     }));
     expect(document.querySelector(".ckm-media__history")).toBeTruthy();
     expect(control("Previous generated cover")).toBeTruthy();
+  });
+
+  it("renders the spent plan-period quota before the writer taps generate", () => {
+    renderPanel("media", baseVm({ state: { aiCoverRemaining: 0 } }));
+
+    const generate = document.querySelector(".ckm-media__drop--alt");
+    expect(generate.disabled).toBe(true);
+    expect(generate.textContent).toMatch(/AI cover limit reached/i);
+    expect(generate.textContent).toMatch(/this plan period/i);
   });
 
   it("tells the writer when media actually uploads, and the answer differs for an edit", () => {

@@ -87,6 +87,7 @@ const createVm = (stateOverrides = {}) => ({
     thumbnailPreviewUrl: "",
     isGeneratingAiCover: false,
     aiCoverAttempts: 0,
+    aiCoverRemaining: 15,
     aiCoverHistory: [],
     aiCoverIndex: -1,
     trailerFile: null,

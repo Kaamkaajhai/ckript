@@ -158,7 +158,7 @@ const baseContext = (overrides = {}) => ({
   handleThumbnailSelect: vi.fn(), handleTrailerSelect: vi.fn(), handlePitchVideoSelect: vi.fn(),
   setThumbnailFile: vi.fn(), setTrailerFile: vi.fn(), setPitchVideoFile: vi.fn(),
   downloadWatermarkedImage: vi.fn(), formatDuration: () => "0s", generateAiCover: vi.fn(),
-  isGeneratingAiCover: false, aiCoverAttempts: 0, aiCoverHistory: [], aiCoverIndex: 0,
+  isGeneratingAiCover: false, aiCoverAttempts: 0, aiCoverRemaining: 15, aiCoverHistory: [], aiCoverIndex: 0,
   setAiCoverIndex: vi.fn(), openThumbnailEditor: vi.fn(),
 
   ...overrides,
