@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion as Motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import useWriterPlanCheckout, { WRITER_TIERS } from "../hooks/useWriterPlanCheckout";
 import useFilmIndustryProfessionalCheckout from "../hooks/useFilmIndustryProfessionalCheckout";
@@ -59,8 +59,7 @@ const WRITER_PLANS = [
     per: "/ month",
     feats: [
       "Upload 5 scripts",
-      "Appear only in search section",
-      "AI generated synopsis and logline"
+      "Appear only in search section"
     ],
   },
   {
@@ -602,7 +601,7 @@ function PricingModalInner({ onClose, tab = "all" }) {
   }, [globalMsg, toast]);
 
   return (
-    <motion.div
+    <Motion.div
       className="pmx-overlay"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -613,7 +612,7 @@ function PricingModalInner({ onClose, tab = "all" }) {
       }}
       onKeyDown={handleKeyDown}
     >
-      <motion.div
+      <Motion.div
         ref={cardRef}
         className="pmx-card"
         role="dialog"
@@ -817,8 +816,8 @@ function PricingModalInner({ onClose, tab = "all" }) {
             <line x1="19" y1="5" x2="5" y2="19" />
           </svg>
         </button>
-      </motion.div>
-    </motion.div>
+      </Motion.div>
+    </Motion.div>
   );
 }
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import api from "../../../services/api";
 import { getContentTypeFromFormat } from "../lib/format";
+import { AI_LOCKED_TOAST, describeAiError, userHasAiAccess } from "../../../config/aiEntitlements";
 
 /**
  * Owns the wizard's AI-assist actions: generating a prose sample from the
@@ -20,14 +21,32 @@ export function useAiGeneration({
   setPublishingDetails,
   setSaved,
   setError,
-  enforceGoldPlan,
+  user,
+  showToast,
+  openPricingModal,
 }) {
+  // One gate for both AI actions in this hook, reading the shared entitlement rule. `enforceGoldPlan`
+  // used to stand here, which refused silver/pro/enterprise/diamond subscribers a feature the server
+  // served them — and refused it only on /create-project, since /upload had no gate at all.
+  const enforceAiPlan = () => {
+    if (userHasAiAccess(user)) return true;
+    showToast(
+      AI_LOCKED_TOAST,
+      "warning",
+      { label: "Pricing Plan", onClick: () => openPricingModal("writer") }
+    );
+    return false;
+  };
+
   const [proseLoading, setProseLoading] = useState(false);
   const [metaLoadingField, setMetaLoadingField] = useState("");
   const [metaNotice, setMetaNotice] = useState({ field: "", text: "" });
 
   const handleProseClick = () => {
     if (!editor) return;
+    // The server has always refused this to free plans; the client never checked, so a free writer's
+    // only feedback was a raw 403 string in the error banner with no way to act on it.
+    if (!enforceAiPlan()) return;
     const plainText = getEditorPlainText();
     if (!plainText || plainText.length < 50) {
       setError("Write at least 50 characters of script text before generating a prose sample.");
@@ -54,8 +73,12 @@ export function useAiGeneration({
       }
 
     } catch (err) {
-      const msg = err.response?.data?.message || "Failed to generate prose sample.";
-      setError(msg);
+      const { message, offerUpgrade } = describeAiError(err);
+      if (offerUpgrade) {
+        showToast(message, "warning", { label: "Pricing Plan", onClick: () => openPricingModal("writer") });
+      } else {
+        setError(message || "Failed to generate prose sample.");
+      }
     } finally {
       setProseLoading(false);
     }
@@ -63,7 +86,7 @@ export function useAiGeneration({
 
   // Generate a single section (logline / synopsis / roles) by parsing the project content with AI
   const handleGenerateMetadata = async (field) => {
-    if (!enforceGoldPlan()) return;
+    if (!enforceAiPlan()) return;
     if (!scriptId) return;
     if (!editor || metaLoadingField) return;
     const plainText = getEditorPlainText();
@@ -117,7 +140,12 @@ export function useAiGeneration({
         setMetaNotice({ field, text: "Not enough story detail — add more script content and try again." });
       }
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to generate. Please try again.");
+      const { message, offerUpgrade } = describeAiError(err);
+      if (offerUpgrade) {
+        showToast(message, "warning", { label: "Pricing Plan", onClick: () => openPricingModal("writer") });
+      } else {
+        setError(message || "Failed to generate. Please try again.");
+      }
     } finally {
       setMetaLoadingField("");
     }

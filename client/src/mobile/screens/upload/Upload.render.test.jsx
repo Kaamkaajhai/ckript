@@ -70,7 +70,7 @@ const baseVm = ({ state = {}, actions = {}, mode = {}, ...rest } = {}) => ({
     fromDraft: false,
     isExtracting: false,
     thumbnailFile: null, thumbnailPreviewUrl: "",
-    isGeneratingAiCover: false, aiCoverAttempts: 0, aiCoverHistory: [], aiCoverIndex: 0,
+    isGeneratingAiCover: false, aiCoverAttempts: 0, aiCoverRemaining: 15, aiCoverHistory: [], aiCoverIndex: 0,
     trailerFile: null, trailerPreviewUrl: "", trailerMetaLabel: "",
     pitchVideoFile: null, pitchVideoPreviewUrl: "", pitchVideoMetaLabel: "",
     metaLoadingField: "", metaNotice: { field: "", text: "" },

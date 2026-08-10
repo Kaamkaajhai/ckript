@@ -5,6 +5,13 @@ import { asObjectId } from "../utils/requestValue.js";
 
 import { generateJsonWithGoogleAI } from "../services/googleAiService.js";
 import { generateTrailerVideo } from "../services/videoGenerationService.js";
+import {
+  AI_IMAGE_ALLOWANCE,
+  aiImagesRemaining,
+  aiLockedResponse,
+  aiQuotaExhaustedResponse,
+  hasAiAccess,
+} from "../config/aiEntitlements.js";
 import Groq from "groq-sdk";
 
 const groq = new Groq({
@@ -328,15 +335,10 @@ export const generateTrailer = async (req, res) => {
       return res.status(403).json({ message: "Only the script creator can generate a trailer" });
     }
 
-    // Ensure the user is on a premium plan before generating trailer
+    // Ensure the user is on a paid plan before generating trailer
     const user = await User.findById(req.user._id);
-    const plan = String(user.subscription?.plan || "free").toLowerCase();
-    
-    if (plan === "free" || plan === "none") {
-      return res.status(403).json({ 
-        message: "AI Trailer generation is a premium feature. Please upgrade your plan to unlock this.",
-        requiresUpgrade: true
-      });
+    if (!hasAiAccess(user?.subscription?.plan)) {
+      return res.status(403).json(aiLockedResponse("AI trailer generation"));
     }
 
     // Mark as generating
@@ -491,15 +493,10 @@ export const generateScriptScore = async (req, res) => {
       });
     }
 
-    // Ensure the user is on a premium plan before generating evaluation
+    // Ensure the user is on a paid plan before generating evaluation
     const user = await User.findById(req.user._id);
-    const plan = String(user.subscription?.plan || "free").toLowerCase();
-    
-    if (plan === "free" || plan === "none") {
-      return res.status(403).json({ 
-        message: "AI Script Evaluation is a premium feature. Please upgrade your plan to unlock this.",
-        requiresUpgrade: true
-      });
+    if (!hasAiAccess(user?.subscription?.plan)) {
+      return res.status(403).json(aiLockedResponse("AI script evaluation"));
     }
 
     script.services = {
@@ -545,12 +542,8 @@ export const correctScriptText = async (req, res) => {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: "User not found." });
 
-    const plan = String(user.subscription?.plan || "free").toLowerCase();
-    if (plan === "free" || plan === "none") {
-      return res.status(403).json({ 
-        message: "AI Grammar Fix is a premium feature. Please upgrade your plan to unlock this.",
-        requiresUpgrade: true
-      });
+    if (!hasAiAccess(user?.subscription?.plan)) {
+      return res.status(403).json(aiLockedResponse("AI grammar correction"));
     }
 
     const outputLanguageInstruction = getOutputLanguageInstruction(user.language);
@@ -612,7 +605,7 @@ ${truncatedSource}`;
   }
 };
 
-// ── AI Project Metadata (free tool — parse a project and draft logline, synopsis, roles) ──
+// ── AI Project Metadata (paid-plan tool — draft logline, synopsis and roles) ──
 
 const ROLE_GENDER_VALUES = ["Any", "Female", "Male", "Non-binary", "Other"];
 
@@ -744,6 +737,14 @@ ${sourceText}`;
 
 export const generateProjectMetadata = async (req, res) => {
   try {
+    // This endpoint had no plan gate at all, while the client gated it twice over and
+    // inconsistently — gold-only on /create-project, not at all on /upload. The gate lives here now,
+    // so the two flows cannot disagree about who may generate a logline.
+    const user = await User.findById(req.user._id).select("subscription.plan");
+    if (!hasAiAccess(user?.subscription?.plan)) {
+      return res.status(403).json(aiLockedResponse("AI metadata generation"));
+    }
+
     const { usedFallback, ...result } = await runProjectMetadataGeneration({
       text: req.body?.text || req.body?.textContent || "",
       title: req.body?.title || "",
@@ -765,7 +766,7 @@ export const generateProjectMetadata = async (req, res) => {
   }
 };
 
-// ── AI Writing Assistant (free tool for writers during script creation) ──────
+// ── AI Writing Assistant (paid-plan tool; current UI component has no caller) ─
 
 const AI_ACTION_PROMPTS = {
   improve: `You are a senior Hollywood screenwriter, story consultant, and creative writing expert with 25+ years of experience.
@@ -810,15 +811,10 @@ export const generateProseSample = async (req, res) => {
       return res.status(400).json({ message: "Script has no content to convert." });
     }
 
-    // Check premium plan
+    // Check paid plan
     const user = await User.findById(req.user._id);
-    const plan = String(user.subscription?.plan || "free").toLowerCase();
-
-    if (plan === "free" || plan === "none") {
-      return res.status(403).json({
-        message: "AI Prose Sample generation is a premium feature. Please upgrade your plan.",
-        requiresUpgrade: true
-      });
+    if (!hasAiAccess(user?.subscription?.plan)) {
+      return res.status(403).json(aiLockedResponse("AI prose sample generation"));
     }
 
     // Take the first ~500 words
@@ -877,20 +873,19 @@ export const aiWritingAssist = async (req, res) => {
       return res.status(400).json({ message: "An action or custom instruction is required." });
     }
 
-    const user = await User.findById(req.user._id).select("language");
+    // `subscription.plan` must be selected here: the gate below reads it, and a projection of
+    // "language" alone left it undefined — which normalised to "free" and refused EVERY user,
+    // paid plans included. Unreachable in practice only because AiWritingAssistant has no caller.
+    const user = await User.findById(req.user._id).select("language subscription.plan");
     if (!user) return res.status(404).json({ message: "User not found." });
     const outputLanguageInstruction = getOutputLanguageInstruction(user.language);
 
-    // ── Check Premium Plan for Writing Assist ──────────────────────────────────
-    if (action === "grammar") {
-      const plan = String(user.subscription?.plan || "free").toLowerCase();
-
-      if (plan === "free" || plan === "none") {
-        return res.status(403).json({
-          message: "AI Grammar Fix is a premium feature. Please upgrade your plan.",
-          requiresUpgrade: true
-        });
-      }
+    // ── Check paid plan for Writing Assist ─────────────────────────────────────
+    // This component currently has no caller, but the endpoint is still reachable directly. Gate
+    // every action, not grammar alone, so "all AI tools require a paid plan" remains true at the
+    // server boundary even for this documented dead UI surface.
+    if (!hasAiAccess(user?.subscription?.plan)) {
+      return res.status(403).json(aiLockedResponse("AI writing assistance"));
     }
 
     const normalizedSource = sourceText.replace(/\r\n/g, "\n").replace(/\r/g, "\n").trim();
@@ -1162,9 +1157,46 @@ function generateAIScriptScore(script) {
 }
 
 export const generateCoverImage = async (req, res) => {
+  // Set once the allowance is reserved, so a failure past that point can hand the image back.
+  let reserved = false;
   try {
     const { title, logline, genre, scriptText } = req.body;
     let generatedPrompt = "";
+
+    const user = await User.findById(req.user._id).select("subscription.plan");
+    if (!hasAiAccess(user?.subscription?.plan)) {
+      return res.status(403).json(aiLockedResponse("AI cover generation"));
+    }
+
+    // Reserve one image ATOMICALLY, before spending anything on generation. A read-then-check would
+    // let two concurrent taps both observe 14 used and both generate. The $or covers documents saved
+    // before `aiImagesGeneratedTotal` existed: `$lt` does not match a missing path.
+    const reservation = await User.findOneAndUpdate(
+      {
+        _id: req.user._id,
+        $or: [
+          { "subscription.aiImagesGeneratedTotal": { $lt: AI_IMAGE_ALLOWANCE } },
+          { "subscription.aiImagesGeneratedTotal": { $exists: false } },
+          { "subscription.aiImagesGeneratedTotal": null },
+        ],
+      },
+      // Pipeline form lets an old/null counter become 1 atomically; classic `$inc` throws on null.
+      [{
+        $set: {
+          "subscription.aiImagesGeneratedTotal": {
+            $add: [{ $ifNull: ["$subscription.aiImagesGeneratedTotal", 0] }, 1],
+          },
+        },
+      }],
+      { new: true, projection: { "subscription.aiImagesGeneratedTotal": 1 } }
+    );
+
+    if (!reservation) {
+      return res.status(429).json(aiQuotaExhaustedResponse());
+    }
+    reserved = true;
+
+    const used = Number(reservation.subscription?.aiImagesGeneratedTotal || 0);
 
     try {
       const systemPrompt = `You are an award-winning Hollywood Key Art Designer, Creative Director, and Cinematic Concept Artist who has designed official movie posters and streaming platform cover arts for Netflix, HBO, A24, Marvel, DC, Warner Bros, and Amazon Prime.
@@ -1271,10 +1303,33 @@ ${scriptText || "A deeply compelling and visually striking story."}`;
       success: true,
       prompt: generatedPrompt,
       imageUrl: imageUrl,
-      base64Image: base64Image
+      base64Image: base64Image,
+      // The client renders the remaining count from these. Before this, no `attempts` key was ever
+      // sent, so the client's `res.data.attempts || (aiCoverAttempts + 1)` always took the fallback
+      // and the "3 left" it drew was React state a page reload reset.
+      attempts: used,
+      remaining: aiImagesRemaining(used),
+      allowance: AI_IMAGE_ALLOWANCE,
     });
 
   } catch (error) {
+    // The writer never received an image, so hand the reserved allowance back rather than charging
+    // them for our failure.
+    if (reserved) {
+      try {
+        // A purchase/grant can reset the period counter while generation is in flight. Condition
+        // the release so that late failure can never turn that fresh period into -1.
+        await User.findOneAndUpdate(
+          {
+            _id: req.user._id,
+            "subscription.aiImagesGeneratedTotal": { $gt: 0 },
+          },
+          { $inc: { "subscription.aiImagesGeneratedTotal": -1 } }
+        );
+      } catch (releaseError) {
+        console.error("AI cover allowance release failed:", releaseError.message);
+      }
+    }
     console.error("AI Cover Generation Error:", error);
     res.status(500).json({ success: false, message: "Failed to generate AI cover image.", error: error.message });
   }

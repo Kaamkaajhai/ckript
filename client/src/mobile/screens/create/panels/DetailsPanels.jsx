@@ -611,7 +611,7 @@ function AccessPanel() {
 
 function MediaPanel() {
   const {
-    aiCoverAttempts, aiCoverHistory, aiCoverIndex, downloadWatermarkedImage, formatDuration,
+    aiCoverRemaining, aiCoverHistory, aiCoverIndex, downloadWatermarkedImage, formatDuration,
     generateAiCover, handlePitchVideoSelect, handleThumbnailSelect, handleTrailerSelect,
     isGeneratingAiCover, openThumbnailEditor, pitchVideoFile, pitchVideoMeta, pitchVideoMetaLoading,
     pitchVideoPreviewUrl, setAiCoverIndex, setError, setPitchVideoFile, setThumbnailFile,
@@ -653,10 +653,14 @@ function MediaPanel() {
           { id: "download", label: "Download", onSelect: () => downloadWatermarkedImage(thumbnailFile) },
         ] : []}
         secondary={!thumbnailFile ? {
-          label: isGeneratingAiCover ? "Generating…" : "Generate a cover",
-          hint: "Reads your script and draws one",
+          label: aiCoverRemaining <= 0
+            ? "AI cover limit reached"
+            : isGeneratingAiCover ? "Generating…" : "Generate a cover",
+          hint: aiCoverRemaining <= 0
+            ? "No AI covers left this plan period"
+            : "Reads your script and draws one",
           icon: "auto_awesome",
-          disabled: isGeneratingAiCover,
+          disabled: isGeneratingAiCover || aiCoverRemaining <= 0,
           onSelect: generateAiCover,
         } : null}
       >
@@ -681,7 +685,7 @@ function MediaPanel() {
               disabled={aiCoverIndex >= aiCoverHistory.length - 1}
               onClick={() => { const n = aiCoverIndex + 1; setAiCoverIndex(n); setThumbnailFile(aiCoverHistory[n]); }}
             />
-            {aiCoverAttempts < 3 ? (
+            {aiCoverRemaining > 0 ? (
               <Button
                 size="sm"
                 variant="tertiary"
@@ -689,10 +693,10 @@ function MediaPanel() {
                 disabled={isGeneratingAiCover}
                 onClick={generateAiCover}
               >
-                {isGeneratingAiCover ? "Generating…" : `Try another (${3 - aiCoverAttempts} left)`}
+                {isGeneratingAiCover ? "Generating…" : `Try another (${aiCoverRemaining} left)`}
               </Button>
             ) : (
-              <span className="ckm-media__count">No attempts left</span>
+              <span className="ckm-media__count">No AI covers left on your plan</span>
             )}
           </div>
         )}

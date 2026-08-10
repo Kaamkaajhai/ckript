@@ -66,7 +66,7 @@ const baseContext = (overrides = {}) => ({
   handleThumbnailSelect: vi.fn(), handleTrailerSelect: vi.fn(), handlePitchVideoSelect: vi.fn(),
   setThumbnailFile: vi.fn(), setTrailerFile: vi.fn(), setPitchVideoFile: vi.fn(), setError: vi.fn(),
   downloadWatermarkedImage: vi.fn(), formatDuration: () => "0s", generateAiCover: vi.fn(),
-  isGeneratingAiCover: false, aiCoverAttempts: 0, aiCoverHistory: [], aiCoverIndex: 0,
+  isGeneratingAiCover: false, aiCoverAttempts: 0, aiCoverRemaining: 15, aiCoverHistory: [], aiCoverIndex: 0,
   setAiCoverIndex: vi.fn(), openThumbnailEditor: vi.fn(),
   ...overrides,
 });
@@ -236,6 +236,15 @@ describe("Media panel", () => {
 
     click(generate);
     expect(generateAiCover).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders an honest disabled quota state before a spent writer taps", () => {
+    render(DETAILS_PANELS.media, baseContext({ aiCoverRemaining: 0 }));
+
+    const generate = document.querySelector(".ckm-media__drop--alt");
+    expect(generate.disabled).toBe(true);
+    expect(generate.textContent).toMatch(/AI cover limit reached/i);
+    expect(generate.textContent).toMatch(/this plan period/i);
   });
 
   it("locks the pitch video behind the same plan gate desktop applies", () => {

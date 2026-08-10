@@ -774,10 +774,14 @@ function MediaPanel({ vm }) {
           { id: "download", label: "Download proof", onSelect: () => actions.downloadWatermarkedImage(state.thumbnailFile) },
         ] : []}
         secondary={!state.thumbnailFile ? {
-          label: state.isGeneratingAiCover ? "Generating…" : "Generate a cover",
-          hint: "Reads your script and draws one",
+          label: state.aiCoverRemaining <= 0
+            ? "AI cover limit reached"
+            : state.isGeneratingAiCover ? "Generating…" : "Generate a cover",
+          hint: state.aiCoverRemaining <= 0
+            ? "No AI covers left this plan period"
+            : "Reads your script and draws one",
           icon: "auto_awesome",
-          disabled: state.isGeneratingAiCover,
+          disabled: state.isGeneratingAiCover || state.aiCoverRemaining <= 0,
           onSelect: actions.generateAiCover,
         } : null}
       >
@@ -804,7 +808,7 @@ function MediaPanel({ vm }) {
               disabled={state.aiCoverIndex >= coverHistory.length - 1}
               onClick={() => actions.setAiCoverHistoryIndex(state.aiCoverIndex + 1)}
             />
-            {state.aiCoverAttempts < 3 ? (
+            {state.aiCoverRemaining > 0 ? (
               <Button
                 size="sm"
                 variant="tertiary"
@@ -812,10 +816,10 @@ function MediaPanel({ vm }) {
                 disabled={state.isGeneratingAiCover}
                 onClick={actions.generateAiCover}
               >
-                {`Try another (${3 - state.aiCoverAttempts} left)`}
+                {`Try another (${state.aiCoverRemaining} left)`}
               </Button>
             ) : (
-              <span className="ckm-media__count">No attempts left</span>
+              <span className="ckm-media__count">No AI covers left on your plan</span>
             )}
           </div>
         )}

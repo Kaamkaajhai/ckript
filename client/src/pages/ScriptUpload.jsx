@@ -8,6 +8,13 @@ import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import { useAuthModal } from "../context/AuthModalContext";
 import { formatCurrency } from "../utils/currency";
+import {
+  AI_LOCKED_TOAST,
+  AI_QUOTA_TOAST,
+  aiImagesRemaining,
+  describeAiError,
+  userHasAiAccess,
+} from "../config/aiEntitlements";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { SCRIPT_UPLOAD_TERMS_TEXT, SCRIPT_UPLOAD_TERMS_VERSION } from "../constants/scriptUploadTerms";
@@ -502,6 +509,19 @@ const ScriptUpload = ({
     }, duration);
   }, []);
 
+  // One gate for every AI action on this page. There was none here at all: a free-plan writer could
+  // tap Generate and receive a raw 403 string, while the same action on /create-project was
+  // (wrongly) refused to everyone but gold. Defined here, above its first caller.
+  const enforceAiPlan = useCallback(() => {
+    if (userHasAiAccess(user)) return true;
+    showToast(
+      AI_LOCKED_TOAST,
+      "warning",
+      { label: "Pricing Plan", onClick: () => openPricingModal("writer") }
+    );
+    return false;
+  }, [user, showToast, openPricingModal]);
+
   const setError = useCallback((message, targetScreen = null) => {
     const nextMessage = String(message || "");
     if (!nextMessage) {
@@ -957,6 +977,7 @@ const ScriptUpload = ({
 
   // Generate a single section (logline / synopsis / roles) by parsing the uploaded project content
   const handleGenerateMetadata = async (field) => {
+    if (!enforceAiPlan()) return;
     if (metaLoadingField) return;
     const plainText = String(textContent || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
     if (!plainText || plainText.length < 50) {
@@ -1264,29 +1285,34 @@ const ScriptUpload = ({
     return () => URL.revokeObjectURL(previewUrl);
   }, [thumbnailFile]);
 
-  const [aiCoverAttempts, setAiCoverAttempts] = useState(0);
+  const [aiCoverAttempts, setAiCoverAttempts] = useState(
+    Number(user?.subscription?.aiImagesGeneratedTotal) || 0
+  );
+  // The server's number, seeded from the auth user and replaced by every response. This used to be
+  // `3 - aiCoverAttempts` over state a page reload reset, against a server that counted nothing.
+  const [aiCoverRemaining, setAiCoverRemaining] = useState(
+    aiImagesRemaining(user?.subscription?.aiImagesGeneratedTotal)
+  );
   const [aiCoverHistory, setAiCoverHistory] = useState([]);
   const [aiCoverIndex, setAiCoverIndex] = useState(-1);
+  // `disabled` only applies after React commits. This latch closes the same-frame double-tap window
+  // and prevents two server responses arriving out of order from making the remaining count rise.
+  const aiCoverRequestInFlightRef = useRef(false);
 
   const generateAiCover = async () => {
-    const plan = user?.subscription?.plan || "free";
-    if (plan === "free") {
-      showToast(
-        "Purchase a plan to use AI thumbnail generation.",
-        "warning",
-        { label: "Pricing Plan", onClick: () => openPricingModal("writer") }
-      );
-      return;
-    }
+    if (aiCoverRequestInFlightRef.current) return;
+    if (!enforceAiPlan()) return;
     if (!formData.title) {
       showToast("Please enter a title in Step 1 first to generate an AI cover.", "warning");
       return;
     }
-    if (aiCoverAttempts >= 3) {
-      showToast("You have reached the limit of 3 AI cover generations for this script.", "warning");
+    if (aiCoverRemaining <= 0) {
+      // No upgrade action: this writer already pays, they have spent the period's images.
+      showToast(AI_QUOTA_TOAST, "warning");
       return;
     }
     try {
+      aiCoverRequestInFlightRef.current = true;
       setIsGeneratingAiCover(true);
       const res = await api.post("/scripts/generate-ai-cover", {
         title: formData.title,
@@ -1301,7 +1327,10 @@ const ScriptUpload = ({
         const blob = await resFetch.blob();
         const file = new File([blob], `ai-cover-${Date.now()}.jpg`, { type: "image/jpeg" });
         setThumbnailFile(file);
-        setAiCoverAttempts(res.data.attempts || (aiCoverAttempts + 1));
+        setAiCoverAttempts(res.data.attempts ?? (aiCoverAttempts + 1));
+        setAiCoverRemaining(
+          typeof res.data.remaining === "number" ? res.data.remaining : aiCoverRemaining - 1
+        );
         const newHistory = [...aiCoverHistory.slice(0, aiCoverIndex + 1), file];
         setAiCoverHistory(newHistory);
         setAiCoverIndex(newHistory.length - 1);
@@ -1310,9 +1339,15 @@ const ScriptUpload = ({
       }
     } catch (error) {
       console.error("AI cover generation failed:", error);
-      const errMsg = error.response?.data?.message || error.message;
-      showToast(errMsg, "error");
+      const { kind, message, offerUpgrade } = describeAiError(error);
+      if (kind === "quota") setAiCoverRemaining(0);
+      showToast(
+        message,
+        "warning",
+        offerUpgrade ? { label: "Pricing Plan", onClick: () => openPricingModal("writer") } : null
+      );
     } finally {
+      aiCoverRequestInFlightRef.current = false;
       setIsGeneratingAiCover(false);
     }
   };
@@ -2164,6 +2199,7 @@ const ScriptUpload = ({
       thumbnailPreviewUrl,
       isGeneratingAiCover,
       aiCoverAttempts,
+      aiCoverRemaining,
       aiCoverHistory,
       aiCoverIndex,
       trailerFile,
