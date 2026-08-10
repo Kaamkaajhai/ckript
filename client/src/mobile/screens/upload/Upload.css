@@ -88,8 +88,8 @@
 
 /*
  * Desktop hides this below 720px (DEF-4). It stays here at every width, because
- * this flow has no autosave (DEF-7) and "is my work safe?" is the question the
- * screen is most likely to be asked.
+ * the local snapshot and the confirmed server draft are different guarantees,
+ * and "is my work safe?" is the question the screen is most likely to be asked.
  */
 .ckm .ckm-upload__save {
   display: flex;
@@ -116,19 +116,45 @@
 .ckm .ckm-upload__save--saved .ckm-upload__save-dot { background: #1c7c4a; }
 .ckm .ckm-upload__save--dirty .ckm-upload__save-dot { background: var(--ckm-accent); }
 
-/* At 320px the bar holds an exit button, two lines of text, this, and an
-   overflow button. The words go; the dot and the label stay in the
-   accessibility tree either way, because the live region is the element. */
-@media (max-width: 359px) {
-  .ckm .ckm-upload__save-label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
+/* A title, two actions and a useful save label cannot honestly share one row
+   on a narrow phone. Give the status its own line instead of hiding the words
+   or letting the overflow action drift beyond the viewport. */
+@media (max-width: 479px) {
+  .ckm .ckm-upload__bar {
+    display: grid;
+    grid-template-columns: var(--ckm-touch-target) minmax(0, 1fr) var(--ckm-touch-target);
+    grid-template-rows: auto auto;
+    column-gap: var(--ckm-space-2);
+    row-gap: 2px;
+  }
+
+  .ckm .ckm-upload__bar > .ckm-icon-button:first-child {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+
+  .ckm .ckm-upload__bar-text {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .ckm .ckm-upload__save {
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
     overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
+  }
+
+  .ckm .ckm-upload__save-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ckm .ckm-upload__bar > .ckm-icon-button:last-child:not(:first-child) {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    align-self: center;
   }
 }
 

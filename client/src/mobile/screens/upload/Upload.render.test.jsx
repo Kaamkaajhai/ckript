@@ -79,7 +79,10 @@ const baseVm = ({ state = {}, actions = {}, mode = {}, ...rest } = {}) => ({
     creationBlocked: false, scriptLimit: null, loading: false, agreementScrolled: false,
     isPremium: true, scriptPrice: 15, customPriceInput: "", useCustomPrice: false,
     toastMessage: null,
-    accessDenied: false, isEditModeResolving: false, submissionSuccess: null,
+    accessDenied: false,
+    sourceLoad: { kind: null, id: null, status: "ready", hasLocalRecovery: false },
+    sourceWriteBlocked: false,
+    submissionSuccess: null,
     editApprovalLocked: false, mediaProgress: {}, thumbnailEditor: { open: false, imageUrl: "" },
     ...state,
   },
@@ -97,7 +100,7 @@ const baseVm = ({ state = {}, actions = {}, mode = {}, ...rest } = {}) => ({
     setLegal: vi.fn(), setRightsLicensing: vi.fn(),
     onStepSelect: vi.fn(), onDetailSelect: vi.fn(), dismissToast: vi.fn(),
     handleBack: vi.fn(), handleNext: vi.fn(), handleSaveDraft: vi.fn(), handleSubmit: vi.fn(),
-    cancelContentEdit: vi.fn(),
+    cancelContentEdit: vi.fn(), retrySourceLoad: vi.fn(), recoverSourceFromDevice: vi.fn(),
     ...actions,
   },
   elements: { agreementRef: { current: null } },
@@ -221,7 +224,7 @@ describe("Upload — the app bar", () => {
     expect(save.getAttribute("role")).toBe("status");
     expect(save.getAttribute("aria-live")).toBe("polite");
     // In words, not only a coloured dot (§14).
-    expect(save.textContent.trim()).toMatch(/not saved yet/i);
+    expect(save.textContent.trim()).toMatch(/unsaved changes/i);
   });
 
   it("hides the overflow control entirely when it would have no items", () => {
@@ -249,6 +252,25 @@ describe("Upload — notices live in the fixed chrome", () => {
 
     expect(notice.textContent).toMatch(/your project is saved/i);
     expect(notice.textContent).toMatch(/nothing else needs re-entering/i);
+  });
+
+  it("keeps a recovered device copy visible but server writes disabled", () => {
+    const retrySourceLoad = vi.fn();
+    renderScreen(baseVm({
+      mode: { editId: "s1" },
+      state: {
+        step: 5,
+        sourceLoad: { kind: "edit", id: "s1", status: "local-only", hasLocalRecovery: true },
+        sourceWriteBlocked: true,
+      },
+      actions: { retrySourceLoad },
+    }));
+
+    expect(document.querySelector(".ckm-upload__notice").textContent).toMatch(/saved on this device/i);
+    expect(control("Submit update").disabled).toBe(true);
+    expect(document.querySelector(".ckm-upload__footer-reason").textContent).toMatch(/reload the server copy/i);
+    click(control("Reload server copy"));
+    expect(retrySourceLoad).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -351,15 +373,16 @@ describe("Upload — leaving", () => {
     expect(document.querySelector(".ckm-action-sheet")).toBeNull();
   });
 
-  it("asks before discarding real work, and the destructive item does not act", () => {
+  it("snapshots immediately, asks before discarding real work, and defers destruction", () => {
     /*
-     * It matters more here than on /create-project: that flow autosaves every
-     * three seconds and snapshots locally, so its discard costs seconds. This
-     * one saves only when asked (DEF-7), so leaving costs everything typed.
+     * The debounce may not have fired when a writer taps Close immediately
+     * after typing. Opening the sheet must therefore flush synchronously.
      */
-    renderScreen(baseVm());
+    const flushWorkingSnapshot = vi.fn();
+    renderScreen(baseVm({ actions: { flushWorkingSnapshot } }));
     click(control("Leave the upload"));
 
+    expect(flushWorkingSnapshot).toHaveBeenCalledTimes(1);
     expect(document.querySelector(".ckm-action-sheet")).toBeTruthy();
     click(control("Leave without saving"));
 
@@ -381,9 +404,21 @@ describe("Upload — leaving", () => {
     // There is no draft to save: ?edit= submits an update to a live listing.
     expect(control("Save a draft & leave")).toBeUndefined();
   });
+
+  it("protects content-only edits instead of treating Cancel as safe", () => {
+    renderScreen(baseVm({
+      mode: { isContentOnlyEditMode: true, editId: "script-1" },
+      state: { workingDraftDirty: true, localSnapshotSaved: true },
+    }));
+
+    click(control("Leave the upload"));
+    expect(document.querySelector(".ckm-action-sheet")).toBeTruthy();
+    expect(document.querySelector(".ckm-action-sheet").textContent).toMatch(/saved on this device/i);
+    expect(control("Save a draft & leave")).toBeUndefined();
+  });
 });
 
-/* ──────────────────── The chrome's four surfaces ─────────────────────── */
+/* ─────────────────────── The chrome's route states ───────────────────── */
 
 describe("ScriptUploadChrome — the states desktop returns early for", () => {
   it("draws a real mobile refusal instead of the desktop card", () => {
@@ -396,7 +431,9 @@ describe("ScriptUploadChrome — the states desktop returns early for", () => {
   });
 
   it("shows a skeleton rather than an empty form over a real listing", () => {
-    render(<ScriptUploadChrome vm={baseVm({ state: { isEditModeResolving: true } })} />);
+    render(<ScriptUploadChrome vm={baseVm({ state: {
+      sourceLoad: { kind: "edit", id: "s1", status: "loading", hasLocalRecovery: false },
+    } })} />);
 
     expect(document.querySelector("[data-screen-id='upload-resolving']")).toBeTruthy();
     // Shapes are `aria-hidden` and announce nothing on their own, so the group
@@ -406,6 +443,36 @@ describe("ScriptUploadChrome — the states desktop returns early for", () => {
     expect(groups).toHaveLength(1);
     expect(groups[0].getAttribute("role")).toBe("status");
     expect(groups[0].textContent).toMatch(/loading your script/i);
+  });
+
+  it("offers retry and an explicit device copy only for a transient source failure", () => {
+    const retrySourceLoad = vi.fn();
+    const recoverSourceFromDevice = vi.fn();
+    render(<ScriptUploadChrome vm={baseVm({
+      state: {
+        sourceLoad: { kind: "draft", id: "d1", status: "failed", offline: true, hasLocalRecovery: true },
+      },
+      actions: { retrySourceLoad, recoverSourceFromDevice },
+    })} />);
+
+    expect(document.querySelector("[data-screen-id='upload-source-issue']")).toBeTruthy();
+    expect(document.body.textContent).toMatch(/safely open this draft/i);
+    click(control("Try again"));
+    click(control("Open device copy"));
+    expect(retrySourceLoad).toHaveBeenCalledTimes(1);
+    expect(recoverSourceFromDevice).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not expose a cached copy for not-found or forbidden sources", () => {
+    for (const status of ["not-found", "forbidden"]) {
+      if (root) act(() => root.unmount());
+      document.body.innerHTML = "";
+      render(<ScriptUploadChrome vm={baseVm({ state: {
+        sourceLoad: { kind: "edit", id: "s1", status, hasLocalRecovery: true },
+      } })} />);
+      expect(control("Open device copy")).toBeUndefined();
+      expect(control("Try again")).toBeUndefined();
+    }
   });
 
   it("ends on a screen that says what happens next, and takes focus to it", () => {
@@ -422,7 +489,10 @@ describe("ScriptUploadChrome — the states desktop returns early for", () => {
   });
 
   it("checks refusal before the resolving gate, exactly as the orchestrator does", () => {
-    render(<ScriptUploadChrome vm={baseVm({ state: { accessDenied: true, isEditModeResolving: true } })} />);
+    render(<ScriptUploadChrome vm={baseVm({ state: {
+      accessDenied: true,
+      sourceLoad: { kind: "edit", id: "s1", status: "loading", hasLocalRecovery: false },
+    } })} />);
     expect(document.querySelector("[data-screen-id='upload-denied']")).toBeTruthy();
   });
 

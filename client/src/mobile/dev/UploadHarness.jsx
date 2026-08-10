@@ -30,6 +30,7 @@ import "../screens/upload/Upload.css";
  *   ?panel=basics|story|cast|progress|access|media
  *   ?state=extracting | ready | error | blocked | locked | recovery | crop
  *          | denied | resolving | submitted | contentonly | uploading | saving
+ *          | local-saved | exit | source-error | source-local
  * A harness that has to be *driven* into a state measures something slightly
  * different each time a click lands slightly differently.
  */
@@ -152,7 +153,7 @@ export default function UploadHarness() {
     user: { _id: "u1", name: "Arshad Rahman", role: "creator", subscription: { plan: "gold" } },
     mode: {
       isContentOnlyEditMode: contentOnly,
-      editId: contentOnly || requested === "locked" ? "script-1" : null,
+      editId: contentOnly || ["locked", "source-error", "source-local"].includes(requested) ? "script-1" : null,
       draftId: null,
     },
     state: {
@@ -199,6 +200,9 @@ export default function UploadHarness() {
       creationBlocked: requested === "blocked",
       scriptLimit: { applies: true, limitReached: requested === "blocked", plan: "Free", used: 1, limit: 1 },
       loading: requested === "saving",
+      workingDraftDirty: requested === "local-saved" || requested === "exit",
+      localSnapshotSaved: requested === "local-saved" || requested === "exit",
+      navigationExitRequested: requested === "exit" ? 1 : 0,
       agreementScrolled: false,
       isPremium: true,
       scriptPrice,
@@ -207,7 +211,14 @@ export default function UploadHarness() {
       toastMessage: null,
 
       accessDenied: requested === "denied",
-      isEditModeResolving: requested === "resolving",
+      sourceLoad: requested === "resolving"
+        ? { kind: "edit", id: "fixture", status: "loading", hasLocalRecovery: false }
+        : requested === "source-error"
+          ? { kind: "edit", id: "fixture", status: "failed", offline: true, hasLocalRecovery: true }
+          : requested === "source-local"
+            ? { kind: "edit", id: "fixture", status: "local-only", offline: true, hasLocalRecovery: true }
+            : { kind: null, id: null, status: "ready", hasLocalRecovery: false },
+      sourceWriteBlocked: requested === "source-local",
       submissionSuccess: requested === "submitted"
         ? { projectTitle: "The Four O'Clock Train", reviewPath: "/dashboard" }
         : null,
@@ -295,6 +306,10 @@ export default function UploadHarness() {
         if (effectiveStep === 1) setDetailStep(0);
       },
       handleSaveDraft: noop,
+      retrySourceLoad: noop,
+      recoverSourceFromDevice: noop,
+      flushWorkingSnapshot: noop,
+      discardWorkingDraft: noop,
       handleSubmit: noop,
       cancelContentEdit: noop,
     },

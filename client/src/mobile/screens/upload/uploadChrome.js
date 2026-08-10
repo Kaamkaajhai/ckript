@@ -152,8 +152,12 @@ export function describeUploadFooter({
   creationBlocked = false,
   editApprovalLocked = false,
   mediaRecoveryPending = false,
+  sourceWriteBlocked = false,
 } = {}) {
   if (contentOnly) {
+    const blockedReason = sourceWriteBlocked
+      ? "Reload the server copy before submitting this revision. Your device copy stays available."
+      : "";
     return {
       back: { label: "Cancel", kind: "cancel", disabled: loading },
       next: {
@@ -161,8 +165,8 @@ export function describeUploadFooter({
         label: loading ? "Sending…" : "Submit revision",
         kind: "submit",
         icon: "check",
-        disabled: loading,
-        blockedReason: "",
+        disabled: loading || sourceWriteBlocked,
+        blockedReason: loading ? "" : blockedReason,
       },
     };
   }
@@ -227,6 +231,8 @@ export function describeUploadFooter({
     ? "You've reached your plan's script limit. Upgrade your plan to submit another script."
     : editApprovalLocked
       ? "This script's last edit is still in admin review. You can edit it again once that decision is made."
+      : sourceWriteBlocked
+        ? "Reload the server copy before submitting. Your recovered device copy has not been sent."
       : "";
 
   return {
@@ -261,6 +267,7 @@ export function buildUploadOverflowItems({
   contentOnly = false,
   saving = false,
   creationBlocked = false,
+  sourceWriteBlocked = false,
   hasScript = false,
 } = {}) {
   if (contentOnly) {
@@ -277,9 +284,11 @@ export function buildUploadOverflowItems({
       label: saving ? "Saving…" : "Save draft",
       hint: creationBlocked
         ? "Blocked by your plan's script limit"
+        : sourceWriteBlocked
+          ? "Reload the server copy before saving"
         : "Keeps everything typed so far, privately",
       icon: "save",
-      disabled: saving || creationBlocked,
+      disabled: saving || creationBlocked || sourceWriteBlocked,
     });
   }
 
@@ -309,19 +318,23 @@ export function buildUploadOverflowItems({
  *
  * This exists because of DEF-4's most consequential breach: `su-save-state` is
  * `display: none` at ≤720px, so on every phone the desktop page hides the only
- * thing that tells a writer whether their work is safe — on a flow that has no
- * autosave at all. The state is therefore not decoration here; it is the answer
- * to the question this screen is most likely to be asked.
+ * thing that tells a writer whether their work is safe. DEF-7 added a debounced
+ * device snapshot, so this state now says whether work is local-only, dirty, or
+ * confirmed as a server draft; it is not decoration.
  */
 export function describeUploadSaveState({
   editing = false,
   saving = false,
   savedDraft = false,
   dirty = false,
+  localSaved = false,
 } = {}) {
   if (saving) return { state: "saving", label: "Saving…" };
+  if (editing && dirty && localSaved) return { state: "saved", label: "Local copy saved" };
+  if (editing && dirty) return { state: "dirty", label: "Unsaved changes" };
   if (editing) return { state: "idle", label: "Changes go for review" };
   if (savedDraft && !dirty) return { state: "saved", label: "Draft saved" };
-  if (savedDraft && dirty) return { state: "dirty", label: "Unsaved changes" };
+  if (dirty && localSaved) return { state: "saved", label: "Saved on this device" };
+  if (dirty) return { state: "dirty", label: "Unsaved changes" };
   return { state: "idle", label: "Not saved yet" };
 }

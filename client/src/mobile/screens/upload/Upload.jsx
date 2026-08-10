@@ -8,6 +8,7 @@ import ActionSheet from "../../components/overlays/ActionSheet";
 import ConfirmDialog from "../../components/overlays/ConfirmDialog";
 import MobileShell from "../../shell/MobileShell";
 import { UPLOAD_PANELS } from "./panels/UploadPanels";
+import { UPLOAD_SOURCE_LOAD_STATUS } from "../../../pages/CreateProject/lib/uploadSourceLoad";
 import {
   buildUploadOverflowItems,
   describeUploadFooter,
@@ -39,9 +40,9 @@ import "./Upload.css";
  *
  * THE SAVE STATE IS NOT DECORATION HERE (DEF-4). Desktop sets
  * `.su-save-state { display: none }` at ≤720px, so on every phone the page hides
- * the only thing that says whether the work is safe — on a flow that, unlike
- * `/create-project`, has NO AUTOSAVE AT ALL (DEF-7). It is in the app bar,
- * `role="status"`, at every width.
+ * the only thing that says whether the work is safe. DEF-7 added the shared
+ * local snapshot; this app-bar status now distinguishes that local copy from a
+ * draft the server has confirmed. It remains visible at every width.
  *
  * IT OWNS NO UPLOAD STATE. Every value and every action is
  * `pages/ScriptUpload.jsx`'s, arriving through the same `vm` prop the desktop
@@ -78,34 +79,37 @@ export default function Upload({ vm }) {
     creationBlocked: state.creationBlocked,
     editApprovalLocked: state.editApprovalLocked,
     mediaRecoveryPending: state.mediaRecoveryPending,
+    sourceWriteBlocked: state.sourceWriteBlocked,
   });
 
-  /*
-   * "Is there anything to lose?" — a heuristic, and named as one. The
-   * orchestrator has no dirty flag because it has no autosave to drive one, so
-   * this asks the cheapest honest question instead: has the writer put anything
-   * into this flow that a reload would take away? Over-reporting costs one extra
-   * tap; under-reporting costs the work, so the list errs long.
-   */
-  const dirty = Boolean(
-    state.formData.title
-    || state.textContent
-    || state.uploadedFile
-    || state.formData.logline
-    || state.formData.synopsis
-    || state.thumbnailFile
-    || state.trailerFile
-    || state.pitchVideoFile
-    || state.roles.length
-    || state.tagsInput
-  );
+  /* The orchestrator now owns the server-baseline signature. The fallback keeps
+     deterministic harnesses useful while making production's answer exact. */
+  const dirty = typeof state.workingDraftDirty === "boolean"
+    ? state.workingDraftDirty
+    : Boolean(
+      state.formData.title
+      || state.textContent
+      || state.uploadedFile
+      || state.formData.logline
+      || state.formData.synopsis
+      || state.thumbnailFile
+      || state.trailerFile
+      || state.pitchVideoFile
+      || state.roles.length
+      || state.tagsInput
+    );
 
   const save = describeUploadSaveState({
     editing,
     saving: state.loading,
     savedDraft: state.fromDraft,
     dirty,
+    localSaved: state.localSnapshotSaved,
   });
+
+  useEffect(() => {
+    if (state.navigationExitRequested) setExitOpen(true);
+  }, [state.navigationExitRequested]);
 
   const Panel = UPLOAD_PANELS[position.panelKey] || UPLOAD_PANELS.upload;
 
@@ -150,10 +154,15 @@ export default function Upload({ vm }) {
 
   const leave = () => navigate(editing && mode.editId ? `/script/${mode.editId}` : "/dashboard");
 
+  const requestExit = () => {
+    actions.flushWorkingSnapshot?.();
+    setExitOpen(true);
+  };
+  const requestDestination = (action) => (dirty ? requestExit() : action());
   const overflowActions = {
     "save-draft": actions.handleSaveDraft,
-    editor: actions.openEditor,
-    projects: actions.openDrafts,
+    editor: () => requestDestination(actions.openEditor),
+    projects: () => requestDestination(actions.openDrafts),
   };
 
   const overflowItems = buildUploadOverflowItems({
@@ -161,6 +170,7 @@ export default function Upload({ vm }) {
     contentOnly,
     saving: state.loading,
     creationBlocked: state.creationBlocked,
+    sourceWriteBlocked: state.sourceWriteBlocked,
     hasScript: Boolean(state.uploadedFile || state.existingUploadedFile || state.textContent),
   }).map((item) => ({ ...item, onSelect: overflowActions[item.id] }));
 
@@ -178,7 +188,7 @@ export default function Upload({ vm }) {
           icon="close"
           label="Leave the upload"
           variant="soft"
-          onClick={() => (dirty && !contentOnly ? setExitOpen(true) : leave())}
+          onClick={() => (dirty ? requestExit() : leave())}
         />
 
         <div className="ckm-upload__bar-text">
@@ -266,6 +276,19 @@ export default function Upload({ vm }) {
         </InlineMessage>
       )}
 
+      {state.sourceLoad?.status === UPLOAD_SOURCE_LOAD_STATUS.LOCAL_ONLY && (
+        <InlineMessage
+          tone="warning"
+          variant="panel"
+          title="This is the copy saved on this device."
+          className="ckm-upload__notice"
+          action={<Button size="sm" onClick={actions.retrySourceLoad}>Reload server copy</Button>}
+        >
+          You can keep reviewing it, but saving or submitting stays blocked until Ckript confirms
+          the current server version.
+        </InlineMessage>
+      )}
+
       {state.pdfNotice && (
         <InlineMessage tone="info" variant="panel" className="ckm-upload__notice">
           {state.pdfNotice}
@@ -336,16 +359,17 @@ export default function Upload({ vm }) {
             * destructive one does not act, it opens an alertdialog focused on
             * Cancel. Same contract as the create-project exit flow.
             *
-            * It matters more here than there: `/create-project` autosaves every
-            * three seconds and snapshots locally, so its discard costs seconds.
-            * This flow saves only when asked (DEF-7), so leaving costs
-            * everything typed since the last Save draft.
+            * DEF-7 makes the local copy durable, but only a manual Save draft is
+            * confirmed by the server. The sheet names that distinction and a
+            * failed Save never continues into navigation.
             */}
           <ActionSheet
             open={exitOpen && !discardOpen}
             onClose={() => setExitOpen(false)}
             title="Leave this upload?"
-            description="Nothing here is saved automatically."
+            description={state.localSnapshotSaved
+              ? "Your latest changes are saved on this device. Save a draft to confirm them on the server."
+              : "Unsaved changes will be lost unless you save a draft."}
             cancelLabel="Keep going"
             returnFocusTo={exitRef}
             items={[
@@ -354,9 +378,10 @@ export default function Upload({ vm }) {
                 label: state.loading ? "Saving…" : "Save a draft & leave",
                 hint: "Pick it up later from My projects",
                 icon: "save",
-                disabled: state.loading || state.creationBlocked,
+                disabled: state.loading || state.creationBlocked || state.sourceWriteBlocked,
                 onSelect: async () => {
-                  await actions.handleSaveDraft();
+                  const saved = await actions.handleSaveDraft();
+                  if (!saved) return;
                   setExitOpen(false);
                   leave();
                 },
@@ -381,7 +406,10 @@ export default function Upload({ vm }) {
             confirmLabel="Leave anyway"
             cancelLabel="Keep going"
             onCancel={() => setDiscardOpen(false)}
-            onConfirm={leave}
+            onConfirm={() => {
+              actions.discardWorkingDraft?.();
+              leave();
+            }}
           />
 
           {/*

@@ -3,6 +3,7 @@ import Button from "../../components/buttons/Button";
 import Icon from "../../components/Icon";
 import SkeletonGroup, { SkeletonShape, SkeletonText } from "../../components/feedback/Skeletons";
 import MobileShell from "../../shell/MobileShell";
+import { uploadSourceCopy } from "../../../pages/CreateProject/lib/uploadSourceLoad";
 import { UPLOAD_SHELL_MODE } from "./uploadChrome";
 import "./Upload.css";
 
@@ -59,15 +60,45 @@ export function UploadDenied() {
  * `aria-busy` plus one polite status line is what a screen reader gets — a
  * skeleton is decoration to a screen reader and announces nothing on its own.
  */
-export function UploadResolving() {
+export function UploadResolving({ kind = "draft" }) {
   return (
     <MobileShell mode={UPLOAD_SHELL_MODE} screenId="upload-resolving" className="ckm-upload">
-      <SkeletonGroup label="Loading your script" className="ckm-upload__panel">
+      <SkeletonGroup label={`Loading your ${kind === "edit" ? "script" : "draft"}`} className="ckm-upload__panel">
         <SkeletonShape width="60%" height={28} />
         <SkeletonText lines={2} />
         <SkeletonShape height={120} />
         <SkeletonShape height={120} />
       </SkeletonGroup>
+    </MobileShell>
+  );
+}
+
+/* ───────────────────── Source unavailable / local recovery ─────────── */
+
+export function UploadSourceIssue({ sourceLoad, onRetry, onRecover }) {
+  const copy = uploadSourceCopy(sourceLoad);
+  if (!copy) return null;
+
+  return (
+    <MobileShell mode={UPLOAD_SHELL_MODE} screenId="upload-source-issue" className="ckm-upload">
+      <section className="ckm-upload__state" aria-labelledby="ckm-upload-source-title">
+        <Icon name={copy.icon} size={40} className="ckm-upload__state-icon" />
+        <p className="ckm-upload__state-kicker">{copy.kicker}</p>
+        <h1 className="ckm-upload__state-title" id="ckm-upload-source-title">{copy.title}</h1>
+        <p className="ckm-upload__state-body">{copy.body}</p>
+
+        <div className="ckm-upload__state-actions">
+          {copy.retryable && (
+            <Button onClick={onRetry} icon="refresh">Try again</Button>
+          )}
+          {copy.retryable && sourceLoad?.hasLocalRecovery && (
+            <Button variant="secondary" onClick={onRecover} icon="history">
+              Open device copy
+            </Button>
+          )}
+          <Button variant="tertiary" to="/dashboard">Go to dashboard</Button>
+        </div>
+      </section>
     </MobileShell>
   );
 }

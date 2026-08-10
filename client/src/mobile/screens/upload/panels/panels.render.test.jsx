@@ -72,6 +72,7 @@ const baseVm = ({ state = {}, actions = {}, mode = {}, user = {}, ...rest } = {}
     handlePitchVideoSelect: vi.fn(), setPitchVideoFile: vi.fn(),
     setScriptPrice: vi.fn(), setUseCustomPrice: vi.fn(), setCustomPriceInput: vi.fn(),
     setLegal: vi.fn(), setRightsLicensing: vi.fn(),
+    flushWorkingSnapshot: vi.fn(),
     ...actions,
   },
   elements: { agreementRef: { current: null } },
@@ -614,6 +615,19 @@ describe("PublishPanel", () => {
 
     expect(setLegal).toHaveBeenCalled();
     expect(setRightsLicensing).toHaveBeenCalled();
+  });
+
+  it("flushes recovery data before the full terms open in a new tab", () => {
+    const flushWorkingSnapshot = vi.fn();
+    renderPanel("publish", baseVm({ actions: { flushWorkingSnapshot } }));
+    const link = Array.from(document.querySelectorAll("a"))
+      .find((element) => element.textContent.includes("Open the full Script Upload Terms"));
+
+    expect(link.getAttribute("target")).toBe("_blank");
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    event.preventDefault();
+    act(() => link.dispatchEvent(event));
+    expect(flushWorkingSnapshot).toHaveBeenCalledTimes(1);
   });
 
   it("reports whether the agreement has actually been scrolled", () => {
