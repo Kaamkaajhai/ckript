@@ -151,6 +151,28 @@ export default function JudgesModule({ data, onChange }) {
                     />
                   </div>
 
+                  <div className="col-span-1 md:col-span-2 space-y-1">
+                    <label className="block text-[10px] font-bold text-[#888] uppercase tracking-wide">Brand / Company Name</label>
+                    <input
+                      type="text"
+                      value={judge.company || ""}
+                      onChange={(e) => updateJudge(idx, "company", e.target.value)}
+                      placeholder="e.g. Netflix, Universal Pictures"
+                      className="w-full px-3 py-2 bg-white border border-[#e4e2e0] rounded-lg text-sm focus:outline-none focus:border-[#111]"
+                    />
+                  </div>
+
+                  <div className="col-span-1 md:col-span-2 space-y-1">
+                    <label className="block text-[10px] font-bold text-[#888] uppercase tracking-wide">Company Bio</label>
+                    <textarea
+                      value={judge.companyBio || ""}
+                      onChange={(e) => updateJudge(idx, "companyBio", e.target.value)}
+                      placeholder="About the brand or company..."
+                      rows={2}
+                      className="w-full px-3 py-2 bg-white border border-[#e4e2e0] rounded-lg text-sm focus:outline-none focus:border-[#111] resize-y"
+                    />
+                  </div>
+
                   <div className="space-y-1">
                     <label className="block text-[10px] font-bold text-[#888] uppercase tracking-wide">IMDb Link (Optional)</label>
                     <input

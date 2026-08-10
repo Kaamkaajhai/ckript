@@ -265,9 +265,22 @@ const HallOfFameDetail = () => {
                       <Avatar src={judge.photoUrl} name={judge.name} size={48} />
                       <div className="min-w-0">
                         <p className="ckc-title ckc-h3">{judge.name}</p>
-                        {judge.title ? <p className="ckc-meta" style={{ marginTop: 5 }}>{judge.title}</p> : null}
+                        {judge.title ? (
+                          <p className="ckc-meta" style={{ marginTop: 5 }}>
+                            {judge.title}
+                            {judge.company ? ` @ ${judge.company}` : ""}
+                          </p>
+                        ) : judge.company ? (
+                          <p className="ckc-meta" style={{ marginTop: 5 }}>{judge.company}</p>
+                        ) : null}
                         {judge.bio ? (
                           <p style={{ marginTop: 10, fontSize: 14, lineHeight: 1.6, color: "var(--ckc-muted)" }}>{judge.bio}</p>
+                        ) : null}
+                        {judge.companyBio ? (
+                          <div className="mt-4 text-sm" style={{ color: "var(--ckc-muted)" }}>
+                            <p className="font-semibold text-[10px] uppercase tracking-wide mb-1" style={{ color: "var(--ckc-ink)" }}>About {judge.company}</p>
+                            <p className="line-clamp-3">{judge.companyBio}</p>
+                          </div>
                         ) : null}
                       </div>
                     </div>

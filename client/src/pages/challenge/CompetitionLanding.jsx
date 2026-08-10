@@ -434,9 +434,18 @@ const CompetitionLanding = () => {
                     )}
                     <div className="min-w-0">
                       <p className="truncate" style={{ fontWeight: 500, color: "var(--ckc-ink)" }}>{judge.name}</p>
-                      <p className="ckc-meta truncate" style={{ marginTop: 3 }}>{judge.title}</p>
+                      <p className="ckc-meta truncate" style={{ marginTop: 3 }}>
+                        {judge.title}
+                        {judge.company ? ` @ ${judge.company}` : ""}
+                      </p>
                     </div>
                   </div>
+                  {judge.companyBio ? (
+                    <div className="mt-4 text-sm" style={{ color: "var(--ckc-muted)" }}>
+                      <p className="font-semibold text-[10px] uppercase tracking-wide mb-1" style={{ color: "var(--ckc-ink)" }}>About {judge.company}</p>
+                      <p className="line-clamp-3">{judge.companyBio}</p>
+                    </div>
+                  ) : null}
                 </Card>
               ))}
             </div>
