@@ -140,10 +140,27 @@ export default function DataTable({
   };
 
   const exportCsv = () => {
+    if (!sorted.length) return;
+    
     // The full filtered+sorted set, not the visible page — a partial export understates whatever
-    // the admin is counting.
-    const head = visibleCols.map((c) => csvCell(c.header));
-    const body = sorted.map((row) => visibleCols.map((c) => csvCell(cellValue(row, c))).join(","));
+    // the admin is counting. Export all data fields from the raw objects.
+    const allKeys = Array.from(new Set(sorted.flatMap((row) => Object.keys(row))));
+    
+    const head = allKeys.map((k) => csvCell(k));
+    const body = sorted.map((row) => {
+      return allKeys.map((k) => {
+        let val = row[k];
+        if (typeof val === "object" && val !== null) {
+          try {
+            val = JSON.stringify(val);
+          } catch (e) {
+            val = String(val);
+          }
+        }
+        return csvCell(val);
+      }).join(",");
+    });
+    
     const csv = [head.join(","), ...body].join("\r\n");
     const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));
     const a = document.createElement("a");
