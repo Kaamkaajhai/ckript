@@ -2599,6 +2599,7 @@ const AdminDashboard = () => {
         filteredScripts,
         filteredTransactions,
         filteredUsers,
+        fetchAllTabData,
         handleAdminAttachmentChange,
         handleAdminMessageScroll,
         handleAdminTrailerFileChange,

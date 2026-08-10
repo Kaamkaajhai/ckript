@@ -2786,7 +2786,7 @@ export const getAdminAgreements = async (req, res) => {
             agreements,
             total,
             page: pageNumber,
-            totalPages: Math.ceil(total / pageLimit),
+            totalPages: pageLimit === 0 ? 1 : Math.ceil(total / pageLimit),
         });
     } catch (error) {
         res.status(500).json({ message: error.message || "Failed to load agreements." });
