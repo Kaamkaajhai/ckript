@@ -1,0 +1,338 @@
+/*
+ * Ckript Mobile — the media attachment family (prefix: ckm-media).
+ *
+ * Lifted out of `screens/create/Wizard.css` on 2026-08-09 (Phase 3 bullet 3,
+ * decision D12) when `/upload` needed the same three surfaces. Nothing here is
+ * new: these are the wizard's media rules with their prefix changed, so a cover
+ * chosen on `/create-project` and a cover chosen on `/upload` are the same
+ * control rather than two that happen to look alike.
+ *
+ * The family covers three things and deliberately no more:
+ *   • `__slot` — one attachable asset (cover, trailer, pitch video);
+ *   • `__crop` — the cover cropper's stage and its two sliders;
+ *   • `__preview` — the read-only page window a buyer is shown.
+ *
+ * Everything else these components need — the card surface, the buttons, the
+ * dialog — is a Phase 1 shared component, so this file styles only what those
+ * do not already own.
+ */
+
+/* --- Slot layout --------------------------------------------------------- */
+
+.ckm .ckm-media__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-3);
+}
+
+.ckm .ckm-media__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ckm-space-2);
+}
+
+.ckm .ckm-media__eyebrow {
+  margin: 0;
+  font-size: var(--ckm-text-micro);
+  line-height: var(--ckm-leading-micro);
+  font-weight: var(--ckm-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-media__flag {
+  font-size: var(--ckm-text-micro);
+  line-height: var(--ckm-leading-micro);
+  font-weight: var(--ckm-weight-medium);
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-media__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ckm-space-2);
+}
+
+/* Visually hidden, never display:none and never removed: it is the element
+   that is focused, labelled and announced. Only its painting is replaced.
+   MDN is explicit that `display:none`/`visibility:hidden` take a file input out
+   of reach of assistive technology, while a clipped input stays operable. */
+.ckm .ckm-media__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.ckm .ckm-media__choices {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+}
+
+.ckm .ckm-media__drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ckm-space-1);
+  /* Comfortably past the 44px floor: this is the primary action of the card and
+     is aimed at with a thumb, not a cursor. */
+  min-height: 96px;
+  padding: var(--ckm-space-4);
+  border: 1px dashed var(--ckm-line-strong);
+  border-radius: var(--ckm-r-md);
+  background: var(--ckm-bg-fill);
+  color: var(--ckm-text-2);
+  text-align: center;
+  cursor: pointer;
+}
+
+.ckm .ckm-media__drop--alt {
+  border-style: solid;
+  font: inherit;
+  width: 100%;
+}
+
+.ckm .ckm-media__drop:focus-within,
+.ckm .ckm-media__drop:focus-visible {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: var(--ckm-focus-ring-offset);
+}
+
+.ckm .ckm-media__drop[disabled] {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.ckm .ckm-media__drop-icon { color: var(--ckm-muted); }
+
+.ckm .ckm-media__drop-title {
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  font-weight: var(--ckm-weight-semibold);
+}
+
+.ckm .ckm-media__drop-hint {
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-media__preview {
+  border-radius: var(--ckm-r-md);
+  overflow: hidden;
+  background: var(--ckm-ink);
+}
+
+.ckm .ckm-media__image {
+  display: block;
+  width: 100%;
+  max-height: 260px;
+  object-fit: contain;
+}
+
+.ckm .ckm-media__video {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  background: #000;
+}
+
+.ckm .ckm-media__meta {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--ckm-space-1) var(--ckm-space-2);
+  margin: 0;
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+}
+
+/* #1c7c4a on --ckm-bg measures ~4.8:1 — the tick is a second channel for
+   "attached", and the filename beside it carries the same fact in text. */
+.ckm .ckm-media__tick {
+  align-self: center;
+  color: #1c7c4a;
+}
+
+.ckm .ckm-media__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--ckm-weight-medium);
+  color: var(--ckm-text-2);
+}
+
+.ckm .ckm-media__size { color: var(--ckm-text-3); }
+
+.ckm .ckm-media__history {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ckm-space-2);
+  padding-top: var(--ckm-space-3);
+  border-top: 1px solid var(--ckm-line);
+}
+
+.ckm .ckm-media__count {
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+}
+
+/* --- Per-file upload progress (decision D14) ----------------------------- */
+
+/*
+ * A determinate bar for a real number. `<progress>` rather than two divs: it is
+ * announced with its value by every screen reader without an aria-* of our own,
+ * and WCAG 4.1.3 names an upload progress bar as a status message — so the
+ * label beside it is the text alternative, and neither takes focus.
+ */
+.ckm .ckm-media__progress {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-2);
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-2);
+}
+
+.ckm .ckm-media__progress-bar {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 6px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--ckm-bg-fill);
+  accent-color: var(--ckm-accent);
+  appearance: none;
+}
+
+.ckm .ckm-media__progress-bar::-webkit-progress-bar {
+  border-radius: 999px;
+  background: var(--ckm-bg-fill);
+}
+
+.ckm .ckm-media__progress-bar::-webkit-progress-value {
+  border-radius: 999px;
+  background: var(--ckm-accent);
+}
+
+.ckm .ckm-media__progress-bar::-moz-progress-bar {
+  border-radius: 999px;
+  background: var(--ckm-accent);
+}
+
+.ckm .ckm-media__progress-value {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  color: var(--ckm-text-3);
+}
+
+/* The word beside the bar already says "Failed"; the colour is a second
+   channel, never the only one (WCAG 1.4.1). */
+.ckm .ckm-media__progress--failed .ckm-media__progress-value { color: var(--ckm-danger); }
+
+/* --- Cover cropper ------------------------------------------------------- */
+
+.ckm .ckm-media__crop-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-4);
+}
+
+/* react-easy-crop measures this box on mount and positions absolutely inside
+   it, so it needs a height of its own rather than one derived from content. */
+.ckm .ckm-media__crop-stage {
+  position: relative;
+  width: 100%;
+  height: clamp(240px, 46vh, 420px);
+  border-radius: var(--ckm-r-md);
+  overflow: hidden;
+  background: var(--ckm-ink);
+}
+
+.ckm .ckm-media__crop-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-4);
+}
+
+.ckm .ckm-media__crop-control {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+}
+
+.ckm .ckm-media__crop-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  font-weight: var(--ckm-weight-medium);
+  color: var(--ckm-text-2);
+}
+
+.ckm .ckm-media__crop-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--ckm-text-3);
+}
+
+/* The native track is ~4px tall and about 20px of hit region. Grown to the
+   touch floor so the thumb can actually be caught with a finger. */
+.ckm .ckm-media__crop-control input[type="range"] {
+  width: 100%;
+  height: var(--ckm-touch-target);
+  accent-color: var(--ckm-accent);
+}
+
+.ckm .ckm-media__crop-actions {
+  display: flex;
+  gap: var(--ckm-space-2);
+}
+
+.ckm .ckm-media__crop-actions > .ckm-button {
+  flex: 1;
+}
+
+/* --- Buyer preview dialog ------------------------------------------------ */
+
+.ckm .ckm-media__pages {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ckm .ckm-media__page {
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-md);
+  overflow: hidden;
+  background: #fff;
+}
+
+.ckm .ckm-media__page-number {
+  margin: 0;
+  padding: var(--ckm-space-2) var(--ckm-space-3);
+  border-bottom: 1px solid var(--ckm-line-2);
+  background: var(--ckm-bg-fill);
+  font-size: var(--ckm-text-micro);
+  line-height: var(--ckm-leading-micro);
+  font-weight: var(--ckm-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ckm-text-3);
+}

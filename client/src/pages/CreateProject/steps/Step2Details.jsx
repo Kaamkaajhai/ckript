@@ -472,7 +472,7 @@ const PanelAccess = () => {
 /* ───────────────────────── Panel · Media ───────────────────────── */
 const PanelMedia = () => {
   const {
-    aiCoverAttempts, aiCoverHistory, aiCoverIndex, dark, downloadWatermarkedImage, formatDuration,
+    aiCoverRemaining, aiCoverHistory, aiCoverIndex, dark, downloadWatermarkedImage, formatDuration,
     generateAiCover, handlePitchVideoSelect, handleThumbnailSelect, handleTrailerSelect, isGeneratingAiCover,
     openThumbnailEditor, pitchVideoFile, pitchVideoInputRef, pitchVideoMeta, pitchVideoMetaLoading,
     pitchVideoPreviewUrl, setAiCoverIndex, setError, setPitchVideoFile, setThumbnailFile, setTrailerFile,
@@ -506,11 +506,11 @@ const PanelMedia = () => {
                 <input ref={thumbnailInputRef} type="file" accept="image/jpeg,image/png,image/webp"
                   onChange={(e) => { handleThumbnailSelect(e.target.files?.[0]); e.target.value = ""; }} className="hidden" />
               </div>
-              <div className="ckcp-drop" onClick={isGeneratingAiCover ? undefined : generateAiCover}
-                style={{ borderStyle: "solid", cursor: isGeneratingAiCover ? "not-allowed" : "pointer", borderColor: dark ? "rgba(168,85,247,.3)" : "#e6d5f7", background: dark ? "rgba(168,85,247,.08)" : "#faf5ff", color: dark ? "#c4b5fd" : "#7c3aed" }}>
+              <div className="ckcp-drop" onClick={(isGeneratingAiCover || aiCoverRemaining <= 0) ? undefined : generateAiCover}
+                style={{ borderStyle: "solid", cursor: (isGeneratingAiCover || aiCoverRemaining <= 0) ? "not-allowed" : "pointer", borderColor: dark ? "rgba(168,85,247,.3)" : "#e6d5f7", background: dark ? "rgba(168,85,247,.08)" : "#faf5ff", color: dark ? "#c4b5fd" : "#7c3aed" }}>
                 <span className="material-symbols-outlined" style={{ fontSize: "22px" }}>auto_awesome</span>
-                <p className="ckcp-drop-t" style={{ color: "inherit" }}>{isGeneratingAiCover ? "Generating…" : "AI generate"}</p>
-                <p className="ckcp-drop-s" style={{ color: "inherit", opacity: 0.75 }}>From your script</p>
+                <p className="ckcp-drop-t" style={{ color: "inherit" }}>{aiCoverRemaining <= 0 ? "AI cover limit reached" : isGeneratingAiCover ? "Generating…" : "AI generate"}</p>
+                <p className="ckcp-drop-s" style={{ color: "inherit", opacity: 0.75 }}>{aiCoverRemaining <= 0 ? "No covers left this plan period" : "From your script"}</p>
               </div>
             </div>
           ) : (
@@ -542,13 +542,13 @@ const PanelMedia = () => {
                       <span className="material-symbols-outlined" style={{ fontSize: "15px" }}>chevron_right</span>
                     </button>
                   </div>
-                  {aiCoverAttempts < 3 ? (
+                  {aiCoverRemaining > 0 ? (
                     <button type="button" onClick={isGeneratingAiCover ? undefined : generateAiCover}
                       className="ckcp-ghostbtn" style={{ color: dark ? "#c4b5fd" : "#7c3aed", borderColor: dark ? "rgba(168,85,247,.3)" : "#e6d5f7" }}>
-                      {isGeneratingAiCover ? "Generating…" : `Try another (${3 - aiCoverAttempts} left)`}
+                      {isGeneratingAiCover ? "Generating…" : `Try another (${aiCoverRemaining} left)`}
                     </button>
                   ) : (
-                    <span style={{ fontSize: "10.5px", fontWeight: 600, color: dark ? "#f87171" : "#dc2626" }}>Max attempts reached</span>
+                    <span style={{ fontSize: "10.5px", fontWeight: 600, color: dark ? "#f87171" : "#dc2626" }}>No AI covers left on your plan</span>
                   )}
                 </div>
               )}

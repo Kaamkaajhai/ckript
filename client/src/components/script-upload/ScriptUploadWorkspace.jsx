@@ -338,12 +338,39 @@ function AccessPanel({ vm }) {
   );
 }
 
+/*
+ * The determinate figure `postMedia` reports through axios's `onUploadProgress`
+ * (decision D14, 2026-08-09). Until then these three requests — up to 5 MB,
+ * 250 MB and 90 MB — showed nothing at all while they ran, and the only progress
+ * bar on the page was the simulated one on step 1.
+ *
+ * `<progress>` rather than a styled div pair: it carries its own value semantics,
+ * so it is announced with its percentage without an `aria-valuenow` of ours that
+ * could drift from the drawn width. The live region is the text beside it, not
+ * the bar — announcing a hundred increments is noise.
+ */
+function MediaUploadProgress({ label, progress }) {
+  if (!progress) return null;
+  const percent = Math.max(0, Math.min(100, Math.round(Number(progress.percent) || 0)));
+  const text = progress.status === "failed"
+    ? "Upload failed"
+    : progress.status === "done" ? "Uploaded" : `Uploading ${percent}%`;
+
+  return (
+    <p className={`su-media-progress${progress.status === "failed" ? " is-failed" : ""}`}>
+      <progress max={100} value={percent} aria-label={`${label} upload progress`} />
+      <span role="status" aria-live="polite">{text}</span>
+    </p>
+  );
+}
+
 function MediaPanel({ vm }) {
   const { state, actions, elements, mode } = vm;
   const { thumbnailInputRef, trailerInputRef, pitchVideoInputRef } = elements;
   const plan = String(vm.user?.subscription?.plan || "free").toLowerCase();
   const pitchLocked = ["free", "silver"].includes(plan);
   const hasCoverHistory = state.aiCoverHistory.length > 1;
+  const mediaProgress = state.mediaProgress || {};
 
   return (
     <div id="su-media" className="su-media-grid" tabIndex={-1} {...validationFieldProps(state, "su-media")}>
@@ -356,10 +383,10 @@ function MediaPanel({ vm }) {
               <strong>Upload</strong>
               <small>JPG/PNG · 5 MB</small>
             </button>
-            <button type="button" className="is-ai" disabled={state.isGeneratingAiCover} onClick={actions.generateAiCover}>
+            <button type="button" className="is-ai" disabled={state.aiCoverRemaining <= 0 || state.isGeneratingAiCover} onClick={actions.generateAiCover}>
               {state.isGeneratingAiCover ? <span className="su-spinner" /> : <MatIcon name="auto_awesome" size={24} />}
-              <strong>{state.isGeneratingAiCover ? "Generating…" : "AI generate"}</strong>
-              <small>From your script</small>
+              <strong>{state.aiCoverRemaining <= 0 ? "AI cover limit reached" : state.isGeneratingAiCover ? "Generating…" : "AI generate"}</strong>
+              <small>{state.aiCoverRemaining <= 0 ? "No covers left this plan period" : "From your script"}</small>
             </button>
           </div>
         ) : (
@@ -367,7 +394,7 @@ function MediaPanel({ vm }) {
             <img src={state.thumbnailPreviewUrl} alt="Selected script cover" />
             <div>
               <strong>{state.thumbnailFile.name || "AI-generated cover"}</strong>
-              <span>Cover ready · {state.aiCoverAttempts}/3 AI tries used</span>
+              <span>Cover ready · {state.aiCoverRemaining} AI covers left on your plan</span>
               {hasCoverHistory && (
                 <div className="su-cover-history" aria-label="AI cover history">
                   <button type="button" disabled={state.aiCoverIndex <= 0} onClick={() => actions.setAiCoverHistoryIndex(state.aiCoverIndex - 1)} aria-label="Previous AI cover">
@@ -381,10 +408,11 @@ function MediaPanel({ vm }) {
               )}
               <div>
                 <button type="button" onClick={() => thumbnailInputRef.current?.click()}>Replace</button>
-                <button type="button" onClick={actions.generateAiCover} disabled={state.aiCoverAttempts >= 3 || state.isGeneratingAiCover}>Try another</button>
+                <button type="button" onClick={actions.generateAiCover} disabled={state.aiCoverRemaining <= 0 || state.isGeneratingAiCover}>Try another</button>
                 <button type="button" onClick={() => actions.downloadWatermarkedImage(state.thumbnailFile)}>Download proof</button>
                 <button type="button" onClick={() => actions.setThumbnailFile(null)}>Remove</button>
               </div>
+              <MediaUploadProgress label="Cover image" progress={mediaProgress.thumbnail} />
             </div>
           </div>
         )}
@@ -406,6 +434,7 @@ function MediaPanel({ vm }) {
               <span><MatIcon name="check_circle" size={18} /><strong>{state.trailerFile.name}</strong></span>
               {state.trailerMetaLabel && <small>{state.trailerMetaLabel}</small>}
               <button type="button" onClick={() => actions.setTrailerFile(null)}>Remove</button>
+              <MediaUploadProgress label="Trailer video" progress={mediaProgress.trailer} />
             </div>
           </div>
         )}
@@ -427,6 +456,7 @@ function MediaPanel({ vm }) {
             <strong>{state.pitchVideoFile.name}</strong>
             {state.pitchVideoMetaLabel && <small>{state.pitchVideoMetaLabel}</small>}
             <button type="button" onClick={() => actions.setPitchVideoFile(null)}>Remove</button>
+            <MediaUploadProgress label="Pitch video" progress={mediaProgress.pitchVideo} />
           </div>
         )}
         <input ref={pitchVideoInputRef} type="file" accept="video/mp4,video/mpeg,video/quicktime,video/webm,video/x-m4v" onChange={(event) => { actions.handlePitchVideoSelect(event.target.files?.[0]); event.target.value = ""; }} />

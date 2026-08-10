@@ -68,10 +68,70 @@ export const MOBILE_SHELL_MODE_CONFIG = Object.freeze({
 
 export const MOBILE_SHELL_MODES = Object.freeze(Object.values(MOBILE_SHELL_MODE));
 
+/*
+ * The slots a screen is allowed to override. Deliberately a closed list: an
+ * override is a documented exception to the mode contract, so a typo must fail
+ * loudly rather than silently do nothing, and `intent` — the sentence that says
+ * what the mode is for — is not something a screen may rewrite.
+ */
+export const MOBILE_SHELL_SLOTS = Object.freeze([
+  "appBar",
+  "bottomNav",
+  "safeAreaTop",
+  "safeAreaBottom",
+]);
+
 export function isMobileShellMode(mode) {
   return MOBILE_SHELL_MODES.includes(mode);
 }
 
 export function getShellModeConfig(mode) {
   return MOBILE_SHELL_MODE_CONFIG[mode] ?? MOBILE_SHELL_MODE_CONFIG[MOBILE_SHELL_MODE.STANDARD];
+}
+
+/*
+ * The mode's defaults with a screen's declared overrides applied.
+ *
+ * Only booleans on known slots are honoured. Anything else — a typo, a string,
+ * an attempt to change `intent` — is ignored here and rejected outright by
+ * `assertShellSlotOverride` in development, so an override that does nothing
+ * cannot survive a code review by looking plausible.
+ */
+export function resolveShellSlots(mode, overrides = null) {
+  const base = getShellModeConfig(mode);
+  if (!overrides) return base;
+
+  const resolved = { ...base };
+  for (const slot of MOBILE_SHELL_SLOTS) {
+    if (typeof overrides[slot] === "boolean") resolved[slot] = overrides[slot];
+  }
+  return Object.freeze(resolved);
+}
+
+/*
+ * Which slots an override actually *changes* for this mode — the empty array
+ * when it changes nothing. MobileShell publishes this as `data-shell-slots`, so
+ * "why does this screen have chrome its mode forbids?" is answerable from the
+ * DOM, the same way `data-shell-mode` answers "which mode is this?".
+ *
+ * An override that changes nothing is worth seeing: it usually means the mode
+ * was changed underneath a screen that is still overriding the old defaults.
+ */
+export function changedShellSlots(mode, overrides = null) {
+  if (!overrides) return [];
+  const base = getShellModeConfig(mode);
+  return MOBILE_SHELL_SLOTS.filter(
+    (slot) => typeof overrides[slot] === "boolean" && overrides[slot] !== base[slot],
+  );
+}
+
+export function assertShellSlotOverride(overrides, screenId = "") {
+  if (!overrides) return;
+  const unknown = Object.keys(overrides).filter((key) => !MOBILE_SHELL_SLOTS.includes(key));
+  if (unknown.length) {
+    console.error(
+      `[mobile] MobileShell${screenId ? ` (${screenId})` : ""} was given unknown slot override(s): ${unknown.join(", ")}. `
+      + `Overridable slots are: ${MOBILE_SHELL_SLOTS.join(", ")}.`,
+    );
+  }
 }
