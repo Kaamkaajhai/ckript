@@ -120,6 +120,8 @@ const competitionSchema = new mongoose.Schema({
     photoUrl: String, 
     bio: { type: String, maxlength: 600, default: "" },
     company: String,
+    companyBio: { type: String, maxlength: 1000, default: "" },
+    companyLink: String,
     imdb: String,
     linkedin: String,
     order: { type: Number, default: 0 },
