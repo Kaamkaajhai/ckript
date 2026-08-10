@@ -52,7 +52,7 @@ export default function JudgesModule({ data, onChange }) {
                 
                 {/* Photo Upload Area */}
                 <div className="ml-6 w-32 shrink-0 space-y-3">
-                  <div className="w-32 h-32 rounded-xl border-2 border-dashed border-[#ccc] overflow-hidden bg-white flex items-center justify-center">
+                  <div className="w-32 h-32 rounded-xl border-2 border-dashed border-[#ccc] overflow-hidden bg-white flex relative items-center justify-center group">
                     {judge.photoUrl ? (
                       <img src={judge.photoUrl} alt={judge.name} className="w-full h-full object-cover" />
                     ) : (
@@ -61,14 +61,58 @@ export default function JudgesModule({ data, onChange }) {
                         <span className="text-[10px] font-bold uppercase tracking-wider">Photo</span>
                       </div>
                     )}
+                    <label className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center text-white text-xs font-bold cursor-pointer transition-opacity">
+                      Upload
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              updateJudge(idx, "photoUrl", reader.result);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                    </label>
                   </div>
-                  <input
-                    type="text"
-                    value={judge.photoUrl}
-                    onChange={(e) => updateJudge(idx, "photoUrl", e.target.value)}
-                    placeholder="Image URL"
-                    className="w-full px-2 py-1.5 bg-white border border-[#e4e2e0] rounded-lg text-xs focus:outline-none focus:border-[#111]"
-                  />
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={judge.photoUrl}
+                      onChange={(e) => updateJudge(idx, "photoUrl", e.target.value)}
+                      placeholder="Image URL"
+                      className="w-full px-2 py-1.5 bg-white border border-[#e4e2e0] rounded-lg text-xs focus:outline-none focus:border-[#111]"
+                    />
+                    <div className="relative">
+                      <input 
+                        type="file" 
+                        accept="image/*"
+                        id={`judge-upload-${idx}`}
+                        className="hidden" 
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                              updateJudge(idx, "photoUrl", reader.result);
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                      />
+                      <label 
+                        htmlFor={`judge-upload-${idx}`}
+                        className="flex items-center justify-center w-full px-2 py-1.5 bg-[#f5f5f5] hover:bg-[#eaeaea] text-[#333] border border-[#e4e2e0] rounded-lg text-xs font-medium cursor-pointer transition-colors"
+                      >
+                        Upload Photo
+                      </label>
+                    </div>
+                  </div>
                 </div>
 
                 {/* Details Area */}
