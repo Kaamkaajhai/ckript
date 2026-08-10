@@ -272,7 +272,8 @@ const AdminDashboard = () => {
             
             const { data } = await adminApi.post(`/admin/broadcast/${audience}`, formData);
             showToast(data?.message || `Broadcast sent to ${audienceLabel}.`);
-            reset();
+            // Intentionally not resetting the form fields here so the user can see what they sent
+            // or easily send a similar email to another audience without starting over.
         } catch (err) {
             showToast(err?.response?.data?.message || `Failed to send ${audienceLabel} broadcast`, "error");
         } finally {
