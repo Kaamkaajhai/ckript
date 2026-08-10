@@ -525,7 +525,7 @@ export const getUsers = async (req, res) => {
     try {
         const { role, search, page = 1, limit = 20, isPremium, hasActiveWriterPlan, isSwaApproved } = req.query;
         const pageNumber = Math.max(Number(page) || 1, 1);
-        const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+        const pageLimit = Number(limit) === 0 ? 0 : Math.min(Math.max(Number(limit) || 20, 1), 100);
         const filter = { role: { $ne: "admin" }, isDeactivated: { $ne: true } };
         if (role && typeof role === 'string') filter.role = role;
         if (isPremium === 'true') {
@@ -558,7 +558,7 @@ export const getUsers = async (req, res) => {
 
         const total = await User.countDocuments(filter);
         const users = await User.find(filter)
-            .select("-password -emailVerificationToken -emailVerificationExpires -emailVerificationResendAvailableAt")
+            .select("-password -emailVerificationToken -emailVerificationExpires -emailVerificationResendAvailableAt -activeSessions -passwordResetToken -passwordResetExpires -passwordResetResendAvailableAt -stripeAccountId -stripeCustomerId -googleId")
             .sort({ createdAt: -1 })
             .skip((pageNumber - 1) * pageLimit)
             .limit(pageLimit)
@@ -568,7 +568,7 @@ export const getUsers = async (req, res) => {
             users,
             total,
             page: pageNumber,
-            totalPages: Math.ceil(total / pageLimit),
+            totalPages: pageLimit === 0 ? 1 : Math.ceil(total / pageLimit),
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -711,7 +711,7 @@ export const getDeletedAccountRequests = async (req, res) => {
     try {
         const { page = 1, limit = 20, search = "", role = "" } = req.query;
         const pageNumber = Math.max(Number(page) || 1, 1);
-        const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+        const pageLimit = Number(limit) === 0 ? 0 : Math.min(Math.max(Number(limit) || 20, 1), 100);
         const normalizedRole = String(role || "").trim().toLowerCase();
 
         const filter = {
@@ -766,7 +766,7 @@ export const getDeletedAccountRequests = async (req, res) => {
             requests: rows,
             total,
             page: pageNumber,
-            totalPages: Math.ceil(total / pageLimit),
+            totalPages: pageLimit === 0 ? 1 : Math.ceil(total / pageLimit),
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -1861,9 +1861,9 @@ export const getTrailerRequests = async (req, res) => {
         const scripts = await Script.find(filter)
             .populate("creator", "name email role profileImage")
             .sort({ createdAt: -1 })
-            .skip((page - 1) * limit)
-            .limit(Number(limit));
-        res.json({ scripts, total, page: Number(page), totalPages: Math.ceil(total / limit) });
+            .skip((pageNumber - 1) * pageLimit)
+            .limit(pageLimit);
+        res.json({ scripts, total, page: pageNumber, totalPages: pageLimit === 0 ? 1 : Math.ceil(total / pageLimit) });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -1873,7 +1873,7 @@ export const getAvailableTrailers = async (req, res) => {
     try {
         const { page = 1, limit = 20 } = req.query;
         const pageNumber = Math.max(Number(page) || 1, 1);
-        const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+        const pageLimit = Number(limit) === 0 ? 0 : Math.min(Math.max(Number(limit) || 20, 1), 100);
         const filter = getAdminTrailerLibraryFilter();
 
         const total = await Script.countDocuments(filter);
@@ -1883,7 +1883,7 @@ export const getAvailableTrailers = async (req, res) => {
             .skip((pageNumber - 1) * pageLimit)
             .limit(pageLimit);
 
-        res.json({ scripts, total, page: pageNumber, totalPages: Math.ceil(total / pageLimit) });
+        res.json({ scripts, total, page: pageNumber, totalPages: pageLimit === 0 ? 1 : Math.ceil(total / pageLimit) });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -2004,7 +2004,7 @@ export const uploadTrailerAsAdmin = async (req, res) => {
 // ─── Login As User (Impersonation) ───
 export const loginAsUser = async (req, res) => {
     try {
-        const user = await User.findById(req.params.userId).select("-password");
+        const user = await User.findById(req.params.userId).select("-password -activeSessions -passwordResetToken -passwordResetExpires -passwordResetResendAvailableAt -stripeAccountId -stripeCustomerId -googleId");
         if (!user) return res.status(404).json({ message: "User not found" });
         if (user.isDeactivated) {
             return res.status(400).json({ message: "Cannot login as a deleted account" });
@@ -2238,7 +2238,7 @@ export const getPendingWriterMembershipReviews = async (req, res) => {
     try {
         const { page = 1, limit = 20, search = "" } = req.query;
         const pageNumber = Math.max(Number(page) || 1, 1);
-        const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+        const pageLimit = Number(limit) === 0 ? 0 : Math.min(Math.max(Number(limit) || 20, 1), 100);
 
         const pendingMembershipFilter = {
             $or: [
@@ -2308,7 +2308,7 @@ export const getPendingWriterMembershipReviews = async (req, res) => {
             reviews,
             total,
             page: pageNumber,
-            totalPages: Math.max(1, Math.ceil(total / pageLimit)),
+            totalPages: pageLimit === 0 ? 1 : Math.ceil(total / pageLimit),
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -2756,7 +2756,7 @@ export const getAdminAgreements = async (req, res) => {
         } = req.query;
 
         const pageNumber = Math.max(Number(page) || 1, 1);
-        const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+        const pageLimit = Number(limit) === 0 ? 0 : Math.min(Math.max(Number(limit) || 20, 1), 100);
 
         const filter = {};
         if (status) {
@@ -2786,7 +2786,7 @@ export const getAdminAgreements = async (req, res) => {
             agreements,
             total,
             page: pageNumber,
-            totalPages: Math.ceil(total / pageLimit),
+            totalPages: pageLimit === 0 ? 1 : Math.ceil(total / pageLimit),
         });
     } catch (error) {
         res.status(500).json({ message: error.message || "Failed to load agreements." });

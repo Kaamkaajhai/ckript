@@ -840,9 +840,14 @@ const AdminDashboard = () => {
                     break;
                 }
                 case "writers": {
+                    console.log("Fetching writers and creators...");
                     const { data } = await adminApi.get(`/admin/users?role=writer&page=${page}&search=${encodeURIComponent(activeSearch)}`);
                     const { data: data2 } = await adminApi.get(`/admin/users?role=creator&page=${page}&search=${encodeURIComponent(activeSearch)}`);
-                    setUsers([...data.users, ...data2.users]); setTotalPages(Math.max(data.totalPages, data2.totalPages)); setTotal(data.total + data2.total);
+                    console.log("Writers response:", data, "Creators response:", data2);
+                    
+                    setUsers([...(data?.users || []), ...(data2?.users || [])]);
+                    setTotalPages(Math.max(data?.totalPages || 1, data2?.totalPages || 1));
+                    setTotal((data?.total || 0) + (data2?.total || 0));
                     break;
                 }
                 case "swa-approved": {
@@ -1200,6 +1205,29 @@ const AdminDashboard = () => {
             setMessageList([]);
         } finally {
             if (!silent) setMessagesLoading(false);
+        }
+    };
+
+    const fetchAllTabData = async (tab, search) => {
+        try {
+            const activeSearch = (search || "").trim();
+            switch (tab) {
+                case "investors":
+                case "writers":
+                case "swa-approved":
+                case "readers": {
+                    const { data } = await adminApi.get(`/admin/users?limit=0&search=${encodeURIComponent(activeSearch)}`);
+                    return data?.users || [];
+                }
+                case "deleted-requests": {
+                    const { data } = await adminApi.get(`/admin/users/deleted-requests?limit=0&search=${encodeURIComponent(activeSearch)}`);
+                    return data.requests;
+                }
+            }
+            return [];
+        } catch (e) {
+            console.error("Failed to fetch all tab data", e);
+            return [];
         }
     };
 
@@ -2566,6 +2594,7 @@ const AdminDashboard = () => {
         filteredScripts,
         filteredTransactions,
         filteredUsers,
+        fetchAllTabData,
         handleAdminAttachmentChange,
         handleAdminMessageScroll,
         handleAdminTrailerFileChange,
