@@ -121,6 +121,7 @@ export default function SponsorsModule({ data, onChange }) {
                       <option value="Silver">Silver Sponsor</option>
                       <option value="Bronze">Bronze Sponsor</option>
                       <option value="Community">Community Partner</option>
+                      <option value="In-Kind">In-Kind Sponsor</option>
                       <option value="Media">Media Partner</option>
                     </select>
                   </div>

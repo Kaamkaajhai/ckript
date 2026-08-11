@@ -1,5 +1,6 @@
 import React from "react";
-import { Plus, Trash2, FileText, UploadCloud } from "lucide-react";
+import { Plus, Trash2, FileText, UploadCloud, Loader2 } from "lucide-react";
+import { adminApi } from "../../dashboardShared";
 
 export default function ResourcesModule({ data, onChange }) {
   const resources = data.resources || [];
@@ -70,9 +71,28 @@ export default function ResourcesModule({ data, onChange }) {
                       placeholder="https://..."
                       className="flex-1 px-3 py-2 bg-white border border-[#e4e2e0] rounded-lg text-sm focus:outline-none focus:border-[#111]"
                     />
-                    <button className="px-3 bg-white border border-[#e4e2e0] hover:border-[#111] rounded-lg text-[#555] transition-colors">
+                    <label className="flex items-center justify-center px-3 bg-white border border-[#e4e2e0] hover:border-[#111] rounded-lg text-[#555] transition-colors cursor-pointer">
                       <UploadCloud size={16} />
-                    </button>
+                      <input 
+                        type="file"
+                        className="hidden"
+                        onChange={async (e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            try {
+                              const formData = new FormData();
+                              formData.append("file", file);
+                              const { data: resData } = await adminApi.post("/admin/competitions/upload-resource", formData, {
+                                headers: { "Content-Type": "multipart/form-data" }
+                              });
+                              updateResource(idx, "url", resData.url);
+                            } catch (err) {
+                              alert("Failed to upload file.");
+                            }
+                          }
+                        }}
+                      />
+                    </label>
                   </div>
                   
                   <div className="col-span-12 md:col-span-3">

@@ -112,6 +112,37 @@ export const adminUploadImage = async (req, res) => {
   }
 };
 
+export const adminUploadResource = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file provided" });
+    }
+
+    const mimeType = req.file.mimetype || "";
+    let resourceType = "raw";
+    if (mimeType.startsWith("image/")) resourceType = "image";
+    else if (mimeType.startsWith("video/")) resourceType = "video";
+
+    const ext = req.file.originalname ? req.file.originalname.split('.').pop() : '';
+    const publicId = resourceType === "raw" && ext 
+      ? `resource-${Date.now()}.${ext}` 
+      : `resource-${Date.now()}`;
+
+    const cloudUpload = await uploadToCloudinary(req.file.buffer, {
+      folder: "scriptbridge/admin/competitions/resources",
+      resource_type: resourceType,
+      public_id: publicId,
+      originalFilename: req.file.originalname,
+      mimeType: req.file.mimetype,
+    });
+
+    res.json({ url: cloudUpload.secure_url });
+  } catch (error) {
+    console.error("[admin resource upload] failed:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const adminListCompetitions = async (req, res) => {
   try {
     const competitions = await Competition.find({}).sort({ "dates.startsAt": -1 }).lean();
