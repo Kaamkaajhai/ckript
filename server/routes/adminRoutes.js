@@ -77,6 +77,7 @@ import {
     adminReferralAnalytics,
     adminDeleteCompetition,
     adminUploadImage,
+    adminUploadResource,
 } from "../controllers/competitionAdminController.js";
 import { getAdminAnalytics, getAdminAnalyticsAnonymousDetail, getAdminAnalyticsUserDetail } from "../controllers/analyticsController.js";
 
@@ -184,6 +185,12 @@ router.get("/competitions/:id/entries", adminListEntries);
 router.post("/competitions/:id/entries/:entryId/retry-ai", adminRetryEntryAI);
 router.post("/competitions/:id/results", adminDeclareResults);
 router.post("/competitions/upload", upload.single("image"), adminUploadImage);
+
+const resourceUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 25 * 1024 * 1024 }
+});
+router.post("/competitions/upload-resource", resourceUpload.single("file"), adminUploadResource);
 
 // Referral analytics (?competitionId= scopes it, ?format=csv exports)
 router.get("/referrals/analytics", adminReferralAnalytics);
