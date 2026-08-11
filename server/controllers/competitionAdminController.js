@@ -138,6 +138,9 @@ export const adminUploadResource = async (req, res) => {
 
     res.json({ url: cloudUpload.secure_url });
   } catch (error) {
+    try {
+      (await import('fs')).appendFileSync('error.log', new Date().toISOString() + '\\n[UPLOAD] ' + (error?.stack || error) + '\\n\\n');
+    } catch(e) {}
     console.error("[admin resource upload] failed:", error);
     res.status(500).json({ message: error.message });
   }
@@ -301,6 +304,9 @@ export const adminUpdateCompetition = async (req, res) => {
     await competition.save();
     return res.json({ competition, phase: getCompetitionPhase(competition) });
   } catch (error) {
+    try {
+      (await import('fs')).appendFileSync('error.log', new Date().toISOString() + '\\n' + (error?.stack || error) + '\\n\\n');
+    } catch(e) {}
     console.error("[competition admin] update failed:", error?.stack || error);
     return res.status(500).json({ message: "Failed to update the competition.", error: error?.stack || error?.message });
   }

@@ -558,6 +558,24 @@ const CompetitionLanding = () => {
           </Section>
         ) : null}
 
+        {competition.resources?.length ? (
+          <Section id="resources" title="Resources">
+            <div className="flex flex-wrap gap-3">
+              {competition.resources.map((resource, i) => (
+                <a
+                  key={i}
+                  href={externalUrl(resource.url)}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="ckc-btn ckc-btn-quiet"
+                >
+                  {resource.label} <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
+                </a>
+              ))}
+            </div>
+          </Section>
+        ) : null}
+
         {competition.communityLinks?.length ? (
           <Section id="community" title="Community">
             <div className="flex flex-wrap gap-3">
