@@ -57,6 +57,7 @@ const baseContext = (overrides = {}) => ({
   saved: true,
   lastSaved: new Date(2026, 7, 9, 14, 32),
   loading: false,
+  mediaUploadActive: false,
   exiting: false,
   creationBlocked: false,
   competitionMode: false,
@@ -68,6 +69,7 @@ const baseContext = (overrides = {}) => ({
   error: "",
   setError: vi.fn(),
   pendingRecovery: null,
+  pendingMediaRecovery: null,
   acceptPendingRecovery: vi.fn(),
   dismissPendingRecovery: vi.fn(),
   toastMessage: null,
@@ -155,6 +157,7 @@ const baseContext = (overrides = {}) => ({
   thumbnailFile: null, thumbnailPreviewUrl: "", trailerFile: null, trailerPreviewUrl: "",
   trailerMeta: null, trailerMetaLoading: false, pitchVideoFile: null, pitchVideoPreviewUrl: "",
   pitchVideoMeta: null, pitchVideoMetaLoading: false,
+  mediaProgress: {},
   handleThumbnailSelect: vi.fn(), handleTrailerSelect: vi.fn(), handlePitchVideoSelect: vi.fn(),
   setThumbnailFile: vi.fn(), setTrailerFile: vi.fn(), setPitchVideoFile: vi.fn(),
   downloadWatermarkedImage: vi.fn(), formatDuration: () => "0s", generateAiCover: vi.fn(),
@@ -391,6 +394,27 @@ describe("Wizard — the footer", () => {
 
     expect(handlePublish).not.toHaveBeenCalled();
   });
+
+  it("retries only media from the media panel after the project is already saved", () => {
+    const handlePublish = vi.fn();
+    render(baseContext({
+      step: 2,
+      detailsStep: filmSubSteps.findIndex(({ key }) => key === "media"),
+      pendingMediaRecovery: { targetScriptId: "script-7", failedTypes: ["trailer"] },
+      handlePublish,
+    }));
+
+    click(control("Retry the media upload"));
+    expect(handlePublish).toHaveBeenCalledTimes(1);
+    expect(control("Next")).toBeUndefined();
+  });
+
+  it("holds both footer actions while the visible media files are uploading", () => {
+    render(baseContext({ step: 2, mediaUploadActive: true, loading: true }));
+
+    expect(control("Uploading media…").disabled).toBe(true);
+    expect(control("Back").disabled).toBe(true);
+  });
 });
 
 /* ────────────────────────────── Notices ──────────────────────────────── */
@@ -439,6 +463,23 @@ describe("Wizard — notices", () => {
 
     click(control("Keep the saved version"));
     expect(dismissPendingRecovery).toHaveBeenCalledTimes(1);
+  });
+
+  it("explains that a partial media failure did not lose the project", () => {
+    render(baseContext({
+      pendingMediaRecovery: { targetScriptId: "script-7", failedTypes: ["trailer"] },
+    }));
+
+    const notice = document.querySelector(".ckm-create-project__notice");
+    expect(notice.textContent).toMatch(/project is saved/i);
+    expect(notice.textContent).toMatch(/nothing else needs re-entering/i);
+  });
+
+  it("states that the project is already saved during the visible upload", () => {
+    render(baseContext({ mediaUploadActive: true, loading: true }));
+
+    expect(document.querySelector(".ckm-create-project__notice").textContent)
+      .toMatch(/project is saved.*media is uploading/is);
   });
 });
 

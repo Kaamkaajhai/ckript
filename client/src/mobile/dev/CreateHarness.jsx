@@ -1,4 +1,7 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { extractOutline } from "../../components/screenplay/screenplayMode";
+import { getScenes } from "../../components/screenplay/sceneIdentity";
+import { moveScene } from "../../components/screenplay/sceneReorder";
 import { CreateProjectContext } from "../../pages/CreateProject/CreateProjectContext";
 import { DETAILS_STEPS } from "../../pages/CreateProject/constants";
 import CreateProjectChrome from "../screens/create/CreateProjectChrome";
@@ -28,7 +31,9 @@ import "../screens/create/Wizard.css";
  *   ?step=2..5              which wizard step
  *   ?panel=basics|story|cast|progress|access|media
  *   ?state=recovery | error | exit | readonly | prose | blocked | submitted
- *          | crop | titlepage | saving
+ *          | locked | titled
+ *          | crop | titlepage | saving | reports-empty | reports-long
+ *          | media-attached | media-uploading | media-failed
  * A harness that has to be *driven* into a state is a harness that measures a
  * different thing each time somebody's click lands slightly differently.
  */
@@ -60,7 +65,34 @@ EXT. PLATFORM 3 - CONTINUOUS
 Rain on an empty bench. The board flickers and gives up.
 `;
 
+const FIXTURE_TITLE_PAGE = {
+  title: "THE FOUR O'CLOCK TRAIN",
+  credit: "Written by",
+  author: "Arshad Rahman",
+  contact: "arshad@example.com",
+};
+
+const FIXTURE_COMMENTS = [
+  { _id: "c1", body: "This beat repeats the one on page 2 — cut it or make it land differently.", authorId: "u1", authorName: "Arshad Rahman", anchor: { quote: "A ceiling fan turns too slowly to matter." } },
+  { _id: "c1r", parentId: "c1", body: "Agreed. Losing it.", authorId: "u2", authorName: "Meher Qureshi" },
+  { _id: "c2", body: "Lovely.", authorId: "u2", authorName: "Meher Qureshi", resolved: true, anchor: { quote: "There's another at four." } },
+  { _id: "c3", body: "Whose coat is wet?", authorId: "u2", authorName: "Meher Qureshi", anchor: { quote: "a line that has since been rewritten" } },
+];
+
+/* Sixty rows make the report body genuinely scroll at every phone height. A
+   two-scene fixture can prove card geometry but cannot prove that the dialog
+   keeps ONE scroll surface when the report becomes feature-length. */
+const FIXTURE_LONG_REPORT = Array.from({ length: 60 }, (_, index) => [
+  `${index % 2 ? "EXT." : "INT."} REPORT LOCATION ${index + 1} - ${index % 3 ? "DAY" : "NIGHT"}`,
+  "",
+  index % 2 ? "MEHER" : "ARSHAD",
+  `This is report line ${index + 1}.`,
+  "",
+]).flat().join("\n");
+
 const FIXED_LAST_SAVED = new Date(2026, 7, 9, 14, 32);
+const PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+const fixtureFile = (name, size, type) => ({ name, size, type });
 
 const FIXTURE_DRAFTS = [
   { _id: "draft-1", title: "The Four O'Clock Train", updatedAt: "2026-08-09T09:14:00.000Z" },
@@ -107,6 +139,8 @@ const INITIAL = {
   scriptPrice: 149,
   screenplayValue: FIXTURE_SCRIPT,
   tagsInput: "monsoon, two-hander",
+  /* One filled, one empty — see the fixture note on sceneSynopses below. */
+  sceneSynopses: { "INT. RAILWAY RETIRING ROOM - NIGHT": "Arshad waits out a train he has no intention of catching." },
   title: "The Four O'Clock Train",
   writers: [{ userId: "u1", name: "Arshad Rahman", creditType: "written_by" }],
 };
@@ -163,8 +197,25 @@ export default function CreateHarness() {
     ? detailsSubSteps.findIndex((sub) => sub.key === requestedPanel)
     : -1;
   const effectiveDetailsStep = panelIndex >= 0 ? panelIndex : detailsStep;
+  const effectiveScreenplayValue = requested === "reports-empty"
+    ? "A note without screenplay structure."
+    : requested === "reports-long"
+      ? FIXTURE_LONG_REPORT
+      : state.screenplayValue;
+  const mediaAttached = ["media-attached", "media-uploading", "media-failed"].includes(requested);
 
   const noop = () => {};
+
+  /*
+   * DEV-ONLY HANDLE, and it exists so a sweep can measure the real thing.
+   * The comments composer refuses without a selection (D17), and a selection is
+   * something only the real CodeMirror can hold — there is no fixture for it.
+   * Exposing the same `apiRef` the screen uses lets the sweep call the real
+   * `scrollToRange`, so what it then measures is the genuine enabled composer
+   * rather than a mock of one. Never reachable in production: this file is only
+   * mounted by /__mobile-create.
+   */
+  useEffect(() => { window.__ckmEditorApi = screenplayApiRef; }, []);
 
   const value = useMemo(() => ({
     // --- identity and access ---------------------------------------------
@@ -205,7 +256,7 @@ export default function CreateHarness() {
     setSaved,
     lastSaved: FIXED_LAST_SAVED,
     exiting: false,
-    loading: false,
+    loading: requested === "media-uploading",
 
     // --- messages ----------------------------------------------------------
     error: requested === "error" ? "Logline is required." : error,
@@ -216,6 +267,10 @@ export default function CreateHarness() {
     toastMessage,
     setToastMessage,
     pendingRecovery: requested === "recovery" ? { updatedAt: new Date(2026, 7, 8, 21, 5).toISOString() } : null,
+    pendingMediaRecovery: requested === "media-failed"
+      ? { targetScriptId: "script-7", failedTypes: ["trailer"], title: state.title }
+      : null,
+    mediaUploadActive: requested === "media-uploading",
     acceptPendingRecovery: noop,
     dismissPendingRecovery: noop,
 
@@ -243,7 +298,7 @@ export default function CreateHarness() {
     screenplayEnabled,
     setScreenplayEnabled,
     useScreenplayEditor: requested !== "prose" && screenplayEnabled,
-    screenplayValue: state.screenplayValue,
+    screenplayValue: effectiveScreenplayValue,
     handleScreenplayChange: (next) => { setter("screenplayValue")(next); setSaved(false); },
     screenplayApiRef,
     screenplayFileInputRef,
@@ -255,13 +310,84 @@ export default function CreateHarness() {
     emphasisState: state.emphasisState,
     setEmphasisState: setter("emphasisState"),
     handleCaretLine: noop,
-    collabLocks: {},
+    /*
+     * Scene cards (D15). Two fixture decisions, both learned from the
+     * `MediaSlot` lesson in §19.1 — a sweep only measures the state it rendered,
+     * and a fixture that never fills a control never tests the filled control:
+     *
+     *   • ONE card carries a synopsis and one does not, so both the filled and
+     *     the placeholder textarea are on screen at 320px;
+     *   • `?state=locked` puts a lock held by ANOTHER writer on scene 2, which
+     *     is the only way the lock badge and the withheld reorder controls ever
+     *     get measured. With `collabLocks: {}` they never render at all.
+     */
+    collabLocks: requested === "locked"
+      ? { [getScenes(state.screenplayValue)[1]?.sceneId]: { holderId: "u2", holderName: "Meher", color: "#c46a3f" } }
+      : {},
     collabMyUserId: "u1",
     collabRequestEdit: noop,
-    sceneComments: [],
+    /*
+     * The Navigator's outline, built the way `useScreenplayCollab` builds it —
+     * `extractOutline` plus the sceneId each row's locks and presence key off.
+     * Derived from the live fixture text rather than hand-listed, so a reorder
+     * performed during a sweep is reflected in the navigator that sweep then
+     * measures.
+     */
+    outlineWithSceneIds: extractOutline(state.screenplayValue).map((item) => (
+      item.type === "scene"
+        ? {
+          ...item,
+          sceneId: getScenes(state.screenplayValue)
+            .find((scene) => scene.startLine <= item.line && item.line <= scene.endLine)?.sceneId,
+        }
+        : item
+    )),
+    presenceBySceneId: {},
+    /*
+     * Live presence for the People surface. Two people, one of them me, one
+     * editing a named scene and one merely viewing — so the sweep renders both
+     * activity strings rather than only the interesting one.
+     */
+    collabPeople: [
+      { userId: "u1", name: "Arshad Rahman", color: "#c46a3f", state: "editing", sceneHeading: "INT. RAILWAY RETIRING ROOM - NIGHT" },
+      { userId: "u2", name: "Meher Qureshi", color: "#3f6ec4", state: "viewing" },
+    ],
+    sceneSynopses: state.sceneSynopses,
+    handleSynopsisChange: (key, value) => setter("sceneSynopses")((prev) => ({ ...prev, [key]: value })),
+    /* Wired to the REAL transform, not a spy. A sweep that dispatches Move down
+       and then measures the board has to see the board actually change, or it is
+       measuring a static grid and calling it a reorder. */
+    handleReorderScene: (from, to) => {
+      setter("screenplayValue")((text) => moveScene(text, from, to));
+      setSaved(false);
+    },
+    /*
+     * Comment fixtures covering the four shapes a thread can have — a thread
+     * with replies, one of mine (deletable) and one of someone else's (not), a
+     * resolved one behind the filter, and an orphaned one. The `MediaSlot`
+     * lesson again: the delete confirmation and the orphan notice cannot be
+     * measured by a sweep that renders neither.
+     */
+    sceneComments: FIXTURE_COMMENTS,
+    canComment: requested !== "readonly",
+    presenceEnabled: true,
+    isCommentOrphaned: (comment) => comment?._id === "c3",
+    handleAddComment: noop,
+    handleReplyComment: noop,
+    setCommentResolved: noop,
+    deleteSceneComment: noop,
+    handleFocusComment: noop,
     focusedCommentId: null,
-    titlePage: state.titlePage || null,
-    titlePageActive: Boolean(state.titlePage),
+    /*
+     * `?state=titled` is a CONFIGURED title page; `?state=titlepage` is the
+     * configurator OPEN over a script that has none. They are different states
+     * and the first sweep of the Navigator conflated them — it asked for
+     * `titlepage` expecting a title-page row in the Pages list and measured a
+     * list that did not have one, then reported a pass. A fixture that does not
+     * enter the state cannot test the state.
+     */
+    titlePage: state.titlePage || (requested === "titled" ? FIXTURE_TITLE_PAGE : null),
+    titlePageActive: Boolean(state.titlePage) || requested === "titled",
     showTitlePageModal: requested === "titlepage" || showTitlePageModal,
     setShowTitlePageModal,
     saveTitlePage: setter("titlePage"),
@@ -327,16 +453,24 @@ export default function CreateHarness() {
     agreementRef,
 
     // --- media -------------------------------------------------------------
-    thumbnailFile: null,
-    thumbnailPreviewUrl: "",
-    trailerFile: null,
+    thumbnailFile: mediaAttached ? fixtureFile("four-oclock-cover.jpg", 812_004, "image/jpeg") : null,
+    thumbnailPreviewUrl: mediaAttached ? PIXEL : "",
+    trailerFile: mediaAttached ? fixtureFile("four-oclock-trailer.mp4", 184_000_000, "video/mp4") : null,
     trailerPreviewUrl: "",
-    trailerMeta: null,
+    trailerMeta: mediaAttached ? { duration: 72, width: 1920, height: 1080 } : null,
     trailerMetaLoading: false,
     pitchVideoFile: null,
     pitchVideoPreviewUrl: "",
     pitchVideoMeta: null,
     pitchVideoMetaLoading: false,
+    mediaProgress: requested === "media-uploading"
+      ? {
+        thumbnail: { percent: 100, status: "done" },
+        trailer: { percent: 41, status: "uploading" },
+      }
+      : requested === "media-failed"
+        ? { trailer: { percent: 87, status: "failed" } }
+        : {},
     handleThumbnailSelect: noop,
     handleTrailerSelect: noop,
     handlePitchVideoSelect: noop,
@@ -375,7 +509,7 @@ export default function CreateHarness() {
     showUnderReviewModal: requested === "submitted",
     handleUnderReviewContinue: noop,
   }), [
-    detailsSubSteps, effectiveDetailsStep, error, requested, saved, screenplayEnabled,
+    detailsSubSteps, effectiveDetailsStep, effectiveScreenplayValue, error, mediaAttached, requested, saved, screenplayEnabled,
     setter, showExitConfirm, showTitlePageModal, state, step, thumbnailCrop,
     thumbnailRotation, thumbnailZoom, toastMessage,
   ]);

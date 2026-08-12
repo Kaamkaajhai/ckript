@@ -27,6 +27,23 @@
   --ckm-editor-on-chrome-3: rgba(255, 255, 255, 0.58);
   --ckm-editor-chrome-line: rgba(255, 255, 255, 0.12);
   --ckm-editor-chrome-fill: rgba(255, 255, 255, 0.08);
+
+  /* A warning colour that is safe for TEXT on the light sheet ground. Measured
+     2026-08-11 by the sweep, which caught this file using --ckm-gold (#b7871f)
+     for the orphaned-comment notice at 3.23:1 — under 1.4.3's 4.5:1. --ckm-gold
+     is a graphical-object token (3:1) and correct as one; this is its text
+     sibling at 5.90:1, named here rather than inlined so the next warning label
+     on this surface cannot quietly repeat the mistake. */
+  --ckm-editor-warn-text: #8a5a1a;
+
+  /* The diff's added-line colour. Measured 2026-08-11 by the version-history
+     sweep: --ckm-green (#2f8a52) is 4.12:1 on the diff's --ckm-bg-fill ground,
+     under 1.4.3's 4.5:1 — the THIRD semantic token this app has caught doing
+     text duty after --ckm-muted and --ckm-gold, and the pattern is now clear
+     enough to state: a token tuned for a fill or a graphic is not a text
+     colour. #287344 measures 5.55:1 on the same ground. --ckm-red is left
+     alone; it measures 4.84:1 there and passes. */
+  --ckm-editor-add-text: #287344;
 }
 
 /* --- Top bar ------------------------------------------------------------ */
@@ -322,5 +339,646 @@
   .ckm .ckm-editor__dock-tab:active {
     transform: scale(var(--ckm-press-scale));
     transition: transform var(--ckm-duration-press) var(--ckm-ease);
+  }
+}
+
+/*
+ * Scene cards (D15) — the corkboard mounted inside a ckm-dialog.
+ *
+ * The board is the SHARED components/screenplay/Corkboard, so it arrives
+ * carrying the desktop page's own Tailwind utilities. Two of them are wrong in
+ * a dialog, and both are corrected on classes this file owns rather than by
+ * reaching through `.px-6` or `.overflow-y-auto`, which §7.1 forbids:
+ *
+ *   • its `overflow-y: auto` would be a SECOND scroller inside the dialog body's
+ *     — the nested-scroll trap §5.5 names. The dialog body is the one scroll
+ *     surface; the board simply grows inside it.
+ *   • its `px-6 py-8` doubles the dialog body's own padding, which at 320px
+ *     costs 48px of a 272px-wide card.
+ *
+ * The card grid itself is left alone on purpose: `minmax(220px, 1fr)` auto-fill
+ * already resolves to one column at every phone width and two near the 520px
+ * frame cap, which is the reflow we would have written anyway.
+ */
+.ckm .ckm-editor__cards-body {
+  padding: 0;
+}
+
+.ckm .ckm-editor__cards {
+  overflow: visible;
+  padding: var(--ckm-space-4) var(--ckm-space-4) var(--ckm-space-6);
+}
+
+/*
+ * Navigator (D16) — the desktop left rail as a jump list inside a ckm-bottom-sheet.
+ *
+ * Almost nothing is needed here, and that is the point: the sheet, the tab bar,
+ * the list and the rows are all the shared mobile components, so what is left is
+ * the three small indicators the rail has that no generic row does.
+ */
+.ckm .ckm-editor__nav-body {
+  padding-top: 0;
+}
+
+/* The scene number. Tabular figures so a two-digit and a three-digit scene do
+   not shift the headings beside them into different columns. */
+.ckm .ckm-editor__nav-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: var(--ckm-text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--ckm-text-3);
+}
+
+/* The page badge is a page, so it is shaped like one. */
+.ckm .ckm-editor__nav-page {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 36px;
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-sm);
+  background: var(--ckm-bg-fill);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: var(--ckm-text-caption);
+  font-variant-numeric: tabular-nums;
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-editor__nav-page--title {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ckm .ckm-editor__nav-sequence .ckm-row__title {
+  font-size: var(--ckm-text-caption);
+  font-weight: var(--ckm-weight-bold);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-editor__nav-lock {
+  display: inline-flex;
+  align-items: center;
+}
+
+.ckm .ckm-editor__nav-lock .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.ckm .ckm-editor__nav-presence {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.ckm .ckm-editor__nav-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.ckm .ckm-editor__nav-title-action {
+  padding: var(--ckm-space-3) var(--ckm-space-4) 0;
+}
+
+/*
+ * Comments (D17) — the desktop right rail's Comments tab as a bottom sheet.
+ *
+ * The composer, the filter and the threads. Everything interactive is a shared
+ * component (TextArea, SegmentedControl, Button, InlineMessage, EmptyState), so
+ * what is here is the thread card and the quoted anchor — the two shapes the
+ * design system has no equivalent for.
+ */
+.ckm .ckm-editor__comments-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+  padding: 0 var(--ckm-space-4) var(--ckm-space-4);
+  border-bottom: 1px solid var(--ckm-line);
+}
+
+.ckm .ckm-editor__comments-composer-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* The quoted text, in the composer and in a thread. Clamped rather than
+   truncated to one line: a scene heading fits, a line of dialogue does not, and
+   an ellipsis after four words does not tell the writer what they selected. */
+.ckm .ckm-editor__comments-quote,
+.ckm .ckm-editor__comments-anchor {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  font-family: var(--ckm-display);
+  font-size: var(--ckm-text-support);
+  font-style: italic;
+  line-height: 1.45;
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-editor__comments-anchor.is-orphaned {
+  text-decoration: line-through;
+}
+
+.ckm .ckm-editor__comments-orphan {
+  display: block;
+  font-size: var(--ckm-text-caption);
+  font-weight: var(--ckm-weight-bold);
+  color: var(--ckm-editor-warn-text);
+}
+
+.ckm .ckm-editor__comments-filter {
+  padding: var(--ckm-space-4) var(--ckm-space-4) var(--ckm-space-2);
+}
+
+.ckm .ckm-editor__comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-3);
+  margin: 0;
+  padding: 0 var(--ckm-space-4) var(--ckm-space-4);
+  list-style: none;
+}
+
+.ckm .ckm-editor__comments-thread {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+  padding: var(--ckm-space-3);
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-md);
+  background: var(--ckm-bg);
+}
+
+/* The whole note is the jump target, so it is a real button rather than a card
+   with a small "go to" affordance — a 44px link inside a 300px card is a target
+   a thumb has to aim at. */
+.ckm .ckm-editor__comments-jump {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  min-height: var(--ckm-control-h-sm);
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ckm .ckm-editor__comments-body {
+  font-size: var(--ckm-text-support);
+  line-height: 1.5;
+  color: var(--ckm-text);
+}
+
+.ckm .ckm-editor__comments-author {
+  font-size: var(--ckm-text-caption);
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-editor__comments-reply {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding-left: var(--ckm-space-3);
+  border-left: 2px solid var(--ckm-line);
+}
+
+.ckm .ckm-editor__comments-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ckm-space-2);
+}
+
+.ckm .ckm-editor__comments-delete {
+  margin-left: auto;
+}
+
+.ckm .ckm-editor__comments-replybox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+}
+
+/*
+ * People (D18) — the desktop right rail's People tab as a full-screen dialog.
+ *
+ * Three row shapes: a live-presence row (dot + who + what they are doing), an
+ * access row (who + role + what they may do + the owner's controls), and the
+ * warning a destructive action shows before it happens.
+ */
+.ckm .ckm-editor__people-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-3);
+  padding: var(--ckm-space-4) 0;
+  border-bottom: 1px solid var(--ckm-line);
+}
+
+.ckm .ckm-editor__people-section:last-child {
+  border-bottom: 0;
+}
+
+.ckm .ckm-editor__people-heading {
+  margin: 0;
+  font-family: var(--ckm-body);
+  font-size: var(--ckm-text-caption);
+  font-weight: var(--ckm-weight-bold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-editor__people-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ckm .ckm-editor__person {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+  padding: var(--ckm-space-3);
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-md);
+  background: var(--ckm-bg);
+}
+
+/* A pending invite is a different KIND of row, not a dimmer one: it is stated
+   in words ("Invited — not accepted yet") and the tint only supports that. */
+.ckm .ckm-editor__person.is-pending {
+  border-color: var(--ckm-gold);
+  background: var(--ckm-gold-bg-2);
+}
+
+.ckm .ckm-editor__person--live {
+  flex-direction: row;
+  align-items: center;
+}
+
+.ckm .ckm-editor__person-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ckm-text-3);
+}
+
+.ckm .ckm-editor__person-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ckm-space-2);
+}
+
+.ckm .ckm-editor__person-who {
+  min-width: 0;
+  flex: 1;
+}
+
+.ckm .ckm-editor__person-name {
+  margin: 0;
+  font-size: var(--ckm-text-support);
+  font-weight: var(--ckm-weight-bold);
+  color: var(--ckm-text);
+  overflow-wrap: anywhere;
+}
+
+/* An email is the one string here that genuinely cannot be shortened without
+   changing what it says, so it wraps rather than truncating. */
+.ckm .ckm-editor__person-email,
+.ckm .ckm-editor__person-access {
+  margin: 0;
+  font-size: var(--ckm-text-caption);
+  color: var(--ckm-text-3);
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-editor__person-role {
+  flex: none;
+  padding: 2px var(--ckm-space-2);
+  border-radius: 999px;
+  background: var(--ckm-track);
+  font-size: var(--ckm-text-micro);
+  font-weight: var(--ckm-weight-bold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ckm-text-2);
+}
+
+.ckm .ckm-editor__person-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: var(--ckm-space-2);
+}
+
+.ckm .ckm-editor__person-warn {
+  margin: 0;
+  font-size: var(--ckm-text-caption);
+  line-height: 1.45;
+  color: var(--ckm-editor-warn-text);
+}
+
+.ckm .ckm-editor__people-invite-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/*
+ * Version history (D19) — the desktop modal, as a ckm-dialog with two views.
+ */
+.ckm .ckm-editor__versions-save,
+.ckm .ckm-editor__versions-diff {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-3);
+  padding: var(--ckm-space-4) 0;
+}
+
+.ckm .ckm-editor__versions-save {
+  border-bottom: 1px solid var(--ckm-line);
+}
+
+.ckm .ckm-editor__versions-save-actions,
+.ckm .ckm-editor__versions-diff-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--ckm-space-2);
+}
+
+.ckm .ckm-editor__versions-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+  margin: 0;
+  padding: var(--ckm-space-4) 0;
+  list-style: none;
+}
+
+.ckm .ckm-editor__version {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--ckm-space-3);
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-md);
+  background: var(--ckm-bg);
+}
+
+.ckm .ckm-editor__version-title {
+  margin: 0;
+  font-size: var(--ckm-text-support);
+  font-weight: var(--ckm-weight-bold);
+  color: var(--ckm-text);
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-editor__version-meta,
+.ckm .ckm-editor__version-summary {
+  margin: 0;
+  font-size: var(--ckm-text-caption);
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-editor__version-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ckm-space-2);
+  margin-top: 4px;
+}
+
+/* The explanation a restore shows before it happens. Not a warning colour: the
+   thing it says is that nothing is lost. */
+.ckm .ckm-editor__versions-explain {
+  margin: 0;
+  font-size: var(--ckm-text-caption);
+  line-height: 1.45;
+  color: var(--ckm-text-2);
+}
+
+/*
+ * The diff. A monospace block that scrolls SIDEWAYS rather than wrapping:
+ * a screenplay line is meaningful as a line, and soft-wrapping a diff makes an
+ * added line and a wrapped continuation look identical.
+ */
+.ckm .ckm-editor__diff {
+  margin: 0;
+  padding: var(--ckm-space-2);
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-sm);
+  background: var(--ckm-bg-fill);
+  list-style: none;
+  overflow-x: auto;
+}
+
+.ckm .ckm-editor__diff-line {
+  display: flex;
+  gap: var(--ckm-space-2);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: var(--ckm-text-micro);
+  line-height: 1.6;
+  white-space: pre;
+}
+
+.ckm .ckm-editor__diff-mark {
+  flex: none;
+  width: 1ch;
+  opacity: 0.7;
+}
+
+/* Colour is never the only signal: every line keeps its +/− mark, and the
+   screen-reader text says "Added"/"Removed" in words. */
+.ckm .ckm-editor__diff-line--add {
+  color: var(--ckm-editor-add-text);
+}
+
+.ckm .ckm-editor__diff-line--remove {
+  color: var(--ckm-red);
+}
+
+.ckm .ckm-editor__diff-line--same {
+  color: var(--ckm-text-3);
+}
+
+/*
+ * Reports (D20) — a dialog, not the desktop rail squeezed into the frame.
+ *
+ * The dialog body is the one scroll surface. Nothing below declares its own
+ * overflow, so a sixty-scene report never becomes a scroller inside a scroller.
+ */
+.ckm .ckm-editor__reports-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-4);
+}
+
+.ckm .ckm-editor__report-tools {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: var(--ckm-space-3);
+}
+
+.ckm .ckm-editor__report-sort {
+  min-width: 0;
+}
+
+.ckm .ckm-editor__report-downloads {
+  display: flex;
+  gap: var(--ckm-space-2);
+}
+
+.ckm .ckm-editor__report-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ckm .ckm-editor__report-row {
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-md);
+  background: var(--ckm-bg);
+}
+
+.ckm .ckm-editor__report-row--static {
+  padding: var(--ckm-space-3);
+}
+
+.ckm .ckm-editor__report-scene {
+  display: flex;
+  width: 100%;
+  min-height: var(--ckm-touch-target);
+  flex-direction: column;
+  gap: var(--ckm-space-3);
+  padding: var(--ckm-space-3);
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.ckm .ckm-editor__report-scene:active {
+  background: var(--ckm-bg-soft);
+}
+
+.ckm .ckm-editor__report-scene:focus-visible {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: var(--ckm-focus-ring-offset);
+}
+
+.ckm .ckm-editor__report-row-head,
+.ckm .ckm-editor__report-character {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--ckm-space-2);
+}
+
+.ckm .ckm-editor__report-number,
+.ckm .ckm-editor__report-avatar {
+  flex: none;
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--ckm-track);
+  color: var(--ckm-text-2);
+  font-size: var(--ckm-text-caption);
+  font-weight: var(--ckm-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.ckm .ckm-editor__report-avatar {
+  background: var(--ckm-ink);
+  color: var(--ckm-on-dark);
+}
+
+.ckm .ckm-editor__report-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  font-weight: var(--ckm-weight-bold);
+  color: var(--ckm-text);
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-editor__report-chevron {
+  flex: none;
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-editor__report-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ckm-space-2);
+}
+
+.ckm .ckm-editor__report-row--static .ckm-editor__report-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: var(--ckm-space-3);
+}
+
+.ckm .ckm-editor__report-metric {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.ckm .ckm-editor__report-metric-value {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  font-weight: var(--ckm-weight-bold);
+  color: var(--ckm-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.ckm .ckm-editor__report-metric-label {
+  font-size: var(--ckm-text-micro);
+  line-height: var(--ckm-leading-micro);
+  font-weight: var(--ckm-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ckm-text-3);
+}
+
+@media (max-width: 359px) {
+  .ckm .ckm-editor__report-tools {
+    grid-template-columns: 1fr;
+  }
+
+  .ckm .ckm-editor__report-downloads .ckm-button {
+    flex: 1;
   }
 }

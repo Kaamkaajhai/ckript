@@ -55,8 +55,8 @@ export default function Wizard() {
   const {
     competitionMode, creationBlocked, detailsStep, detailsSubSteps, drafts, error,
     exiting, handleBack, handleExitEditor, handleNext, handlePublish, hasPublishAccess,
-    lastSaved, legal, loading, rightsLicensing, saved, saving, setError, setStep, step, title,
-    pendingRecovery, acceptPendingRecovery, dismissPendingRecovery,
+    lastSaved, legal, loading, mediaUploadActive, rightsLicensing, saved, saving, setError, setStep, step, title,
+    pendingMediaRecovery, pendingRecovery, acceptPendingRecovery, dismissPendingRecovery,
   } = useCreateProject();
 
   const [overflowOpen, setOverflowOpen] = useState(false);
@@ -73,6 +73,8 @@ export default function Wizard() {
     ownershipConfirmed: Boolean(rightsLicensing?.legalAcknowledgement?.ownershipConfirmed),
     hasPublishAccess,
     exiting,
+    mediaRecoveryPending: Boolean(pendingMediaRecovery),
+    mediaUploadActive,
   });
 
   const recoveredAt = pendingRecovery?.updatedAt
@@ -203,6 +205,30 @@ export default function Wizard() {
           action={<Button size="sm" to="/pricing">View plans</Button>}
         >
           You can keep editing this project, but publishing another one needs an upgraded plan.
+        </InlineMessage>
+      )}
+
+      {pendingMediaRecovery && (
+        <InlineMessage
+          tone="warning"
+          variant="panel"
+          title="Your project is saved, but some media did not upload."
+          className="ckm-create-project__notice"
+        >
+          Replace or remove the highlighted files below, then use
+          &ldquo;Retry the media upload&rdquo;. Nothing else needs re-entering.
+        </InlineMessage>
+      )}
+
+      {mediaUploadActive && !pendingMediaRecovery && (
+        <InlineMessage
+          tone="info"
+          variant="panel"
+          title="Your project is saved. Media is uploading now."
+          className="ckm-create-project__notice"
+        >
+          Keep Ckript open until every selected file says Uploaded. A failed file can be retried
+          without submitting the project again.
         </InlineMessage>
       )}
 

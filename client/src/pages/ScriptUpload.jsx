@@ -20,6 +20,7 @@ import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { SCRIPT_UPLOAD_TERMS_TEXT, SCRIPT_UPLOAD_TERMS_VERSION } from "../constants/scriptUploadTerms";
 import { DRAFT_ENDPOINT } from "./CreateProject/constants";
 import { encodeKeepaliveBody } from "./CreateProject/lib/keepaliveSave";
+import { mergeMediaProgress, uploadProjectMedia } from "./CreateProject/lib/projectMediaUpload";
 import {
   buildUploadWorkingDraftSnapshot,
   chooseUploadWorkingDraftRecovery,
@@ -2247,65 +2248,18 @@ const ScriptUpload = ({
    * `services/api.js` already exports an axios instance. Shared code, so both
    * platforms get it.
    */
-  const trackMediaProgress = (type, next) => setMediaProgress((current) => ({
-    ...current,
-    [type]: { ...(current[type] || {}), ...next },
-  }));
-
-  const postMedia = (type, url, formData) => {
-    trackMediaProgress(type, { percent: 0, status: "uploading" });
-    return api.post(url, formData, {
-      onUploadProgress: (event) => {
-        // `event.total` is absent when the body length is unknown (a stream, or
-        // a proxy that strips it). A percentage computed from an unknown total
-        // is the invented number DEF-9 is about, so the bar simply stays where
-        // it is and the caller keeps showing "uploading".
-        if (!event.total) return;
-        trackMediaProgress(type, {
-          percent: Math.min(100, Math.round((event.loaded / event.total) * 100)),
-          status: "uploading",
-        });
-      },
-    }).then(
-      (response) => { trackMediaProgress(type, { percent: 100, status: "done" }); return response; },
-      (error) => { trackMediaProgress(type, { status: "failed" }); throw error; },
-    );
-  };
-
   const uploadMediaForScript = async (targetScriptId, requestedTypes = null) => {
-    const shouldUpload = (type) => !Array.isArray(requestedTypes) || requestedTypes.includes(type);
-    const mediaTasks = [];
-
-    if (thumbnailFile && shouldUpload("thumbnail")) {
-      const thumbnailFormData = new FormData();
-      thumbnailFormData.append("thumbnail", thumbnailFile);
-      mediaTasks.push({
-        type: "thumbnail",
-        request: postMedia("thumbnail", `/scripts/${targetScriptId}/upload-thumbnail`, thumbnailFormData),
-      });
-    }
-
-    if (trailerFile && trailerOption === "upload" && shouldUpload("trailer")) {
-      const trailerFormData = new FormData();
-      trailerFormData.append("trailer", trailerFile);
-      mediaTasks.push({
-        type: "trailer",
-        request: postMedia("trailer", `/scripts/${targetScriptId}/upload-trailer`, trailerFormData),
-      });
-    }
-
-    if (pitchVideoFile && shouldUpload("pitchVideo")) {
-      const pitchFormData = new FormData();
-      pitchFormData.append("pitchVideo", pitchVideoFile);
-      mediaTasks.push({
-        type: "pitchVideo",
-        request: postMedia("pitchVideo", `/scripts/${targetScriptId}/upload-pitch-video`, pitchFormData),
-      });
-    }
-
-    if (mediaTasks.length === 0) return [];
-    const results = await Promise.allSettled(mediaTasks.map((task) => task.request));
-    return results.flatMap((result, index) => result.status === "rejected" ? [mediaTasks[index].type] : []);
+    return uploadProjectMedia({
+      apiClient: api,
+      targetScriptId,
+      requestedTypes,
+      files: {
+        thumbnail: thumbnailFile,
+        trailer: trailerOption === "upload" ? trailerFile : null,
+        pitchVideo: pitchVideoFile,
+      },
+      onProgress: (type, next) => mergeMediaProgress(setMediaProgress, type, next),
+    });
   };
 
   const handleSubmit = async (e) => {

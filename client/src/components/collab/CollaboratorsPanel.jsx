@@ -1,79 +1,27 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import api from "../../services/api";
+import { useState } from "react";
 import InviteModal from "./InviteModal";
 import { getCollabRoleLabel } from "../../constants/collabRoles";
-
-const getCollaboratorUserId = (entry) => String(
-  entry?.user?._id
-  || entry?.user
-  || entry?.userId?._id
-  || entry?.userId
-  || ""
-);
-const dedupeCollaborators = (entries = []) => {
-  const seen = new Set();
-  return (Array.isArray(entries) ? entries : []).filter((entry) => {
-    const userId = getCollaboratorUserId(entry);
-    const status = String(entry?.status || "");
-    const key = `${userId}:${status}`;
-    if (!userId || seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-};
+import useCollaborators, { getCollaboratorUserId } from "./useCollaborators";
 
 export default function CollaboratorsPanel({ scriptId, currentUserId, compact = false, dark = false }) {
-  const [data, setData] = useState({ collaborators: [], ownerId: "", collabVisibility: "private" });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
   const [showInviteModal, setShowInviteModal] = useState(false);
+  /* DEF-14 — removing a collaborator was a single click with no confirmation,
+     on a control sitting next to a role dropdown. It revokes another person's
+     access to the script and the only way back is a fresh invitation they have
+     to accept. The row now asks; "Remove" becomes "Confirm remove" until it is
+     pressed a second time or something else is clicked. */
+  const [confirmRemove, setConfirmRemove] = useState(null);
 
-  const isOwner = currentUserId && data.ownerId === currentUserId;
+  const {
+    loading, error, isOwner,
+    active: activeCollaborators, pending: pendingInvites,
+    reload: loadCollaborators, updateRole, remove: removeCollaborator, collabVisibility,
+  } = useCollaborators(scriptId, currentUserId);
 
-  const loadCollaborators = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError("");
-      const response = await api.get(`/collab/${scriptId}/collaborators`);
-      setData(response.data);
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to load collaborators");
-    } finally {
-      setLoading(false);
-    }
-  }, [scriptId]);
-
-  useEffect(() => {
-    if (scriptId) loadCollaborators();
-  }, [scriptId, loadCollaborators]);
-  
-
-  const pendingInvites = useMemo(
-    () => dedupeCollaborators(data.collaborators.filter((entry) => entry.status === "pending" && entry.isActive)),
-    [data.collaborators]
-  );
-
-  const activeCollaborators = useMemo(
-    () => dedupeCollaborators(data.collaborators.filter((entry) => entry.status !== "pending" && entry.isActive)),
-    [data.collaborators]
-  );
-
-  const updateRole = async (userId, collaboratorRole, accessLevel) => {
-    try {
-      await api.patch(`/collab/${scriptId}/collaborators/${userId}/role`, { role: collaboratorRole, accessLevel });
-      loadCollaborators();
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to update collaborator access");
-    }
-  };
-
-  const removeCollaborator = async (userId) => {
-    try {
-      await api.delete(`/collab/${scriptId}/collaborators/${userId}`);
-      loadCollaborators();
-    } catch (err) {
-      setError(err.response?.data?.error || "Failed to remove collaborator");
-    }
+  const askRemove = (key) => {
+    if (confirmRemove !== key) { setConfirmRemove(key); return; }
+    setConfirmRemove(null);
+    removeCollaborator(key);
   };
 
   if (loading) {
@@ -95,7 +43,7 @@ export default function CollaboratorsPanel({ scriptId, currentUserId, compact = 
         <div className="mb-5 flex items-center justify-between gap-3">
           <div>
             <h3 className={`text-lg font-bold ${dark ? "text-gray-200" : "text-gray-900"}`}>Collaborators</h3>
-            <p className={`text-sm ${dark ? "text-gray-500" : "text-gray-500"}`}>Visibility: {data.collabVisibility}</p>
+            <p className={`text-sm ${dark ? "text-gray-500" : "text-gray-500"}`}>Visibility: {collabVisibility}</p>
           </div>
           {isOwner ? (
             <button
@@ -134,10 +82,10 @@ export default function CollaboratorsPanel({ scriptId, currentUserId, compact = 
                     <option value="content_only">Content</option>
                   </select>
                   <button
-                    onClick={() => removeCollaborator(getCollaboratorUserId(entry) || entry.invitedEmail)}
+                    onClick={() => askRemove(getCollaboratorUserId(entry) || entry.invitedEmail)}
                     className={`rounded-xl px-2 py-1 text-xs font-semibold transition ${dark ? "bg-red-500/10 text-red-400 hover:bg-red-500/20" : "bg-red-50 text-red-600 hover:bg-red-100"}`}
                   >
-                    Remove
+                    {confirmRemove === (getCollaboratorUserId(entry) || entry.invitedEmail) ? "Confirm remove" : "Remove"}
                   </button>
                 </div>
               ) : (
@@ -161,10 +109,10 @@ export default function CollaboratorsPanel({ scriptId, currentUserId, compact = 
                   </div>
                   {isOwner && (
                     <button
-                      onClick={() => removeCollaborator(getCollaboratorUserId(entry) || entry.invitedEmail)}
+                      onClick={() => askRemove(getCollaboratorUserId(entry) || entry.invitedEmail)}
                       className={`shrink-0 rounded-xl px-2 py-1 text-[11px] font-bold transition ${dark ? "bg-red-500/10 text-red-400 hover:bg-red-500/20" : "bg-red-50 text-red-600 hover:bg-red-100"}`}
                     >
-                      Cancel
+                      {confirmRemove === (getCollaboratorUserId(entry) || entry.invitedEmail) ? "Confirm" : "Cancel"}
                     </button>
                   )}
                 </div>

@@ -63,6 +63,7 @@ const baseContext = (overrides = {}) => ({
   thumbnailFile: null, thumbnailPreviewUrl: "", trailerFile: null, trailerPreviewUrl: "",
   trailerMeta: null, trailerMetaLoading: false, pitchVideoFile: null, pitchVideoPreviewUrl: "",
   pitchVideoMeta: null, pitchVideoMetaLoading: false,
+  mediaProgress: {},
   handleThumbnailSelect: vi.fn(), handleTrailerSelect: vi.fn(), handlePitchVideoSelect: vi.fn(),
   setThumbnailFile: vi.fn(), setTrailerFile: vi.fn(), setPitchVideoFile: vi.fn(), setError: vi.fn(),
   downloadWatermarkedImage: vi.fn(), formatDuration: () => "0s", generateAiCover: vi.fn(),
@@ -268,6 +269,30 @@ describe("Media panel", () => {
   it("drops the trailer slot on the publishing track", () => {
     render(DETAILS_PANELS.media, baseContext({ targetFilm: false }));
     expect(document.body.textContent).not.toMatch(/Trailer video/i);
+  });
+
+  it("renders the orchestrator's real per-file progress in the matching slot", () => {
+    render(DETAILS_PANELS.media, baseContext({
+      thumbnailFile: { name: "cover.jpg", size: 1024 },
+      thumbnailPreviewUrl: "blob:cover",
+      mediaProgress: { thumbnail: { percent: 63, status: "uploading" } },
+    }));
+
+    const bar = document.querySelector("progress");
+    expect(bar.value).toBe(63);
+    expect(bar.getAttribute("aria-label")).toBe("Cover image upload progress");
+    expect(document.querySelector(".ckm-media__progress-value").textContent).toBe("Uploading 63%");
+  });
+
+  it("names a failed upload in text instead of relying on the bar colour", () => {
+    render(DETAILS_PANELS.media, baseContext({
+      trailerFile: { name: "trailer.mp4", size: 1024 },
+      trailerPreviewUrl: "blob:trailer",
+      mediaProgress: { trailer: { percent: 87, status: "failed" } },
+    }));
+
+    expect(document.querySelector(".ckm-media__progress--failed")).toBeTruthy();
+    expect(document.body.textContent).toMatch(/upload failed/i);
   });
 });
 
