@@ -387,6 +387,7 @@
 .su-alert--limit > span { display: flex; flex-direction: column; gap: 2px; }
 .su-alert--limit small { font-size: 11.5px; }
 .su-alert--limit a { width: fit-content; margin-top: 5px; color: var(--su-accent); font-weight: 700; }
+.su-alert--limit button { width: fit-content; min-height: 40px; margin-top: 5px; padding: 0 12px; border: 1px solid currentColor; border-radius: 9px; color: var(--su-accent); font-weight: 700; }
 
 .script-upload-workspace [data-upload-field-error="true"] {
   border-color: rgba(190,54,39,.76) !important;

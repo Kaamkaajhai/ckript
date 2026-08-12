@@ -613,7 +613,7 @@ function MediaPanel() {
   const {
     aiCoverRemaining, aiCoverHistory, aiCoverIndex, downloadWatermarkedImage, formatDuration,
     generateAiCover, handlePitchVideoSelect, handleThumbnailSelect, handleTrailerSelect,
-    isGeneratingAiCover, openThumbnailEditor, pitchVideoFile, pitchVideoMeta, pitchVideoMetaLoading,
+    isGeneratingAiCover, mediaProgress, openThumbnailEditor, pitchVideoFile, pitchVideoMeta, pitchVideoMetaLoading,
     pitchVideoPreviewUrl, setAiCoverIndex, setError, setPitchVideoFile, setThumbnailFile,
     setTrailerFile, targetFilm, thumbnailFile, thumbnailPreviewUrl, trailerFile, trailerMeta,
     trailerMetaLoading, trailerPreviewUrl, user,
@@ -646,6 +646,7 @@ function MediaPanel() {
         file={thumbnailFile}
         previewUrl={thumbnailPreviewUrl}
         previewKind="image"
+        progress={mediaProgress?.thumbnail || null}
         onSelect={handleThumbnailSelect}
         onRemove={() => { setThumbnailFile(null); setError(""); }}
         actions={thumbnailFile ? [
@@ -714,6 +715,7 @@ function MediaPanel() {
           meta={trailerMetaLoading
             ? "reading…"
             : trailerMeta ? `${formatDuration(trailerMeta.duration)} · ${trailerMeta.width}×${trailerMeta.height}` : ""}
+          progress={mediaProgress?.trailer || null}
           onSelect={handleTrailerSelect}
           onRemove={() => { setTrailerFile(null); setError(""); }}
         />
@@ -738,6 +740,7 @@ function MediaPanel() {
           previewUrl={pitchVideoPreviewUrl}
           previewKind="video"
           meta={pitchVideoMetaLoading ? "reading…" : pitchVideoMeta ? formatDuration(pitchVideoMeta.duration) : ""}
+          progress={mediaProgress?.pitchVideo || null}
           onSelect={handlePitchVideoSelect}
           onRemove={() => { setPitchVideoFile(null); setError(""); }}
         />

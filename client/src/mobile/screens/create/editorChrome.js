@@ -111,9 +111,29 @@ export const EDITOR_FORMAT_CONTROLS = Object.freeze([
  * entry that does nothing is the placeholder dead end §2.8 forbids.
  *
  * Built here (Phase 3 bullet 2): the writing-surface controls and the two exits.
- * Bullet 4 adds Navigator, Corkboard, Comments, People, Reports, Outline notes,
- * Title page and Version history — each a `ckm-bottom-sheet`, each appended to
- * this array with its own `capability` guard.
+ * Added 2026-08-11: Scene cards, Navigator, Comments, People and Version
+ * history. Added 2026-08-12: Reports, the last surface named by bullet 4.
+ * (Title page lives in the Navigator's Pages tab, which is where desktop puts
+ * it and where DEF-13 shows it was missing.)
+ *
+ * D15 (2026-08-11) — A CORRECTION TO D5: THE CORKBOARD IS NOT A SHEET.
+ *
+ * D5 says "every desktop rail becomes a bottom sheet", and for the rails that is
+ * right. The corkboard is not a rail. On desktop it is `centerView === "cards"`
+ * — the OTHER HALF OF A VIEW SWITCH, which replaces the script page rather than
+ * sitting beside it. Our own primitives say what that makes it: Sheet.jsx is
+ * documented for "a short, contextual task ... the strip of scrim above it is
+ * what says the thing you were doing is still there", and a board of sixty index
+ * cards that the writer restructures a screenplay in is not that. Dialog.jsx is
+ * documented for "a task that REPLACES the screen for its duration ... picking
+ * from a long filtered list", and it is not a route because the desktop view is
+ * component state with no URL of its own (§5.2 — nothing here is addressable).
+ *
+ * So Scene cards is listed here with the sheet items, and opens a `ckm-dialog`.
+ * The guard is `useScreenplayEditor`, not `canEditContent`: a reader who cannot
+ * edit can still want to see the shape of the script, and the board's own
+ * `canEdit` already withholds every control that writes. Prose mode is the real
+ * exclusion — a book format has no sluglines, so the board would be empty.
  *
  * Descriptors only: which items exist, and what each one says. The handlers are
  * attached by the screen, keyed on `id`. That split is what keeps this function
@@ -127,8 +147,98 @@ export function buildEditorOverflowItems({
   hasFullAccess = false,
   competitionMode = false,
   exporting = false,
+  useScreenplayEditor = false,
+  openComments = 0,
+  commentsEnabled = false,
+  livePeople = 0,
 } = {}) {
   const items = [];
+
+  /*
+   * The two ways to move around a long script come first, because they are what
+   * a writer reaches the overflow for most often once a draft exists — import
+   * and export are session bookends. Navigator before Scene cards: jumping to a
+   * scene is the everyday act, restructuring the script is the occasional one.
+   *
+   * Both are guarded on `useScreenplayEditor` rather than `canEditContent` — a
+   * reader who cannot edit still needs to navigate, and each surface withholds
+   * its own writing controls. Prose mode is the real exclusion, since a book
+   * format has neither sluglines nor screenplay pages.
+   */
+  if (useScreenplayEditor) {
+    items.push({
+      id: "navigator",
+      label: "Navigator",
+      hint: "Jump to a scene or a page",
+      icon: "list",
+    });
+    items.push({
+      id: "cards",
+      label: "Scene cards",
+      hint: "See the shape of the script, and reorder it",
+      icon: "dashboard",
+    });
+    items.push({
+      id: "reports",
+      label: "Reports",
+      hint: "Scene and character summaries",
+      icon: "assessment",
+    });
+  }
+
+  /*
+   * Comments is the one item whose HINT carries live state. Desktop shows the
+   * open count on the rail tab, which is visible the whole time; behind an
+   * overflow menu the count is the only thing that tells a writer there is
+   * anything to look at without opening it. Zero is stated rather than hidden,
+   * because "no open comments" and "I have not counted" are different answers.
+   *
+   * `commentsEnabled` is a collaboration capability, not an editing one — a
+   * reader with comment access can comment on a script they cannot edit, and a
+   * writer with neither still needs to READ the notes on their own draft, which
+   * is why the item appears whenever the surface exists at all.
+   */
+  if (commentsEnabled) {
+    items.push({
+      id: "comments",
+      label: "Comments",
+      hint: openComments === 1 ? "1 open note" : `${openComments} open notes`,
+      icon: "chat_bubble",
+    });
+
+    /*
+     * People sits beside Comments because they are the same conversation: who
+     * is on this script, and what they have said about it. Its hint counts the
+     * people IN the document right now rather than the access list, because
+     * "two people are here" is what changes minute to minute and what a writer
+     * opens it to check; the access list changes once a month.
+     */
+    /*
+     * Version history sits with the collaboration items rather than beside
+     * Export, because on a shared script "what did it look like on Tuesday" and
+     * "who changed it" are the same question.
+     *
+     * ITS HINT IS STATIC, AND THAT IS DELIBERATE. Comments can say "3 open
+     * notes" because the orchestrator already holds them; the version list does
+     * not exist until something asks the server for it, and fetching it on every
+     * editor mount to populate a line of menu text is the duplicate, noncritical
+     * request §15 forbids. The count appears inside the dialog, where the data
+     * actually is.
+     */
+    items.push({
+      id: "versions",
+      label: "Version history",
+      hint: "Snapshots you can come back to",
+      icon: "history",
+    });
+
+    items.push({
+      id: "people",
+      label: "People",
+      hint: livePeople === 1 ? "1 person here now" : `${livePeople} people here now`,
+      icon: "group",
+    });
+  }
 
   if (canImport) {
     items.push({

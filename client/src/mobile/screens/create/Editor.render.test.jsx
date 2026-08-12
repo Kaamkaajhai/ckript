@@ -26,6 +26,17 @@ vi.mock("../../../components/screenplay/ScreenplayFocusMode", () => ({
 vi.mock("@tiptap/react", () => ({
   EditorContent: () => <div data-testid="prose-editor" />,
 }));
+/* PeopleDialog reads through the SHARED `useCollaborators` hook, so the seam to
+   stub is the service, not the component — which is also what makes these tests
+   prove the mobile surface really goes through the same four endpoints. */
+const { collabApi, reportDownload } = vi.hoisted(() => ({
+  collabApi: { get: vi.fn(), patch: vi.fn(), delete: vi.fn(), post: vi.fn() },
+  reportDownload: vi.fn(),
+}));
+vi.mock("../../../services/api", () => ({ default: collabApi }));
+vi.mock("../../../components/screenplay/screenplayReportExport", () => ({
+  downloadScreenplayReport: reportDownload,
+}));
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -67,7 +78,7 @@ const baseContext = (overrides = {}) => ({
   saved: false,
   saving: false,
   sceneComments: [],
-  screenplayApiRef: { current: { setElementType: vi.fn(), applyEmphasis: vi.fn(), applyCase: vi.fn(), applyCentered: vi.fn() } },
+  screenplayApiRef: { current: { setElementType: vi.fn(), applyEmphasis: vi.fn(), applyCase: vi.fn(), applyCentered: vi.fn(), scrollToLine: vi.fn() } },
   screenplayEnabled: true,
   screenplayFileInputRef: { current: null },
   screenplayValue: "",
@@ -89,8 +100,38 @@ const baseContext = (overrides = {}) => ({
   pendingRecovery: null,
   acceptPendingRecovery: vi.fn(),
   dismissPendingRecovery: vi.fn(),
+  sceneSynopses: {},
+  handleSynopsisChange: vi.fn(),
+  handleReorderScene: vi.fn(),
+  presenceBySceneId: {},
+  outlineWithSceneIds: [],
+  presenceEnabled: true,
+  canComment: true,
+  handleAddComment: vi.fn(async () => true),
+  handleReplyComment: vi.fn(),
+  handleFocusComment: vi.fn(),
+  setCommentResolved: vi.fn(),
+  deleteSceneComment: vi.fn(),
+  isCommentOrphaned: vi.fn(() => false),
+  collabPeople: [],
+  scriptId: "s1",
+  setScreenplayValue: vi.fn(),
   ...overrides,
 });
+
+/* Two scenes and a title block, so the board has something to reorder and the
+   frontmatter that must never become a card is present. */
+const SCRIPT = [
+  "Title: The Board",
+  "",
+  "INT. KITCHEN - DAY",
+  "",
+  "Ana burns the toast.",
+  "",
+  "EXT. STREET - NIGHT",
+  "",
+  "She walks.",
+].join("\n");
 
 const render = (ctx) => {
   container = document.createElement("div");
@@ -382,5 +423,723 @@ describe("Editor — the dock is wired to the engine", () => {
     const ctx = baseContext({ screenplayApiRef: { current: null } });
     render(ctx);
     expect(() => click(control("Scene"))).not.toThrow();
+  });
+});
+
+describe("Editor — Scene cards (D15)", () => {
+  const openCards = (ctx) => {
+    render(ctx);
+    click(control("More editor actions"));
+    click(control("Scene cards"));
+  };
+
+  it("offers Scene cards in the overflow, and opens the board as a DIALOG not a sheet", () => {
+    openCards(baseContext({ screenplayValue: SCRIPT }));
+    const dialog = document.querySelector(".ckm-dialog");
+    expect(dialog).toBeTruthy();
+    // The distinction is the whole of D15, so it is asserted rather than assumed:
+    // a bottom sheet cannot cover the frame, and this surface must.
+    expect(document.querySelector(".ckm-bottom-sheet")).toBeFalsy();
+    expect(dialog.getAttribute("role")).toBe("dialog");
+    expect(document.querySelector(".ckm-dialog__title").textContent).toBe("Scene cards");
+  });
+
+  it("draws one card per scene and never a card for the title block", () => {
+    openCards(baseContext({ screenplayValue: SCRIPT }));
+    const headings = Array.from(document.querySelectorAll('[data-cork-control="heading"]'));
+    expect(headings.map((el) => el.textContent)).toEqual([
+      "INT. KITCHEN - DAY",
+      "EXT. STREET - NIGHT",
+    ]);
+  });
+
+  it("hands a reorder to the orchestrator's shared handler, not to a mobile copy", () => {
+    const ctx = baseContext({ screenplayValue: SCRIPT });
+    openCards(ctx);
+    click(document.querySelector('[data-cork-index="0"][data-cork-control="down"]'));
+    expect(ctx.handleReorderScene).toHaveBeenCalledWith(0, 1);
+  });
+
+  it("carries the accessible reorder path onto the phone (DEF-3), which is why it can be here at all", () => {
+    openCards(baseContext({ screenplayValue: SCRIPT }));
+    // Touch fires no drag events, so these three ARE the mobile reorder path.
+    expect(document.querySelector('[data-cork-index="0"][data-cork-control="down"]')).toBeTruthy();
+    expect(document.querySelector('[data-cork-index="1"][data-cork-control="up"]')).toBeTruthy();
+    expect(document.querySelector('[data-cork-index="1"][data-cork-control="position"]')).toBeTruthy();
+    expect(document.querySelector('[data-testid="corkboard-announcer"]')).toBeTruthy();
+  });
+
+  it("edits a synopsis through the shared handler", () => {
+    const ctx = baseContext({ screenplayValue: SCRIPT });
+    openCards(ctx);
+    const textarea = document.querySelector(".ckm-editor__cards textarea");
+    act(() => {
+      Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")
+        .set.call(textarea, "Ana ruins breakfast.");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(ctx.handleSynopsisChange).toHaveBeenCalledWith("INT. KITCHEN - DAY", "Ana ruins breakfast.");
+  });
+
+  it("closes the board FIRST, then scrolls the page to the scene", async () => {
+    const ctx = baseContext({ screenplayValue: SCRIPT });
+    ctx.screenplayApiRef.current.scrollToLine = vi.fn();
+    openCards(ctx);
+    click(document.querySelector('[data-cork-index="1"][data-cork-control="heading"]'));
+
+    // The ordering is the assertion, not decoration: moving the caret under a
+    // surface the writer is still looking at is the bug it exists to avoid. If
+    // the scroll were inline it would already have run by now.
+    expect(ctx.screenplayApiRef.current.scrollToLine).not.toHaveBeenCalled();
+
+    await act(async () => { await new Promise((resolve) => requestAnimationFrame(resolve)); });
+    // Line 7 is EXT. STREET - NIGHT's slugline in SCRIPT — the scene's own start,
+    // not the card's index.
+    expect(ctx.screenplayApiRef.current.scrollToLine).toHaveBeenCalledWith(7);
+  });
+
+  it("keeps the board out of prose mode, where a book format has no sluglines", () => {
+    render(baseContext({ useScreenplayEditor: false, screenplayEnabled: false, screenplayValue: SCRIPT }));
+    click(control("More editor actions"));
+    expect(control("Scene cards")).toBeFalsy();
+  });
+
+  it("shows a read-only viewer the shape of the script, with no control that writes", () => {
+    openCards(baseContext({ screenplayValue: SCRIPT, canEditContent: false }));
+    expect(document.querySelectorAll('[data-cork-control="heading"]')).toHaveLength(2);
+    expect(document.querySelector('[data-cork-control="down"]')).toBeFalsy();
+    expect(document.querySelector(".ckm-editor__cards textarea").disabled).toBe(true);
+  });
+
+  it("says so rather than drawing an empty grid when there are no scenes yet", () => {
+    openCards(baseContext({ screenplayValue: "Just some notes, no slugline yet." }));
+    expect(document.querySelector(".ckm-dialog__body").textContent)
+      .toContain("No scenes yet.");
+    expect(document.querySelector('[data-cork-control="heading"]')).toBeFalsy();
+  });
+
+  it("neutralises the desktop page padding and the nested scroller it would create", () => {
+    openCards(baseContext({ screenplayValue: SCRIPT }));
+    // The seam D15 depends on: the host owns a class, and the mobile stylesheet
+    // corrects the two Tailwind utilities on it instead of reaching through them.
+    expect(document.querySelector(".ckm-editor__cards")).toBeTruthy();
+    expect(document.querySelector(".ckm-dialog__body.ckm-editor__cards-body")).toBeTruthy();
+  });
+});
+
+describe("Editor — the Navigator (D16)", () => {
+  const NAV_SCRIPT = [
+    "# ACT ONE",
+    "",
+    "INT. KITCHEN - DAY",
+    "",
+    "Ana burns the toast.",
+    "",
+    "EXT. STREET - NIGHT",
+    "",
+    "She walks.",
+  ].join("\n");
+
+  const navOutline = () => [
+    { type: "sequence", line: 1, text: "ACT ONE" },
+    { type: "scene", line: 3, text: "INT. KITCHEN - DAY", sceneId: "scene:0:INT. KITCHEN - DAY" },
+    { type: "scene", line: 7, text: "EXT. STREET - NIGHT", sceneId: "scene:1:EXT. STREET - NIGHT" },
+  ];
+
+  const openNavigator = (overrides = {}) => {
+    const ctx = baseContext({
+      screenplayValue: NAV_SCRIPT,
+      outlineWithSceneIds: navOutline(),
+      ...overrides,
+    });
+    ctx.screenplayApiRef.current.scrollToLine = vi.fn();
+    render(ctx);
+    click(control("More editor actions"));
+    click(control("Navigator"));
+    return ctx;
+  };
+
+  it("opens as a SHEET, not a dialog — the contrast with Scene cards is the point of D15/D16", () => {
+    openNavigator();
+    expect(document.querySelector(".ckm-bottom-sheet")).toBeTruthy();
+    expect(document.querySelector(".ckm-dialog")).toBeFalsy();
+    expect(document.querySelector(".ckm-bottom-sheet__title").textContent).toBe("Navigator");
+  });
+
+  it("lists scenes and sequence headings as real tabs over real lists", () => {
+    openNavigator();
+    const tablist = document.querySelector('[role="tablist"]');
+    expect(tablist).toBeTruthy();
+    expect(Array.from(tablist.querySelectorAll('[role="tab"]')).map((t) => t.textContent))
+      .toEqual(["Scenes (2)", "Pages (1)"]);
+    const rows = document.querySelectorAll('[role="tabpanel"] .ckm-row__title');
+    expect(Array.from(rows).map((r) => r.textContent))
+      .toEqual(["ACT ONE", "INT. KITCHEN - DAY", "EXT. STREET - NIGHT"]);
+  });
+
+  it("closes FIRST, then scrolls the editor to the tapped scene's line", async () => {
+    const ctx = openNavigator();
+    const row = Array.from(document.querySelectorAll('.ckm-row__title'))
+      .find((r) => r.textContent === "EXT. STREET - NIGHT")
+      .closest("button, a, .ckm-row");
+    click(row.querySelector("button") || row);
+    expect(ctx.screenplayApiRef.current.scrollToLine).not.toHaveBeenCalled();
+    await act(async () => { await new Promise((resolve) => requestAnimationFrame(resolve)); });
+    expect(ctx.screenplayApiRef.current.scrollToLine).toHaveBeenCalledWith(7);
+  });
+
+  it("says a lock in TEXT, not only as a coloured glyph", () => {
+    openNavigator({
+      collabMyUserId: "me",
+      collabLocks: { "scene:1:EXT. STREET - NIGHT": { holderId: "other", holderName: "Ravi", color: "#c46a3f" } },
+    });
+    expect(document.querySelector('[role="tabpanel"]').textContent).toContain("Locked by Ravi");
+  });
+
+  it("opens the title-page configurator from the Pages tab — the only way in when there is no title page (DEF-13)", async () => {
+    const ctx = openNavigator({ titlePageActive: false });
+    click(document.querySelectorAll('[role="tab"]')[1]);
+    const add = Array.from(document.querySelectorAll("button")).find((b) => b.textContent.trim() === "Add a title page");
+    expect(add).toBeTruthy();
+    click(add);
+    await act(async () => { await new Promise((resolve) => requestAnimationFrame(resolve)); });
+    expect(ctx.setShowTitlePageModal).toHaveBeenCalledWith(true);
+  });
+
+  it("says Edit, and lists the title page as a row, once the script has one", () => {
+    openNavigator({ titlePageActive: true });
+    click(document.querySelectorAll('[role="tab"]')[1]);
+    expect(Array.from(document.querySelectorAll("button")).some((b) => b.textContent.trim() === "Edit title page")).toBe(true);
+    expect(Array.from(document.querySelectorAll(".ckm-row__title")).map((r) => r.textContent))
+      .toContain("Title page");
+  });
+
+  it("keeps the Navigator out of prose mode, which has neither scenes nor screenplay pages", () => {
+    render(baseContext({ useScreenplayEditor: false, screenplayEnabled: false }));
+    click(control("More editor actions"));
+    expect(control("Navigator")).toBeFalsy();
+  });
+
+  it("says so rather than showing an empty list when the script has no scenes", () => {
+    openNavigator({ screenplayValue: "Just notes.", outlineWithSceneIds: [] });
+    expect(document.querySelector('[role="tabpanel"]').textContent).toContain("No scenes yet");
+  });
+});
+
+describe("Editor — Comments (D17)", () => {
+  const COMMENTS = [
+    { _id: "a", body: "Cut this beat", authorId: "me", authorName: "Ana", anchor: { quote: "INT. KITCHEN - DAY" } },
+    { _id: "a1", parentId: "a", body: "Agreed", authorId: "u2", authorName: "Ravi" },
+    { _id: "b", body: "Nice line", authorId: "u2", authorName: "Ravi", resolved: true },
+  ];
+
+  const openComments = (overrides = {}, selection = { from: 10, to: 28, text: "INT. KITCHEN - DAY" }) => {
+    const ctx = baseContext({ sceneComments: COMMENTS, ...overrides });
+    ctx.screenplayApiRef.current.getSelection = vi.fn(() => selection);
+    render(ctx);
+    click(control("More editor actions"));
+    click(control("Comments"));
+    return ctx;
+  };
+
+  const sheetText = () => document.querySelector(".ckm-bottom-sheet").textContent;
+
+  it("opens as a Sheet and lists open threads with their replies", () => {
+    openComments();
+    expect(document.querySelector(".ckm-bottom-sheet")).toBeTruthy();
+    expect(document.querySelector(".ckm-bottom-sheet__title").textContent).toBe("Comments");
+    expect(sheetText()).toContain("Cut this beat");
+    expect(sheetText()).toContain("Agreed");
+    // Resolved threads are behind the filter, not in the open list.
+    expect(sheetText()).not.toContain("Nice line");
+  });
+
+  it("carries the open-thread count on the overflow item, so it is visible without opening", () => {
+    const ctx = baseContext({ sceneComments: COMMENTS });
+    render(ctx);
+    click(control("More editor actions"));
+    const row = control("Comments").closest(".ckm-action-sheet__item") || control("Comments");
+    // One OPEN thread; the reply and the resolved thread are not things to look at.
+    expect(row.textContent).toContain("1 open note");
+  });
+
+  it("captures the selection when the sheet OPENS and passes it explicitly (the whole of D17)", async () => {
+    const selection = { from: 10, to: 28, text: "INT. KITCHEN - DAY" };
+    const ctx = openComments({}, selection);
+    expect(ctx.screenplayApiRef.current.getSelection).toHaveBeenCalled();
+    // The quote is shown, because behind a modal sheet the highlighted text is
+    // not visible and the writer would be annotating something they cannot see.
+    expect(sheetText()).toContain("INT. KITCHEN - DAY");
+
+    const textarea = Array.from(document.querySelectorAll("textarea"))
+      .find((t) => t.placeholder === "What should change here?");
+    act(() => {
+      Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set.call(textarea, "Trim it");
+      textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => { click(control("Comment")); });
+
+    // Explicitly, NOT left to getSelection() at submit time — by then the editor
+    // has been blurred and inerted by the sheet.
+    expect(ctx.handleAddComment).toHaveBeenCalledWith("Trim it", selection);
+  });
+
+  it("refuses BEFORE the typing when nothing is selected, rather than after", () => {
+    openComments({}, null);
+    expect(sheetText()).toMatch(/Select some script text first/i);
+    expect(Array.from(document.querySelectorAll("textarea"))
+      .find((t) => t.placeholder === "What should change here?")).toBeFalsy();
+  });
+
+  it("tells a view-only collaborator why, and still shows them the notes", () => {
+    openComments({ canComment: false });
+    expect(sheetText()).toMatch(/view-only/i);
+    expect(sheetText()).toContain("Cut this beat");
+    expect(control("Reply")).toBeFalsy();
+  });
+
+  it("resolves and reopens through the orchestrator's own handler", () => {
+    const ctx = openComments();
+    click(control("Resolve"));
+    expect(ctx.setCommentResolved).toHaveBeenCalledWith("a", true);
+  });
+
+  it("asks before deleting, and only deletes on the second press", () => {
+    const ctx = openComments();
+    click(control("Delete"));
+    expect(ctx.deleteSceneComment).not.toHaveBeenCalled();
+    expect(sheetText()).toContain("Delete this comment?");
+    click(control("Delete it"));
+    expect(ctx.deleteSceneComment).toHaveBeenCalledWith("a");
+  });
+
+  it("offers delete only on my own comments", () => {
+    openComments({ collabMyUserId: "u2" });
+    // "Cut this beat" is Ana's; as Ravi I may resolve it but not delete it.
+    expect(control("Delete")).toBeFalsy();
+    expect(control("Resolve")).toBeTruthy();
+  });
+
+  it("shows an orphaned note rather than hiding it", () => {
+    openComments({ isCommentOrphaned: vi.fn((c) => c._id === "a") });
+    expect(sheetText()).toMatch(/Orphaned/);
+    expect(sheetText()).toContain("Cut this beat");
+  });
+
+  it("closes FIRST, then jumps to the text a note is about", async () => {
+    const ctx = openComments();
+    const jump = document.querySelector(".ckm-editor__comments-jump");
+    click(jump);
+    expect(ctx.handleFocusComment).not.toHaveBeenCalled();
+    await act(async () => { await new Promise((resolve) => requestAnimationFrame(resolve)); });
+    expect(ctx.handleFocusComment).toHaveBeenCalledWith(expect.objectContaining({ _id: "a" }));
+  });
+
+  it("has no Comments entry at all on a draft that was never saved", () => {
+    // presenceEnabled is `useScreenplayEditor && Boolean(scriptId)` upstream, and
+    // it is what the comment FETCH is gated on — an unsaved draft has no script
+    // to hang notes off, so the item is absent rather than present-and-empty.
+    render(baseContext({ presenceEnabled: false }));
+    click(control("More editor actions"));
+    expect(control("Comments")).toBeFalsy();
+  });
+});
+
+describe("Editor — People (D18)", () => {
+  const COLLABORATORS = {
+    ownerId: "me",
+    collabVisibility: "private",
+    collaborators: [
+      { _id: "e1", user: { _id: "u2", name: "Meher", email: "meher@example.com" }, role: "editor", accessLevel: "content_only", status: "accepted", isActive: true },
+      { _id: "e2", invitedEmail: "new@example.com", role: "commenter", status: "pending", isActive: true },
+    ],
+  };
+
+  const openPeople = async (overrides = {}, payload = COLLABORATORS) => {
+    collabApi.get.mockResolvedValue({ data: payload });
+    collabApi.delete.mockResolvedValue({ data: {} });
+    collabApi.post.mockResolvedValue({ data: {} });
+    const ctx = baseContext({
+      collabPeople: [{ userId: "me", name: "Ana", color: "#c46a3f", state: "editing", sceneHeading: "INT. KITCHEN - DAY" }],
+      ...overrides,
+    });
+    render(ctx);
+    click(control("More editor actions"));
+    click(control("People"));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    return ctx;
+  };
+
+  const dialogText = () => document.querySelector(".ckm-dialog").textContent;
+
+  it("opens as a DIALOG, not a sheet — it replaces the task, not the script", async () => {
+    await openPeople();
+    expect(document.querySelector(".ckm-dialog")).toBeTruthy();
+    expect(document.querySelector(".ckm-bottom-sheet")).toBeFalsy();
+    expect(document.querySelector(".ckm-dialog__title").textContent).toBe("People");
+  });
+
+  it("reads through the shared hook's endpoint, not a mobile copy of it", async () => {
+    await openPeople();
+    expect(collabApi.get).toHaveBeenCalledWith("/collab/s1/collaborators");
+  });
+
+  it("shows who is in the script now, and what they are doing", async () => {
+    await openPeople();
+    expect(dialogText()).toContain("Ana (you)");
+    expect(dialogText()).toContain("Editing · INT. KITCHEN - DAY");
+  });
+
+  it("lists collaborators and pending invites separately, in words", async () => {
+    await openPeople();
+    expect(dialogText()).toContain("Meher");
+    expect(dialogText()).toContain("Co-writer");
+    expect(dialogText()).toContain("Content only");
+    // DEF-15: an invite to an address with no Ckript account has no userId at
+    // all, and the shared dedupe used to drop exactly those rows.
+    expect(dialogText()).toContain("Invited, not accepted");
+    expect(dialogText()).toContain("new@example.com");
+  });
+
+  it("asks before removing, and only removes on the second press (DEF-14)", async () => {
+    await openPeople();
+    click(control("Remove"));
+    expect(collabApi.delete).not.toHaveBeenCalled();
+    // The consequence is stated, not implied by a red button.
+    expect(dialogText()).toMatch(/loses access to this script immediately/i);
+    await act(async () => { click(control("Confirm remove")); });
+    expect(collabApi.delete).toHaveBeenCalledWith("/collab/s1/collaborators/u2");
+  });
+
+  it("offers no management at all to a collaborator who is not the owner", async () => {
+    await openPeople({}, { ...COLLABORATORS, ownerId: "someone-else" });
+    expect(control("Remove")).toBeFalsy();
+    expect(control("Cancel invite")).toBeFalsy();
+    // …and says why the invite form is absent rather than just omitting it.
+    expect(dialogText()).not.toContain("Invite someone");
+  });
+
+  it("sends an invitation through the shared endpoint once the address looks real", async () => {
+    await openPeople();
+    const email = Array.from(document.querySelectorAll("input")).find((i) => i.type === "email");
+    expect(control("Send invitation").disabled).toBe(true);
+    act(() => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(email, "not-an-email");
+      email.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(dialogText()).toMatch(/does not look like an email/i);
+    expect(control("Send invitation").disabled).toBe(true);
+
+    act(() => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(email, "ravi@example.com");
+      email.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => { click(control("Send invitation")); });
+    expect(collabApi.post).toHaveBeenCalledWith("/collab/s1/invite", expect.objectContaining({
+      email: "ravi@example.com",
+      role: "editor",
+    }));
+  });
+
+  it("says a saved script is needed rather than showing an empty access list", async () => {
+    await openPeople({ scriptId: null });
+    expect(dialogText()).toMatch(/Save this project once to invite people/i);
+    expect(collabApi.get).not.toHaveBeenCalled();
+  });
+
+  it("surfaces a load failure instead of an empty list that looks like nobody", async () => {
+    collabApi.get.mockRejectedValue({ response: { data: { error: "Failed to load collaborators" } } });
+    const ctx = baseContext({ collabPeople: [] });
+    render(ctx);
+    click(control("More editor actions"));
+    click(control("People"));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(dialogText()).toContain("Failed to load collaborators");
+  });
+});
+
+describe("Editor — the keyboard cannot bury the comment composer", () => {
+  /*
+   * `Sheet` pads its FOOTER by the keyboard inset; the comments composer lives
+   * in the sheet BODY, so it gets no such padding. On iOS the layout viewport
+   * does not shrink when the keyboard opens, which leaves the Comment button
+   * under it. The spacer is the mechanism that lets the browser scroll a
+   * focused field above the keyboard — a real device is still the only thing
+   * that can confirm the RESULT, but this pins the mechanism.
+   */
+  const withVisualViewport = (coveredPx) => {
+    const original = window.visualViewport;
+    Object.defineProperty(window, "visualViewport", {
+      configurable: true,
+      value: {
+        height: window.innerHeight - coveredPx,
+        offsetTop: 0,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      },
+    });
+    return () => Object.defineProperty(window, "visualViewport", { configurable: true, value: original });
+  };
+
+  it("adds no spacer when no keyboard is open, so it costs a desktop browser nothing", () => {
+    const ctx = baseContext({ sceneComments: [] });
+    ctx.screenplayApiRef.current.getSelection = vi.fn(() => ({ from: 0, to: 5, text: "INT. " }));
+    render(ctx);
+    click(control("More editor actions"));
+    click(control("Comments"));
+    expect(document.querySelector('[data-testid="comments-keyboard-spacer"]')).toBeFalsy();
+  });
+
+  it("ends the sheet body with a spacer as tall as the keyboard is covering", () => {
+    const restore = withVisualViewport(300);
+    try {
+      const ctx = baseContext({ sceneComments: [] });
+      ctx.screenplayApiRef.current.getSelection = vi.fn(() => ({ from: 0, to: 5, text: "INT. " }));
+      render(ctx);
+      click(control("More editor actions"));
+      click(control("Comments"));
+      const spacer = document.querySelector('[data-testid="comments-keyboard-spacer"]');
+      expect(spacer).toBeTruthy();
+      expect(spacer.style.height).toBe("300px");
+      // Decorative: it must not become a stop for a screen reader.
+      expect(spacer.getAttribute("aria-hidden")).toBe("true");
+    } finally {
+      restore();
+    }
+  });
+});
+
+describe("Editor — Reports (D20)", () => {
+  const REPORT_SCRIPT = [
+    "INT. KITCHEN - DAY",
+    "",
+    "ZARA",
+    "First line.",
+    "",
+    "ZARA",
+    "Second line.",
+    "",
+    "EXT. PLATFORM - NIGHT",
+    "",
+    "ANA",
+    "Last train.",
+  ].join("\n");
+
+  const openReports = (overrides = {}) => {
+    const ctx = baseContext({ title: "The Train", screenplayValue: REPORT_SCRIPT, ...overrides });
+    render(ctx);
+    click(control("More editor actions"));
+    click(control("Reports"));
+    return ctx;
+  };
+
+  const chooseTab = (id) => {
+    const tab = document.querySelector(`[role="tab"][aria-controls="editor-reports-panel-${id}"]`);
+    click(tab);
+  };
+
+  it("opens as a Dialog rather than squeezing the desktop rail into a sheet", () => {
+    openReports();
+    expect(document.querySelector(".ckm-dialog")).toBeTruthy();
+    expect(document.querySelector(".ckm-bottom-sheet")).toBeFalsy();
+    expect(document.querySelector(".ckm-dialog__title").textContent).toBe("Reports");
+    expect(document.querySelectorAll(".ckm-editor__report-scene")).toHaveLength(2);
+  });
+
+  it("uses the APG tab family and keeps every metric labelled in the card view", () => {
+    openReports();
+    const tabs = Array.from(document.querySelectorAll('[role="tab"]'));
+    expect(tabs).toHaveLength(2);
+    expect(tabs.filter((tab) => tab.tabIndex === 0)).toHaveLength(1);
+    chooseTab("characters");
+    expect(document.querySelector('[role="tabpanel"]').textContent).toContain("ZARA");
+    expect(document.querySelector('[role="tabpanel"]').textContent).toContain("ANA");
+    expect(document.querySelector('[role="tabpanel"]').textContent).toContain("Lines");
+    expect(document.querySelector('[role="tabpanel"]').textContent).toContain("Scenes");
+  });
+
+  it("sorts through a labelled native select, not desktop's tiny sort pills", () => {
+    openReports();
+    chooseTab("characters");
+    const names = () => Array.from(document.querySelectorAll(".ckm-editor__report-name"))
+      .map((node) => node.textContent);
+    expect(names()).toEqual(["ZARA", "ANA"]); // most lines first
+
+    const select = document.querySelector(".ckm-editor__report-sort select");
+    act(() => {
+      Object.getOwnPropertyDescriptor(window.HTMLSelectElement.prototype, "value")
+        .set.call(select, "name:asc");
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    expect(names()).toEqual(["ANA", "ZARA"]);
+    expect(select.labels[0].textContent).toContain("Sort characters");
+  });
+
+  it("downloads the active, sorted view through the shared desktop/mobile exporter", () => {
+    openReports();
+    chooseTab("characters");
+    click(control("CSV"));
+    expect(reportDownload).toHaveBeenCalledWith(expect.objectContaining({
+      kind: "characters",
+      format: "csv",
+      title: "The Train",
+      rows: [
+        expect.objectContaining({ name: "ZARA", lines: 2 }),
+        expect.objectContaining({ name: "ANA", lines: 1 }),
+      ],
+    }));
+  });
+
+  it("closes first, then jumps through the shared editor API", async () => {
+    const ctx = openReports();
+    click(document.querySelector(".ckm-editor__report-scene"));
+    // AnimatePresence keeps the exiting surface in the DOM for its slide-out;
+    // the load-bearing order is that the editor does not move in this frame.
+    expect(ctx.screenplayApiRef.current.scrollToLine).not.toHaveBeenCalled();
+    await act(async () => { await new Promise((resolve) => requestAnimationFrame(resolve)); });
+    expect(ctx.screenplayApiRef.current.scrollToLine).toHaveBeenCalledWith(1);
+  });
+
+  it("states both empty views instead of rendering empty card stacks", () => {
+    openReports({ screenplayValue: "A note without screenplay structure." });
+    expect(document.querySelector(".ckm-dialog").textContent).toContain("No scenes yet");
+    chooseTab("characters");
+    expect(document.querySelector(".ckm-dialog").textContent).toContain("No speaking characters yet");
+  });
+
+  it("has no Reports entry in prose mode, where screenplay reports are meaningless", () => {
+    render(baseContext({ useScreenplayEditor: false, screenplayEnabled: false }));
+    click(control("More editor actions"));
+    expect(control("Reports")).toBeFalsy();
+  });
+});
+
+describe("Editor — Version history (D19)", () => {
+  const VERSIONS = [
+    { _id: "v1", label: "First draft", createdAt: new Date().toISOString(), authorName: "Ana", fountainSnapshot: "INT. KITCHEN - DAY\n\nAna burns the toast." },
+    { _id: "v2", auto: true, createdAt: new Date().toISOString(), fountainSnapshot: "INT. KITCHEN - DAY" },
+  ];
+  const CURRENT = "INT. KITCHEN - DAY\n\nAna burns the toast.\n\nShe swears.";
+
+  const openVersions = async (overrides = {}) => {
+    collabApi.get.mockResolvedValue({ data: VERSIONS });
+    collabApi.post.mockResolvedValue({ data: { fountainContent: "INT. KITCHEN - DAY", versions: VERSIONS } });
+    const ctx = baseContext({ screenplayValue: CURRENT, ...overrides });
+    render(ctx);
+    click(control("More editor actions"));
+    click(control("Version history"));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    return ctx;
+  };
+
+  const dialogText = () => document.querySelector(".ckm-dialog").textContent;
+
+  it("opens as a Dialog with a real role and title, which the desktop modal has neither of", async () => {
+    await openVersions();
+    const dialog = document.querySelector(".ckm-dialog");
+    expect(dialog.getAttribute("role")).toBe("dialog");
+    expect(document.querySelector(".ckm-dialog__title").textContent).toBe("Version history");
+  });
+
+  it("reads through the shared hook's endpoint", async () => {
+    await openVersions();
+    expect(collabApi.get).toHaveBeenCalledWith("/scripts/s1/versions");
+  });
+
+  it("summarises each version in words, since the diff is a separate view", async () => {
+    await openVersions();
+    expect(dialogText()).toContain("First draft");
+    expect(dialogText()).toContain("Auto snapshot");
+    // DEF-18: one appended line is one added line, not two added and one removed.
+    expect(dialogText()).toContain("1 line added since");
+  });
+
+  it("pushes the diff into its own view rather than expanding it inside a row", async () => {
+    await openVersions();
+    click(control("See what changed"));
+    // The dialog's own title becomes the version's — this is a second view, not
+    // a disclosure inside a list row inside the dialog's scroller.
+    expect(document.querySelector(".ckm-dialog__title").textContent).toBe("First draft");
+    expect(document.querySelector(".ckm-editor__diff")).toBeTruthy();
+    expect(dialogText()).toContain("She swears.");
+    click(control("Back to versions"));
+    expect(document.querySelector(".ckm-dialog__title").textContent).toBe("Version history");
+  });
+
+  it("says added and removed in words, never by colour alone", async () => {
+    await openVersions();
+    click(control("See what changed"));
+    const added = document.querySelector(".ckm-editor__diff-line--add");
+    expect(added).toBeTruthy();
+    expect(added.textContent).toContain("Added:");
+  });
+
+  it("asks before restoring, and explains that nothing is lost (D19)", async () => {
+    const ctx = await openVersions();
+    click(control("Restore"));
+    expect(collabApi.post).not.toHaveBeenCalled();
+    expect(dialogText()).toMatch(/saved as a new version first, so nothing is lost/i);
+    await act(async () => { click(control("Yes, restore it")); });
+    expect(collabApi.post).toHaveBeenCalledWith("/scripts/s1/versions/v1/restore", { content: CURRENT });
+    expect(ctx.setScreenplayValue).toHaveBeenCalledWith("INT. KITCHEN - DAY");
+  });
+
+  it("saves a labelled version through the shared endpoint", async () => {
+    await openVersions();
+    // Scoped to the DIALOG: the editor's app-bar project-title input is also a
+    // text input and comes first in the document.
+    const label = document.querySelector(".ckm-dialog input");
+    act(() => {
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value").set.call(label, "Before the rewrite");
+      label.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await act(async () => { click(control("Save this version")); });
+    expect(collabApi.post).toHaveBeenCalledWith("/scripts/s1/versions", {
+      label: "Before the rewrite",
+      content: CURRENT,
+    });
+  });
+
+  it("refuses versioning on a project that was never saved, with the reason", async () => {
+    collabApi.get.mockResolvedValue({ data: [] });
+    const ctx = baseContext({ screenplayValue: CURRENT, scriptId: null });
+    render(ctx);
+    click(control("More editor actions"));
+    click(control("Version history"));
+    await act(async () => { await Promise.resolve(); });
+    expect(dialogText()).toMatch(/Save this project once before you can keep versions/i);
+    expect(control("Save this version").disabled).toBe(true);
+  });
+
+  it("says so rather than showing an empty list when there are no versions", async () => {
+    collabApi.get.mockResolvedValue({ data: [] });
+    const ctx = baseContext({ screenplayValue: CURRENT });
+    render(ctx);
+    click(control("More editor actions"));
+    click(control("Version history"));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(dialogText()).toContain("No versions yet");
+  });
+});
+
+describe("Editor — leaving the diff view returns focus to its row", () => {
+  it("puts focus back on the control that opened the diff, not the dialog container", async () => {
+    collabApi.get.mockResolvedValue({ data: [
+      { _id: "v1", label: "First draft", createdAt: new Date().toISOString(), fountainSnapshot: "INT. KITCHEN - DAY" },
+      { _id: "v2", label: "Second pass", createdAt: new Date().toISOString(), fountainSnapshot: "INT. CAR - NIGHT" },
+    ] });
+    render(baseContext({ screenplayValue: "INT. KITCHEN - DAY\n\nNew line." }));
+    click(control("More editor actions"));
+    click(control("Version history"));
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+
+    // Open the SECOND version's diff, so a wrong restore would be visible.
+    const openers = Array.from(document.querySelectorAll("[data-version-diff]"));
+    expect(openers).toHaveLength(2);
+    click(openers[1]);
+    expect(document.querySelector(".ckm-dialog__title").textContent).toBe("Second pass");
+
+    click(control("Back to versions"));
+    expect(document.activeElement.getAttribute("data-version-diff")).toBe("v2");
   });
 });

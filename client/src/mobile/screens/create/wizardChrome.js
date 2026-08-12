@@ -92,6 +92,8 @@ export function describeWizardFooter({
   ownershipConfirmed = false,
   hasPublishAccess = true,
   exiting = false,
+  mediaRecoveryPending = false,
+  mediaUploadActive = false,
 } = {}) {
   const isLast = step >= WIZARD_LAST_STEP;
 
@@ -102,6 +104,32 @@ export function describeWizardFooter({
        how someone concludes they are stuck. */
     disabled: exiting,
   };
+
+  if (mediaRecoveryPending) {
+    return {
+      back,
+      next: {
+        id: "retry-media",
+        label: loading ? "Retrying…" : "Retry the media upload",
+        kind: "publish",
+        disabled: loading,
+        blockedReason: "",
+      },
+    };
+  }
+
+  if (mediaUploadActive) {
+    return {
+      back: { ...back, disabled: true },
+      next: {
+        id: "uploading-media",
+        label: "Uploading media…",
+        kind: "publish",
+        disabled: true,
+        blockedReason: "",
+      },
+    };
+  }
 
   if (!isLast) {
     return {

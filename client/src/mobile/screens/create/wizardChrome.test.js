@@ -144,6 +144,30 @@ describe("describeWizardFooter", () => {
     expect(footer.next.blockedReason).toBe("");
   });
 
+  it("turns every wizard step into an explicit media retry while recovery is pending", () => {
+    const ready = describeWizardFooter({ step: 2, mediaRecoveryPending: true });
+    const busy = describeWizardFooter({ step: 2, mediaRecoveryPending: true, loading: true });
+
+    expect(ready.next).toMatchObject({
+      id: "retry-media",
+      label: "Retry the media upload",
+      kind: "publish",
+      disabled: false,
+    });
+    expect(busy.next).toMatchObject({ label: "Retrying…", disabled: true });
+  });
+
+  it("holds navigation while a selected file is actively uploading", () => {
+    const footer = describeWizardFooter({ step: 2, mediaUploadActive: true });
+
+    expect(footer.back.disabled).toBe(true);
+    expect(footer.next).toMatchObject({
+      id: "uploading-media",
+      label: "Uploading media…",
+      disabled: true,
+    });
+  });
+
   it("reports the access refusal first when several gates are shut", () => {
     // Order matters: "you cannot publish this at all" is a different answer
     // from "tick this box", and offering the tickable one first sends the

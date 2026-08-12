@@ -1218,7 +1218,7 @@ function PublishPanel({ vm }) {
         </p>
 
         <p className="ckm-upload__note">
-          <Link to="/script-upload-terms" target="_blank" rel="noopener noreferrer">
+          <Link to="/script-upload-terms" target="_blank" rel="noopener noreferrer" onClick={actions.flushWorkingSnapshot}>
             Open the full Script Upload Terms
           </Link>
           {" "}in a new tab.

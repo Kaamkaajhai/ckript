@@ -116,6 +116,10 @@ describe("describeUploadFooter", () => {
     const locked = describeUploadFooter({ step: 5, editing: true, editApprovalLocked: true });
     expect(locked.next.disabled).toBe(true);
     expect(locked.next.blockedReason).toMatch(/admin review/i);
+
+    const localOnly = describeUploadFooter({ step: 5, editing: true, sourceWriteBlocked: true });
+    expect(localOnly.next.disabled).toBe(true);
+    expect(localOnly.next.blockedReason).toMatch(/reload the server copy/i);
   });
 
   it("leaves Publish ENABLED for anything validation can navigate to", () => {
@@ -186,6 +190,11 @@ describe("buildUploadOverflowItems", () => {
       .find((entry) => entry.id === "save-draft");
     expect(item.disabled).toBe(true);
     expect(item.hint).toMatch(/plan/i);
+
+    const localOnly = buildUploadOverflowItems({ sourceWriteBlocked: true })
+      .find((entry) => entry.id === "save-draft");
+    expect(localOnly.disabled).toBe(true);
+    expect(localOnly.hint).toMatch(/reload the server copy/i);
   });
 
   it("shows a content-only collaborator no overflow at all", () => {
@@ -197,11 +206,16 @@ describe("buildUploadOverflowItems", () => {
 
 describe("describeUploadSaveState", () => {
   it("distinguishes never-saved from saved-then-edited", () => {
-    // The whole reason this exists: /upload has NO autosave (DEF-7), and desktop
-    // hides this indicator below 720px (DEF-4).
+    // Desktop hides this indicator below 720px (DEF-4); DEF-7 now distinguishes
+    // the local snapshot from a server-confirmed draft.
     expect(describeUploadSaveState({}).label).toMatch(/not saved yet/i);
     expect(describeUploadSaveState({ savedDraft: true, dirty: false }).label).toMatch(/draft saved/i);
     expect(describeUploadSaveState({ savedDraft: true, dirty: true }).label).toMatch(/unsaved changes/i);
+  });
+
+  it("says when dirty work is durable only on this device", () => {
+    expect(describeUploadSaveState({ dirty: true, localSaved: true }).label).toMatch(/saved on this device/i);
+    expect(describeUploadSaveState({ editing: true, dirty: true, localSaved: true }).label).toMatch(/local copy saved/i);
   });
 
   it("reports the request over the resting state", () => {

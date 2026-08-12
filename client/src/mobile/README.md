@@ -183,7 +183,7 @@ that object and nothing else. If the shape drifts, the harness stops compiling.
 Same argument for its existence: the live route authenticates, fetches the plan
 limit, posts a PDF to the extractor and uploads media. Navigate to a state —
 `?step=1..5`, `?panel=basics|story|cast|progress|access|media`, and
-`?state=extracting|ready|error|blocked|locked|recovery|crop|denied|resolving|submitted|contentonly|uploading|saving|quota`.
+`?state=extracting|ready|error|blocked|locked|recovery|crop|denied|resolving|submitted|contentonly|uploading|saving|quota|local-saved|exit|source-error|source-local`.
 
 ## What is wired for real
 

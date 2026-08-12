@@ -114,13 +114,14 @@ describe("the desktop defaults", () => {
     expect(source).toMatch(/<Workspace vm=\{workspaceVm\} \/>/);
   });
 
-  it("gates each of the three early returns on `!nativeChrome`, never removes them", () => {
+  it("gates each desktop-only route state on `!nativeChrome`, never removes it", () => {
     // An early return deleted rather than gated is a desktop regression that no
     // mobile test would ever catch.
     const source = readOrchestratorSource();
 
     expect(source).toMatch(/if \(accessDenied && !nativeChrome\)/);
-    expect(source).toMatch(/if \(isEditModeResolving && !nativeChrome\)/);
+    expect(source).toMatch(/sourceLoad\.status === UPLOAD_SOURCE_LOAD_STATUS\.LOADING && !nativeChrome/);
+    expect(source).toMatch(/sourceIssue && !nativeChrome/);
     expect(source).toMatch(/if \(submissionSuccess && !nativeChrome\)/);
   });
 });

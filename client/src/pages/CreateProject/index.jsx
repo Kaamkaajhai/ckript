@@ -39,6 +39,7 @@ import {
   writeWorkingDraft,
 } from "./lib/workingDraft";
 import { encodeKeepaliveBody } from "./lib/keepaliveSave";
+import { mergeMediaProgress, uploadProjectMedia, withoutMediaProgress } from "./lib/projectMediaUpload";
 import { THUMBNAIL_ASPECT } from "./lib/imageCrop";
 import { useThumbnailEditor } from "./hooks/useThumbnailEditor";
 import { useVideoUploads } from "./hooks/useVideoUploads";
@@ -288,6 +289,9 @@ const CreateProject = ({
   // File Upload State
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [thumbnailPreviewUrl, setThumbnailPreviewUrl] = useState("");
+  const [mediaProgress, setMediaProgress] = useState({});
+  const [mediaUploadActive, setMediaUploadActive] = useState(false);
+  const [pendingMediaRecovery, setPendingMediaRecovery] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
 
   const showToast = useCallback((msg, type = "error", action = null) => {
@@ -335,6 +339,19 @@ const CreateProject = ({
   } = useVideoUploads({ setError });
   const thumbnailInputRef = useRef(null);
   const stepContentRef = useRef(null);
+
+  // Replacing or removing a file clears its stale done/failed bar. A retry sets
+  // the requested files back to 0% inside `uploadProjectMedia`; there is no
+  // client-side resume hidden behind a bar that starts at the old percentage.
+  useEffect(() => {
+    setMediaProgress((current) => withoutMediaProgress(current, "thumbnail"));
+  }, [thumbnailFile]);
+  useEffect(() => {
+    setMediaProgress((current) => withoutMediaProgress(current, "trailer"));
+  }, [trailerFile]);
+  useEffect(() => {
+    setMediaProgress((current) => withoutMediaProgress(current, "pitchVideo"));
+  }, [pitchVideoFile]);
 
   const {
     isThumbnailEditorOpen,
@@ -1621,38 +1638,18 @@ const CreateProject = ({
     }
   };
 
-  const uploadSelectedProjectMedia = async (targetScriptId) => {
-    if (!targetScriptId) return;
-
-    const tasks = [];
-
-    if (thumbnailFile) {
-      const thumbnailFormData = new FormData();
-      thumbnailFormData.append("thumbnail", thumbnailFile);
-      tasks.push(api.post(`/scripts/${targetScriptId}/upload-thumbnail`, thumbnailFormData));
-    }
-
-    if (trailerFile) {
-      const trailerFormData = new FormData();
-      trailerFormData.append("trailer", trailerFile);
-      tasks.push(api.post(`/scripts/${targetScriptId}/upload-trailer`, trailerFormData));
-    }
-
-    if (pitchVideoFile) {
-      const pitchFormData = new FormData();
-      pitchFormData.append("pitchVideo", pitchVideoFile);
-      tasks.push(api.post(`/scripts/${targetScriptId}/upload-pitch-video`, pitchFormData));
-    }
-
-    if (tasks.length === 0) return;
-
-    const results = await Promise.allSettled(tasks);
-    const failed = results.find((result) => result.status === "rejected");
-
-    if (failed?.status === "rejected") {
-      const reason = failed.reason;
-      const message = reason?.response?.data?.message || reason?.message || "Failed to upload project media.";
-      throw new Error(message);
+  const uploadSelectedProjectMedia = async (targetScriptId, requestedTypes = null) => {
+    setMediaUploadActive(true);
+    try {
+      return await uploadProjectMedia({
+        apiClient: api,
+        targetScriptId,
+        requestedTypes,
+        files: { thumbnail: thumbnailFile, trailer: trailerFile, pitchVideo: pitchVideoFile },
+        onProgress: (type, next) => mergeMediaProgress(setMediaProgress, type, next),
+      });
+    } finally {
+      setMediaUploadActive(false);
     }
   };
 
@@ -1678,6 +1675,36 @@ const CreateProject = ({
 
   // Publish
   const handlePublish = async () => {
+    // The project record already exists in this state. Retry only the failed
+    // media requests; posting `/scripts/upload` again would create a duplicate
+    // project and repeating the entire form is unrelated to the failure.
+    if (pendingMediaRecovery) {
+      setLoading(true); setError("");
+      try {
+        const mediaStep = detailsSubSteps.findIndex(({ key }) => key === "media");
+        setStep(2);
+        if (mediaStep >= 0) setDetailsStep(mediaStep);
+        const failedTypes = await uploadSelectedProjectMedia(
+          pendingMediaRecovery.targetScriptId,
+          pendingMediaRecovery.failedTypes,
+        );
+        if (failedTypes.length > 0) {
+          setPendingMediaRecovery((current) => ({ ...current, failedTypes }));
+          setError(`The project is saved, but ${failedTypes.length} media file${failedTypes.length > 1 ? "s" : ""} still could not be uploaded. Replace or remove the highlighted media, then retry.`);
+          return;
+        }
+
+        setPendingMediaRecovery(null);
+        setShowSummaryPdfDialog({
+          scriptId: pendingMediaRecovery.targetScriptId,
+          title: pendingMediaRecovery.title,
+        });
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (editApprovalLocked) {
       setError("This script edit is already in admin review. You can edit again after approval or rejection.");
       return;
@@ -1761,7 +1788,21 @@ const CreateProject = ({
         targetScriptId = data?._id;
       }
 
-      await uploadSelectedProjectMedia(targetScriptId);
+      const hasSelectedMedia = Boolean(thumbnailFile || trailerFile || pitchVideoFile);
+      if (hasSelectedMedia) {
+        const mediaStep = detailsSubSteps.findIndex(({ key }) => key === "media");
+        setStep(2);
+        if (mediaStep >= 0) setDetailsStep(mediaStep);
+      }
+      const failedTypes = await uploadSelectedProjectMedia(targetScriptId);
+      if (failedTypes.length > 0) {
+        setPendingMediaRecovery({ targetScriptId, failedTypes, title });
+        const mediaStep = detailsSubSteps.findIndex(({ key }) => key === "media");
+        setStep(2);
+        if (mediaStep >= 0) setDetailsStep(mediaStep);
+        setError(`The project is saved, but ${failedTypes.length} media file${failedTypes.length > 1 ? "s" : ""} could not be uploaded. Replace or remove the highlighted media, then retry.`);
+        return;
+      }
       setShowSummaryPdfDialog({ scriptId: targetScriptId, title });
     } catch (err) { 
       setError(err.response?.data?.message || err.message || "Failed to publish."); 
@@ -1999,7 +2040,7 @@ const CreateProject = ({
   const ctx = {
     hasFullAccess, hasPublishAccess,
     competitionMode, competition, competitionEntry, competitionPhase, competitionServerNow, refreshCompetition,
-    BUYER_COMMISSION_RATE, FORMAT_PRICE_GUIDE, ZOOM_MIN, addRole, addWriter, updateWriter, removeWriter, moveWriter, writers, addSceneComment, adjustZoom, agreementRef, aiBtnCls, aiCoverAttempts, aiCoverRemaining, aiCoverHistory, aiCoverIndex, autoSaveInFlightRef, buildDraftPayload, buildRightsPayload, buildScriptPreviewPayload, buyerCommissionAmount, buyerTotalPayable, canComment, canEditContent, cardCls, charCount, chipCls, classification, clearLocalWorkingDraft, collabClearEditRequest, collabCommentsVersion, collabEditRequest, collabLocks, collabMyUserId, collabPeople, collabReleaseHeld, collabRequestEdit, collabSetActiveScene, collabVisibility, confirmExitDiscard, confirmExitSaveDraft, creationBlocked, creationBlockedRef, currentElement, dark, deleteSceneComment, detailsStep, detailsSubSteps, discardingRef, downloadSubmissionSummaryPdf, downloadWatermarkedImage, draftId, drafts, editApprovalLocked, editor, editorZoom, effectivePrice, emphasisState, enforceGoldPlan, error, escapeHtml, estimatedPages, exitGuardRef, exiting, exportMenuOpen, exportingScreenplay, fetchDrafts, filmDetails, focusMode, focusedCommentId, formData, formatDuration, formatInfo, generateAiCover, getDraftSignature, getEditorPlainText, getInvalidRoleAgeRangeMessage, grammarLoading, grammarNotes, handleAddComment, handleAnalyzeFormatting, handleApplyThumbnail, handleBack, handleCaretLine, handleChange, handleDeleteDraft, handleDownloadMainContentPdf, handleExitEditor, handleExportScreenplay, handleFixGrammar, handleFocusComment, handleGenerateMetadata, handleGenerateProse, handleGrammarClick, handleGrammarKeep, handleGrammarUndo, handleImportScreenplayFile, handleNext, handleOutlineChange, handlePitchVideoSelect, handleProseClick, handlePublish, handleReorderScene, handleReplyComment, handleSave, handleScreenplayChange, handleSynopsisChange, handleThumbnailSelect, handleTrailerSelect, handleUnderReviewContinue, hasMeaningfulDraft, importNotice, inputCls, isCommentOrphaned, isEditingExistingScriptFlow, isGeneratingAiCover, isPremium, isScreenplayFormat, isThumbnailEditorOpen, lastDraftSignatureRef, lastSaved, legal, loadDraft, loadedScriptStatus, loading, loadingDrafts, localDraftHydratedRef, location, metaLoadingField, metaNotice, moreMenuOpen, navigate, openPricingModal, openThumbnailEditor, openUnderReviewModal, outlineNotes, outlineWithSceneIds, pageStatus, peopleEnriched, pitchVideoFile, pitchVideoInputRef, pitchVideoMeta, pitchVideoMetaLoading, pitchVideoPreviewUrl, preGrammarContent, presenceBySceneId, presenceEnabled, presenceScenes, previewPageTexts, previewPageTextsSignatureRef, proseLoading, publishReadiness, publishReviewItems, publishSummaryRows, publishingDetails, purchasedServiceCredits, queueKeepaliveDraftSave, queueKeepaliveDraftSaveRef, removeRole, resetThumbnailEditor, runWorkingDraftRecovery, applyWorkingDraftSnapshot, pendingRecovery, acceptPendingRecovery, dismissPendingRecovery, reviewRedirectTimerRef, rightsLicensing, roles, sanitizePdfFileName, saveBlockedRef, saveTitlePage, saved, saving, sceneComments, sceneSynopses, screenplayApiRef, screenplayEnabled, screenplayFileInputRef, screenplayMirrorTimer, screenplayOutline, screenplayValue, screenplayValueRef, scriptId, scriptIdRef, scriptLimit, scriptPrice, selectedPublishServices, services, setAiCoverAttempts, setAiCoverHistory, setAiCoverIndex, setCanComment, setCanEditContent, setCharCount, setClassification, setCollabVisibility, setCommentResolved, setCurrentElement, setDetailsStep, setDrafts, setEditApprovalLocked, setEditorZoom, setEmphasisState, setError, setExiting, setExportMenuOpen, setExportingScreenplay, setFilmDetails, setFocusMode, setFocusedCommentId, setFormData, setGrammarLoading, setGrammarNotes, setImportNotice, setIsGeneratingAiCover, setIsPremium, setLastSaved, setLegal, setLoadedScriptStatus, setLoading, setLoadingDrafts, setMetaLoadingField, setMetaNotice, setMoreMenuOpen, setOutlineNotes, setPitchVideoFile, setPitchVideoMeta, setPitchVideoMetaLoading, setPitchVideoPreviewUrl, setPreGrammarContent, setPreviewPageTexts, setProseLoading, setPublishingDetails, setPurchasedServiceCredits, setRightsLicensing, setRoles, setSaved, setSaving, setSceneSynopses, setScreenplayEnabled, setScreenplayValue, setScriptId, setScriptLimit, setScriptPrice, setServices, setShowDrafts, setShowExitConfirm, setShowTitlePageModal, setShowUnderReviewModal, setShowUndoBar, setShowVersionHistory, setStep, setTagsInput, setTargetFilm, setTargetPublishing, setThumbnailCrop, setThumbnailCropPixels, setThumbnailFile, setThumbnailPreviewUrl, setThumbnailRotation, setThumbnailZoom, setTitle, setTitlePage, setToastMessage, setTrailerFile, setTrailerMeta, setTrailerMetaLoading, setTrailerPreviewUrl, setWordCount, shouldStartFresh, showDrafts, showExitConfirm, showTitlePageModal, showToast, showUnderReviewModal, showUndoBar, showVersionHistory, step, stepContentRef, tagsInput, targetFilm, targetPublishing, textToParagraphHtml, thumbnailApplying, thumbnailCrop, thumbnailCropPixels, thumbnailFile, thumbnailInputRef, thumbnailPreviewUrl, thumbnailRotation, thumbnailSourceUrl, thumbnailZoom, title, titlePage, titlePageActive, toastMessage, toggleChip, toggleDarkMode, trailerFile, trailerInputRef, trailerMeta, trailerMetaLoading, trailerPreviewUrl, trailerWorkflowHint, updateRoleAge, updateRoleField, uploadSelectedProjectMedia, useScreenplayEditor, user, validateStep, wordCount, writerPayout,
+    BUYER_COMMISSION_RATE, FORMAT_PRICE_GUIDE, ZOOM_MIN, addRole, addWriter, updateWriter, removeWriter, moveWriter, writers, addSceneComment, adjustZoom, agreementRef, aiBtnCls, aiCoverAttempts, aiCoverRemaining, aiCoverHistory, aiCoverIndex, autoSaveInFlightRef, buildDraftPayload, buildRightsPayload, buildScriptPreviewPayload, buyerCommissionAmount, buyerTotalPayable, canComment, canEditContent, cardCls, charCount, chipCls, classification, clearLocalWorkingDraft, collabClearEditRequest, collabCommentsVersion, collabEditRequest, collabLocks, collabMyUserId, collabPeople, collabReleaseHeld, collabRequestEdit, collabSetActiveScene, collabVisibility, confirmExitDiscard, confirmExitSaveDraft, creationBlocked, creationBlockedRef, currentElement, dark, deleteSceneComment, detailsStep, detailsSubSteps, discardingRef, downloadSubmissionSummaryPdf, downloadWatermarkedImage, draftId, drafts, editApprovalLocked, editor, editorZoom, effectivePrice, emphasisState, enforceGoldPlan, error, escapeHtml, estimatedPages, exitGuardRef, exiting, exportMenuOpen, exportingScreenplay, fetchDrafts, filmDetails, focusMode, focusedCommentId, formData, formatDuration, formatInfo, generateAiCover, getDraftSignature, getEditorPlainText, getInvalidRoleAgeRangeMessage, grammarLoading, grammarNotes, handleAddComment, handleAnalyzeFormatting, handleApplyThumbnail, handleBack, handleCaretLine, handleChange, handleDeleteDraft, handleDownloadMainContentPdf, handleExitEditor, handleExportScreenplay, handleFixGrammar, handleFocusComment, handleGenerateMetadata, handleGenerateProse, handleGrammarClick, handleGrammarKeep, handleGrammarUndo, handleImportScreenplayFile, handleNext, handleOutlineChange, handlePitchVideoSelect, handleProseClick, handlePublish, handleReorderScene, handleReplyComment, handleSave, handleScreenplayChange, handleSynopsisChange, handleThumbnailSelect, handleTrailerSelect, handleUnderReviewContinue, hasMeaningfulDraft, importNotice, inputCls, isCommentOrphaned, isEditingExistingScriptFlow, isGeneratingAiCover, isPremium, isScreenplayFormat, isThumbnailEditorOpen, lastDraftSignatureRef, lastSaved, legal, loadDraft, loadedScriptStatus, loading, loadingDrafts, localDraftHydratedRef, location, mediaProgress, mediaUploadActive, metaLoadingField, metaNotice, moreMenuOpen, navigate, openPricingModal, openThumbnailEditor, openUnderReviewModal, outlineNotes, outlineWithSceneIds, pageStatus, pendingMediaRecovery, peopleEnriched, pitchVideoFile, pitchVideoInputRef, pitchVideoMeta, pitchVideoMetaLoading, pitchVideoPreviewUrl, preGrammarContent, presenceBySceneId, presenceEnabled, presenceScenes, previewPageTexts, previewPageTextsSignatureRef, proseLoading, publishReadiness, publishReviewItems, publishSummaryRows, publishingDetails, purchasedServiceCredits, queueKeepaliveDraftSave, queueKeepaliveDraftSaveRef, removeRole, resetThumbnailEditor, runWorkingDraftRecovery, applyWorkingDraftSnapshot, pendingRecovery, acceptPendingRecovery, dismissPendingRecovery, reviewRedirectTimerRef, rightsLicensing, roles, sanitizePdfFileName, saveBlockedRef, saveTitlePage, saved, saving, sceneComments, sceneSynopses, screenplayApiRef, screenplayEnabled, screenplayFileInputRef, screenplayMirrorTimer, screenplayOutline, screenplayValue, screenplayValueRef, scriptId, scriptIdRef, scriptLimit, scriptPrice, selectedPublishServices, services, setAiCoverAttempts, setAiCoverHistory, setAiCoverIndex, setCanComment, setCanEditContent, setCharCount, setClassification, setCollabVisibility, setCommentResolved, setCurrentElement, setDetailsStep, setDrafts, setEditApprovalLocked, setEditorZoom, setEmphasisState, setError, setExiting, setExportMenuOpen, setExportingScreenplay, setFilmDetails, setFocusMode, setFocusedCommentId, setFormData, setGrammarLoading, setGrammarNotes, setImportNotice, setIsGeneratingAiCover, setIsPremium, setLastSaved, setLegal, setLoadedScriptStatus, setLoading, setLoadingDrafts, setMetaLoadingField, setMetaNotice, setMoreMenuOpen, setOutlineNotes, setPitchVideoFile, setPitchVideoMeta, setPitchVideoMetaLoading, setPitchVideoPreviewUrl, setPreGrammarContent, setPreviewPageTexts, setProseLoading, setPublishingDetails, setPurchasedServiceCredits, setRightsLicensing, setRoles, setSaved, setSaving, setSceneSynopses, setScreenplayEnabled, setScreenplayValue, setScriptId, setScriptLimit, setScriptPrice, setServices, setShowDrafts, setShowExitConfirm, setShowTitlePageModal, setShowUnderReviewModal, setShowUndoBar, setShowVersionHistory, setStep, setTagsInput, setTargetFilm, setTargetPublishing, setThumbnailCrop, setThumbnailCropPixels, setThumbnailFile, setThumbnailPreviewUrl, setThumbnailRotation, setThumbnailZoom, setTitle, setTitlePage, setToastMessage, setTrailerFile, setTrailerMeta, setTrailerMetaLoading, setTrailerPreviewUrl, setWordCount, shouldStartFresh, showDrafts, showExitConfirm, showTitlePageModal, showToast, showUnderReviewModal, showUndoBar, showVersionHistory, step, stepContentRef, tagsInput, targetFilm, targetPublishing, textToParagraphHtml, thumbnailApplying, thumbnailCrop, thumbnailCropPixels, thumbnailFile, thumbnailInputRef, thumbnailPreviewUrl, thumbnailRotation, thumbnailSourceUrl, thumbnailZoom, title, titlePage, titlePageActive, toastMessage, toggleChip, toggleDarkMode, trailerFile, trailerInputRef, trailerMeta, trailerMetaLoading, trailerPreviewUrl, trailerWorkflowHint, updateRoleAge, updateRoleField, uploadSelectedProjectMedia, useScreenplayEditor, user, validateStep, wordCount, writerPayout,
   };
 
   if (accessDenied) {

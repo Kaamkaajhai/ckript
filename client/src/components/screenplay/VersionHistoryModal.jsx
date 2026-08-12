@@ -1,99 +1,27 @@
-import { useEffect, useState, useCallback, useMemo } from "react";
-import { diff_match_patch as DiffMatchPatch } from "diff-match-patch";
-import api from "../../services/api";
-
-const timeAgo = (date) => {
-  const s = Math.floor((Date.now() - new Date(date)) / 1000);
-  if (s < 60) return "just now";
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
-  return new Date(date).toLocaleDateString();
-};
-
-// Fountain line-level diff (version → current): -1 removed, +1 added, 0 unchanged.
-const useLineDiff = (versionText, currentText) =>
-  useMemo(() => {
-    if (versionText == null) return null;
-    const dmp = new DiffMatchPatch();
-    const { chars1, chars2, lineArray } = dmp.diff_linesToChars_(versionText || "", currentText || "");
-    const diffs = dmp.diff_main(chars1, chars2, false);
-    dmp.diff_charsToLines_(diffs, lineArray);
-    const rows = [];
-    for (const [op, text] of diffs) {
-      for (const line of text.split("\n")) {
-        if (line === "" ) continue;
-        rows.push({ op, line });
-      }
-    }
-    return rows;
-  }, [versionText, currentText]);
+import { useMemo, useState } from "react";
+import useVersionHistory, { lineDiff, timeAgo } from "./useVersionHistory";
 
 export default function VersionHistoryModal({ open, onClose, scriptId, currentText = "", dark = false, onRestored }) {
-  const [versions, setVersions] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [label, setLabel] = useState("");
-  const [error, setError] = useState("");
   const [diffId, setDiffId] = useState(null);
-  const [restoringId, setRestoringId] = useState(null);
 
-  const fetchVersions = useCallback(async () => {
-    if (!scriptId) return;
-    setLoading(true);
-    try {
-      const { data } = await api.get(`/scripts/${scriptId}/versions`);
-      setVersions(Array.isArray(data) ? data : []);
-    } catch (err) {
-      setError(err.response?.data?.message || "Could not load versions.");
-    } finally {
-      setLoading(false);
-    }
-  }, [scriptId]);
-
-  useEffect(() => {
-    if (open) {
-      setError("");
-      setDiffId(null);
-      fetchVersions();
-    }
-  }, [open, fetchVersions]);
+  const {
+    versions, loading, saving, restoringId, error,
+    save, restore,
+  } = useVersionHistory({ scriptId, open, currentText, onRestored });
 
   const handleSave = async () => {
-    if (!scriptId) { setError("Save your project once before versioning."); return; }
-    setSaving(true);
-    setError("");
-    try {
-      const { data } = await api.post(`/scripts/${scriptId}/versions`, { label: label.trim(), content: currentText });
-      setVersions(Array.isArray(data) ? data : []);
-      setLabel("");
-    } catch (err) {
-      setError(err.response?.data?.message || "Could not save version.");
-    } finally {
-      setSaving(false);
-    }
+    const ok = await save(label);
+    if (ok) setLabel("");
   };
 
   const handleRestore = async (versionId) => {
-    setRestoringId(versionId);
-    setError("");
-    try {
-      const { data } = await api.post(`/scripts/${scriptId}/versions/${versionId}/restore`, { content: currentText });
-      if (typeof data?.fountainContent === "string") onRestored?.(data.fountainContent);
-      setVersions(Array.isArray(data?.versions) ? data.versions : []);
-      setDiffId(null);
-    } catch (err) {
-      setError(err.response?.data?.message || "Could not restore version.");
-    } finally {
-      setRestoringId(null);
-    }
+    const ok = await restore(versionId);
+    if (ok) setDiffId(null);
   };
 
   const diffVersion = versions.find((v) => v._id === diffId) || null;
-  const diffRows = useLineDiff(diffVersion ? diffVersion.fountainSnapshot : null, currentText);
+  const diffRows = useMemo(() => lineDiff(diffVersion ? diffVersion.fountainSnapshot : null, currentText), [diffVersion, currentText]);
 
   if (!open) return null;
 

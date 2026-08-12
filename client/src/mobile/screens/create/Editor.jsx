@@ -1,16 +1,25 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { EditorContent } from "@tiptap/react";
+import Corkboard from "../../../components/screenplay/Corkboard";
 import ScreenplayEditor from "../../../components/screenplay/ScreenplayEditor";
 import { TitlePageSheet } from "../../../components/screenplay/ScreenplayFocusMode";
+import { DOC_SCENE_ID, getScenes } from "../../../components/screenplay/sceneIdentity";
 import { useCreateProject } from "../../../pages/CreateProject/CreateProjectContext";
 import Button from "../../components/buttons/Button";
 import IconButton from "../../components/buttons/IconButton";
 import InlineMessage from "../../components/feedback/InlineMessage";
 import ActionSheet from "../../components/overlays/ActionSheet";
+import Dialog from "../../components/overlays/Dialog";
 import MobileShell from "../../shell/MobileShell";
 import EditorDock from "./EditorDock";
+import CommentsSheet from "./overlays/CommentsSheet";
 import ExitFlow from "./overlays/ExitFlow";
+import NavigatorSheet from "./overlays/NavigatorSheet";
+import PeopleDialog from "./overlays/PeopleDialog";
+import ReportsDialog from "./overlays/ReportsDialog";
+import VersionsDialog from "./overlays/VersionsDialog";
 import TitlePageDialog from "./overlays/TitlePageDialog";
+import { countOpenComments } from "./commentsModel";
 import {
   buildEditorOverflowItems,
   describeSaveState,
@@ -66,12 +75,31 @@ export default function Editor() {
     setShowTitlePageModal, setTitle, setSaved,
     title, titlePage, titlePageActive, useScreenplayEditor,
     pendingRecovery, acceptPendingRecovery, dismissPendingRecovery,
+    sceneSynopses, handleSynopsisChange, handleReorderScene, presenceBySceneId,
+    outlineWithSceneIds, canComment, handleAddComment, handleReplyComment,
+    handleFocusComment, setCommentResolved, deleteSceneComment, isCommentOrphaned,
+    presenceEnabled, collabPeople, scriptId, setScreenplayValue,
   } = useCreateProject();
 
   const [dockTab, setDockTab] = useState(EDITOR_DOCK_TAB.ELEMENTS);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [cardsOpen, setCardsOpen] = useState(false);
+  const [navigatorOpen, setNavigatorOpen] = useState(false);
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const [peopleOpen, setPeopleOpen] = useState(false);
+  const [reportsOpen, setReportsOpen] = useState(false);
+  const [versionsOpen, setVersionsOpen] = useState(false);
   const overflowRef = useRef(null);
+
+  /* The same derivation the desktop focus mode uses, for the same reason: cards
+     must key off the identity the LOCKS key off, or a card's lock badge and the
+     editor's disagree. The zero-scene document is one lockable unit and not a
+     card — the board's own empty state is the honest thing to show there. */
+  const cardScenes = useMemo(
+    () => getScenes(screenplayValue).filter((scene) => scene.sceneId !== DOC_SCENE_ID),
+    [screenplayValue],
+  );
 
   const save = describeSaveState({ saving, saved, lastSaved });
 
@@ -105,6 +133,12 @@ export default function Editor() {
    * argument evaluated during render.
    */
   const overflowActions = {
+    navigator: () => setNavigatorOpen(true),
+    comments: () => setCommentsOpen(true),
+    people: () => setPeopleOpen(true),
+    reports: () => setReportsOpen(true),
+    versions: () => setVersionsOpen(true),
+    cards: () => setCardsOpen(true),
     import: openImportPicker,
     export: () => setExportOpen(true),
     prose: () => setScreenplayEnabled((value) => !value),
@@ -113,6 +147,7 @@ export default function Editor() {
 
   const overflowItems = buildEditorOverflowItems({
     canEditContent,
+    useScreenplayEditor,
     // Import is gold-plan gated on desktop through `enforceGoldPlan`, which
     // shows the pricing modal when it refuses. The item is offered and the gate
     // answers — hiding it would tell a free writer the feature does not exist.
@@ -122,6 +157,13 @@ export default function Editor() {
     hasFullAccess,
     competitionMode,
     exporting: Boolean(exportingScreenplay),
+    /* `presenceEnabled` is `useScreenplayEditor && Boolean(scriptId)` — the same
+       condition the comment FETCH is gated on upstream. A brand-new unsaved
+       draft has no script to hang notes off, so the item is absent rather than
+       present-and-empty, which is the placeholder dead end §2.8 forbids. */
+    commentsEnabled: Boolean(presenceEnabled),
+    openComments: countOpenComments(sceneComments),
+    livePeople: Array.isArray(collabPeople) ? collabPeople.length : 0,
   }).map((item) => ({ ...item, onSelect: overflowActions[item.id] }));
 
   const appBar = (
@@ -259,6 +301,124 @@ export default function Editor() {
               { id: "fdx", label: "Final Draft (.fdx)", icon: "movie_edit", onSelect: () => handleExportScreenplay("fdx") },
             ]}
           />
+
+          {/* The Navigator (D16). A Sheet, not a Dialog, and the contrast with
+              Scene cards below is the whole of D15's rule: this one does not
+              replace the script, it is a list you open, pick from, and leave. */}
+          <NavigatorSheet
+            open={navigatorOpen}
+            onClose={() => setNavigatorOpen(false)}
+            outline={outlineWithSceneIds}
+            screenplayValue={screenplayValue}
+            locks={collabLocks}
+            myUserId={collabMyUserId}
+            presenceBySceneId={presenceBySceneId}
+            hasTitlePage={titlePageActive}
+            onConfigureTitlePage={() => setShowTitlePageModal(true)}
+            onGoToLine={(line) => screenplayApiRef?.current?.scrollToLine?.(line)}
+            returnFocusTo={overflowRef}
+          />
+
+          {/* Version history (D19). A Dialog — the desktop surface is already a
+              modal, just one with no dialog role, no focus trap and no Escape.
+              The diff is a second VIEW inside it rather than desktop's expander
+              inside a list row, which was a scroller inside a row inside the
+              modal's scroller. */}
+          <VersionsDialog
+            open={versionsOpen}
+            onClose={() => setVersionsOpen(false)}
+            scriptId={scriptId}
+            currentText={screenplayValue}
+            onRestored={(fountainText) => {
+              setScreenplayValue(fountainText);
+              handleScreenplayChange(fountainText);
+              setSaved(false);
+            }}
+            returnFocusTo={overflowRef}
+          />
+
+          {/* Reports (D20). A Dialog: inspecting, sorting and downloading a
+              long generated report replaces writing for its duration. The
+              presentation is mobile-specific, while parsing and file output
+              stay shared with the desktop rail. */}
+          <ReportsDialog
+            open={reportsOpen}
+            onClose={() => setReportsOpen(false)}
+            value={screenplayValue}
+            title={title}
+            onJumpScene={(line) => screenplayApiRef?.current?.scrollToLine?.(line)}
+            returnFocusTo={overflowRef}
+          />
+
+          {/* People (D18). A DIALOG, unlike its neighbour: this replaces the
+              writer's task rather than the script — inviting someone, changing
+              what they may do, revoking access. It also lets the invite form be
+              a SECTION instead of desktop's modal-over-a-panel, which as a
+              sheet would have been two modal layers. */}
+          <PeopleDialog
+            open={peopleOpen}
+            onClose={() => setPeopleOpen(false)}
+            scriptId={scriptId}
+            myUserId={collabMyUserId}
+            people={collabPeople}
+            returnFocusTo={overflowRef}
+          />
+
+          {/* Comments (D17). A Sheet — notes about the script do not replace
+              it — but the only one of these surfaces that WRITES, which is why
+              it captures its range on open rather than reading the selection at
+              submit time the way the desktop rail does. */}
+          <CommentsSheet
+            open={commentsOpen}
+            onClose={() => setCommentsOpen(false)}
+            comments={sceneComments}
+            canComment={canComment}
+            myUserId={collabMyUserId}
+            isCommentOrphaned={isCommentOrphaned}
+            getSelection={() => screenplayApiRef?.current?.getSelection?.() || null}
+            onAddComment={handleAddComment}
+            onReplyComment={handleReplyComment}
+            onResolveComment={setCommentResolved}
+            onDeleteComment={deleteSceneComment}
+            onFocusComment={handleFocusComment}
+            returnFocusTo={overflowRef}
+          />
+
+          {/* Scene cards (D15). A Dialog, not a Sheet: this REPLACES the script
+              for its duration rather than sitting contextually above it, which
+              is the line Sheet.jsx and Dialog.jsx draw between themselves. Focus
+              returns to the overflow button, because that is where the writer
+              was — the ActionSheet that listed it has closed by then. */}
+          <Dialog
+            open={cardsOpen}
+            onClose={() => setCardsOpen(false)}
+            title="Scene cards"
+            description="One card per scene. Reorder them to restructure the script — the page updates with every move."
+            closeLabel="Close scene cards"
+            returnFocusTo={overflowRef}
+            bodyClassName="ckm-editor__cards-body"
+          >
+            <Corkboard
+              className="ckm-editor__cards"
+              scenes={cardScenes}
+              synopses={sceneSynopses}
+              onSynopsisChange={handleSynopsisChange}
+              onReorder={handleReorderScene}
+              /* Opening a scene is a "take me back to the page" action, so the
+                 board closes first and the scroll happens after the dialog has
+                 released focus — otherwise the caret moves under a surface the
+                 writer is still looking at. */
+              onOpenScene={(line) => {
+                setCardsOpen(false);
+                requestAnimationFrame(() => screenplayApiRef?.current?.scrollToLine?.(line));
+              }}
+              locks={collabLocks}
+              myUserId={collabMyUserId}
+              presenceBySceneId={presenceBySceneId}
+              canEdit={canEditContent}
+              dark={dark}
+            />
+          </Dialog>
 
           {/* Unsaved-change protection. Hoisted into `overlays/ExitFlow` when
               the wizard arrived: leaving with unsaved work is one contract, and
