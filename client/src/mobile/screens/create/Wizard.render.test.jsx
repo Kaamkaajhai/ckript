@@ -407,7 +407,7 @@ describe("Wizard — the footer", () => {
       handlePublish,
     }));
 
-    click(control("Retry the media upload"));
+    click(control("Continue media upload"));
     expect(handlePublish).toHaveBeenCalledTimes(1);
     expect(control("Next")).toBeUndefined();
   });

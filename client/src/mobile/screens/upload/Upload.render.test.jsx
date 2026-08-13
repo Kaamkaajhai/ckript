@@ -255,7 +255,7 @@ describe("Upload — notices live in the fixed chrome", () => {
 
     expect(notice.textContent).toMatch(/your project is saved/i);
     expect(notice.textContent).toMatch(/nothing else needs re-entering/i);
-    expect(control("Retry the media upload")).toBeTruthy();
+    expect(control("Continue media upload")).toBeTruthy();
   });
 
   it("shows exact large-file preflight bytes and delegates the explicit start", () => {

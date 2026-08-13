@@ -11,6 +11,7 @@ const { apiMock } = vi.hoisted(() => ({
     post: vi.fn(),
     put: vi.fn(),
     patch: vi.fn(),
+    delete: vi.fn(),
   },
 }));
 
@@ -176,11 +177,24 @@ describe("ScriptUpload success flow", () => {
       writerProfile: { username: "writer_one" },
       subscription: { plan: "gold" },
     };
-    apiMock.post.mockImplementation((url, _body, config) => {
+    apiMock.post.mockImplementation((url) => {
       if (url === "/scripts/upload") {
         return Promise.resolve({ data: { _id: "script-42", title: "A Monsoon Story" } });
       }
-      if (url === "/scripts/script-42/upload-trailer") {
+      if (url === "/scripts/script-42/media-uploads") {
+        return Promise.resolve({ data: { upload: {
+          sessionId: "session-1",
+          chunkSize: 6 * 1024 * 1024,
+          totalParts: 5,
+          nextPart: 0,
+          acceptedBytes: 0,
+          percent: 0,
+        } } });
+      }
+      return Promise.reject(new Error(`Unexpected POST ${url}`));
+    });
+    apiMock.put.mockImplementation((url, _body, config) => {
+      if (url === "/scripts/script-42/media-uploads/session-1/parts/0") {
         return new Promise((_resolve, reject) => {
           config.signal.addEventListener(
             "abort",
@@ -189,8 +203,9 @@ describe("ScriptUpload success flow", () => {
           );
         });
       }
-      return Promise.reject(new Error(`Unexpected POST ${url}`));
+      return Promise.reject(new Error(`Unexpected PUT ${url}`));
     });
+    apiMock.delete.mockResolvedValue({ data: { ok: true } });
 
     container = document.createElement("div");
     document.body.appendChild(container);
@@ -231,10 +246,11 @@ describe("ScriptUpload success flow", () => {
     expect(container.querySelector("[data-testid='native-cancelled']").textContent)
       .toBe("Cancelled: trailer");
     expect(container.textContent).not.toMatch(/failed/i);
-    expect(apiMock.post).toHaveBeenCalledWith(
-      "/scripts/script-42/upload-trailer",
-      expect.any(FormData),
+    expect(apiMock.put).toHaveBeenCalledWith(
+      "/scripts/script-42/media-uploads/session-1/parts/0",
+      expect.any(Blob),
       expect.objectContaining({ signal: expect.any(AbortSignal) }),
     );
+    expect(apiMock.delete).toHaveBeenCalledWith("/scripts/script-42/media-uploads/session-1");
   });
 });

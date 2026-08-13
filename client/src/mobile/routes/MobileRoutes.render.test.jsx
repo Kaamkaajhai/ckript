@@ -17,6 +17,10 @@ vi.mock("../screens/Holds", () => ({
   default: () => <main data-testid="mobile-holds">Mobile holds</main>,
 }));
 
+vi.mock("../screens/discovery/SearchMobile", () => ({
+  default: () => <main data-testid="mobile-search">Mobile search</main>,
+}));
+
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 let container;
@@ -75,6 +79,12 @@ describe("MobileRoutes", () => {
   it("renders the holds screen at /offer-holds — and not the dashboard", async () => {
     const el = await mount("/offer-holds", { user: { role: "producer" } });
     expect(el.querySelector('[data-testid="mobile-holds"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
+  });
+
+  it("renders native search at the canonical /search URL", async () => {
+    const el = await mount("/search?q=night");
+    expect(el.querySelector('[data-testid="mobile-search"]')).toBeTruthy();
     expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
   });
 

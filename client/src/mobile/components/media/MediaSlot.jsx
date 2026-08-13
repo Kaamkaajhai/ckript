@@ -48,7 +48,7 @@ export default function MediaSlot({
   secondary = null,
   disabled = false,
   /*
-   * A real upload figure, or null. `{ percent, status }` where status is
+   * A real upload figure, or null. `{ percent, status, resumed? }` where status is
    * "uploading" | "done" | "failed" | "cancelled" — the shape `uploadMediaForScript` reports
    * through axios's `onUploadProgress` (D14). Null means nothing is in flight,
    * which is every moment before Submit.
@@ -205,7 +205,7 @@ export default function MediaSlot({
  * bar — announcing every one of a hundred increments is noise, and the text only
  * changes on the states that matter.
  */
-export function MediaProgress({ label = "File", percent = 0, status = "uploading" }) {
+export function MediaProgress({ label = "File", percent = 0, status = "uploading", resumed = false }) {
   const clamped = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
   const text = status === "failed"
     ? "Upload failed"
@@ -213,7 +213,7 @@ export function MediaProgress({ label = "File", percent = 0, status = "uploading
       ? "Upload cancelled"
     : status === "done"
       ? "Uploaded"
-      : `Uploading ${clamped}%`;
+      : `${resumed ? "Resuming" : "Uploading"} ${clamped}%`;
 
   return (
     <div className={`ckm-media__progress ckm-media__progress--${status}`}>

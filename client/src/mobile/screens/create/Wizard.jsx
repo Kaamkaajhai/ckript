@@ -220,7 +220,8 @@ export default function Wizard() {
           className="ckm-create-project__notice"
         >
           {mediaUploadPreflight.files.map((file) => `${file.label}: ${file.name} (${formatFileSize(file.size)})`).join(" · ")}. {" "}
-          Total {formatFileSize(mediaUploadPreflight.totalBytes)}. Keep Ckript open and choose
+          Total {formatFileSize(mediaUploadPreflight.totalBytes)}. Videos upload in confirmed
+          chunks, so a connection drop can continue from the last accepted chunk. Choose
           &ldquo;Start uploads&rdquo; when you are ready.
         </InlineMessage>
       )}
@@ -235,8 +236,8 @@ export default function Wizard() {
           className="ckm-create-project__notice"
         >
           {pendingMediaRecovery.cancelledTypes?.length > 0 && !pendingMediaRecovery.failedTypes?.length
-            ? "Retry the cancelled uploads when you are ready. Each file starts again at 0%; this is not a resumable transfer."
-            : "Replace or remove the highlighted files below, then retry the media upload. Nothing else needs re-entering."}
+            ? "Retry the cancelled uploads when you are ready. Cancelling discards the upload session, so each file starts again at 0%."
+            : "Continue to resume each video at its last confirmed chunk. A cover image starts again; you can also replace or remove any highlighted file. Nothing else needs re-entering."}
         </InlineMessage>
       )}
 
@@ -248,8 +249,9 @@ export default function Wizard() {
           className="ckm-create-project__notice"
           action={<Button size="sm" variant="tertiary" onClick={cancelProjectMediaUpload}>Cancel uploads</Button>}
         >
-          Keep Ckript open until every selected file says Uploaded. A failed file can be retried
-          without submitting the project again.
+          Keep Ckript open while data is moving. If the connection drops, Continue resumes videos
+          from their last confirmed chunks without submitting the project again. Cancel discards
+          the sessions instead.
         </InlineMessage>
       )}
 

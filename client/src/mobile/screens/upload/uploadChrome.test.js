@@ -154,7 +154,7 @@ describe("describeUploadFooter", () => {
     // published, and pressing it does not publish anything.
     const footer = describeUploadFooter({ step: 2, detailStep: 5, mediaRecoveryPending: true });
     expect(footer.next.id).toBe("retry-media");
-    expect(footer.next.label).toMatch(/retry the media upload/i);
+    expect(footer.next.label).toMatch(/continue media upload/i);
     expect(footer.next.disabled).toBe(false);
   });
 

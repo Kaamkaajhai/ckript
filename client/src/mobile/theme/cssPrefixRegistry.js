@@ -229,6 +229,14 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
   // second prefix would be a file with nothing in it.
   "ckm-holds": { kind: PAGE_FAMILY, owner: "screens/Holds.css", family: "holds" },
 
+  // --- Discovery (Phase 4) ----------------------------------------------
+  "ckm-search": {
+    kind: PAGE_FAMILY,
+    owner: "screens/discovery/SearchMobile.css",
+    family: "discovery",
+    note: "Authenticated mixed people/project search, URL-backed facets and paged results at /search.",
+  },
+
   // --- Project creation (Phase 3) ---------------------------------------
   // The chooser at /new-project. Its own family rather than part of
   // ckm-create-project: it is a different route with a different shell, it

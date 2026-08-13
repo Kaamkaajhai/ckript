@@ -143,8 +143,8 @@ export function describeWizardFooter({
       next: {
         id: "retry-media",
         label: loading
-          ? "Retrying…"
-          : cancelledOnly ? "Retry cancelled uploads" : "Retry the media upload",
+          ? "Continuing…"
+          : cancelledOnly ? "Retry cancelled uploads" : "Continue media upload",
         kind: "publish",
         disabled: loading,
         blockedReason: "",

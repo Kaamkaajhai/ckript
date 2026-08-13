@@ -82,6 +82,13 @@ describe("CreateProjectChrome — which surface", () => {
 
     expect(document.querySelectorAll("[data-testid='editor'], [data-testid='wizard']")).toHaveLength(1);
   });
+
+  it("keeps competition mode in the editor even when a restored step has drifted", () => {
+    render({ step: 4, competitionMode: true, toastMessage: null, setToastMessage: vi.fn() }, toastApi());
+
+    expect(document.querySelector("[data-testid='editor']")).toBeTruthy();
+    expect(document.querySelector("[data-testid='wizard']")).toBeNull();
+  });
 });
 
 describe("useCreateProjectToasts — the forwarding bridge", () => {

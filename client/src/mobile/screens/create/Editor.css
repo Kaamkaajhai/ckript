@@ -151,6 +151,228 @@
   margin: var(--ckm-space-3) var(--ckm-space-3) 0;
 }
 
+/* --- Competition entry ------------------------------------------------- */
+
+/* Pinned with the editor bar because the deadline and one-way submit are the
+   competition equivalent of navigation chrome, not content in the screenplay
+   page. Two compact rows survive 320px without shrinking a touch target. */
+.ckm .ckm-editor__competition {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+  padding: var(--ckm-space-2) var(--ckm-space-3) var(--ckm-space-3);
+  border-bottom: 1px solid var(--ckm-editor-chrome-line);
+  background: #151515;
+  color: var(--ckm-editor-on-chrome);
+}
+
+.ckm .ckm-editor__competition-head,
+.ckm .ckm-editor__competition-foot,
+.ckm .ckm-editor__competition-actions,
+.ckm .ckm-editor__competition-clock,
+.ckm .ckm-editor__competition-status,
+.ckm .ckm-editor__competition-loading {
+  display: flex;
+  align-items: center;
+}
+
+.ckm .ckm-editor__competition-head,
+.ckm .ckm-editor__competition-foot {
+  min-width: 0;
+  justify-content: space-between;
+  gap: var(--ckm-space-3);
+}
+
+.ckm .ckm-editor__competition-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ckm-editor-on-chrome);
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ckm .ckm-editor__competition-clock {
+  flex: none;
+  gap: var(--ckm-space-1);
+  color: var(--ckm-editor-on-chrome-2);
+  font-size: var(--ckm-text-caption);
+  white-space: nowrap;
+}
+
+.ckm .ckm-editor__competition-clock strong,
+.ckm .ckm-editor__competition-clock .ckc-clock-inline {
+  color: #ff8b76;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-weight: var(--ckm-weight-bold);
+  font-variant-numeric: tabular-nums;
+}
+
+.ckm .ckm-editor__competition-status {
+  flex: none;
+  gap: 4px;
+  color: #7fd6a0;
+  font-size: var(--ckm-text-caption);
+  font-weight: var(--ckm-weight-bold);
+}
+
+.ckm .ckm-editor__competition-status .material-symbols-outlined {
+  font-size: 18px;
+}
+
+.ckm .ckm-editor__competition-counts {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: var(--ckm-space-2);
+  color: var(--ckm-editor-on-chrome-2);
+  font-size: var(--ckm-text-micro);
+  white-space: nowrap;
+}
+
+.ckm .ckm-editor__competition-counts strong {
+  color: var(--ckm-editor-on-chrome);
+  font-variant-numeric: tabular-nums;
+}
+
+.ckm .ckm-editor__competition-actions {
+  flex: none;
+  gap: var(--ckm-space-2);
+}
+
+/* The shared primary is ink, which disappears on this ink-adjacent surface.
+   This is the same measured accent-on-dark token the editor dock uses. */
+.ckm .ckm-editor__competition-actions .ckm-button--primary {
+  background: var(--ckm-accent-on-dark);
+  color: var(--ckm-ink);
+}
+
+.ckm .ckm-editor__competition-actions .ckm-button--secondary {
+  border-color: rgba(255, 255, 255, 0.38);
+  background: transparent;
+  color: var(--ckm-editor-on-chrome);
+}
+
+.ckm .ckm-editor__competition-loading {
+  min-height: var(--ckm-control-h-sm);
+  gap: var(--ckm-space-2);
+  margin: 0;
+  color: var(--ckm-editor-on-chrome-2);
+  font-size: var(--ckm-text-caption);
+}
+
+.ckm .ckm-editor__competition-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: ckm-button-spin 700ms linear infinite;
+}
+
+.ckm .ckm-editor__competition-message {
+  margin: 0;
+}
+
+.ckm .ckm-editor__competition-dialog-body,
+.ckm .ckm-editor__competition-checklist,
+.ckm .ckm-editor__competition-result {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-4);
+}
+
+.ckm .ckm-editor__competition-explain,
+.ckm .ckm-editor__competition-result p {
+  margin: 0;
+  color: var(--ckm-text-2);
+  font-size: var(--ckm-text-support);
+  line-height: 1.55;
+}
+
+.ckm .ckm-editor__competition-result {
+  align-items: center;
+  padding-top: var(--ckm-space-3);
+  text-align: center;
+}
+
+.ckm .ckm-editor__competition-result-icon {
+  color: var(--ckm-green-ink);
+  font-size: 48px;
+  font-variation-settings: "FILL" 1;
+}
+
+.ckm .ckm-editor__competition-timeline {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: var(--ckm-space-3);
+  margin: 0;
+  padding: var(--ckm-space-3) 0 0;
+  border-top: 1px solid var(--ckm-line);
+  list-style: none;
+  text-align: left;
+}
+
+.ckm .ckm-editor__competition-timeline li {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ckm-space-3);
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-editor__competition-timeline-mark {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  margin-top: 5px;
+  border: 2px solid var(--ckm-control-border);
+  border-radius: 50%;
+}
+
+.ckm .ckm-editor__competition-timeline li[data-status="done"] .ckm-editor__competition-timeline-mark {
+  border-color: var(--ckm-green-ink);
+  background: var(--ckm-green-ink);
+}
+
+.ckm .ckm-editor__competition-timeline li[data-status="current"] .ckm-editor__competition-timeline-mark {
+  border-color: var(--ckm-accent-ink);
+  background: var(--ckm-accent-ink);
+}
+
+.ckm .ckm-editor__competition-timeline strong,
+.ckm .ckm-editor__competition-timeline small {
+  display: block;
+}
+
+.ckm .ckm-editor__competition-timeline strong {
+  color: var(--ckm-text);
+  font-size: var(--ckm-text-support);
+}
+
+.ckm .ckm-editor__competition-timeline small {
+  margin-top: 2px;
+  color: var(--ckm-text-3);
+  font-size: var(--ckm-text-caption);
+}
+
+@media (max-width: 359px) {
+  .ckm .ckm-editor__competition-foot {
+    align-items: flex-end;
+    flex-direction: column;
+  }
+
+  .ckm .ckm-editor__competition-actions {
+    width: 100%;
+  }
+
+  .ckm .ckm-editor__competition-actions .ckm-button {
+    flex: 1;
+  }
+}
+
 /* --- Page surface -------------------------------------------------------- */
 
 .ckm .ckm-editor__scroll {

@@ -8,14 +8,14 @@ import CreateProjectChrome from "../screens/create/CreateProjectChrome";
 import "../screens/create/Wizard.css";
 
 /*
- * Development-only harness for the whole create-project chrome — both modes
+ * Development-only harness for the whole create-project chrome — every surface
  * (/__mobile-create; see App.jsx, never built into production routes).
  *
  * IT REPLACES /__mobile-editor, AND THE REASON IT STILL EXISTS IS NOT THE OLD ONE.
  * The editor harness existed because the chrome had no production URL. It has
  * one now. What has not changed is that the live route authenticates, fetches
  * drafts, autosaves and mounts a collaboration socket, so it renders a
- * different screen on every run — and the checks that matter most for these two
+ * different screen on every run — and the checks that matter most for these
  * surfaces are the ones only a real browser can answer: touch-target sizes,
  * contrast on the dark chrome, whether the docked bar overlaps the caret line,
  * whether a 29-chip genre row overflows at 320px, whether the sticky footer
@@ -31,7 +31,7 @@ import "../screens/create/Wizard.css";
  *   ?step=2..5              which wizard step
  *   ?panel=basics|story|cast|progress|access|media
  *   ?state=recovery | error | exit | readonly | prose | blocked | submitted
- *          | locked | titled
+ *          | locked | titled | competition | competition-submitted
  *          | crop | titlepage | saving | reports-empty | reports-long
  *          | media-attached | media-preflight | media-uploading | media-failed | media-cancelled
  * A harness that has to be *driven* into a state is a harness that measures a
@@ -220,10 +220,22 @@ export default function CreateHarness() {
   const value = useMemo(() => ({
     // --- identity and access ---------------------------------------------
     user: { _id: "u1", name: "Arshad Rahman", role: "creator", subscription: { plan: "gold" } },
-    canEditContent: requested !== "readonly",
+    canEditContent: requested !== "readonly" && requested !== "competition-submitted",
     hasFullAccess: true,
     hasPublishAccess: requested !== "readonly",
-    competitionMode: false,
+    competitionMode: requested === "competition" || requested === "competition-submitted",
+    competition: requested.startsWith("competition") ? {
+      _id: "competition-48h",
+      name: "Forty Eight Hour Script Challenge",
+      slug: "48-hour-2026",
+      dates: { endsAt: "2026-08-15T12:00:00.000Z" },
+    } : null,
+    competitionEntry: requested === "competition-submitted" ? { status: "ai_processed" } : { status: "writing" },
+    competitionError: "",
+    competitionLoading: false,
+    competitionServerNow: "2026-08-13T12:00:00.000Z",
+    refreshCompetition: noop,
+    setCanEditContent: noop,
     creationBlocked: requested === "blocked",
     editApprovalLocked: false,
     enforceGoldPlan: () => true,
@@ -254,6 +266,7 @@ export default function CreateHarness() {
     saving: requested === "saving",
     saved,
     setSaved,
+    handleSave: async () => true,
     lastSaved: FIXED_LAST_SAVED,
     exiting: false,
     loading: requested === "media-uploading",
@@ -353,6 +366,7 @@ export default function CreateHarness() {
         }
         : item
     )),
+    screenplayOutline: extractOutline(effectiveScreenplayValue),
     presenceBySceneId: {},
     /*
      * Live presence for the People surface. Two people, one of them me, one
@@ -419,6 +433,7 @@ export default function CreateHarness() {
     pageStatus: "short",
     formatInfo: { label: "Feature Film", typical: "90–120", min: 90, max: 120 },
     wordCount: 8420,
+    charCount: effectiveScreenplayValue.length,
     writers: state.writers,
     addWriter: () => setter("writers")((prev) => [...prev, { userId: null, name: "", creditType: "written_by" }]),
     updateWriter: (index, field, next) => setter("writers")((prev) => prev.map((w, i) => (i === index ? { ...w, [field]: next } : w))),

@@ -19,7 +19,7 @@ describe("mobileRoutePolicy — experience selection", () => {
     });
   });
 
-  it.each(["/search", "/messages", "/profile/writer-1", "/script/project-1"])(
+  it.each(["/messages", "/profile/writer-1", "/script/project-1"])(
     "keeps the canonical desktop route during migration instead of swallowing %s",
     (pathname) => {
       expect(resolveMobileExperience({
@@ -33,6 +33,29 @@ describe("mobileRoutePolicy — experience selection", () => {
       });
     },
   );
+
+  it.each([writer, creator, producer])("mounts native search for authenticated $role users", (user) => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user,
+      pathname: "/search",
+      search: "?q=night&type=projects",
+    })).toMatchObject({
+      experience: "mobile",
+      routeId: "search",
+      screenId: "search",
+    });
+  });
+
+  it("keeps signed-out search on the authenticated desktop branch", () => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: null,
+      pathname: "/search",
+    })).toMatchObject({ experience: "desktop", reason: "authentication-required" });
+  });
 
   it("does not hand the writer dashboard to an industry audience", () => {
     expect(resolveMobileExperience({
@@ -189,14 +212,8 @@ describe("mobileRoutePolicy — experience selection", () => {
       });
     });
 
-    /*
-     * `?ctx=competition` replaces the whole publish wizard with a deadline bar
-     * and a one-way Submit, and neither is ported. Without the exclusion a
-     * competition writer would get the mobile editor and NO way to submit their
-     * entry — worse than the desktop page, not merely different from it.
-     */
     it.each(["/create-project", "/create-project/abc123"])(
-      "hands competition mode back to desktop at %s",
+      "mounts the native competition editor at %s",
       (pathname) => {
         expect(resolveMobileExperience({
           isMobile: true,
@@ -205,9 +222,9 @@ describe("mobileRoutePolicy — experience selection", () => {
           pathname,
           search: "?ctx=competition",
         })).toMatchObject({
-          experience: "desktop",
-          disposition: "desktop-migration-fallback",
-          reason: "competition-mode-not-ported",
+          experience: "mobile",
+          screenId: "create-project",
+          reason: "implemented-screen",
         });
       },
     );

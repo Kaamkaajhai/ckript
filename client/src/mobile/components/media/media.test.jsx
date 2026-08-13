@@ -192,6 +192,11 @@ describe("MediaProgress", () => {
     expect(value.textContent).toBe("Uploading 41%");
   });
 
+  it("states when the percentage came from server-confirmed resumed chunks", () => {
+    render(<MediaProgress label="Trailer" percent={60} status="uploading" resumed />);
+    expect(document.querySelector(".ckm-media__progress-value").textContent).toBe("Resuming 60%");
+  });
+
   it("says failure in words, so colour is never the only channel", () => {
     render(<MediaProgress label="Trailer" percent={41} status="failed" />);
     expect(document.querySelector(".ckm-media__progress-value").textContent).toBe("Upload failed");

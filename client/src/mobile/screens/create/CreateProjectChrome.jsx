@@ -24,12 +24,15 @@ import Wizard from "./Wizard";
  * decision only it can make.
  */
 export default function CreateProjectChrome() {
-  const { step } = useCreateProject();
+  const { competitionMode, step } = useCreateProject();
 
   // The orchestrator's `toastMessage` has no renderer under `nativeChrome`, so
   // it is forwarded to the mobile toast layer here — once, above both surfaces,
   // rather than by whichever one happens to be mounted when a save fails.
   useCreateProjectToasts();
 
-  return step === 1 ? <Editor /> : <Wizard />;
+  // Competition entries never enter the publish wizard. Keeping this guard at
+  // the chrome boundary also protects a restored snapshot whose old `step`
+  // value drifted beyond 1 before the entry was attached to a competition.
+  return competitionMode || step === 1 ? <Editor /> : <Wizard />;
 }

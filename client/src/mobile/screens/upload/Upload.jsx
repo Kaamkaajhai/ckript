@@ -276,7 +276,8 @@ export default function Upload({ vm }) {
           className="ckm-upload__notice"
         >
           {state.mediaUploadPreflight.files.map((file) => `${file.label}: ${file.name} (${formatFileSize(file.size)})`).join(" · ")}. {" "}
-          Total {formatFileSize(state.mediaUploadPreflight.totalBytes)}. Keep Ckript open and choose
+          Total {formatFileSize(state.mediaUploadPreflight.totalBytes)}. Videos upload in confirmed
+          chunks, so a connection drop can continue from the last accepted chunk. Choose
           &ldquo;Start uploads&rdquo; when you are ready.
         </InlineMessage>
       )}
@@ -291,8 +292,8 @@ export default function Upload({ vm }) {
           className="ckm-upload__notice"
         >
           {state.mediaRecovery?.cancelledTypes?.length > 0 && !state.mediaRecovery?.failedTypes?.length
-            ? "Retry the cancelled uploads when you are ready. Each file starts again at 0%; this is not a resumable transfer."
-            : "Replace or remove the highlighted files on the Visual assets panel, then retry the media upload. Nothing else needs re-entering."}
+            ? "Retry the cancelled uploads when you are ready. Cancelling discards the upload session, so each file starts again at 0%."
+            : "Continue to resume each video at its last confirmed chunk. A cover image starts again; you can also replace or remove any highlighted file. Nothing else needs re-entering."}
         </InlineMessage>
       )}
 
@@ -304,8 +305,9 @@ export default function Upload({ vm }) {
           className="ckm-upload__notice"
           action={<Button size="sm" variant="tertiary" onClick={actions.cancelMediaUpload}>Cancel uploads</Button>}
         >
-          Keep Ckript open until every selected file says Uploaded. Cancelling keeps the project
-          and lets you retry each unfinished file from 0%.
+          Keep Ckript open while data is moving. If the connection drops, Continue resumes videos
+          from their last confirmed chunks. Cancel keeps the project but discards each upload
+          session, so a cancelled file starts again at 0%.
         </InlineMessage>
       )}
 

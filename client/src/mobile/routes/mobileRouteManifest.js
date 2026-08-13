@@ -68,14 +68,15 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
    * and cannot be measured; the checks that matter most for these two surfaces —
    * touch-target sizes, contrast on the dark chrome, whether the docked bar
    * overlaps the caret line, whether a 29-chip genre row overflows at 320px —
-   * are exactly the ones a jsdom suite cannot answer. This mounts BOTH modes
-   * over a deterministic fixture context so a five-width sweep can.
+   * are exactly the ones a jsdom suite cannot answer. This mounts the editor,
+   * competition variation and wizard over a deterministic fixture context so a
+   * five-width sweep can.
    */
   {
     id: "mobile-create-harness",
     pattern: "/__mobile-create",
     disposition: MOBILE_ROUTE_DISPOSITION.DEV_ONLY,
-    reason: "Development-only harness for the create-project chrome, both modes (plan §11, Phase 3). "
+    reason: "Development-only harness for all create-project chrome surfaces (plan §11, Phase 3). "
       + "The live route is account- and network-dependent and cannot be measured deterministically.",
     screenId: "create-project-harness",
     shell: MOBILE_SHELL_MODE.IMMERSIVE,
@@ -89,6 +90,14 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
       + "cannot be measured twice and get the same answer.",
     screenId: "upload-harness",
     shell: MOBILE_SHELL_MODE.FLOW,
+  },
+  {
+    id: "mobile-search-harness",
+    pattern: "/__mobile-search",
+    disposition: MOBILE_ROUTE_DISPOSITION.DEV_ONLY,
+    reason: "Development-only deterministic mixed-results fixture for the native Search screen (plan §11 Phase 4).",
+    screenId: "search-harness",
+    shell: MOBILE_SHELL_MODE.STANDARD,
   },
   {
     id: "writer-dashboard",
@@ -197,14 +206,9 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
    * is the same wizard with a draft already loaded — the orchestrator reads the
    * param itself (`useParams`), so there is nothing for the route to hand over.
    *
-   * COMPETITION MODE IS EXCLUDED, DELIBERATELY. `?ctx=competition` replaces the
-   * whole publish wizard with a deadline bar and a one-way Submit
-   * (`components/competition/CompetitionBar`, `CompetitionPitch`), and neither
-   * is ported. Without this exclusion a competition writer on a phone would get
-   * the mobile editor with no way at all to submit their entry — a regression,
-   * not a gap. Declared here rather than checked inside the screen so the
-   * limitation is greppable from the manifest, which is the file that is
-   * supposed to answer "what does mobile cover?".
+   * Competition mode is covered too. `?ctx=competition` stays in the immersive
+   * editor, replaces the publish wizard with the native deadline/pitch/submit
+   * controls, and shares the desktop submission operation and server state.
    */
   {
     id: "create-project",
@@ -215,8 +219,6 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     protection: "authenticated",
     screenId: "create-project",
     shell: MOBILE_SHELL_MODE.IMMERSIVE,
-    excludeQuery: { ctx: "competition" },
-    excludeReason: "competition-mode-not-ported",
     fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
   },
   {
@@ -228,8 +230,6 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     protection: "authenticated",
     screenId: "create-project",
     shell: MOBILE_SHELL_MODE.IMMERSIVE,
-    excludeQuery: { ctx: "competition" },
-    excludeReason: "competition-mode-not-ported",
     fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
   },
   /*
@@ -267,7 +267,17 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     shell: MOBILE_SHELL_MODE.FLOW,
     fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
   },
-  migration("search", "/search"),
+  {
+    id: "search",
+    pattern: "/search",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native mixed discovery screen with URL-backed scope/facets and server-paged results (plan §11 Phase 4).",
+    audiences: [AUDIENCE.WRITER, AUDIENCE.INDUSTRY],
+    protection: "authenticated",
+    screenId: "search",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
   migration("project-payment", "/script/:id/pay"),
   migration("project-detail-id", "/script/:id"),
   migration("project-detail-canonical", "/script/:projectHeading/:writerUsername"),

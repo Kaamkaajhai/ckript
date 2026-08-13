@@ -51,6 +51,14 @@ describe("buildNav — writer", () => {
     expect(mobile.every(Boolean)).toBe(true);
   });
 
+  it("keeps Projects compact-only while Create stays in the desktop rail", () => {
+    const nav = forWriter();
+    expect(paths(nav.primary)).toContain("/create-project");
+    expect(paths(nav.primary)).not.toContain("/dashboard?tab=projects");
+    expect(paths(nav.mobile)).toContain("/dashboard?tab=projects");
+    expect(paths(nav.mobile)).not.toContain("/create-project");
+  });
+
   it("carries the unread badge through to mobile, not just the rail", () => {
     const messages = forWriter().mobile.find((i) => i.path === "/messages");
     expect(messages?.badge).toBe(3);

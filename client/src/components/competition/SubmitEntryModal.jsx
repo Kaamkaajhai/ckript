@@ -5,6 +5,10 @@ import api from "../../services/api";
 import { useDarkMode } from "../../context/DarkModeContext";
 import PhaseTimeline from "./PhaseTimeline";
 import { SUBMIT_CHECKLIST } from "../../pages/challenge/constants";
+import {
+  competitionSubmissionErrorMessage,
+  submitCompetitionEntry,
+} from "./competitionSubmission";
 
 /**
  * The one-way door. Submitting freezes a snapshot server-side and locks the script, so the modal
@@ -36,36 +40,11 @@ export default function SubmitEntryModal({ competitionId, competitionName, compe
     setLoading(true);
     setError("");
     try {
-      // Flush any unsaved keystrokes FIRST. Autosave is throttled, so a writer typing right up to
-      // the buzzer can have seconds of work still only in the editor — and the server snapshots
-      // whatever is stored, then locks the script. Without this, their last lines are lost for good.
-      // The guard below used to watch only for a throw, and the save never throws — it catches its
-      // own errors and returns early without saving in several cases besides — so awaiting it proved
-      // nothing and a failed flush submitted whatever the throttled autosave happened to have stored.
-      // The save now reports whether the server is holding the current draft. Only an explicit false
-      // stops the submit: a flushDraft that reports nothing at all still gets the writer through.
-      if (flushDraft) {
-        let flushed;
-        try {
-          flushed = await flushDraft();
-        } catch {
-          flushed = false;
-        }
-        if (flushed === false) {
-          setError("Could not save your latest changes. Check your connection and try again.");
-          setLoading(false);
-          return;
-        }
-      }
-
-      const { data } = await api.post(`/competitions/${competitionId}/submit`, {
-        confirmOriginal: true,
-        confirmFinal: true,
-      });
+      const data = await submitCompetitionEntry({ apiClient: api, competitionId, flushDraft });
       setResult(data);
       onSubmitted?.(data);
     } catch (err) {
-      setError(err?.response?.data?.message || "Submission failed. Please try again.");
+      setError(competitionSubmissionErrorMessage(err));
     } finally {
       setLoading(false);
     }

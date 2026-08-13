@@ -7,9 +7,11 @@ const Holds = lazy(() => import("../screens/Holds"));
 const NewProject = lazy(() => import("../screens/NewProject"));
 const CreateProjectRoute = lazy(() => import("../screens/create/CreateProjectRoute"));
 const UploadRoute = lazy(() => import("../screens/upload/UploadRoute"));
+const SearchMobile = lazy(() => import("../screens/discovery/SearchMobile"));
 const PrimitiveGallery = lazy(() => import("../dev/PrimitiveGallery"));
 const CreateHarness = lazy(() => import("../dev/CreateHarness"));
 const UploadHarness = lazy(() => import("../dev/UploadHarness"));
+const SearchHarness = lazy(() => import("../dev/SearchHarness"));
 
 /*
  * MobileRoutes lives inside the app's one existing BrowserRouter. Canonical
@@ -66,6 +68,10 @@ export default function MobileRoutes({
     return <MobileRouteBoundary><UploadHarness /></MobileRouteBoundary>;
   }
 
+  if (devScreen === "search") {
+    return <MobileRouteBoundary><SearchHarness user={user} /></MobileRouteBoundary>;
+  }
+
   if (preview) {
     return <MobileRouteBoundary>{dashboard}</MobileRouteBoundary>;
   }
@@ -88,6 +94,7 @@ export default function MobileRoutes({
         {/* One route, and its two query forms (?draft=, ?edit=) need no
             entries of their own — the orchestrator reads them itself. */}
         <Route path="/upload" element={<UploadRoute />} />
+        <Route path="/search" element={<SearchMobile user={user} />} />
         {/* Defensive no-op: policy prevents this branch from mounting for an
             unfinished route, and it must never substitute Dashboard. */}
         <Route path="*" element={null} />

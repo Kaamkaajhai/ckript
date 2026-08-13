@@ -150,11 +150,11 @@ describe("describeWizardFooter", () => {
 
     expect(ready.next).toMatchObject({
       id: "retry-media",
-      label: "Retry the media upload",
+      label: "Continue media upload",
       kind: "publish",
       disabled: false,
     });
-    expect(busy.next).toMatchObject({ label: "Retrying…", disabled: true });
+    expect(busy.next).toMatchObject({ label: "Continuing…", disabled: true });
   });
 
   it("holds navigation while a selected file is actively uploading", () => {
