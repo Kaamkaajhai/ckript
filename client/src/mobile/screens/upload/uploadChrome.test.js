@@ -152,10 +152,32 @@ describe("describeUploadFooter", () => {
   it("relabels the primary once the project is saved and only media failed", () => {
     // Desktop reuses "Publish" here, which is wrong twice over: the project is
     // published, and pressing it does not publish anything.
-    const footer = describeUploadFooter({ step: 5, mediaRecoveryPending: true });
+    const footer = describeUploadFooter({ step: 2, detailStep: 5, mediaRecoveryPending: true });
     expect(footer.next.id).toBe("retry-media");
     expect(footer.next.label).toMatch(/retry the media upload/i);
     expect(footer.next.disabled).toBe(false);
+  });
+
+  it("requires an explicit start after preflight and keeps Back available", () => {
+    const footer = describeUploadFooter({ step: 2, detailStep: 5, mediaUploadPreflight: true });
+
+    expect(footer.back.disabled).toBe(false);
+    expect(footer.next).toMatchObject({
+      id: "start-media",
+      label: "Start uploads",
+      kind: "start-media",
+      disabled: false,
+    });
+  });
+
+  it("distinguishes a cancelled retry from a genuine failure", () => {
+    const footer = describeUploadFooter({
+      step: 2,
+      detailStep: 5,
+      mediaRecovery: { failedTypes: [], cancelledTypes: ["pitchVideo"] },
+    });
+
+    expect(footer.next.label).toBe("Retry cancelled uploads");
   });
 
   it("gives a content-only collaborator Cancel and one submit, not a flow", () => {

@@ -31,6 +31,7 @@ import "../screens/upload/Upload.css";
  *   ?state=extracting | ready | error | blocked | locked | recovery | crop
  *          | denied | resolving | submitted | contentonly | uploading | saving
  *          | local-saved | exit | source-error | source-local
+ *          | media-preflight | media-cancelled
  * A harness that has to be *driven* into a state measures something slightly
  * different each time a click lands slightly differently.
  */
@@ -195,11 +196,24 @@ export default function UploadHarness() {
         ? [{ screen: "story", step: 2, detailStep: 1, fieldId: "su-logline", message: "Write a logline before continuing.", label: "Story", code: "logline-required" }]
         : [],
       validationAttempt: 0,
-      mediaRecoveryPending: requested === "recovery",
+      mediaRecoveryPending: requested === "recovery" || requested === "media-cancelled",
+      mediaRecovery: requested === "recovery"
+        ? { failedTypes: ["trailer"], cancelledTypes: [] }
+        : requested === "media-cancelled"
+          ? { failedTypes: [], cancelledTypes: ["trailer"] }
+          : null,
+      mediaUploadActive: requested === "uploading",
+      mediaUploadPreflight: requested === "media-preflight"
+        ? {
+          signature: "trailer:trailer.mp4:184000000:0",
+          files: [{ type: "trailer", label: "Trailer video", name: "trailer.mp4", size: 184_000_000 }],
+          totalBytes: 184_000_000,
+        }
+        : null,
       pdfNotice: requested === "ready" ? "Text extracted, but the PDF upload link could not be created. Submit will update script content only." : "",
       creationBlocked: requested === "blocked",
       scriptLimit: { applies: true, limitReached: requested === "blocked", plan: "Free", used: 1, limit: 1 },
-      loading: requested === "saving",
+      loading: requested === "saving" || requested === "uploading",
       workingDraftDirty: requested === "local-saved" || requested === "exit",
       localSnapshotSaved: requested === "local-saved" || requested === "exit",
       navigationExitRequested: requested === "exit" ? 1 : 0,
@@ -228,6 +242,8 @@ export default function UploadHarness() {
           thumbnail: { percent: 100, status: "done" },
           trailer: { percent: 41, status: "uploading" },
         }
+        : requested === "media-cancelled"
+          ? { trailer: { percent: 41, status: "cancelled" } }
         : {},
       thumbnailEditor: {
         open: requested === "crop",
@@ -285,6 +301,9 @@ export default function UploadHarness() {
       setTrailerFile: noop,
       handlePitchVideoSelect: noop,
       setPitchVideoFile: noop,
+      cancelMediaUpload: noop,
+      confirmMediaUploadPreflight: noop,
+      dismissMediaUploadPreflight: noop,
       setIsPremium: noop,
       setScriptPrice,
       setUseCustomPrice,

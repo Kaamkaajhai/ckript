@@ -75,7 +75,8 @@ const baseVm = ({ state = {}, actions = {}, mode = {}, ...rest } = {}) => ({
     pitchVideoFile: null, pitchVideoPreviewUrl: "", pitchVideoMetaLabel: "",
     metaLoadingField: "", metaNotice: { field: "", text: "" },
     validationErrors: [], validationAttempt: 0,
-    mediaRecoveryPending: false, pdfNotice: "",
+    mediaRecoveryPending: false, mediaRecovery: null, mediaUploadActive: false,
+    mediaUploadPreflight: null, pdfNotice: "",
     creationBlocked: false, scriptLimit: null, loading: false, agreementScrolled: false,
     isPremium: true, scriptPrice: 15, customPriceInput: "", useCustomPrice: false,
     toastMessage: null,
@@ -96,6 +97,8 @@ const baseVm = ({ state = {}, actions = {}, mode = {}, ...rest } = {}) => ({
     handleThumbnailSelect: vi.fn(), openThumbnailEditor: vi.fn(), setAiCoverHistoryIndex: vi.fn(),
     handleTrailerSelect: vi.fn(), setTrailerFile: vi.fn(),
     handlePitchVideoSelect: vi.fn(), setPitchVideoFile: vi.fn(),
+    cancelMediaUpload: vi.fn(), confirmMediaUploadPreflight: vi.fn(),
+    dismissMediaUploadPreflight: vi.fn(),
     setScriptPrice: vi.fn(), setUseCustomPrice: vi.fn(), setCustomPriceInput: vi.fn(),
     setLegal: vi.fn(), setRightsLicensing: vi.fn(),
     onStepSelect: vi.fn(), onDetailSelect: vi.fn(), dismissToast: vi.fn(),
@@ -247,11 +250,57 @@ describe("Upload — notices live in the fixed chrome", () => {
   });
 
   it("explains a partial media failure without re-asking for the whole form", () => {
-    renderScreen(baseVm({ state: { step: 5, mediaRecoveryPending: true } }));
+    renderScreen(baseVm({ state: { step: 2, detailStep: 5, mediaRecoveryPending: true } }));
     const notice = document.querySelector(".ckm-upload__notice");
 
     expect(notice.textContent).toMatch(/your project is saved/i);
     expect(notice.textContent).toMatch(/nothing else needs re-entering/i);
+    expect(control("Retry the media upload")).toBeTruthy();
+  });
+
+  it("shows exact large-file preflight bytes and delegates the explicit start", () => {
+    const confirmMediaUploadPreflight = vi.fn();
+    renderScreen(baseVm({
+      state: {
+        step: 2,
+        detailStep: 5,
+        mediaUploadPreflight: {
+          files: [{ type: "pitchVideo", label: "Pitch video", name: "pitch.mp4", size: 28 * 1024 * 1024 }],
+          totalBytes: 28 * 1024 * 1024,
+        },
+      },
+      actions: { confirmMediaUploadPreflight },
+    }));
+
+    expect(document.querySelector(".ckm-upload__notice").textContent)
+      .toMatch(/pitch\.mp4 \(28\.0 MB\).*total 28\.0 MB/is);
+    click(control("Start uploads"));
+    expect(confirmMediaUploadPreflight).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers cancellation during transfer and never calls it a failure afterward", () => {
+    const cancelMediaUpload = vi.fn();
+    renderScreen(baseVm({
+      state: { step: 2, detailStep: 5, mediaUploadActive: true, loading: true },
+      actions: { cancelMediaUpload },
+    }));
+    click(control("Cancel uploads"));
+    expect(cancelMediaUpload).toHaveBeenCalledTimes(1);
+
+    act(() => root.unmount());
+    root = undefined;
+    renderScreen(baseVm({
+      state: {
+        step: 2,
+        detailStep: 5,
+        mediaRecoveryPending: true,
+        mediaRecovery: { failedTypes: [], cancelledTypes: ["pitchVideo"] },
+      },
+    }));
+
+    expect(document.body.textContent).toMatch(/media upload cancelled/i);
+    expect(control("Retry cancelled uploads")).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/upload failed/i);
   });
 
   it("keeps a recovered device copy visible but server writes disabled", () => {

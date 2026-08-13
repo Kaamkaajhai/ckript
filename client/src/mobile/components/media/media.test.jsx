@@ -151,6 +151,24 @@ describe("MediaSlot — the attached state", () => {
     click(control("Remove"));
     expect(onRemove).toHaveBeenCalledTimes(1);
   });
+
+  it("locks replacement and removal while its upload batch is active", () => {
+    render(
+      <MediaSlot
+        label="Cover image"
+        file={file}
+        previewUrl="blob:x"
+        disabled
+        actions={[{ id: "adjust", label: "Adjust", onSelect: vi.fn() }]}
+        onRemove={vi.fn()}
+      />
+    );
+
+    expect(document.querySelector("input[type='file']").disabled).toBe(true);
+    expect(control("Adjust").disabled).toBe(true);
+    expect(control("Replace").disabled).toBe(true);
+    expect(control("Remove").disabled).toBe(true);
+  });
 });
 
 describe("MediaProgress", () => {
@@ -178,6 +196,13 @@ describe("MediaProgress", () => {
     render(<MediaProgress label="Trailer" percent={41} status="failed" />);
     expect(document.querySelector(".ckm-media__progress-value").textContent).toBe("Upload failed");
     expect(document.querySelector(".ckm-media__progress--failed")).toBeTruthy();
+  });
+
+  it("names a user cancellation separately from a failed upload", () => {
+    render(<MediaProgress label="Trailer" percent={41} status="cancelled" />);
+    expect(document.querySelector(".ckm-media__progress-value").textContent).toBe("Upload cancelled");
+    expect(document.querySelector(".ckm-media__progress--cancelled")).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/failed/i);
   });
 
   it("clamps a value the caller got wrong rather than drawing past the end", () => {

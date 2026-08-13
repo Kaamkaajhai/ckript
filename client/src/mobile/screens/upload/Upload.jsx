@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Button from "../../components/buttons/Button";
 import IconButton from "../../components/buttons/IconButton";
 import InlineMessage from "../../components/feedback/InlineMessage";
+import formatFileSize from "../../components/forms/formatFileSize";
 import CoverCropDialog from "../../components/media/CoverCropDialog";
 import ActionSheet from "../../components/overlays/ActionSheet";
 import ConfirmDialog from "../../components/overlays/ConfirmDialog";
@@ -78,7 +79,10 @@ export default function Upload({ vm }) {
     extracting: state.isExtracting,
     creationBlocked: state.creationBlocked,
     editApprovalLocked: state.editApprovalLocked,
+    mediaRecovery: state.mediaRecovery,
     mediaRecoveryPending: state.mediaRecoveryPending,
+    mediaUploadActive: state.mediaUploadActive,
+    mediaUploadPreflight: Boolean(state.mediaUploadPreflight),
     sourceWriteBlocked: state.sourceWriteBlocked,
   });
 
@@ -264,15 +268,44 @@ export default function Upload({ vm }) {
         </InlineMessage>
       )}
 
-      {state.mediaRecoveryPending && (
+      {state.mediaUploadPreflight && (
         <InlineMessage
           tone="warning"
           variant="panel"
-          title="Your project is saved, but some media did not upload."
+          title="Large media upload"
           className="ckm-upload__notice"
         >
-          Replace or remove the highlighted files on the Visual assets panel, then use
-          &ldquo;Retry the media upload&rdquo;. Nothing else needs re-entering.
+          {state.mediaUploadPreflight.files.map((file) => `${file.label}: ${file.name} (${formatFileSize(file.size)})`).join(" · ")}. {" "}
+          Total {formatFileSize(state.mediaUploadPreflight.totalBytes)}. Keep Ckript open and choose
+          &ldquo;Start uploads&rdquo; when you are ready.
+        </InlineMessage>
+      )}
+
+      {state.mediaRecoveryPending && !state.mediaUploadPreflight && !state.mediaUploadActive && (
+        <InlineMessage
+          tone="warning"
+          variant="panel"
+          title={state.mediaRecovery?.cancelledTypes?.length > 0 && !state.mediaRecovery?.failedTypes?.length
+            ? "Media upload cancelled. Your project is still saved."
+            : "Your project is saved, but some media did not upload."}
+          className="ckm-upload__notice"
+        >
+          {state.mediaRecovery?.cancelledTypes?.length > 0 && !state.mediaRecovery?.failedTypes?.length
+            ? "Retry the cancelled uploads when you are ready. Each file starts again at 0%; this is not a resumable transfer."
+            : "Replace or remove the highlighted files on the Visual assets panel, then retry the media upload. Nothing else needs re-entering."}
+        </InlineMessage>
+      )}
+
+      {state.mediaUploadActive && (
+        <InlineMessage
+          tone="info"
+          variant="panel"
+          title="Your project is saved. Media is uploading now."
+          className="ckm-upload__notice"
+          action={<Button size="sm" variant="tertiary" onClick={actions.cancelMediaUpload}>Cancel uploads</Button>}
+        >
+          Keep Ckript open until every selected file says Uploaded. Cancelling keeps the project
+          and lets you retry each unfinished file from 0%.
         </InlineMessage>
       )}
 
@@ -324,7 +357,11 @@ export default function Upload({ vm }) {
           trailingIcon={footer.next.icon}
           aria-describedby={footer.next.blockedReason ? "ckm-upload-blocked" : undefined}
           onClick={(event) => (
-            footer.next.kind === "next" ? actions.handleNext() : actions.handleSubmit(event)
+            footer.next.kind === "next"
+              ? actions.handleNext()
+              : footer.next.kind === "start-media"
+                ? actions.confirmMediaUploadPreflight()
+                : actions.handleSubmit(event)
           )}
         >
           {footer.next.label}

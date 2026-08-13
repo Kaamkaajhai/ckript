@@ -33,7 +33,7 @@ import "../screens/create/Wizard.css";
  *   ?state=recovery | error | exit | readonly | prose | blocked | submitted
  *          | locked | titled
  *          | crop | titlepage | saving | reports-empty | reports-long
- *          | media-attached | media-uploading | media-failed
+ *          | media-attached | media-preflight | media-uploading | media-failed | media-cancelled
  * A harness that has to be *driven* into a state is a harness that measures a
  * different thing each time somebody's click lands slightly differently.
  */
@@ -202,7 +202,7 @@ export default function CreateHarness() {
     : requested === "reports-long"
       ? FIXTURE_LONG_REPORT
       : state.screenplayValue;
-  const mediaAttached = ["media-attached", "media-uploading", "media-failed"].includes(requested);
+  const mediaAttached = ["media-attached", "media-preflight", "media-uploading", "media-failed", "media-cancelled"].includes(requested);
 
   const noop = () => {};
 
@@ -268,9 +268,20 @@ export default function CreateHarness() {
     setToastMessage,
     pendingRecovery: requested === "recovery" ? { updatedAt: new Date(2026, 7, 8, 21, 5).toISOString() } : null,
     pendingMediaRecovery: requested === "media-failed"
-      ? { targetScriptId: "script-7", failedTypes: ["trailer"], title: state.title }
-      : null,
+      ? { targetScriptId: "script-7", failedTypes: ["trailer"], cancelledTypes: [], title: state.title }
+      : requested === "media-cancelled"
+        ? { targetScriptId: "script-7", failedTypes: [], cancelledTypes: ["trailer"], title: state.title }
+        : null,
     mediaUploadActive: requested === "media-uploading",
+    mediaUploadPreflight: requested === "media-preflight"
+      ? {
+        signature: "trailer:four-oclock-trailer.mp4:184000000:0",
+        files: [{ type: "trailer", label: "Trailer video", name: "four-oclock-trailer.mp4", size: 184_000_000 }],
+        totalBytes: 184_000_000,
+      }
+      : null,
+    cancelProjectMediaUpload: noop,
+    confirmMediaUploadPreflight: noop,
     acceptPendingRecovery: noop,
     dismissPendingRecovery: noop,
 
@@ -470,6 +481,8 @@ export default function CreateHarness() {
       }
       : requested === "media-failed"
         ? { trailer: { percent: 87, status: "failed" } }
+        : requested === "media-cancelled"
+          ? { trailer: { percent: 41, status: "cancelled" } }
         : {},
     handleThumbnailSelect: noop,
     handleTrailerSelect: noop,

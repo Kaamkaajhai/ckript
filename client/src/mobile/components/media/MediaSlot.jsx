@@ -46,9 +46,10 @@ export default function MediaSlot({
   onRemove = null,
   actions = [],
   secondary = null,
+  disabled = false,
   /*
    * A real upload figure, or null. `{ percent, status }` where status is
-   * "uploading" | "done" | "failed" — the shape `uploadMediaForScript` reports
+   * "uploading" | "done" | "failed" | "cancelled" — the shape `uploadMediaForScript` reports
    * through axios's `onUploadProgress` (D14). Null means nothing is in flight,
    * which is every moment before Submit.
    */
@@ -91,6 +92,7 @@ export default function MediaSlot({
           type="file"
           className="ckm-media__input"
           accept={accept}
+          disabled={disabled}
           aria-label={file ? `Replace ${String(label).toLowerCase()}` : `Choose ${String(label).toLowerCase()}`}
           onChange={handleChange}
         />
@@ -107,7 +109,7 @@ export default function MediaSlot({
               <button
                 type="button"
                 className="ckm-media__drop ckm-media__drop--alt"
-                disabled={secondary.disabled}
+                disabled={disabled || secondary.disabled}
                 onClick={secondary.onSelect}
               >
                 <Icon name={secondary.icon || "auto_awesome"} size={26} className="ckm-media__drop-icon" />
@@ -158,19 +160,26 @@ export default function MediaSlot({
 
             <div className="ckm-media__actions">
               {actions.map((action) => (
-                <Button key={action.id} size="sm" variant="tertiary" onClick={action.onSelect}>
+                <Button
+                  key={action.id}
+                  size="sm"
+                  variant="tertiary"
+                  disabled={disabled || action.disabled}
+                  onClick={action.onSelect}
+                >
                   {action.label}
                 </Button>
               ))}
               <Button
                 size="sm"
                 variant="tertiary"
+                disabled={disabled}
                 onClick={() => inputRef.current?.click()}
               >
                 Replace
               </Button>
               {onRemove && (
-                <Button size="sm" variant="tertiary" icon="close" onClick={onRemove}>
+                <Button size="sm" variant="tertiary" icon="close" disabled={disabled} onClick={onRemove}>
                   Remove
                 </Button>
               )}
@@ -200,12 +209,14 @@ export function MediaProgress({ label = "File", percent = 0, status = "uploading
   const clamped = Math.max(0, Math.min(100, Math.round(Number(percent) || 0)));
   const text = status === "failed"
     ? "Upload failed"
+    : status === "cancelled"
+      ? "Upload cancelled"
     : status === "done"
       ? "Uploaded"
       : `Uploading ${clamped}%`;
 
   return (
-    <div className={`ckm-media__progress${status === "failed" ? " ckm-media__progress--failed" : ""}`}>
+    <div className={`ckm-media__progress ckm-media__progress--${status}`}>
       <progress
         className="ckm-media__progress-bar"
         max={100}

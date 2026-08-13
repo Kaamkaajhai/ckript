@@ -168,6 +168,27 @@ describe("describeWizardFooter", () => {
     });
   });
 
+  it("requires an explicit start after the large-file preflight", () => {
+    const footer = describeWizardFooter({ step: 2, mediaUploadPreflight: true });
+
+    expect(footer.back.disabled).toBe(false);
+    expect(footer.next).toMatchObject({
+      id: "start-media",
+      label: "Start uploads",
+      kind: "start-media",
+      disabled: false,
+    });
+  });
+
+  it("names a cancelled recovery without turning it into a failure", () => {
+    const footer = describeWizardFooter({
+      step: 2,
+      mediaRecovery: { failedTypes: [], cancelledTypes: ["trailer"] },
+    });
+
+    expect(footer.next.label).toBe("Retry cancelled uploads");
+  });
+
   it("reports the access refusal first when several gates are shut", () => {
     // Order matters: "you cannot publish this at all" is a different answer
     // from "tick this box", and offering the tickable one first sends the

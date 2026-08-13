@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  buildMediaUploadPreflight,
+  LARGE_MEDIA_WARNING_BYTES,
+  mediaRecoveryTypes,
   mergeMediaProgress,
   uploadProjectMedia,
   withoutMediaProgress,
@@ -18,7 +21,7 @@ describe("uploadProjectMedia", () => {
       }),
     };
 
-    const failed = await uploadProjectMedia({
+    const result = await uploadProjectMedia({
       apiClient,
       targetScriptId: "script-7",
       files: {
@@ -28,7 +31,7 @@ describe("uploadProjectMedia", () => {
       onProgress: (type, next) => updates.push([type, next]),
     });
 
-    expect(failed).toEqual([]);
+    expect(result).toEqual({ failedTypes: [], cancelledTypes: [] });
     expect(apiClient.post).toHaveBeenCalledTimes(2);
     expect(updates).toContainEqual(["thumbnail", { percent: 75, status: "uploading" }]);
     expect(updates).toContainEqual(["trailer", { percent: 25, status: "uploading" }]);
@@ -44,7 +47,7 @@ describe("uploadProjectMedia", () => {
         : Promise.resolve({ data: { ok: true } })),
     };
 
-    const failed = await uploadProjectMedia({
+    const result = await uploadProjectMedia({
       apiClient,
       targetScriptId: "script-7",
       files: {
@@ -54,7 +57,7 @@ describe("uploadProjectMedia", () => {
       onProgress: (type, next) => updates.push([type, next]),
     });
 
-    expect(failed).toEqual(["trailer"]);
+    expect(result).toEqual({ failedTypes: ["trailer"], cancelledTypes: [] });
     expect(updates).toContainEqual(["thumbnail", { percent: 100, status: "done" }]);
     expect(updates).toContainEqual(["trailer", { status: "failed" }]);
   });
@@ -81,15 +84,96 @@ describe("uploadProjectMedia", () => {
 
   it("treats a removed failed file as recovered without sending a request", async () => {
     const apiClient = { post: vi.fn() };
-    const failed = await uploadProjectMedia({
+    const result = await uploadProjectMedia({
       apiClient,
       targetScriptId: "script-7",
       files: {},
       requestedTypes: ["trailer"],
     });
 
-    expect(failed).toEqual([]);
+    expect(result).toEqual({ failedTypes: [], cancelledTypes: [] });
     expect(apiClient.post).not.toHaveBeenCalled();
+  });
+
+  it("classifies an explicit AbortController cancellation separately from failure", async () => {
+    const updates = [];
+    const controller = new AbortController();
+    const apiClient = {
+      post: vi.fn((_url, _body, config) => new Promise((_resolve, reject) => {
+        expect(config.signal).toBe(controller.signal);
+        config.signal.addEventListener("abort", () => reject({ code: "ERR_CANCELED" }), { once: true });
+      })),
+    };
+
+    const pending = uploadProjectMedia({
+      apiClient,
+      targetScriptId: "script-7",
+      files: { trailer: file("trailer.mp4", "video/mp4") },
+      signal: controller.signal,
+      onProgress: (type, next) => updates.push([type, next]),
+    });
+    controller.abort();
+
+    await expect(pending).resolves.toEqual({ failedTypes: [], cancelledTypes: ["trailer"] });
+    expect(updates).toContainEqual(["trailer", { status: "cancelled" }]);
+    expect(updates).not.toContainEqual(["trailer", { status: "failed" }]);
+  });
+
+  it("keeps a genuine rejection in failedTypes when a supplied signal is still live", async () => {
+    const controller = new AbortController();
+    const apiClient = { post: vi.fn(() => Promise.reject(new Error("connection lost"))) };
+
+    await expect(uploadProjectMedia({
+      apiClient,
+      targetScriptId: "script-7",
+      files: { trailer: file("trailer.mp4", "video/mp4") },
+      signal: controller.signal,
+    })).resolves.toEqual({ failedTypes: ["trailer"], cancelledTypes: [] });
+  });
+});
+
+describe("large media preflight", () => {
+  const large = (name, size, lastModified = 7) => ({ name, size, lastModified });
+
+  it("warns deterministically for trailer and pitch files at 25 MiB and lists their total", () => {
+    const preflight = buildMediaUploadPreflight({
+      files: {
+        thumbnail: large("cover.jpg", 100 * 1024 * 1024),
+        trailer: large("trailer.mp4", LARGE_MEDIA_WARNING_BYTES),
+        pitchVideo: large("pitch.mp4", 30 * 1024 * 1024),
+      },
+    });
+
+    expect(preflight.files.map(({ type }) => type)).toEqual(["trailer", "pitchVideo"]);
+    expect(preflight.totalBytes).toBe(55 * 1024 * 1024);
+    expect(preflight.signature).toContain("trailer:trailer.mp4");
+  });
+
+  it("ignores small files and media outside a requested retry", () => {
+    expect(buildMediaUploadPreflight({
+      files: { trailer: large("short.mp4", LARGE_MEDIA_WARNING_BYTES - 1) },
+    })).toBeNull();
+
+    expect(buildMediaUploadPreflight({
+      files: {
+        trailer: large("trailer.mp4", LARGE_MEDIA_WARNING_BYTES),
+        pitchVideo: large("pitch.mp4", LARGE_MEDIA_WARNING_BYTES),
+      },
+      requestedTypes: ["pitchVideo"],
+    }).files.map(({ type }) => type)).toEqual(["pitchVideo"]);
+  });
+
+  it("changes the acknowledgement signature when a large file is replaced", () => {
+    const first = buildMediaUploadPreflight({
+      files: { trailer: large("first.mp4", LARGE_MEDIA_WARNING_BYTES) },
+    });
+    const replacement = buildMediaUploadPreflight({
+      files: { trailer: large("replacement.mp4", LARGE_MEDIA_WARNING_BYTES) },
+    });
+
+    expect(replacement.signature).not.toBe(first.signature);
+    expect(mediaRecoveryTypes({ failedTypes: ["trailer"], cancelledTypes: ["trailer", "pitchVideo"] }))
+      .toEqual(["trailer", "pitchVideo"]);
   });
 });
 

@@ -3,6 +3,7 @@ import { useCreateProject } from "../../../pages/CreateProject/CreateProjectCont
 import Button from "../../components/buttons/Button";
 import IconButton from "../../components/buttons/IconButton";
 import InlineMessage from "../../components/feedback/InlineMessage";
+import formatFileSize from "../../components/forms/formatFileSize";
 import ActionSheet from "../../components/overlays/ActionSheet";
 import MobileShell from "../../shell/MobileShell";
 import { describeSaveState } from "./editorChrome";
@@ -53,9 +54,11 @@ import "./Wizard.css";
  */
 export default function Wizard() {
   const {
-    competitionMode, creationBlocked, detailsStep, detailsSubSteps, drafts, error,
+    cancelProjectMediaUpload, competitionMode, confirmMediaUploadPreflight, creationBlocked,
+    detailsStep, detailsSubSteps, drafts, error,
     exiting, handleBack, handleExitEditor, handleNext, handlePublish, hasPublishAccess,
-    lastSaved, legal, loading, mediaUploadActive, rightsLicensing, saved, saving, setError, setStep, step, title,
+    lastSaved, legal, loading, mediaUploadActive, mediaUploadPreflight, rightsLicensing,
+    saved, saving, setError, setStep, step, title,
     pendingMediaRecovery, pendingRecovery, acceptPendingRecovery, dismissPendingRecovery,
   } = useCreateProject();
 
@@ -73,8 +76,9 @@ export default function Wizard() {
     ownershipConfirmed: Boolean(rightsLicensing?.legalAcknowledgement?.ownershipConfirmed),
     hasPublishAccess,
     exiting,
-    mediaRecoveryPending: Boolean(pendingMediaRecovery),
+    mediaRecovery: pendingMediaRecovery,
     mediaUploadActive,
+    mediaUploadPreflight: Boolean(mediaUploadPreflight),
   });
 
   const recoveredAt = pendingRecovery?.updatedAt
@@ -208,24 +212,41 @@ export default function Wizard() {
         </InlineMessage>
       )}
 
-      {pendingMediaRecovery && (
+      {mediaUploadPreflight && (
         <InlineMessage
           tone="warning"
           variant="panel"
-          title="Your project is saved, but some media did not upload."
+          title="Large media upload"
           className="ckm-create-project__notice"
         >
-          Replace or remove the highlighted files below, then use
-          &ldquo;Retry the media upload&rdquo;. Nothing else needs re-entering.
+          {mediaUploadPreflight.files.map((file) => `${file.label}: ${file.name} (${formatFileSize(file.size)})`).join(" · ")}. {" "}
+          Total {formatFileSize(mediaUploadPreflight.totalBytes)}. Keep Ckript open and choose
+          &ldquo;Start uploads&rdquo; when you are ready.
         </InlineMessage>
       )}
 
-      {mediaUploadActive && !pendingMediaRecovery && (
+      {pendingMediaRecovery && !mediaUploadPreflight && !mediaUploadActive && (
+        <InlineMessage
+          tone="warning"
+          variant="panel"
+          title={pendingMediaRecovery.cancelledTypes?.length > 0 && !pendingMediaRecovery.failedTypes?.length
+            ? "Media upload cancelled. Your project is still saved."
+            : "Your project is saved, but some media did not upload."}
+          className="ckm-create-project__notice"
+        >
+          {pendingMediaRecovery.cancelledTypes?.length > 0 && !pendingMediaRecovery.failedTypes?.length
+            ? "Retry the cancelled uploads when you are ready. Each file starts again at 0%; this is not a resumable transfer."
+            : "Replace or remove the highlighted files below, then retry the media upload. Nothing else needs re-entering."}
+        </InlineMessage>
+      )}
+
+      {mediaUploadActive && (
         <InlineMessage
           tone="info"
           variant="panel"
           title="Your project is saved. Media is uploading now."
           className="ckm-create-project__notice"
+          action={<Button size="sm" variant="tertiary" onClick={cancelProjectMediaUpload}>Cancel uploads</Button>}
         >
           Keep Ckript open until every selected file says Uploaded. A failed file can be retried
           without submitting the project again.
@@ -267,7 +288,9 @@ export default function Wizard() {
           disabled={footer.next.disabled}
           trailingIcon={footer.next.kind === "next" ? "arrow_forward" : "check"}
           aria-describedby={footer.next.blockedReason ? "ckm-cp-blocked" : undefined}
-          onClick={footer.next.kind === "publish" ? handlePublish : handleNext}
+          onClick={footer.next.kind === "start-media"
+            ? confirmMediaUploadPreflight
+            : footer.next.kind === "publish" ? handlePublish : handleNext}
         >
           {footer.next.label}
         </Button>

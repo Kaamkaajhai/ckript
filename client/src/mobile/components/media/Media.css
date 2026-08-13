@@ -243,6 +243,20 @@
    channel, never the only one (WCAG 1.4.1). */
 .ckm .ckm-media__progress--failed .ckm-media__progress-value { color: var(--ckm-danger); }
 
+.ckm .ckm-media__progress--cancelled .ckm-media__progress-value { color: var(--ckm-gold-ink); }
+
+.ckm .ckm-media__progress--cancelled .ckm-media__progress-bar {
+  accent-color: var(--ckm-gold-ink);
+}
+
+.ckm .ckm-media__progress--cancelled .ckm-media__progress-bar::-webkit-progress-value {
+  background: var(--ckm-gold-ink);
+}
+
+.ckm .ckm-media__progress--cancelled .ckm-media__progress-bar::-moz-progress-bar {
+  background: var(--ckm-gold-ink);
+}
+
 /* --- Cover cropper ------------------------------------------------------- */
 
 .ckm .ckm-media__crop-body {
