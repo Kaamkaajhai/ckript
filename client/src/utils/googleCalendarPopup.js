@@ -30,17 +30,17 @@ const CHANNEL = "ckript:google-calendar";
 const STORAGE_PING = "ckript:google-calendar:result";
 
 /** Both paths, because BroadcastChannel is the clean one and `storage` is the one that always works. */
-const broadcast = (status) => {
+const broadcast = (status, reason = "") => {
   try {
     const channel = new BroadcastChannel(CHANNEL);
-    channel.postMessage({ status });
+    channel.postMessage({ status, reason });
     channel.close();
   } catch {
     /* not supported — the storage write below still gets through */
   }
   try {
     // A changing value matters: `storage` only fires when the value actually differs.
-    localStorage.setItem(STORAGE_PING, `${status}:${Date.now()}`);
+    localStorage.setItem(STORAGE_PING, `${status}:${Date.now()}:${reason}`);
   } catch {
     /* private mode — the opener falls back to polling the API */
   }
@@ -57,6 +57,8 @@ export const announceIfCalendarPopup = () => {
   const params = new URLSearchParams(window.location.search);
   const status = params.get("calendar");
   if (!status) return false;
+  // The server names WHY it failed; carry it so the opener can say something specific.
+  const reason = params.get("reason") || "";
 
   // Either signal identifies the popup. The URL marker is the reliable one — COOP resets
   // window.name, so the name alone missed and the whole app rendered inside the consent window.
@@ -65,7 +67,7 @@ export const announceIfCalendarPopup = () => {
   const isPopup = params.get(POPUP_MARKER) === "1" || window.name === POPUP_NAME;
   if (!isPopup) return false;
 
-  broadcast(status);
+  broadcast(status, reason);
   try {
     window.close();
   } catch {
@@ -87,7 +89,7 @@ export const announceIfCalendarPopup = () => {
 
 /**
  * Listen for that announcement. Returns an unsubscribe function.
- * @param {(status: string) => void} onResult called with "connected" | "error"
+ * @param {(status: string, reason: string) => void} onResult status is "connected" | "error"
  */
 export const onCalendarPopupResult = (onResult) => {
   const handlers = [];
@@ -95,7 +97,7 @@ export const onCalendarPopupResult = (onResult) => {
   try {
     const channel = new BroadcastChannel(CHANNEL);
     channel.onmessage = (event) => {
-      if (event?.data?.status) onResult(String(event.data.status));
+      if (event?.data?.status) onResult(String(event.data.status), String(event.data.reason || ""));
     };
     handlers.push(() => channel.close());
   } catch {
@@ -104,7 +106,8 @@ export const onCalendarPopupResult = (onResult) => {
 
   const onStorage = (event) => {
     if (event.key !== STORAGE_PING || !event.newValue) return;
-    onResult(String(event.newValue).split(":")[0]);
+    const [status, , reason = ""] = String(event.newValue).split(":");
+    onResult(status, reason);
   };
   window.addEventListener("storage", onStorage);
   handlers.push(() => window.removeEventListener("storage", onStorage));

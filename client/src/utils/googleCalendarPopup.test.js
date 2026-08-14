@@ -83,8 +83,9 @@ describe("the result reaches the opener through storage", () => {
 
     announceIfCalendarPopup();
 
+    // status:timestamp:reason — the timestamp is what makes the value differ, so `storage` fires.
     const written = localStorage.getItem("ckript:google-calendar:result");
-    expect(written).toMatch(/^connected:\d+$/);
+    expect(written).toMatch(/^connected:\d+:/);
   });
 
   it("reports a failure as well as a success", async () => {
@@ -94,6 +95,31 @@ describe("the result reaches the opener through storage", () => {
     announceIfCalendarPopup();
 
     expect(localStorage.getItem("ckript:google-calendar:result")).toMatch(/^error:/);
+  });
+
+  it("carries the server's reason through, so the producer is told which failure it was", async () => {
+    const { announceIfCalendarPopup } = await import("./googleCalendarPopup.js");
+    at("?gcalPopup=1&calendar=error&reason=no_refresh_token", "");
+
+    announceIfCalendarPopup();
+
+    expect(localStorage.getItem("ckript:google-calendar:result")).toMatch(/^error:\d+:no_refresh_token$/);
+  });
+
+  it("delivers status AND reason to a subscriber", async () => {
+    const { onCalendarPopupResult } = await import("./googleCalendarPopup.js");
+    const seen = [];
+    const stop = onCalendarPopupResult((status, reason) => seen.push([status, reason]));
+
+    window.dispatchEvent(
+      new StorageEvent("storage", {
+        key: "ckript:google-calendar:result",
+        newValue: `error:${Date.now()}:denied`,
+      }),
+    );
+
+    expect(seen).toEqual([["error", "denied"]]);
+    stop();
   });
 
   it("delivers the status to a subscriber via the storage event", async () => {

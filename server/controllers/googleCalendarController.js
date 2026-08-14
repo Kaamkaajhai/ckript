@@ -17,11 +17,21 @@ const sanitizeReturnTo = (value) => {
   return v;
 };
 
-const clientRedirect = (res, returnTo, status) => {
+/**
+ * Send the browser back to the app with the outcome.
+ *
+ * `reason` exists because every failure here used to collapse into a bare `calendar=error`. The
+ * producer saw one generic sentence, the server logged one generic line, and there was no way to
+ * tell a denied consent from a missing refresh token from a redirect_uri mismatch without adding
+ * logging and asking them to try again. The reason is a fixed vocabulary, never an exception
+ * message: it reaches a URL, so it must not carry anything Google or an error string put in it.
+ */
+const clientRedirect = (res, returnTo, status, reason = "") => {
   const base = String(process.env.CLIENT_URL || "").replace(/\/$/, "");
   const path = sanitizeReturnTo(returnTo);
   const sep = path.includes("?") ? "&" : "?";
-  return res.redirect(`${base}${path}${sep}calendar=${status}`);
+  const suffix = reason ? `&reason=${encodeURIComponent(reason)}` : "";
+  return res.redirect(`${base}${path}${sep}calendar=${status}${suffix}`);
 };
 
 // POST /api/google-calendar/auth-url (protect) → { url }
@@ -48,21 +58,49 @@ export const handleGoogleCalendarCallback = async (req, res) => {
   const { code, state, error: googleError } = req.query;
   let returnTo = "/";
   try {
-    if (!state) return clientRedirect(res, returnTo, "error");
+    if (!state) {
+      console.error("[googleCalendar] callback had no state");
+      return clientRedirect(res, returnTo, "error", "no_state");
+    }
     let decoded;
     try {
       decoded = jwt.verify(String(state), process.env.JWT_SECRET);
     } catch {
-      return clientRedirect(res, returnTo, "error");
+      // Almost always the 10-minute state TTL expiring while the consent screen sat open.
+      console.error("[googleCalendar] state failed to verify (expired or tampered)");
+      return clientRedirect(res, returnTo, "error", "bad_state");
     }
     returnTo = sanitizeReturnTo(decoded?.returnTo);
-    if (decoded?.purpose !== "gcal" || !decoded?.uid) return clientRedirect(res, returnTo, "error");
-    if (googleError || !code) return clientRedirect(res, returnTo, "error");
+    if (decoded?.purpose !== "gcal" || !decoded?.uid) {
+      console.error("[googleCalendar] state was not a calendar state");
+      return clientRedirect(res, returnTo, "error", "bad_state");
+    }
+    if (googleError) {
+      // Google's own refusal. `access_denied` is both "user clicked Cancel" and "app is unverified
+      // and this account is not a test user" — the two look identical from here.
+      console.error("[googleCalendar] Google refused consent:", String(googleError).slice(0, 100));
+      return clientRedirect(res, returnTo, "error", "denied");
+    }
+    if (!code) {
+      console.error("[googleCalendar] callback had no code");
+      return clientRedirect(res, returnTo, "error", "no_code");
+    }
 
-    const tokens = await exchangeCode(String(code));
+    let tokens;
+    try {
+      tokens = await exchangeCode(String(code));
+    } catch (exchangeError) {
+      // The usual cause is redirect_uri_mismatch: the URI registered in the Google Cloud Console
+      // differs, even by a trailing slash, from GOOGLE_CALENDAR_REDIRECT_URI.
+      console.error("[googleCalendar] token exchange failed:", exchangeError?.message || exchangeError);
+      return clientRedirect(res, returnTo, "error", "exchange_failed");
+    }
+
     if (!tokens.refreshToken) {
-      // No refresh token returned (rare — usually a prior consent without revoke). Ask to retry.
-      return clientRedirect(res, returnTo, "error");
+      // Google only returns a refresh token on a FIRST consent for the scope set. A previously
+      // granted account re-consenting gets an access token alone unless access is revoked first.
+      console.error("[googleCalendar] no refresh token returned — prior consent not revoked");
+      return clientRedirect(res, returnTo, "error", "no_refresh_token");
     }
 
     await User.updateOne(
@@ -83,7 +121,7 @@ export const handleGoogleCalendarCallback = async (req, res) => {
     return clientRedirect(res, returnTo, "connected");
   } catch (error) {
     console.error("[googleCalendar] callback failed:", error?.message || error);
-    return clientRedirect(res, returnTo, "error");
+    return clientRedirect(res, returnTo, "error", "server_error");
   }
 };
 
