@@ -1,7 +1,7 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
-import { POPUP_NAME, onCalendarPopupResult } from "../utils/googleCalendarPopup";
+import { POPUP_NAME, POPUP_MARKER, onCalendarPopupResult } from "../utils/googleCalendarPopup";
 
 // Producer's IANA timezone (e.g. "Asia/Kolkata"). Google localizes the event per-attendee from this.
 const detectTimeZone = () => {
@@ -91,8 +91,13 @@ const MeetingModal = ({ isOpen, onClose, writerId, scriptId, writerName, scriptN
     setErrorMsg("");
     try {
       setConnecting(true);
-      const returnTo = `${window.location.pathname}${window.location.search}`;
-      const { data } = await api.post("/google-calendar/auth-url", { returnTo });
+      const plainReturnTo = `${window.location.pathname}${window.location.search}`;
+      // The POPUP's return URL carries the marker that lets it recognise itself — window.name does
+      // not survive Google's COOP context-group swap, so the URL is the only reliable carrier.
+      const sep = plainReturnTo.includes("?") ? "&" : "?";
+      const { data } = await api.post("/google-calendar/auth-url", {
+        returnTo: `${plainReturnTo}${sep}${POPUP_MARKER}=1`,
+      });
       if (!data?.url) {
         setErrorMsg("Google Calendar is not available right now.");
         setConnecting(false);
@@ -101,7 +106,15 @@ const MeetingModal = ({ isOpen, onClose, writerId, scriptId, writerName, scriptN
 
       const popup = window.open(data.url, POPUP_NAME, "width=520,height=680");
       if (!popup) {
-        window.location.href = data.url; // popup blocked — the old behaviour is better than none
+        // Popup blocked — fall back to the old full-page redirect, with a URL whose returnTo does
+        // NOT carry the marker: this navigation is the MAIN tab, and a main tab landing on a marker
+        // URL would try to close itself.
+        try {
+          const { data: fallback } = await api.post("/google-calendar/auth-url", { returnTo: plainReturnTo });
+          window.location.href = fallback?.url || data.url;
+        } catch {
+          window.location.href = data.url;
+        }
         return;
       }
 

@@ -13,11 +13,19 @@
  * back to this app, so the popup ends up running this code on our origin — where it can announce the
  * outcome and close itself.
  *
- * `window.name` is what lets the popup recognise itself. We set it when opening, and unlike
- * `window.opener` it survives the cross-origin trip.
+ * Recognising the popup is its own problem. The first version used `window.name` — set at open,
+ * normally survives navigation — but the same COOP swap that severs the opener ALSO resets
+ * `window.name`. The popup came back nameless, failed to recognise itself, and loaded the entire
+ * app inside the consent window. So the marker travels in the URL instead: the modal requests a
+ * `returnTo` carrying `gcalPopup=1`, and the callback hands it back to us. A URL param cannot be
+ * stripped by a context-group swap. The name check is kept only as a belt alongside that.
+ *
+ * The marker must NEVER be on the full-page fallback's returnTo: a main tab landing on a
+ * marker URL would try to close itself.
  */
 
 export const POPUP_NAME = "ckript-google-calendar";
+export const POPUP_MARKER = "gcalPopup";
 const CHANNEL = "ckript:google-calendar";
 const STORAGE_PING = "ckript:google-calendar:result";
 
@@ -45,16 +53,34 @@ const broadcast = (status) => {
  */
 export const announceIfCalendarPopup = () => {
   if (typeof window === "undefined") return false;
-  if (window.name !== POPUP_NAME) return false;
 
-  const status = new URLSearchParams(window.location.search).get("calendar");
+  const params = new URLSearchParams(window.location.search);
+  const status = params.get("calendar");
   if (!status) return false;
+
+  // Either signal identifies the popup. The URL marker is the reliable one — COOP resets
+  // window.name, so the name alone missed and the whole app rendered inside the consent window.
+  // A plain ?calendar=connected with NEITHER signal is the full-page fallback landing in the main
+  // tab, which must be left alone.
+  const isPopup = params.get(POPUP_MARKER) === "1" || window.name === POPUP_NAME;
+  if (!isPopup) return false;
 
   broadcast(status);
   try {
     window.close();
   } catch {
     /* if the close is refused the opener still got the message */
+  }
+  // Whether or not the close was honoured, this window must not boot the app: a refused close would
+  // otherwise show the full product inside a 520px consent popup. The caller renders nothing and the
+  // window shows a one-line notice instead.
+  try {
+    document.body.innerHTML =
+      '<p style="font-family:sans-serif;padding:24px;text-align:center">Google Calendar ' +
+      (status === "connected" ? "connected" : "connection failed") +
+      ". You can close this window.</p>";
+  } catch {
+    /* cosmetic only */
   }
   return true;
 };
