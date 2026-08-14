@@ -1,6 +1,7 @@
 import { useContext, useEffect, useRef, useState } from "react";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
+import { POPUP_NAME, onCalendarPopupResult } from "../utils/googleCalendarPopup";
 
 // Producer's IANA timezone (e.g. "Asia/Kolkata"). Google localizes the event per-attendee from this.
 const detectTimeZone = () => {
@@ -28,6 +29,7 @@ const MeetingModal = ({ isOpen, onClose, writerId, scriptId, writerName, scriptN
   // The server's answer, which outranks the AuthContext user. null = not asked yet.
   const [liveConnected, setLiveConnected] = useState(null);
   const pollRef = useRef(null);
+  const stopListeningRef = useRef(null);
 
   const timeZone = detectTimeZone();
   const prettyTz = timeZone.replace(/_/g, " ");
@@ -70,7 +72,10 @@ const MeetingModal = ({ isOpen, onClose, writerId, scriptId, writerName, scriptN
   }, [isOpen]);
 
   // Stop polling if the modal goes away mid-connect.
-  useEffect(() => () => clearInterval(pollRef.current), []);
+  useEffect(() => () => {
+    clearInterval(pollRef.current);
+    stopListeningRef.current?.();
+  }, []);
 
   const resolvedConnected = liveConnected === null ? Boolean(user?.googleCalendar?.connected) : liveConnected;
   const calendarConnected = resolvedConnected && !needsCalendar;
@@ -94,20 +99,43 @@ const MeetingModal = ({ isOpen, onClose, writerId, scriptId, writerName, scriptN
         return;
       }
 
-      const popup = window.open(data.url, "ckript-google-calendar", "width=520,height=680");
+      const popup = window.open(data.url, POPUP_NAME, "width=520,height=680");
       if (!popup) {
         window.location.href = data.url; // popup blocked — the old behaviour is better than none
         return;
       }
 
-      // Google redirects the popup back to our own callback, which we cannot read across the window
-      // boundary. Ask our own server instead — it is the side that actually knows.
+      const finish = (connected) => {
+        clearInterval(pollRef.current);
+        stopListeningRef.current?.();
+        stopListeningRef.current = null;
+        setConnecting(false);
+        if (!connected) return;
+        try { popup.close(); } catch { /* already gone */ }
+        setLiveConnected(true);
+        setNeedsCalendar(false);
+        if (user) setUser({ ...user, googleCalendar: { ...(user.googleCalendar || {}), connected: true } });
+      };
+
+      // The popup announces itself through storage on the way back — see utils/googleCalendarPopup.
+      stopListeningRef.current?.();
+      stopListeningRef.current = onCalendarPopupResult((status) => {
+        if (status === "connected") finish(true);
+        else {
+          finish(false);
+          setErrorMsg("Google could not complete the connection. Please try again.");
+        }
+      });
+
+      /* Polling is the backstop, and asks OUR server rather than the popup.
+         `popup.closed` is deliberately never read: Google's consent pages send
+         Cross-Origin-Opener-Policy, which severs the opener link and makes that property report
+         `true` from the moment it opens. Reading it announced a cancellation about a second in,
+         while the producer was still looking at the consent screen. There is no reliable way to see
+         a cancellation through COOP, so an abandoned popup simply times out. */
       const startedAt = Date.now();
       clearInterval(pollRef.current);
       pollRef.current = setInterval(async () => {
-        const timedOut = Date.now() - startedAt > 3 * 60 * 1000;
-        const closed = popup.closed;
-
         let connected = false;
         try {
           const { data: s } = await api.get("/google-calendar/status");
@@ -116,26 +144,11 @@ const MeetingModal = ({ isOpen, onClose, writerId, scriptId, writerName, scriptN
           /* transient — keep polling */
         }
 
-        if (connected) {
-          clearInterval(pollRef.current);
-          try { popup.close(); } catch { /* already gone */ }
-          setLiveConnected(true);
-          setNeedsCalendar(false);
-          setConnecting(false);
-          if (user) setUser({ ...user, googleCalendar: { ...(user.googleCalendar || {}), connected: true } });
-          return;
-        }
+        if (connected) return finish(true);
 
-        // Check `closed` only AFTER the status call above, so a consent that completed just as the
-        // window closed is not reported as a cancellation.
-        if (closed || timedOut) {
-          clearInterval(pollRef.current);
-          setConnecting(false);
-          setErrorMsg(
-            timedOut
-              ? "That took too long. Please try connecting again."
-              : "Connection cancelled before Google finished. Please try again."
-          );
+        if (Date.now() - startedAt > 2 * 60 * 1000) {
+          finish(false);
+          setErrorMsg("Still not connected. Finish the Google window, or try again.");
         }
       }, 1500);
     } catch (err) {

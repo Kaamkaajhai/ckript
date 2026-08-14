@@ -121,6 +121,58 @@ describe("consent runs in a popup, so the modal survives it", () => {
     expect(host.textContent).toBeTruthy();
   });
 
+  it("NEVER reads popup.closed — COOP makes it report true from the moment it opens", async () => {
+    // The regression this exists for: Google's consent pages send Cross-Origin-Opener-Policy, which
+    // severs the opener link. Chrome then blocks the read and `closed` comes back true. Trusting it
+    // told the producer "Connection cancelled before Google finished" about a second in, while they
+    // were still looking at the consent screen.
+    api.get.mockResolvedValue({ data: { connected: false, configured: true } });
+    api.post.mockResolvedValue({ data: { url: "https://accounts.google.com/consent" } });
+
+    let closedReads = 0;
+    const popup = {
+      get closed() { closedReads += 1; return true; }, // what COOP actually does
+      close: vi.fn(),
+    };
+    vi.spyOn(window, "open").mockReturnValue(popup);
+    vi.useFakeTimers();
+
+    await render();
+    const connectBtn = [...host.querySelectorAll("button")].find((b) => /Connect Google Calendar/.test(b.textContent));
+    await act(async () => connectBtn.click());
+
+    // Run several poll ticks.
+    for (let i = 0; i < 4; i += 1) {
+      await act(async () => { await vi.advanceTimersByTimeAsync(1600); });
+    }
+
+    expect(closedReads).toBe(0);
+    expect(host.textContent).not.toContain("cancelled");
+    vi.useRealTimers();
+  });
+
+  it("completes when the popup announces success, without any window reference", async () => {
+    api.get.mockResolvedValue({ data: { connected: false, configured: true } });
+    api.post.mockResolvedValue({ data: { url: "https://accounts.google.com/consent" } });
+    vi.spyOn(window, "open").mockReturnValue({ closed: false, close: vi.fn() });
+
+    await render();
+    const connectBtn = [...host.querySelectorAll("button")].find((b) => /Connect Google Calendar/.test(b.textContent));
+    await act(async () => connectBtn.click());
+
+    // The popup, back on our origin, writes to storage. That is the signal COOP cannot block.
+    await act(async () => {
+      window.dispatchEvent(
+        new StorageEvent("storage", {
+          key: "ckript:google-calendar:result",
+          newValue: `connected:${Date.now()}`,
+        }),
+      );
+    });
+
+    expect(host.textContent).not.toContain("Connect Google Calendar");
+  });
+
   it("falls back to a full-page redirect when the popup is blocked", async () => {
     api.get.mockResolvedValue({ data: { connected: false, configured: true } });
     api.post.mockResolvedValue({ data: { url: "https://accounts.google.com/consent" } });
