@@ -666,6 +666,54 @@ function App() {
                   }
                 />
               )}
+              {import.meta.env.DEV && (
+                /* Phase 4 Top Scripts harness — ranked and paged for
+                   deterministic browser sweeps. */
+                <Route
+                  path="/__mobile-top-scripts"
+                  element={
+                    <AuthContext.Provider value={{ user: { _id: "preview-industry", name: "Dev Malhotra", role: "investor", token: "preview", favoriteScripts: [] }, loading: false, logout: () => {}, setUser: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="top-scripts" />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
+              )}
+              {import.meta.env.DEV && (
+                /* Phase 4 Featured harness — an industry viewer WITH a mandate,
+                   so the mandate-match section is a state the sweep can enter
+                   at all. The signed-in role also decides the third glance
+                   cell, which is empty for a writer. */
+                <Route
+                  path="/__mobile-featured"
+                  element={
+                    <AuthContext.Provider value={{ user: { _id: "preview-industry", name: "Dev Malhotra", role: "investor", token: "preview", favoriteScripts: [], industryProfile: { mandates: { genres: ["Drama", "Thriller"], formats: ["Movie"], excludeGenres: [], specificHooks: [] } } }, loading: false, logout: () => {}, setUser: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="featured" />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
+              )}
+              {import.meta.env.DEV && (
+                /* Phase 4 project-detail harness (D28). The signed-in account
+                   decides the viewer capabilities the screen derives, so the
+                   fixture supplies an industry viewer; the `?state=` query
+                   supplies the project standing. Both are needed — a producer
+                   looking at their OWN purchase is a different screen from a
+                   producer looking at an unbought one. */
+                <Route
+                  path="/__mobile-project"
+                  element={
+                    <AuthContext.Provider value={{ user: { _id: "viewer-1", name: "Ravi Menon", role: "producer", email: "ravi@studio.com", token: "preview", favoriteScripts: [] }, loading: false, logout: () => {}, setUser: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="project-detail" />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
+              )}
               <Route path="/:id" element={<SingleSegmentProfileOrReferralRoute />} />
             </Routes>
             </RootExperience>

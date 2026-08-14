@@ -47,7 +47,12 @@
   font-weight: var(--ckm-weight-semibold);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ckm-muted);
+  /* --ckm-muted measures ~3.56:1 and is a GRAPHICAL-object token; at 11px this was a live WCAG
+     1.4.3 failure in a component every non-dashboard screen mounts. It survived four earlier
+     five-width sweeps because no fixture until D28 passed PageHeader an `eyebrow` at all — the
+     same "a sweep only measures what it rendered" lesson the ledger records for --ckm-muted three
+     times already, and this is the fourth caller. */
+  color: var(--ckm-text-3);
 }
 
 .ckm .ckm-page-header__title {

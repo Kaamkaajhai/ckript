@@ -1,0 +1,8 @@
+/* Shared full-screen discovery facets (prefix: ckm-discovery-filter). */
+
+.ckm .ckm-discovery-filter__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-5);
+  padding-top: var(--ckm-space-5);
+}

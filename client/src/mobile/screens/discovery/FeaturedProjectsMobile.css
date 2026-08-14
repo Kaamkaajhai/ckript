@@ -1,0 +1,144 @@
+/* Native Featured Projects screen (prefix: ckm-featured). */
+
+.ckm .ckm-featured__scroll {
+  padding: var(--ckm-space-4-5) var(--ckm-space-4-5) var(--ckm-space-8);
+}
+
+.ckm .ckm-featured__header {
+  margin-bottom: var(--ckm-space-4);
+}
+
+.ckm .ckm-featured__eyebrow {
+  margin: 0 0 var(--ckm-space-1);
+  color: var(--ckm-accent-ink);
+  font: var(--ckm-weight-bold) var(--ckm-text-micro) / var(--ckm-leading-micro) var(--ckm-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.ckm .ckm-featured__header h1 {
+  margin: 0;
+  color: var(--ckm-text);
+  font: var(--ckm-weight-medium) var(--ckm-text-title) / var(--ckm-leading-title) var(--ckm-display);
+}
+
+.ckm .ckm-featured__header > p:last-child {
+  margin: var(--ckm-space-1) 0 0;
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+}
+
+/*
+ * The at-a-glance strip. A definition list rather than three divs: each cell
+ * is genuinely a term and its value, and that is what a screen reader should
+ * hear. It wraps instead of scrolling — three cells fit at 320px, and a
+ * scroller would hide the mandate cell, which is the one that tells an
+ * industry viewer why the third section exists.
+ */
+.ckm .ckm-featured__glance {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--ckm-space-3);
+  margin: 0 0 var(--ckm-space-5);
+  padding: var(--ckm-space-4);
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-lg);
+  background: var(--ckm-bg-soft);
+}
+
+.ckm .ckm-featured__glance dt {
+  margin: 0 0 var(--ckm-space-1);
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-medium) var(--ckm-text-micro) / var(--ckm-leading-micro) var(--ckm-body);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ckm .ckm-featured__glance dd {
+  margin: 0;
+  color: var(--ckm-text);
+  font: var(--ckm-weight-medium) var(--ckm-text-card) / var(--ckm-leading-card) var(--ckm-display);
+}
+
+/* A mandate label is a phrase, not a number, so it takes the body scale. */
+.ckm .ckm-featured__glance-text {
+  font: var(--ckm-weight-medium) var(--ckm-text-caption) / var(--ckm-leading-caption) var(--ckm-body) !important;
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-featured__controls,
+.ckm .ckm-featured__loading,
+.ckm .ckm-featured__section,
+.ckm .ckm-featured__lead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-4);
+}
+
+.ckm .ckm-featured__controls {
+  margin-bottom: var(--ckm-space-6);
+}
+
+.ckm .ckm-featured__section,
+.ckm .ckm-featured__lead {
+  margin-bottom: var(--ckm-space-7);
+}
+
+.ckm .ckm-featured__filter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ckm-space-3);
+}
+
+.ckm .ckm-featured__section-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-1);
+}
+
+.ckm .ckm-featured__section-title {
+  margin: 0;
+  color: var(--ckm-text);
+  font: var(--ckm-weight-medium) var(--ckm-text-card) / var(--ckm-leading-card) var(--ckm-display);
+}
+
+.ckm .ckm-featured__section-head p {
+  margin: 0;
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-regular) var(--ckm-text-caption) / var(--ckm-leading-caption) var(--ckm-body);
+}
+
+.ckm .ckm-featured__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ckm-space-4);
+}
+
+.ckm .ckm-featured__match-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ckm-space-2);
+}
+
+@media (min-width: 540px) {
+  .ckm .ckm-featured__grid,
+  .ckm .ckm-featured__loading {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .ckm .ckm-featured__loading {
+    display: grid;
+  }
+}
+
+@media (max-width: 359px) {
+  .ckm .ckm-featured__scroll {
+    padding-inline: var(--ckm-space-3);
+  }
+
+  /* Three columns of numbers stop fitting; the labels wrap to two lines. */
+  .ckm .ckm-featured__glance {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -29,29 +29,19 @@ import ProjectCard from "../../components/ProjectCard";
 import { formatCurrency } from "../../utils/currency";
 import { getScriptWriters, formatWriterNames, getCreditTypeLabel as creditLabel } from "../../utils/writerCredits";
 import { useScrollLock } from "../../hooks/useScrollLock";
+import {
+  MODIFICATION_LABELS,
+  NEGOTIATION_LABELS,
+  PAYMENT_LABELS,
+  RIGHTS_TYPE_SHORT_LABELS,
+} from "../../pages/script-detail/scriptDealLabels";
 import "./ScriptWorkbenchPage.css";
 
-/* ── Rights / deal label maps (mirror the deal desk copy) ── */
-const RIGHTS_LABELS = {
-  full_rights_sale: "Full rights sale",
-  exclusive_license: "Exclusive license",
-  custom_negotiation_required: "Custom negotiation",
-};
-const MODIFICATION_LABELS = {
-  buyer_can_modify_freely: "Buyer can modify freely",
-  buyer_must_consult_writer: "Buyer must consult writer",
-  writer_retains_creative_approval_rights: "Writer retains creative approval",
-};
-const PAYMENT_LABELS = {
-  one_time_upfront_payment: "One-time upfront payment",
-  lower_upfront_plus_royalty_percent: "Lower upfront + royalty %",
-  revenue_sharing_model: "Revenue sharing model",
-  custom_deal: "Custom deal",
-};
-const NEGOTIATION_LABELS = {
-  fixed_terms_non_negotiable: "Fixed terms (non-negotiable)",
-  open_to_discussion_after_purchase: "Open to discussion after purchase",
-};
+/* ── Rights / deal label maps ──
+ * DEF-28: these were four private copies of a closed schema enum, and this one had drifted — its
+ * negotiation map was missing `ckript_not_involved`, so a writer who chose that term had it shown
+ * to buyers as "Not specified". One shared vocabulary now; see scriptDealLabels.js. */
+const RIGHTS_LABELS = RIGHTS_TYPE_SHORT_LABELS;
 
 const money = (value) => formatCurrency(Number(value || 0), "INR");
 const initials = (name = "") =>

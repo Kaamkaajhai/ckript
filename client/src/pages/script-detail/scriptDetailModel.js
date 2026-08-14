@@ -7,6 +7,17 @@ const present = (value) => {
 
 const ratio = (checks) => checks.filter(Boolean).length / Math.max(checks.length, 1);
 
+/*
+ * "Does this project have a stored PDF at all?" — which is a different question from "may I have
+ * its URL?".
+ *
+ * DEF-25 stopped the detail endpoint from shipping `fileUrl` (the private storage URL of the
+ * uploaded screenplay) to viewers without full access, and gave the existence question its own
+ * boolean instead. Both are read here so this model keeps answering identically for an older
+ * payload, for the public share payload, and for a viewer who legitimately still has the URL.
+ */
+const hasStoredPdf = (script) => Boolean(script?.hasUploadedScriptFile) || present(script?.fileUrl);
+
 export const getViewerCapabilities = ({ script = {}, user = {} } = {}) => {
   const viewerId = String(user?._id || user?.id || "");
   const creatorId = String(script?.creator?._id || script?.creator || "");
@@ -52,8 +63,8 @@ export const deriveScriptJourney = ({ script = {}, capabilities = {} } = {}) => 
   const previewTexts = Array.isArray(script?.scriptPreviewPageTexts)
     ? script.scriptPreviewPageTexts.filter((item) => present(item))
     : [];
-  const hasFullSource = present(script?.fountainContent) || present(script?.textContent) || present(script?.fullContent) || present(script?.fileUrl);
-  const hasPreviewSource = Boolean(script?.viewableScript && (previewTexts.length || present(script?.previewExcerpt) || present(script?.fileUrl)));
+  const hasFullSource = present(script?.fountainContent) || present(script?.textContent) || present(script?.fullContent) || hasStoredPdf(script);
+  const hasPreviewSource = Boolean(script?.viewableScript && (previewTexts.length || present(script?.previewExcerpt) || hasStoredPdf(script)));
   const hasTrailer = present(script?.trailerUrl) || present(script?.uploadedTrailerUrl);
   const hasClassification = present(classification?.primaryGenre || script?.primaryGenre || script?.genre)
     && (present(classification?.tones) || present(classification?.themes) || present(classification?.settings));
