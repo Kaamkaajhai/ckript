@@ -48,6 +48,7 @@ import collabRoutes from "./routes/collab.routes.js";
 import competitionRoutes from "./routes/competitionRoutes.js";
 import meetingRoutes from "./routes/meetingRoutes.js";
 import googleCalendarRoutes from "./routes/googleCalendarRoutes.js";
+import { getCalendarConfigWarning } from "./utils/googleCalendar.js";
 import { registerCollabSocket } from "./socket/collab.socket.js";
 import { registerScenePresence } from "./socket/scenePresence.socket.js";
 import {
@@ -398,7 +399,13 @@ if (!isVercel) {
       throw error;
     });
 
-    server.listen(port, () => console.log(`Server running on port ${port}`));
+    server.listen(port, () => {
+      console.log(`Server running on port ${port}`);
+      // Read here, not at import time: dotenv.config() runs in this file's BODY, so a module-level
+      // check would see an empty env and never fire.
+      const calendarWarning = getCalendarConfigWarning();
+      if (calendarWarning) console.warn("[googleCalendar] CONFIG:", calendarWarning);
+    });
   };
 
   startServer(requestedPort);
