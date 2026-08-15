@@ -1,0 +1,427 @@
+/*
+ * Ckript Mobile — publish wizard (prefix: ckm-create-project)
+ * ---------------------------------------------------------------------------
+ * `/create-project` steps 2–5. The light counterpart to ckm-editor's dark
+ * chrome, and a separate prefix for exactly that reason (§7.2): the editor is
+ * an immersive surface painting its own ground, the wizard is an ordinary
+ * `flow` screen on the app's background with a sticky footer. One file
+ * answering for both would read as two files with a shared name.
+ *
+ * Almost everything here is layout. The controls are the Phase 1 form family
+ * (ckm-field, ckm-control, ckm-chip, ckm-checkbox, ckm-radio, ckm-switch), the
+ * surfaces are ckm-card and ckm-message, and the overlays are ckm-dialog and
+ * ckm-bottom-sheet — so this stylesheet's job is spacing, the two chrome bars
+ * and the handful of things a form of this size needs that a primitive does
+ * not: a media slot, a crop stage, a title-page preview.
+ */
+
+/* --- Host --------------------------------------------------------------- */
+
+/*
+ * The orchestrator's outermost div, between `.ckm-root` and `.ckm-shell`.
+ * `.ckm-shell` is `height: 100%`, so a default-height div here collapses the
+ * whole screen to the height of its content. It passes the height through
+ * instead — and it is a flex column because the shell is not necessarily its
+ * only child (the version-history modal renders as a sibling).
+ */
+.ckm .ckm-create-project__host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.ckm .ckm-create-project__host > .ckm-shell {
+  flex: 1;
+  min-height: 0;
+}
+
+/* --- Top bar ------------------------------------------------------------ */
+
+.ckm .ckm-create-project__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-2);
+  padding: var(--ckm-space-2) var(--ckm-space-3);
+  background: var(--ckm-bg);
+  border-bottom: 1px solid var(--ckm-line);
+}
+
+.ckm .ckm-create-project__bar-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ckm .ckm-create-project__bar-title {
+  margin: 0;
+  font-family: var(--ckm-display);
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-ink);
+  /* One line. The title can be any length a writer types, and a bar that grows
+     to three lines pushes the form down every time they add a word. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ckm .ckm-create-project__bar-position {
+  margin: 0;
+  font-size: var(--ckm-text-micro);
+  line-height: var(--ckm-leading-micro);
+  color: var(--ckm-text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Save state --------------------------------------------------------- */
+
+.ckm .ckm-create-project__save {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-1);
+  flex: none;
+  font-size: var(--ckm-text-micro);
+  line-height: var(--ckm-leading-micro);
+  font-weight: var(--ckm-weight-medium);
+  color: var(--ckm-text-3);
+  white-space: nowrap;
+}
+
+/* The dot is a second channel for the same state, not the state itself — the
+   label always says it in words (§14, never colour alone). */
+.ckm .ckm-create-project__save-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ckm-muted);
+}
+
+.ckm .ckm-create-project__save--saving .ckm-create-project__save-dot { background: #b26a00; }
+.ckm .ckm-create-project__save--saved .ckm-create-project__save-dot { background: #1c7c4a; }
+.ckm .ckm-create-project__save--unsaved .ckm-create-project__save-dot { background: var(--ckm-accent); }
+
+/* At 320px the bar holds an exit button, two lines of text, this, and an
+   overflow button. The words go; the dot and the label stay in the
+   accessibility tree either way, because the live region is the element. */
+@media (max-width: 359px) {
+  .ckm .ckm-create-project__save-label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* --- Progress ----------------------------------------------------------- */
+
+.ckm .ckm-create-project__progress {
+  height: 3px;
+  background: var(--ckm-line-2);
+}
+
+.ckm .ckm-create-project__progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--ckm-accent);
+  transition: width 240ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ckm .ckm-create-project__progress-fill { transition: none; }
+}
+
+/* --- Notices ------------------------------------------------------------ */
+
+.ckm .ckm-create-project__notice {
+  margin: var(--ckm-space-3) var(--ckm-space-4) 0;
+}
+
+/* --- Panel body --------------------------------------------------------- */
+
+.ckm .ckm-create-project__scroll {
+  background: var(--ckm-bg);
+}
+
+.ckm .ckm-create-project__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-5);
+  padding: var(--ckm-space-5) var(--ckm-space-4) var(--ckm-space-7);
+}
+
+.ckm .ckm-create-project__panel-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-1);
+}
+
+.ckm .ckm-create-project__panel-title {
+  margin: 0;
+  font-family: var(--ckm-display);
+  font-size: var(--ckm-text-section);
+  line-height: var(--ckm-leading-section);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-ink);
+}
+
+.ckm .ckm-create-project__panel-blurb {
+  margin: 0;
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  color: var(--ckm-text-3);
+}
+
+/* --- Sections and groups ------------------------------------------------ */
+
+.ckm .ckm-create-project__section,
+.ckm .ckm-create-project__field-group,
+.ckm .ckm-create-project__fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-3);
+  /* A <fieldset> arrives with a border, padding and a min-width that refuses to
+     shrink below its content — the last of which is what makes a fieldset
+     overflow a 320px viewport. */
+  min-width: 0;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ckm .ckm-create-project__section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--ckm-space-2);
+}
+
+.ckm .ckm-create-project__section-title {
+  margin: 0;
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-ink);
+}
+
+.ckm .ckm-create-project__stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The one grid that survives 320px: two fields that hold at most a few digits
+   each. Everything else in this wizard is a single column, deliberately. */
+.ckm .ckm-create-project__pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ckm-space-3);
+}
+
+.ckm .ckm-create-project__note {
+  display: flex;
+  gap: var(--ckm-space-2);
+  margin: 0;
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-create-project__note-icon {
+  flex: none;
+  color: var(--ckm-muted);
+}
+
+.ckm .ckm-create-project__ai-action {
+  align-self: flex-start;
+}
+
+.ckm .ckm-create-project__flag {
+  font-size: var(--ckm-text-micro);
+  line-height: var(--ckm-leading-micro);
+  font-weight: var(--ckm-weight-medium);
+  color: var(--ckm-text-3);
+}
+
+/* --- Cards -------------------------------------------------------------- */
+
+.ckm .ckm-create-project__card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-3);
+}
+
+.ckm .ckm-create-project__card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ckm-space-2);
+}
+
+.ckm .ckm-create-project__card-eyebrow {
+  margin: 0;
+  font-size: var(--ckm-text-micro);
+  line-height: var(--ckm-leading-micro);
+  font-weight: var(--ckm-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-create-project__row-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ckm-space-2);
+}
+
+/* --- Agreement ---------------------------------------------------------- */
+
+.ckm .ckm-create-project__terms {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+  margin: 0;
+  padding-left: var(--ckm-space-4);
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-2);
+}
+
+.ckm .ckm-create-project__agreement {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: var(--ckm-space-3);
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-md);
+  background: var(--ckm-bg-fill);
+  /* Contained, so flicking to the end of a 4,000-word agreement does not carry
+     on into the panel behind it. */
+  overscroll-behavior: contain;
+}
+
+.ckm .ckm-create-project__agreement:focus-visible {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: var(--ckm-focus-ring-offset);
+}
+
+.ckm .ckm-create-project__agreement-text {
+  margin: 0;
+  font-family: inherit;
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+  white-space: pre-wrap;
+  /* A legal document contains URLs and long defined terms; without this one of
+     them widens the box and the whole page scrolls sideways. */
+  overflow-wrap: anywhere;
+}
+
+/* --- Sticky footer ------------------------------------------------------ */
+
+.ckm .ckm-create-project__footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+  padding: var(--ckm-space-3) var(--ckm-space-4);
+  padding-bottom: calc(var(--ckm-space-3) + var(--ckm-safe-bottom));
+  background: var(--ckm-bg);
+  border-top: 1px solid var(--ckm-line);
+}
+
+.ckm .ckm-create-project__footer-reason {
+  margin: 0;
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-2);
+}
+
+.ckm .ckm-create-project__footer-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-2);
+}
+
+/* Back stays exactly as wide as its label; Next takes the rest. The primary is
+   the larger target because it is the one aimed at on nearly every panel. */
+.ckm .ckm-create-project__footer-actions > .ckm-button:first-child {
+  flex: none;
+}
+
+/* --- Title page --------------------------------------------------------- */
+
+.ckm .ckm-create-project__titlepage-preview {
+  padding: var(--ckm-space-6) var(--ckm-space-4);
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-md);
+  background: #fff;
+  text-align: center;
+  font-family: "Courier Prime", "Courier New", monospace;
+  color: var(--ckm-ink);
+}
+
+.ckm .ckm-create-project__titlepage-title {
+  margin: 0;
+  font-size: var(--ckm-text-card);
+  line-height: var(--ckm-leading-card);
+  font-weight: var(--ckm-weight-bold);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-create-project__titlepage-credit,
+.ckm .ckm-create-project__titlepage-source,
+.ckm .ckm-create-project__titlepage-date {
+  margin: var(--ckm-space-4) 0 0;
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-create-project__titlepage-author {
+  margin: var(--ckm-space-1) 0 0;
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  color: var(--ckm-text-2);
+}
+
+.ckm .ckm-create-project__titlepage-source { font-style: italic; }
+
+.ckm .ckm-create-project__titlepage-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ckm-space-2);
+}
+
+/* --- Submitted ---------------------------------------------------------- */
+
+.ckm .ckm-create-project__submitted-icon {
+  margin: 0 0 var(--ckm-space-3);
+  color: var(--ckm-accent-ink);
+}
+
+.ckm .ckm-create-project__submitted-body {
+  margin: 0 0 var(--ckm-space-3);
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  color: var(--ckm-text-2);
+}
+
+.ckm .ckm-create-project__submitted-note {
+  margin: 0;
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+}

@@ -1,4 +1,4 @@
-import { useState, useContext, useRef, useEffect, useCallback } from "react";
+import { useState, useContext, useRef, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { motion as Motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -8,9 +8,37 @@ import { AuthContext } from "../context/AuthContext";
 import { useDarkMode } from "../context/DarkModeContext";
 import { useAuthModal } from "../context/AuthModalContext";
 import { formatCurrency } from "../utils/currency";
+import {
+  AI_LOCKED_TOAST,
+  AI_QUOTA_TOAST,
+  aiImagesRemaining,
+  describeAiError,
+  userHasAiAccess,
+} from "../config/aiEntitlements";
 import { formatScreenplayLikeText } from "../utils/screenplayText";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { SCRIPT_UPLOAD_TERMS_TEXT, SCRIPT_UPLOAD_TERMS_VERSION } from "../constants/scriptUploadTerms";
+import { DRAFT_ENDPOINT } from "./CreateProject/constants";
+import { encodeKeepaliveBody } from "./CreateProject/lib/keepaliveSave";
+import { mergeMediaProgress, uploadProjectMedia } from "./CreateProject/lib/projectMediaUpload";
+import {
+  buildUploadWorkingDraftSnapshot,
+  chooseUploadWorkingDraftRecovery,
+  clearUploadWorkingDraft,
+  getUploadWorkingDraftSignature,
+  pruneUploadWorkingDrafts,
+  readUploadWorkingDraft,
+  uploadWorkingDraftKey,
+  writeUploadWorkingDraft,
+} from "./CreateProject/lib/uploadWorkingDraft";
+import {
+  UPLOAD_SOURCE_LOAD_STATUS,
+  classifyUploadSourceLoadError,
+  getUploadSource,
+  initialUploadSourceLoad,
+  uploadSourceCopy,
+  uploadSourceNeedsGate,
+} from "./CreateProject/lib/uploadSourceLoad";
 import ScriptUploadWorkspace from "../components/script-upload/ScriptUploadWorkspace";
 import ScriptUploadSuccess from "../components/script-upload/ScriptUploadSuccess";
 import {
@@ -369,7 +397,68 @@ const getFileNameFromUrl = (url = "") => {
   }
 };
 
-const ScriptUpload = () => {
+/*
+ * The chrome seam (added 2026-08-09, plan §11 Phase 3 bullet 3).
+ *
+ * Everything above and below this line is platform-neutral: the extraction, the
+ * draft conversion, the content-only revision path, the plan gate, validation,
+ * the media recovery and the submit payload. What is NOT neutral is
+ * `ScriptUploadWorkspace`, a three-column desktop workspace with a tracker rail,
+ * a helper rail and an action bar whose own phone breakpoints breach four of the
+ * mobile plan's floors (DEF-4).
+ *
+ * So the chrome is injected rather than forked, exactly as
+ * `pages/CreateProject/index.jsx` injects its `Shell`:
+ *
+ *   • `Workspace`      — which component draws the page. Defaults to the desktop
+ *                        one, so App.jsx's `<ScriptUpload />` renders precisely
+ *                        what it rendered before.
+ *   • `nativeChrome`   — suppresses the desktop-only surfaces that a native
+ *                        chrome replaces, and routes the route-state early
+ *                        states through the view model instead of returning
+ *                        markup that no injected chrome could ever reach.
+ *   • `hostClassName`  — `.ckm-shell` is `height: 100%` and needs a host that
+ *                        passes the height through. Purely a mobile concern, so
+ *                        it stays on the mobile side of the seam.
+ *
+ * `nativeChrome` changes exactly five things in this file, and every one of them
+ * is REPLACED rather than dropped:
+ *
+ *   1–4. the four early returns above (access refused, a source load still
+ *        resolving, a source-load failure, the post-submit screen) become view-model flags, because an
+ *        early return happens before any injected chrome and can therefore never
+ *        be re-drawn by one;
+ *   5.   the portal-rendered thumbnail cropper — a Tailwind modal with a
+ *        hand-rolled focus trap — is not rendered, because the native chrome
+ *        mounts the shared `ckm-media` cropper, which inherits Phase 1's already
+ *        tested trap, scroll lock and focus restoration.
+ *
+ * The toast needs no flag: `ScriptUploadWorkspace` is what draws it, so a chrome
+ * that replaces the workspace replaces the toast too. `state.toastMessage` stays
+ * on the view model and `useUploadToasts` forwards it to the app-wide layer, so
+ * nothing is swallowed.
+ */
+const ScriptUpload = ({
+  Workspace = ScriptUploadWorkspace,
+  nativeChrome = false,
+  hostClassName = "",
+}) => {
+  /*
+   * Paired wrongly, `nativeChrome` is a silent failure: it removes the cropper
+   * and four whole screens on the promise that something else renders them, and
+   * the desktop workspace renders none of the five. A writer would tap a cover
+   * and watch nothing happen. DEV-only, because it is a wiring mistake, not a
+   * runtime condition.
+   */
+  if (import.meta.env?.DEV && nativeChrome && Workspace === ScriptUploadWorkspace) {
+    console.error(
+      "[script-upload] `nativeChrome` was passed with the desktop ScriptUploadWorkspace. "
+      + "That flag suppresses the thumbnail cropper and the access-denied, source-loading, "
+      + "source-failure and submitted screens on the assumption a native chrome owns them — pass that chrome as "
+      + "`Workspace`.",
+    );
+  }
+
   const { user } = useContext(AuthContext);
   const { isDarkMode } = useDarkMode();
   const { openPricingModal } = useAuthModal();
@@ -377,10 +466,14 @@ const ScriptUpload = () => {
   const [searchParams] = useSearchParams();
   const draftId = searchParams.get("draft");
   const editId = searchParams.get("edit");
+  const uploadSource = useMemo(() => getUploadSource({ draftId, editId }), [draftId, editId]);
+  const workingDraftStorageKey = uploadWorkingDraftKey({ draftId, editId });
   const [step, setStep] = useState(1);
   const [detailStep, setDetailStep] = useState(0);
   const [fromDraft, setFromDraft] = useState(false);
   const [scriptId, setScriptId] = useState(null);
+  const scriptIdRef = useRef(null);
+  scriptIdRef.current = scriptId;
   const [loading, setLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState([]);
   const [validationAttempt, setValidationAttempt] = useState(0);
@@ -408,6 +501,22 @@ const ScriptUpload = () => {
   const toastTimerRef = useRef(null);
   const currentScreenRef = useRef("upload");
   const thumbnailDialogRef = useRef(null);
+  const serverUpdatedAtRef = useRef(null);
+  const baselineWorkingSignatureRef = useRef("");
+  const currentWorkingSnapshotRef = useRef(null);
+  const currentWorkingSignatureRef = useRef("");
+  const currentDraftPayloadRef = useRef(null);
+  const workingDraftDirtyRef = useRef(false);
+  const flushWorkingSnapshotRef = useRef(() => false);
+  const queueExitDraftSaveRef = useRef(() => false);
+  const localDraftHydratedRef = useRef(false);
+  const intentionalExitRef = useRef(false);
+  const lastExitSaveSignatureRef = useRef("");
+  const [localSnapshotSaved, setLocalSnapshotSaved] = useState(false);
+  const [navigationExitRequested, setNavigationExitRequested] = useState(0);
+  const [recoveryContext, setRecoveryContext] = useState(null);
+  const [sourceLoad, setSourceLoad] = useState(() => initialUploadSourceLoad({ draftId, editId }));
+  const [sourceLoadAttempt, setSourceLoadAttempt] = useState(0);
 
   const dismissToast = useCallback(() => {
     if (toastTimerRef.current) {
@@ -440,6 +549,19 @@ const ScriptUpload = () => {
       toastTimerRef.current = null;
     }, duration);
   }, []);
+
+  // One gate for every AI action on this page. There was none here at all: a free-plan writer could
+  // tap Generate and receive a raw 403 string, while the same action on /create-project was
+  // (wrongly) refused to everyone but gold. Defined here, above its first caller.
+  const enforceAiPlan = useCallback(() => {
+    if (userHasAiAccess(user)) return true;
+    showToast(
+      AI_LOCKED_TOAST,
+      "warning",
+      { label: "Pricing Plan", onClick: () => openPricingModal("writer") }
+    );
+    return false;
+  }, [user, showToast, openPricingModal]);
 
   const setError = useCallback((message, targetScreen = null) => {
     const nextMessage = String(message || "");
@@ -491,6 +613,9 @@ const ScriptUpload = () => {
   const [pitchVideoMeta, setPitchVideoMeta] = useState(null);
   const [pitchVideoMetaLoading, setPitchVideoMetaLoading] = useState(false);
   const [pendingMediaRecovery, setPendingMediaRecovery] = useState(null);
+  // { thumbnail?: { percent, status }, trailer?: …, pitchVideo?: … } — see
+  // `postMedia` below. Empty until a submit actually starts sending files.
+  const [mediaProgress, setMediaProgress] = useState({});
   const [thumbnailPreviewUrl, setThumbnailPreviewUrl] = useState("");
   const [trailerPreviewUrl, setTrailerPreviewUrl] = useState("");
   const [trailerMeta, setTrailerMeta] = useState(null);
@@ -505,7 +630,6 @@ const ScriptUpload = () => {
   const [thumbnailApplying, setThumbnailApplying] = useState(false);
   const [submissionSuccess, setSubmissionSuccess] = useState(null);
   const [isContentOnlyEditMode, setIsContentOnlyEditMode] = useState(false);
-  const [isEditModeResolving, setIsEditModeResolving] = useState(Boolean(editId));
   const [originalEditContent, setOriginalEditContent] = useState("");
 
   // Form data
@@ -633,17 +757,271 @@ const ScriptUpload = () => {
     };
   };
 
+  /*
+   * The local snapshot is the durable autosave. It intentionally carries only
+   * JSON state: a browser cannot resurrect File objects after refresh, but it
+   * can restore every typed field, the remote PDF descriptor, and the exact
+   * panel the writer left. File names are recorded separately so recovery can
+   * say what must be selected again instead of silently dropping it.
+   */
+  const workingSnapshot = buildUploadWorkingDraftSnapshot({
+    userId: user?._id || null,
+    draftId,
+    editId,
+    scriptId,
+    step,
+    detailStep,
+    baseUpdatedAt: serverUpdatedAtRef.current,
+    data: {
+      formData,
+      classification,
+      services,
+      legal,
+      rightsLicensing,
+      tagsInput,
+      roles,
+      filmDetails,
+      textContent,
+      uploadedFile: uploadedFile ? {
+        name: uploadedFile.name || "",
+        size: uploadedFile.size ?? null,
+        url: uploadedFile.url || "",
+        fileGrant: uploadedFile.fileGrant || "",
+        sourceMode: uploadedFile.sourceMode || "",
+      } : null,
+      existingUploadedFile: existingUploadedFile ? {
+        name: existingUploadedFile.name || "",
+        size: existingUploadedFile.size ?? null,
+        url: existingUploadedFile.url || "",
+      } : null,
+      trailerOption,
+      isPremium,
+      scriptPrice,
+      customPriceInput,
+      useCustomPrice,
+    },
+    pendingFiles: {
+      thumbnail: thumbnailFile?.name || "",
+      trailer: trailerFile?.name || "",
+      pitchVideo: pitchVideoFile?.name || "",
+    },
+  });
+  const workingSignature = getUploadWorkingDraftSignature(workingSnapshot);
+  currentWorkingSnapshotRef.current = workingSnapshot;
+  currentWorkingSignatureRef.current = workingSignature;
+  if (!baselineWorkingSignatureRef.current) {
+    baselineWorkingSignatureRef.current = workingSignature;
+  }
+  const workingDraftDirty = Boolean(
+    localDraftHydratedRef.current
+    && workingSignature !== baselineWorkingSignatureRef.current
+  );
+  workingDraftDirtyRef.current = workingDraftDirty;
+
+  const applyWorkingSnapshot = useCallback((snapshot) => {
+    const data = snapshot?.data || {};
+    if (data.formData && typeof data.formData === "object") {
+      setFormData((current) => ({ ...current, ...data.formData }));
+    }
+    if (data.classification && typeof data.classification === "object") setClassification(data.classification);
+    if (data.services && typeof data.services === "object") setServices(data.services);
+    if (data.legal && typeof data.legal === "object") setLegal(data.legal);
+    if (data.rightsLicensing && typeof data.rightsLicensing === "object") setRightsLicensing(data.rightsLicensing);
+    if (typeof data.tagsInput === "string") setTagsInput(data.tagsInput);
+    if (Array.isArray(data.roles)) setRoles(data.roles);
+    if (data.filmDetails && typeof data.filmDetails === "object") setFilmDetails(data.filmDetails);
+    if (typeof data.textContent === "string") setTextContent(data.textContent);
+    setUploadedFile(data.uploadedFile && typeof data.uploadedFile === "object" ? data.uploadedFile : null);
+    setExistingUploadedFile(
+      data.existingUploadedFile && typeof data.existingUploadedFile === "object"
+        ? data.existingUploadedFile
+        : null
+    );
+    setUploadedPdfFile(null);
+    setPdfPageTexts([]);
+    setPdfTextExtracted(false);
+    if (typeof data.trailerOption === "string") setTrailerOption(data.trailerOption);
+    if (typeof data.isPremium === "boolean") setIsPremium(data.isPremium);
+    if (Number.isFinite(Number(data.scriptPrice))) setScriptPrice(Number(data.scriptPrice));
+    if (typeof data.customPriceInput === "string") setCustomPriceInput(data.customPriceInput);
+    if (typeof data.useCustomPrice === "boolean") setUseCustomPrice(data.useCustomPrice);
+
+    const restoredStep = Number(snapshot?.step);
+    const restoredDetail = Number(snapshot?.detailStep);
+    if (Number.isFinite(restoredStep) && restoredStep >= 1 && restoredStep <= 5) setStep(restoredStep);
+    if (Number.isFinite(restoredDetail) && restoredDetail >= 0 && restoredDetail <= 5) setDetailStep(restoredDetail);
+    if (snapshot?.scriptId) {
+      scriptIdRef.current = snapshot.scriptId;
+      setScriptId(snapshot.scriptId);
+      setFromDraft(true);
+    }
+
+    const fileNames = Object.values(snapshot?.pendingFiles || {}).filter(Boolean);
+    setLocalSnapshotSaved(true);
+    showToast(
+      fileNames.length
+        ? `Recovered your local upload. Select ${fileNames.join(", ")} again before submitting.`
+        : "Recovered the upload changes saved on this device.",
+      fileNames.length ? "warning" : "success",
+      null,
+      { title: "Local work recovered", duration: 8000 }
+    );
+  }, [showToast]);
+
+  const resolveWorkingDraftRecovery = useCallback((serverUpdatedAt = null) => {
+    const flow = { draftId, editId };
+    const snapshot = readUploadWorkingDraft(flow);
+    const decision = chooseUploadWorkingDraftRecovery({
+      snapshot,
+      userId: user?._id || null,
+      serverUpdatedAt,
+    });
+
+    localDraftHydratedRef.current = true;
+    if (decision.action === "discard") {
+      clearUploadWorkingDraft(flow);
+      setLocalSnapshotSaved(false);
+      return;
+    }
+    if (decision.action === "none") return;
+    if (decision.action === "conflict") {
+      setLocalSnapshotSaved(true);
+      showToast(
+        "This device has upload changes, but the server copy changed too. Review the server copy or restore your local version.",
+        "warning",
+        {
+          label: "Restore local version",
+          onClick: () => applyWorkingSnapshot(snapshot),
+        },
+        { title: "Two versions need your choice", duration: 12000 }
+      );
+      return;
+    }
+    applyWorkingSnapshot(snapshot);
+  }, [applyWorkingSnapshot, draftId, editId, showToast, user?._id]);
+
+  const readRecoverableSourceSnapshot = useCallback(() => {
+    if (!uploadSource) return null;
+    const flow = { draftId, editId };
+    const snapshot = readUploadWorkingDraft(flow);
+    const decision = chooseUploadWorkingDraftRecovery({
+      snapshot,
+      userId: user?._id || null,
+      serverUpdatedAt: null,
+    });
+    if (decision.action === "discard") {
+      clearUploadWorkingDraft(flow);
+      return null;
+    }
+    return decision.action === "restore" || decision.action === "conflict" ? snapshot : null;
+  }, [draftId, editId, uploadSource, user?._id]);
+
+  const recoverSourceFromDevice = useCallback(() => {
+    if (sourceLoad.status !== UPLOAD_SOURCE_LOAD_STATUS.FAILED) return false;
+    const snapshot = readRecoverableSourceSnapshot();
+    if (!snapshot || !uploadSource) {
+      setSourceLoad((current) => ({ ...current, hasLocalRecovery: false }));
+      return false;
+    }
+
+    // This is deliberately opt-in. A failed GET gives us no server updatedAt,
+    // so silently applying the snapshot would be indistinguishable from
+    // overwriting a co-writer's newer server copy. Retry still reloads the
+    // server and runs the normal three-way recovery decision before any write.
+    serverUpdatedAtRef.current = snapshot.baseUpdatedAt ? String(snapshot.baseUpdatedAt) : null;
+    baselineWorkingSignatureRef.current = currentWorkingSignatureRef.current;
+    localDraftHydratedRef.current = true;
+    applyWorkingSnapshot(snapshot);
+    setSourceLoad({
+      ...uploadSource,
+      status: UPLOAD_SOURCE_LOAD_STATUS.LOCAL_ONLY,
+      hasLocalRecovery: true,
+      offline: sourceLoad.offline,
+      message: sourceLoad.message,
+    });
+    return true;
+  }, [applyWorkingSnapshot, readRecoverableSourceSnapshot, sourceLoad.message, sourceLoad.offline, sourceLoad.status, uploadSource]);
+
+  const retrySourceLoad = useCallback(() => {
+    if (!uploadSource) return;
+    if (sourceLoad.status === UPLOAD_SOURCE_LOAD_STATUS.LOCAL_ONLY) {
+      // Retry temporarily replaces the form with a loader. Persist the exact
+      // local version first so a fast server response cannot race the debounce.
+      flushWorkingSnapshotRef.current({ report: false });
+    }
+    setSourceLoad({
+      ...uploadSource,
+      status: UPLOAD_SOURCE_LOAD_STATUS.LOADING,
+      hasLocalRecovery: false,
+    });
+    setSourceLoadAttempt((attempt) => attempt + 1);
+  }, [sourceLoad.status, uploadSource]);
+
+  const flushWorkingSnapshot = useCallback((options = {}) => {
+    if (!localDraftHydratedRef.current) return false;
+    const snapshot = currentWorkingSnapshotRef.current;
+    const signature = currentWorkingSignatureRef.current;
+    if (!snapshot || !signature || signature === baselineWorkingSignatureRef.current) return true;
+    const written = writeUploadWorkingDraft({ draftId, editId }, snapshot);
+    if (options?.report !== false) setLocalSnapshotSaved(written);
+    return written;
+  }, [draftId, editId]);
+  flushWorkingSnapshotRef.current = flushWorkingSnapshot;
+
+  const markWorkingDraftCommitted = useCallback((updatedAt = null) => {
+    if (updatedAt) serverUpdatedAtRef.current = String(updatedAt);
+    baselineWorkingSignatureRef.current = currentWorkingSignatureRef.current;
+    clearUploadWorkingDraft({ draftId, editId });
+    setLocalSnapshotSaved(false);
+  }, [draftId, editId]);
+
+  const discardWorkingDraft = useCallback(() => {
+    intentionalExitRef.current = true;
+    baselineWorkingSignatureRef.current = currentWorkingSignatureRef.current;
+    clearUploadWorkingDraft({ draftId, editId });
+    setLocalSnapshotSaved(false);
+  }, [draftId, editId]);
+
+  // The recovery effect runs before this writer. That ordering prevents the
+  // empty initial form from replacing the snapshot a refresh is about to read.
+  useEffect(() => {
+    if (draftId || editId) return;
+    baselineWorkingSignatureRef.current = currentWorkingSignatureRef.current;
+    resolveWorkingDraftRecovery(null);
+  }, [draftId, editId, resolveWorkingDraftRecovery]);
+
+  useEffect(() => {
+    if (!recoveryContext || recoveryContext.key !== workingDraftStorageKey) return;
+    serverUpdatedAtRef.current = recoveryContext.serverUpdatedAt || null;
+    baselineWorkingSignatureRef.current = currentWorkingSignatureRef.current;
+    resolveWorkingDraftRecovery(recoveryContext.serverUpdatedAt || null);
+    setRecoveryContext(null);
+  }, [recoveryContext, resolveWorkingDraftRecovery, workingDraftStorageKey]);
+
+  useEffect(() => { pruneUploadWorkingDrafts(); }, []);
+
+  useEffect(() => {
+    if (!localDraftHydratedRef.current || !workingDraftDirty) return;
+    const timeoutId = window.setTimeout(flushWorkingSnapshot, 300);
+    return () => window.clearTimeout(timeoutId);
+  }, [flushWorkingSnapshot, workingDraftDirty, workingSignature]);
+
 
 
   // Load existing published script when entering edit mode
   useEffect(() => {
-    if (!editId) {
-      setIsEditModeResolving(false);
-      return;
-    }
+    if (!editId) return undefined;
+    let active = true;
     const load = async () => {
+      setSourceLoad({
+        kind: "edit",
+        id: editId,
+        status: UPLOAD_SOURCE_LOAD_STATUS.LOADING,
+        hasLocalRecovery: false,
+      });
       try {
         const { data } = await api.get(`/scripts/${editId}`);
+        if (!active) return;
         const isEditApprovalPending = data?.status === "pending_approval" && data?.approvalRequestType === "edit_submission";
         const purchasedFromHistory = {
           evaluation: Boolean(
@@ -674,6 +1052,8 @@ const ScriptUpload = () => {
         const initialContent = data.textContent || "";
         setTextContent(initialContent);
         setOriginalEditContent(initialContent);
+        setUploadedFile(null);
+        setUploadedPdfFile(null);
         setExistingUploadedFile(data.fileUrl ? {
           name: getFileNameFromUrl(data.fileUrl),
           size: null,
@@ -693,15 +1073,16 @@ const ScriptUpload = () => {
           synopsis: data.synopsis || data.description || "",
           ...createScriptCompletionFormState(data?.scriptCompletion || {}),
         });
-        setPdfPageTexts(Array.isArray(data.scriptPreviewPageTexts) ? data.scriptPreviewPageTexts : []);
+        const storedPreviewPages = Array.isArray(data.scriptPreviewPageTexts) ? data.scriptPreviewPageTexts : [];
+        setPdfPageTexts(storedPreviewPages);
+        setPdfTextExtracted(storedPreviewPages.length > 0);
         setTagsInput((data.tags || []).join(", "));
         setClassification({
           tones: data.classification?.tones || [],
           themes: data.classification?.themes || [],
           settings: data.classification?.settings || [],
         });
-        if (Array.isArray(data.roles)) {
-          setRoles(data.roles.map((role) => ({
+        setRoles(Array.isArray(data.roles) ? data.roles.map((role) => ({
             characterName: role?.characterName || "",
             type: role?.type || "",
             description: role?.description || "",
@@ -710,8 +1091,7 @@ const ScriptUpload = () => {
               min: role?.ageRange?.min ?? "",
               max: role?.ageRange?.max ?? "",
             },
-          })));
-        }
+          })) : []);
         setServices({
           hosting: data.services?.hosting ?? true,
           evaluation: purchasedFromHistory.evaluation || data.services?.evaluation || false,
@@ -731,38 +1111,67 @@ const ScriptUpload = () => {
         setScriptPrice(storedPrice || 10);
         setUseCustomPrice(storedPrice > 0 && ![5, 10, 15, 25, 50].includes(storedPrice));
         setCustomPriceInput(storedPrice > 0 ? String(storedPrice) : "");
-        if (data?.filmDetails) {
-          const storedLanguage = data.filmDetails.filmLanguage || "";
-          const knownLanguage = FILM_LANGUAGE_OPTIONS.includes(storedLanguage);
-          setFilmDetails({
-            filmLanguage: knownLanguage ? storedLanguage : (storedLanguage ? "Other" : ""),
-            filmLanguageCustom: knownLanguage ? "" : storedLanguage,
-            dialoguesPresent: data.filmDetails.dialoguesPresent || "yes",
-            wantToDirect: Boolean(data.filmDetails.wantToDirect),
-            wantToProduce: Boolean(data.filmDetails.wantToProduce),
-            scriptStyle: Array.isArray(data.filmDetails.scriptStyle) ? data.filmDetails.scriptStyle : [],
-          });
-        }
-      } catch {
-        // proceed normally
-      } finally {
-        setIsEditModeResolving(false);
+        const storedLanguage = data?.filmDetails?.filmLanguage || "";
+        const knownLanguage = FILM_LANGUAGE_OPTIONS.includes(storedLanguage);
+        setFilmDetails({
+          filmLanguage: knownLanguage ? storedLanguage : (storedLanguage ? "Other" : ""),
+          filmLanguageCustom: knownLanguage ? "" : storedLanguage,
+          dialoguesPresent: data?.filmDetails?.dialoguesPresent || "yes",
+          wantToDirect: Boolean(data?.filmDetails?.wantToDirect),
+          wantToProduce: Boolean(data?.filmDetails?.wantToProduce),
+          scriptStyle: Array.isArray(data?.filmDetails?.scriptStyle) ? data.filmDetails.scriptStyle : [],
+        });
+        setSourceLoad({
+          kind: "edit",
+          id: editId,
+          status: UPLOAD_SOURCE_LOAD_STATUS.READY,
+          hasLocalRecovery: false,
+        });
+        setRecoveryContext({
+          key: uploadWorkingDraftKey({ editId }),
+          serverUpdatedAt: data?.updatedAt || null,
+        });
+      } catch (error) {
+        if (!active) return;
+        setSourceLoad(classifyUploadSourceLoadError(error, {
+          kind: "edit",
+          id: editId,
+          online: typeof navigator === "undefined" ? true : navigator.onLine !== false,
+          hasLocalRecovery: Boolean(readRecoverableSourceSnapshot()),
+        }));
       }
     };
     load();
-  }, [editId, setError]);
+    return () => { active = false; };
+  }, [editId, readRecoverableSourceSnapshot, setError, sourceLoadAttempt]);
 
   // Load draft when coming from Create Project editor
   useEffect(() => {
-    if (!draftId) return;
+    if (!draftId || editId) {
+      if (!draftId && !editId) {
+        setSourceLoad(initialUploadSourceLoad());
+      }
+      return undefined;
+    }
+    let active = true;
     const load = async () => {
+      setSourceLoad({
+        kind: "draft",
+        id: draftId,
+        status: UPLOAD_SOURCE_LOAD_STATUS.LOADING,
+        hasLocalRecovery: false,
+      });
       try {
         const { data } = await api.get(`/scripts/${draftId}`);
+        if (!active) return;
+        scriptIdRef.current = data._id;
         setScriptId(data._id);
         setTextContent(data.textContent || "");
         const storedPreviewPages = Array.isArray(data.scriptPreviewPageTexts) ? data.scriptPreviewPageTexts : [];
         setPdfPageTexts(storedPreviewPages);
         setPdfTextExtracted(storedPreviewPages.length > 0);
+        setUploadedFile(null);
+        setUploadedPdfFile(null);
         setExistingUploadedFile(data.fileUrl ? {
           name: getFileNameFromUrl(data.fileUrl),
           size: null,
@@ -783,8 +1192,7 @@ const ScriptUpload = () => {
           synopsis: data.synopsis || data.description || "",
           ...createScriptCompletionFormState(data?.scriptCompletion || {}),
         }));
-        if (Array.isArray(data.roles)) {
-          setRoles(data.roles.map((role) => ({
+        setRoles(Array.isArray(data.roles) ? data.roles.map((role) => ({
             characterName: role?.characterName || "",
             type: role?.type || "",
             description: role?.description || "",
@@ -793,8 +1201,7 @@ const ScriptUpload = () => {
               min: role?.ageRange?.min ?? "",
               max: role?.ageRange?.max ?? "",
             },
-          })));
-        }
+          })) : []);
         setTagsInput((data.tags || []).join(", "));
         setClassification({
           tones: data.classification?.tones || [],
@@ -819,26 +1226,41 @@ const ScriptUpload = () => {
         setScriptPrice(storedPrice || 10);
         setUseCustomPrice(storedPrice > 0 && ![5, 10, 15, 25, 50].includes(storedPrice));
         setCustomPriceInput(storedPrice > 0 ? String(storedPrice) : "");
-        if (data?.filmDetails) {
-          const storedLanguage = data.filmDetails.filmLanguage || "";
-          const knownLanguage = FILM_LANGUAGE_OPTIONS.includes(storedLanguage);
-          setFilmDetails({
-            filmLanguage: knownLanguage ? storedLanguage : (storedLanguage ? "Other" : ""),
-            filmLanguageCustom: knownLanguage ? "" : storedLanguage,
-            dialoguesPresent: data.filmDetails.dialoguesPresent || "yes",
-            wantToDirect: Boolean(data.filmDetails.wantToDirect),
-            wantToProduce: Boolean(data.filmDetails.wantToProduce),
-            scriptStyle: Array.isArray(data.filmDetails.scriptStyle) ? data.filmDetails.scriptStyle : [],
-          });
-        }
+        const storedLanguage = data?.filmDetails?.filmLanguage || "";
+        const knownLanguage = FILM_LANGUAGE_OPTIONS.includes(storedLanguage);
+        setFilmDetails({
+          filmLanguage: knownLanguage ? storedLanguage : (storedLanguage ? "Other" : ""),
+          filmLanguageCustom: knownLanguage ? "" : storedLanguage,
+          dialoguesPresent: data?.filmDetails?.dialoguesPresent || "yes",
+          wantToDirect: Boolean(data?.filmDetails?.wantToDirect),
+          wantToProduce: Boolean(data?.filmDetails?.wantToProduce),
+          scriptStyle: Array.isArray(data?.filmDetails?.scriptStyle) ? data.filmDetails.scriptStyle : [],
+        });
         setFromDraft(true);
+        setSourceLoad({
+          kind: "draft",
+          id: draftId,
+          status: UPLOAD_SOURCE_LOAD_STATUS.READY,
+          hasLocalRecovery: false,
+        });
+        setRecoveryContext({
+          key: uploadWorkingDraftKey({ draftId }),
+          serverUpdatedAt: data?.updatedAt || null,
+        });
 
-      } catch {
-        // Draft not found, proceed normally
+      } catch (error) {
+        if (!active) return;
+        setSourceLoad(classifyUploadSourceLoadError(error, {
+          kind: "draft",
+          id: draftId,
+          online: typeof navigator === "undefined" ? true : navigator.onLine !== false,
+          hasLocalRecovery: Boolean(readRecoverableSourceSnapshot()),
+        }));
       }
     };
     load();
-  }, [draftId]);
+    return () => { active = false; };
+  }, [draftId, editId, readRecoverableSourceSnapshot, sourceLoadAttempt]);
 
   // Handle form field changes
   const handleChange = (e) => {
@@ -893,6 +1315,7 @@ const ScriptUpload = () => {
 
   // Generate a single section (logline / synopsis / roles) by parsing the uploaded project content
   const handleGenerateMetadata = async (field) => {
+    if (!enforceAiPlan()) return;
     if (metaLoadingField) return;
     const plainText = String(textContent || "").replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
     if (!plainText || plainText.length < 50) {
@@ -1200,29 +1623,34 @@ const ScriptUpload = () => {
     return () => URL.revokeObjectURL(previewUrl);
   }, [thumbnailFile]);
 
-  const [aiCoverAttempts, setAiCoverAttempts] = useState(0);
+  const [aiCoverAttempts, setAiCoverAttempts] = useState(
+    Number(user?.subscription?.aiImagesGeneratedTotal) || 0
+  );
+  // The server's number, seeded from the auth user and replaced by every response. This used to be
+  // `3 - aiCoverAttempts` over state a page reload reset, against a server that counted nothing.
+  const [aiCoverRemaining, setAiCoverRemaining] = useState(
+    aiImagesRemaining(user?.subscription?.aiImagesGeneratedTotal)
+  );
   const [aiCoverHistory, setAiCoverHistory] = useState([]);
   const [aiCoverIndex, setAiCoverIndex] = useState(-1);
+  // `disabled` only applies after React commits. This latch closes the same-frame double-tap window
+  // and prevents two server responses arriving out of order from making the remaining count rise.
+  const aiCoverRequestInFlightRef = useRef(false);
 
   const generateAiCover = async () => {
-    const plan = user?.subscription?.plan || "free";
-    if (plan === "free") {
-      showToast(
-        "Purchase a plan to use AI thumbnail generation.",
-        "warning",
-        { label: "Pricing Plan", onClick: () => openPricingModal("writer") }
-      );
-      return;
-    }
+    if (aiCoverRequestInFlightRef.current) return;
+    if (!enforceAiPlan()) return;
     if (!formData.title) {
       showToast("Please enter a title in Step 1 first to generate an AI cover.", "warning");
       return;
     }
-    if (aiCoverAttempts >= 3) {
-      showToast("You have reached the limit of 3 AI cover generations for this script.", "warning");
+    if (aiCoverRemaining <= 0) {
+      // No upgrade action: this writer already pays, they have spent the period's images.
+      showToast(AI_QUOTA_TOAST, "warning");
       return;
     }
     try {
+      aiCoverRequestInFlightRef.current = true;
       setIsGeneratingAiCover(true);
       const res = await api.post("/scripts/generate-ai-cover", {
         title: formData.title,
@@ -1237,7 +1665,10 @@ const ScriptUpload = () => {
         const blob = await resFetch.blob();
         const file = new File([blob], `ai-cover-${Date.now()}.jpg`, { type: "image/jpeg" });
         setThumbnailFile(file);
-        setAiCoverAttempts(res.data.attempts || (aiCoverAttempts + 1));
+        setAiCoverAttempts(res.data.attempts ?? (aiCoverAttempts + 1));
+        setAiCoverRemaining(
+          typeof res.data.remaining === "number" ? res.data.remaining : aiCoverRemaining - 1
+        );
         const newHistory = [...aiCoverHistory.slice(0, aiCoverIndex + 1), file];
         setAiCoverHistory(newHistory);
         setAiCoverIndex(newHistory.length - 1);
@@ -1246,9 +1677,15 @@ const ScriptUpload = () => {
       }
     } catch (error) {
       console.error("AI cover generation failed:", error);
-      const errMsg = error.response?.data?.message || error.message;
-      showToast(errMsg, "error");
+      const { kind, message, offerUpgrade } = describeAiError(error);
+      if (kind === "quota") setAiCoverRemaining(0);
+      showToast(
+        message,
+        "warning",
+        offerUpgrade ? { label: "Pricing Plan", onClick: () => openPricingModal("writer") } : null
+      );
     } finally {
+      aiCoverRequestInFlightRef.current = false;
       setIsGeneratingAiCover(false);
     }
   };
@@ -1514,6 +1951,7 @@ const ScriptUpload = () => {
   // Block creating a NEW upload when the plan limit is reached; editing an existing script (scriptId
   // present) is never blocked — only the fresh "upload another" path is.
   const creationBlocked = Boolean(scriptLimit?.limitReached) && !scriptId && !editId;
+  const sourceWriteBlocked = uploadSourceNeedsGate(sourceLoad);
 
   const handleNext = () => {
     if (isContentOnlyEditMode) return;
@@ -1547,82 +1985,203 @@ const ScriptUpload = () => {
     }
   };
 
-  // Handle saving a draft
+  const buildUploadDraftPayload = () => ({
+    ...(scriptIdRef.current ? { scriptId: scriptIdRef.current } : {}),
+    title: formData.title || "Untitled Draft",
+    logline: formData.logline,
+    synopsis: formData.synopsis,
+    format: formData.format,
+    contentType: getContentTypeFromFormat(formData.format),
+    formatOther: formData.format === "other" ? String(formData.formatOther || "").trim() : "",
+    pageCount: Number(formData.pageCount) || 0,
+    textContent,
+    ...(isHttpUrl(uploadedFile?.url)
+      ? { fileUrl: uploadedFile.url, fileGrant: uploadedFile.fileGrant }
+      : (isHttpUrl(existingUploadedFile?.url) ? { fileUrl: existingUploadedFile.url } : {})),
+    roles: roles
+      .filter((role) => role.characterName?.trim())
+      .map((role) => ({
+        characterName: role.characterName.trim(),
+        type: role.type?.trim() || "",
+        description: role.description?.trim() || "",
+        gender: role.gender || "Any",
+        ageRange: {
+          min: role.ageRange?.min === "" ? undefined : Number(role.ageRange?.min),
+          max: role.ageRange?.max === "" ? undefined : Number(role.ageRange?.max),
+        },
+      })),
+    classification: {
+      primaryGenre: formData.primaryGenre,
+      tones: classification.tones,
+      themes: classification.themes,
+      settings: classification.settings,
+    },
+    viewableScript: Boolean(formData.viewableScript),
+    scriptPreviewAccess: buildScriptPreviewPayload(formData),
+    scriptCompletion: buildScriptCompletionPayload(formData),
+    scriptPreviewPageTexts: pdfPageTexts,
+    tags: tagsInput.split(",").map((tag) => tag.trim()).filter(Boolean),
+    services: {
+      hosting: true,
+      evaluation: services.evaluation,
+      aiTrailer: trailerOption === "ai",
+      spotlight: services.spotlight,
+    },
+    premium: effectivePrice > 0,
+    price: effectivePrice > 0 ? effectivePrice : 0,
+    legal: {
+      agreedToTerms: legal.agreedToTerms,
+      termsVersion: SCRIPT_UPLOAD_TERMS_VERSION,
+      customInvestorTerms: String(legal.customInvestorTerms || "").trim(),
+    },
+    rightsLicensing: buildRightsPayload(),
+    filmDetails: {
+      filmLanguage: filmDetails.filmLanguage === "Other" ? (filmDetails.filmLanguageCustom || "Other") : filmDetails.filmLanguage,
+      dialoguesPresent: filmDetails.dialoguesPresent,
+      wantToDirect: filmDetails.wantToDirect,
+      wantToProduce: filmDetails.wantToProduce,
+      scriptStyle: filmDetails.scriptStyle,
+    },
+  });
+  currentDraftPayloadRef.current = buildUploadDraftPayload();
+
+  const hasMeaningfulUploadDraft = (payload) => Boolean(
+    (String(payload?.title || "").trim() && payload?.title !== "Untitled Draft")
+    || String(payload?.textContent || "").replace(/<[^>]*>/g, " ").trim()
+    || payload?.fileUrl
+  );
+
+  /*
+   * Last-resort exit save. Unlike the manual Save draft action this never
+   * clears the local snapshot or claims success: fetch keepalive can be refused
+   * after navigation starts, and bodies above the browser's 64 KiB allowance
+   * are rejected before they are queued. The local snapshot remains the truth.
+   */
+  const queueExitDraftSave = useCallback((reason = "exit") => {
+    if (editId || isContentOnlyEditMode || creationBlocked || sourceWriteBlocked || intentionalExitRef.current) return false;
+    const signature = currentWorkingSignatureRef.current;
+    if (!signature || signature === baselineWorkingSignatureRef.current) return false;
+    if (signature === lastExitSaveSignatureRef.current) return true;
+
+    const payload = currentDraftPayloadRef.current;
+    if (!hasMeaningfulUploadDraft(payload)) return false;
+    const encoded = encodeKeepaliveBody(payload);
+    if (!encoded.withinLimit) return false;
+
+    let token = "";
+    try {
+      token = JSON.parse(localStorage.getItem("user") || "null")?.token || "";
+    } catch {
+      token = "";
+    }
+    fetch(DRAFT_ENDPOINT, {
+      method: "POST",
+      keepalive: true,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        "X-Draft-Save-Reason": reason,
+      },
+      body: encoded.body,
+    }).catch(() => {});
+    lastExitSaveSignatureRef.current = signature;
+    return true;
+  }, [creationBlocked, editId, isContentOnlyEditMode, sourceWriteBlocked]);
+  queueExitDraftSaveRef.current = queueExitDraftSave;
+
+  // Manual Save is the confirmed server save: callers receive true/false, the
+  // local snapshot clears only on success, and "Save & leave" no longer leaves
+  // after a failed request.
   const handleSaveDraft = async () => {
     clearValidationFeedback();
+    if (editId || isContentOnlyEditMode || sourceWriteBlocked) {
+      if (sourceWriteBlocked) {
+        setError("Reload the server copy before saving this draft. Your device copy will stay available.");
+      }
+      return false;
+    }
     setLoading(true);
     try {
-      const payload = {
-        ...(scriptId ? { scriptId } : {}),
-        title: formData.title || "Untitled Draft",
-        logline: formData.logline,
-        synopsis: formData.synopsis,
-        format: formData.format,
-        contentType: getContentTypeFromFormat(formData.format),
-        formatOther: formData.format === "other" ? String(formData.formatOther || "").trim() : "",
-        pageCount: Number(formData.pageCount) || 0,
-        textContent: textContent,
-        ...(isHttpUrl(uploadedFile?.url)
-          ? { fileUrl: uploadedFile.url, fileGrant: uploadedFile.fileGrant }
-          : (isHttpUrl(existingUploadedFile?.url)
-            ? { fileUrl: existingUploadedFile.url }
-            : {})),
-        roles: roles
-          .filter((role) => role.characterName?.trim())
-          .map((role) => ({
-            characterName: role.characterName.trim(),
-            type: role.type?.trim() || "",
-            description: role.description?.trim() || "",
-            gender: role.gender || "Any",
-            ageRange: {
-              min: role.ageRange?.min === "" ? undefined : Number(role.ageRange?.min),
-              max: role.ageRange?.max === "" ? undefined : Number(role.ageRange?.max),
-            },
-          })),
-        classification: {
-          primaryGenre: formData.primaryGenre,
-          tones: classification.tones,
-          themes: classification.themes,
-          settings: classification.settings,
-        },
-        viewableScript: Boolean(formData.viewableScript),
-        scriptPreviewAccess: buildScriptPreviewPayload(formData),
-        scriptCompletion: buildScriptCompletionPayload(formData),
-        scriptPreviewPageTexts: pdfPageTexts,
-        tags: tagsInput.split(",").map((tag) => tag.trim()).filter(Boolean),
-        services: {
-          hosting: true,
-          evaluation: services.evaluation,
-          aiTrailer: trailerOption === "ai",
-          spotlight: services.spotlight,
-        },
-        premium: effectivePrice > 0,
-        price: effectivePrice > 0 ? effectivePrice : 0,
-        legal: {
-          agreedToTerms: legal.agreedToTerms,
-          termsVersion: SCRIPT_UPLOAD_TERMS_VERSION,
-          customInvestorTerms: String(legal.customInvestorTerms || "").trim(),
-        },
-        rightsLicensing: buildRightsPayload(),
-        filmDetails: {
-          filmLanguage: filmDetails.filmLanguage === "Other" ? (filmDetails.filmLanguageCustom || "Other") : filmDetails.filmLanguage,
-          dialoguesPresent: filmDetails.dialoguesPresent,
-          wantToDirect: filmDetails.wantToDirect,
-          wantToProduce: filmDetails.wantToProduce,
-          scriptStyle: filmDetails.scriptStyle,
-        },
-      };
-
+      const payload = currentDraftPayloadRef.current;
       const { data } = await api.post("/scripts/draft", payload);
-      if (data?._id) setScriptId(data._id);
+      if (data?._id) {
+        scriptIdRef.current = data._id;
+        setScriptId(data._id);
+      }
       setFromDraft(true);
+      markWorkingDraftCommitted(data?.updatedAt || null);
       showToast("Draft saved. You can resume it from your dashboard.", "success");
+      return true;
     } catch (err) {
       setError(err.response?.data?.message || "Failed to save draft.");
+      flushWorkingSnapshot();
+      return false;
     } finally {
       setLoading(false);
     }
   };
+
+  // Refresh, OS backgrounding and same-tab navigation all synchronously flush
+  // the local snapshot. The server keepalive is only a best-effort extra; a
+  // browser prompt is still shown while the confirmed server baseline is dirty.
+  useEffect(() => {
+    const persistForExit = (reason) => {
+      flushWorkingSnapshotRef.current({ report: false });
+      queueExitDraftSaveRef.current(reason);
+    };
+    const handleBeforeUnload = (event) => {
+      if (!workingDraftDirtyRef.current || intentionalExitRef.current) return;
+      persistForExit("beforeunload");
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    const handlePageHide = () => persistForExit("pagehide");
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") persistForExit("hidden");
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handlePageHide);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      if (!intentionalExitRef.current) persistForExit("unmount");
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handlePageHide);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, []);
+
+  // Browser/OS Back uses the same native exit sheet as the close control. The
+  // desktop presentation has no sheet, so it receives the browser confirmation
+  // and leaves the local snapshot recoverable when the writer accepts.
+  useEffect(() => {
+    window.history.pushState({ scriptUploadGuard: true }, "", window.location.href);
+    const handlePopState = () => {
+      if (!workingDraftDirtyRef.current) {
+        intentionalExitRef.current = true;
+        navigate("/dashboard");
+        return;
+      }
+
+      flushWorkingSnapshotRef.current();
+      window.history.pushState({ scriptUploadGuard: true }, "", window.location.href);
+      if (nativeChrome) {
+        setNavigationExitRequested((current) => current + 1);
+        return;
+      }
+
+      const shouldLeave = window.confirm(
+        "Leave this upload? Your latest changes are saved on this device and can be recovered when you return."
+      );
+      if (shouldLeave) {
+        queueExitDraftSaveRef.current("browser-back");
+        intentionalExitRef.current = true;
+        navigate("/dashboard");
+      }
+    };
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [nativeChrome, navigate]);
 
   useEffect(() => {
     if (!isThumbnailEditorOpen) return undefined;
@@ -1675,45 +2234,45 @@ const ScriptUpload = () => {
     };
   }, [isThumbnailEditorOpen, resetThumbnailEditor]);
 
+  /*
+   * Per-file upload progress (decision D14, 2026-08-09).
+   *
+   * These three requests carry up to 5 MB, 250 MB and 90 MB, and until now they
+   * reported nothing at all — the only progress bar anywhere on this page was
+   * the SIMULATED one in `handleFileSelect` (a setInterval adding 10% every
+   * 200ms and stopping at 90%, DEF-9). A 250 MB trailer on a phone connection is
+   * minutes of a screen that looks frozen, and a writer who concludes it has
+   * hung and backgrounds the tab loses the upload.
+   *
+   * `onUploadProgress` needs no new dependency: it is an axios feature and
+   * `services/api.js` already exports an axios instance. Shared code, so both
+   * platforms get it.
+   */
   const uploadMediaForScript = async (targetScriptId, requestedTypes = null) => {
-    const shouldUpload = (type) => !Array.isArray(requestedTypes) || requestedTypes.includes(type);
-    const mediaTasks = [];
-
-    if (thumbnailFile && shouldUpload("thumbnail")) {
-      const thumbnailFormData = new FormData();
-      thumbnailFormData.append("thumbnail", thumbnailFile);
-      mediaTasks.push({
-        type: "thumbnail",
-        request: api.post(`/scripts/${targetScriptId}/upload-thumbnail`, thumbnailFormData),
-      });
-    }
-
-    if (trailerFile && trailerOption === "upload" && shouldUpload("trailer")) {
-      const trailerFormData = new FormData();
-      trailerFormData.append("trailer", trailerFile);
-      mediaTasks.push({
-        type: "trailer",
-        request: api.post(`/scripts/${targetScriptId}/upload-trailer`, trailerFormData),
-      });
-    }
-
-    if (pitchVideoFile && shouldUpload("pitchVideo")) {
-      const pitchFormData = new FormData();
-      pitchFormData.append("pitchVideo", pitchVideoFile);
-      mediaTasks.push({
-        type: "pitchVideo",
-        request: api.post(`/scripts/${targetScriptId}/upload-pitch-video`, pitchFormData),
-      });
-    }
-
-    if (mediaTasks.length === 0) return [];
-    const results = await Promise.allSettled(mediaTasks.map((task) => task.request));
-    return results.flatMap((result, index) => result.status === "rejected" ? [mediaTasks[index].type] : []);
+    return uploadProjectMedia({
+      apiClient: api,
+      targetScriptId,
+      requestedTypes,
+      files: {
+        thumbnail: thumbnailFile,
+        trailer: trailerOption === "upload" ? trailerFile : null,
+        pitchVideo: pitchVideoFile,
+      },
+      onProgress: (type, next) => mergeMediaProgress(setMediaProgress, type, next),
+    });
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     clearValidationFeedback();
+    if (sourceWriteBlocked) {
+      setError(
+        sourceLoad.status === UPLOAD_SOURCE_LOAD_STATUS.LOCAL_ONLY
+          ? "Reload the server copy before submitting. Your recovered device copy has not been sent."
+          : "Wait for the original script to load before submitting changes."
+      );
+      return;
+    }
     // Submit is disabled at the limit; if reached defensively, just stop (amber gate is the message).
     if (creationBlocked) return;
 
@@ -1751,6 +2310,7 @@ const ScriptUpload = () => {
         }
 
         setPendingMediaRecovery(null);
+        markWorkingDraftCommitted();
         setSubmissionSuccess({
           projectTitle: pendingMediaRecovery.title,
           reviewPath: pendingMediaRecovery.redirectPath,
@@ -1782,6 +2342,8 @@ const ScriptUpload = () => {
           content: textContent,
           sectionRef: "textContent",
         });
+        markWorkingDraftCommitted();
+        intentionalExitRef.current = true;
         navigate(`/script/${editId}`);
         return;
       }
@@ -1856,6 +2418,8 @@ const ScriptUpload = () => {
       if (editId) {
         const { data } = await api.put(`/scripts/${editId}`, payload);
         if (data?.revisionSubmitted) {
+          markWorkingDraftCommitted(data?.updatedAt || null);
+          intentionalExitRef.current = true;
           navigate(`/script/${editId}`);
           return;
         }
@@ -1879,6 +2443,7 @@ const ScriptUpload = () => {
           ]);
           return;
         }
+        markWorkingDraftCommitted(data?.updatedAt || null);
         setSubmissionSuccess({ projectTitle: payload.title, reviewPath: redirectPath });
       } else {
         const response = await api.post("/scripts/upload", payload);
@@ -1903,6 +2468,7 @@ const ScriptUpload = () => {
             username: user?.username,
           },
         });
+        markWorkingDraftCommitted(response.data?.updatedAt || null);
         setSubmissionSuccess({ projectTitle: payload.title, reviewPath });
       }
     } catch (err) {
@@ -1919,8 +2485,22 @@ const ScriptUpload = () => {
     }
   };
 
+  /*
+   * THE THREE EARLY RETURNS ARE DESKTOP-ONLY UNDER `nativeChrome`.
+   *
+   * Each of them returns before the workspace is rendered at all, so an injected
+   * chrome can never reach them — which is how the desktop `accessDenied` markup
+   * on `/create-project` ended up as a still-open follow-up in the plan's §19.1.
+   * Rather than repeat that, the three conditions are published on the view
+   * model (`state.accessDenied`, `state.sourceLoad`,
+   * `state.submissionSuccess`) and the native chrome draws its own.
+   *
+   * Desktop's branches are untouched: same conditions, same order, same markup.
+   */
+  const accessDenied = !["creator", "writer"].includes(user?.role);
+
   // Access control
-  if (!["creator", "writer"].includes(user?.role)) {
+  if (accessDenied && !nativeChrome) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 sm:p-10 max-w-sm text-center">
@@ -1932,18 +2512,52 @@ const ScriptUpload = () => {
     );
   }
 
-  if (isEditModeResolving) {
+  if (sourceLoad.status === UPLOAD_SOURCE_LOAD_STATUS.LOADING && !nativeChrome) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
         <div className="flex flex-col items-center gap-4">
           <div className={`w-10 h-10 border-[3px] rounded-full animate-spin ${isDarkMode ? "border-white/[0.12] border-t-white/70" : "border-gray-200 border-t-[#1e3a5f]"}`} />
-          <p className={`text-sm font-medium ${isDarkMode ? "text-neutral-400" : "text-gray-500"}`}>Loading editor...</p>
+          <p className={`text-sm font-medium ${isDarkMode ? "text-neutral-400" : "text-gray-500"}`} role="status">
+            Loading the {sourceLoad.kind === "edit" ? "script" : "draft"}…
+          </p>
         </div>
       </div>
     );
   }
 
-  if (submissionSuccess) {
+  const sourceIssue = uploadSourceCopy(sourceLoad);
+  if (sourceIssue && !nativeChrome) {
+    return (
+      <div className="flex items-center justify-center min-h-[50vh] px-4">
+        <section
+          className={`w-full max-w-md rounded-2xl border p-6 text-center ${isDarkMode ? "border-white/10 bg-neutral-900 text-white" : "border-gray-200 bg-white text-gray-900"}`}
+          aria-labelledby="script-upload-source-title"
+        >
+          <span className="material-symbols-outlined mb-3 text-4xl" aria-hidden="true">{sourceIssue.icon}</span>
+          <p className={`mb-2 text-xs font-semibold uppercase tracking-wider ${isDarkMode ? "text-neutral-400" : "text-gray-500"}`}>{sourceIssue.kicker}</p>
+          <h2 id="script-upload-source-title" className="text-xl font-bold">{sourceIssue.title}</h2>
+          <p className={`mt-3 text-sm leading-6 ${isDarkMode ? "text-neutral-300" : "text-gray-600"}`}>{sourceIssue.body}</p>
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+            {sourceIssue.retryable && (
+              <button type="button" className="min-h-11 rounded-xl bg-[#1e3a5f] px-5 font-semibold text-white" onClick={retrySourceLoad}>
+                Try again
+              </button>
+            )}
+            {sourceIssue.retryable && sourceLoad.hasLocalRecovery && (
+              <button type="button" className={`min-h-11 rounded-xl border px-5 font-semibold ${isDarkMode ? "border-white/20" : "border-gray-300"}`} onClick={recoverSourceFromDevice}>
+                Open device copy
+              </button>
+            )}
+            <button type="button" className={`min-h-11 rounded-xl px-5 font-semibold ${isDarkMode ? "text-neutral-200" : "text-gray-700"}`} onClick={() => navigate("/dashboard")}>
+              Go to dashboard
+            </button>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  if (submissionSuccess && !nativeChrome) {
     return (
       <ScriptUploadSuccess
         projectTitle={submissionSuccess.projectTitle}
@@ -2019,6 +2633,9 @@ const ScriptUpload = () => {
     mode: {
       isContentOnlyEditMode,
       editId,
+      // Read by the native chrome to tell "converting an editor draft" from a
+      // fresh upload; the desktop workspace does not distinguish them.
+      draftId,
     },
     state: {
       step,
@@ -2038,12 +2655,16 @@ const ScriptUpload = () => {
       pdfPageTexts,
       pdfTextExtracted,
       fromDraft,
+      workingDraftDirty,
+      localSnapshotSaved,
+      navigationExitRequested,
       isExtracting,
       uploadProgress,
       thumbnailFile,
       thumbnailPreviewUrl,
       isGeneratingAiCover,
       aiCoverAttempts,
+      aiCoverRemaining,
       aiCoverHistory,
       aiCoverIndex,
       trailerFile,
@@ -2067,6 +2688,8 @@ const ScriptUpload = () => {
       mediaRecoveryPending: Boolean(pendingMediaRecovery),
       pdfNotice,
       creationBlocked,
+      sourceLoad,
+      sourceWriteBlocked,
       scriptLimit,
       loading,
       agreementScrolled,
@@ -2075,6 +2698,33 @@ const ScriptUpload = () => {
       customPriceInput,
       useCustomPrice,
       toastMessage,
+
+      /*
+       * Read only by a native chrome. The desktop workspace never needs them
+       * because this file renders each of these itself — the three early
+       * returns above, and the thumbnail cropper portal below.
+       */
+      accessDenied,
+      isEditModeResolving: sourceLoad.status === UPLOAD_SOURCE_LOAD_STATUS.LOADING,
+      submissionSuccess,
+      editApprovalLocked,
+      mediaProgress,
+      thumbnailEditor: {
+        open: isThumbnailEditorOpen,
+        imageUrl: thumbnailSourceUrl,
+        aspect: THUMBNAIL_ASPECT,
+        crop: thumbnailCrop,
+        zoom: thumbnailZoom,
+        rotation: thumbnailRotation,
+        applying: thumbnailApplying,
+        onCropChange: setThumbnailCrop,
+        onZoomChange: setThumbnailZoom,
+        onRotationChange: setThumbnailRotation,
+        onCropComplete: setThumbnailCropPixels,
+        onCancel: resetThumbnailEditor,
+        onApply: handleApplyThumbnail,
+        description: "Drag the image to choose the best angle. Covers are 16:10.",
+      },
     },
     actions: {
       handleDrop,
@@ -2113,6 +2763,10 @@ const ScriptUpload = () => {
         setThumbnailFile(file);
       },
       handleThumbnailSelect,
+      // Re-opens the cropper on an already-chosen cover. Desktop has no such
+      // control — once a cover is applied the only way to re-frame it is to pick
+      // the file again — so the mobile media slot's "Adjust" action needs it.
+      openThumbnailEditor,
       setAiCoverHistoryIndex: (nextIndex) => {
         if (nextIndex < 0 || nextIndex >= aiCoverHistory.length) return;
         setAiCoverIndex(nextIndex);
@@ -2173,8 +2827,23 @@ const ScriptUpload = () => {
       handleBack,
       handleNext,
       handleSaveDraft,
+      retrySourceLoad,
+      recoverSourceFromDevice,
+      flushWorkingSnapshot,
+      discardWorkingDraft,
       handleSubmit,
-      cancelContentEdit: () => navigate(-1),
+      cancelContentEdit: () => {
+        if (workingDraftDirtyRef.current) {
+          flushWorkingSnapshotRef.current();
+          if (nativeChrome) {
+            setNavigationExitRequested((current) => current + 1);
+            return;
+          }
+          if (!window.confirm("Leave this edit? Your latest changes are saved on this device.")) return;
+        }
+        intentionalExitRef.current = true;
+        navigate(-1);
+      },
     },
     elements: {
       fileInputRef,
@@ -2237,9 +2906,22 @@ const ScriptUpload = () => {
     },
   };
 
+  /*
+   * A native chrome owns the whole frame: it mounts `MobileShell`, which is
+   * `height: 100%` and therefore needs a host that passes the height through.
+   * Desktop keeps the bare fragment it has always rendered.
+   */
+  if (nativeChrome) {
+    return (
+      <div className={hostClassName}>
+        <Workspace vm={workspaceVm} />
+      </div>
+    );
+  }
+
   return (
     <>
-      <ScriptUploadWorkspace vm={workspaceVm} />
+      <Workspace vm={workspaceVm} />
       {isThumbnailEditorOpen && thumbnailSourceUrl && createPortal(
         <AnimatePresence>
           <Motion.div

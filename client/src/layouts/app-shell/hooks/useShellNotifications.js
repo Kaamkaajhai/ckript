@@ -36,16 +36,26 @@ export function useShellNotifications({ user, navigate }) {
   const [messageCount, setMessageCount] = useState(0);
   const [toasts, setToasts] = useState([]);
 
+  const userId = user?._id;
+  const token = user?.token;
+
   /*
    * Toasts a user has already seen. A ref, not state: it must not trigger a
    * re-render, and the poll callback needs the latest value without being
    * re-created (which would restart the interval on every notification).
+   * We initialize lazily from localStorage so they don't pop up again on refresh.
    */
-  const seenToastIds = useRef(new Set());
+  const seenToastIds = useRef(null);
   const refreshTimer = useRef(null);
-
-  const userId = user?._id;
-  const token = user?.token;
+  
+  const [renderedUserId, setRenderedUserId] = useState(userId);
+  if (renderedUserId !== userId || !seenToastIds.current) {
+    let saved = [];
+    try {
+      if (userId) saved = JSON.parse(localStorage.getItem(`ck_seen_toasts_${userId}`) || "[]");
+    } catch { /* ignore parse errors */ }
+    seenToastIds.current = new Set(saved);
+  }
 
   // ── Reads ─────────────────────────────────────────────────────────────────
   const fetchNotifications = useCallback(async () => {
@@ -154,26 +164,34 @@ export function useShellNotifications({ user, navigate }) {
    * mutating a ref during render is not safe under concurrent rendering, and that
    * effect already keys on `userId` and runs before the first fetch.
    */
-  const [renderedUserId, setRenderedUserId] = useState(userId);
   if (renderedUserId !== userId) {
     setRenderedUserId(userId);
     setNotifications([]);
     setUnreadCount(0);
     setToasts([]);
+    // seenToastIds.current is also reset in the block above
   }
 
   // ── Toasts ────────────────────────────────────────────────────────────────
   const dismissToast = useCallback((id) => {
-    if (id) seenToastIds.current.add(id);
+    if (id) {
+      seenToastIds.current.add(id);
+      try {
+        localStorage.setItem(`ck_seen_toasts_${userId}`, JSON.stringify(Array.from(seenToastIds.current)));
+      } catch { /* ignore storage errors */ }
+    }
     setToasts((prev) => prev.filter((t) => t._id !== id));
-  }, []);
+  }, [userId]);
 
   const dismissAllToasts = useCallback(() => {
     setToasts((prev) => {
       prev.forEach((t) => t?._id && seenToastIds.current.add(t._id));
+      try {
+        localStorage.setItem(`ck_seen_toasts_${userId}`, JSON.stringify(Array.from(seenToastIds.current)));
+      } catch { /* ignore storage errors */ }
       return [];
     });
-  }, []);
+  }, [userId]);
 
   // ── Mutations ─────────────────────────────────────────────────────────────
   const markAllRead = useCallback(async () => {
@@ -221,6 +239,19 @@ export function useShellNotifications({ user, navigate }) {
     return target;
   }, [dismissToast, navigate, user]);
 
+  const markNotificationRead = useCallback(async (id) => {
+    if (!id) return;
+    try {
+      await api.put(`/notifications/${id}/read`);
+    } catch {}
+    setNotifications((prev) => {
+      const target = prev.find((n) => n._id === id);
+      if (target && !target.read) setUnreadCount((c) => Math.max(0, c - 1));
+      return prev.map((n) => (n._id === id ? { ...n, read: true } : n));
+    });
+    dismissToast(id);
+  }, [dismissToast]);
+
   const decideFollowRequest = useCallback(async (notification, decision) => {
     const fromUserId = notification?.from?._id || notification?.from;
     if (!fromUserId) return;
@@ -258,13 +289,14 @@ export function useShellNotifications({ user, navigate }) {
     markAllRead,
     deleteNotification,
     openNotification,
+    markNotificationRead,
     decideFollowRequest,
     dismissToast,
     dismissAllToasts,
   }), [
     notifications, unreadCount, messageCount, toasts,
     refresh, acknowledgeAll, markAllRead, deleteNotification,
-    openNotification, decideFollowRequest, dismissToast, dismissAllToasts,
+    openNotification, markNotificationRead, decideFollowRequest, dismissToast, dismissAllToasts,
   ]);
 }
 

@@ -57,6 +57,39 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     screenId: "primitive-gallery",
     shell: MOBILE_SHELL_MODE.DETAIL,
   },
+  /*
+   * The editor-only harness at /__mobile-editor was retired on 2026-08-09 when
+   * /create-project was promoted: it existed because the chrome had no
+   * production URL, and it now has one.
+   *
+   * This replaces it rather than removing the idea, because the reason a harness
+   * is needed did not go away with the URL. The real route authenticates,
+   * fetches drafts and autosaves, so it renders a different screen on every run
+   * and cannot be measured; the checks that matter most for these two surfaces —
+   * touch-target sizes, contrast on the dark chrome, whether the docked bar
+   * overlaps the caret line, whether a 29-chip genre row overflows at 320px —
+   * are exactly the ones a jsdom suite cannot answer. This mounts BOTH modes
+   * over a deterministic fixture context so a five-width sweep can.
+   */
+  {
+    id: "mobile-create-harness",
+    pattern: "/__mobile-create",
+    disposition: MOBILE_ROUTE_DISPOSITION.DEV_ONLY,
+    reason: "Development-only harness for the create-project chrome, both modes (plan §11, Phase 3). "
+      + "The live route is account- and network-dependent and cannot be measured deterministically.",
+    screenId: "create-project-harness",
+    shell: MOBILE_SHELL_MODE.IMMERSIVE,
+  },
+  {
+    id: "mobile-upload-harness",
+    pattern: "/__mobile-upload",
+    disposition: MOBILE_ROUTE_DISPOSITION.DEV_ONLY,
+    reason: "Development-only harness for the upload chrome and its ten panels (plan §11, Phase 3 bullet 3). "
+      + "The live route authenticates, fetches the plan limit, extracts a PDF and uploads media, so it "
+      + "cannot be measured twice and get the same answer.",
+    screenId: "upload-harness",
+    shell: MOBILE_SHELL_MODE.FLOW,
+  },
   {
     id: "writer-dashboard",
     pattern: "/dashboard",
@@ -132,10 +165,108 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
   redirect("trending-alias", "/trending"),
   migration("featured", "/featured"),
   migration("follow-requests", "/follow-requests"),
-  migration("new-project", "/new-project"),
-  migration("create-project", "/create-project"),
-  migration("create-project-draft", "/create-project/:draftId"),
-  migration("upload", "/upload"),
+  /*
+   * The chooser that opens the creation flow. A `flow` shell, not `standard`:
+   * this is step zero of creating a project, and leaving the tab bar up invites
+   * a writer out of a flow they have not begun. Its two destinations
+   * are both real mobile screens as of 2026-08-09 — `/create-project` (the
+   * editor and publish wizard) and `/upload` (the ten-panel upload flow) — so
+   * neither door opens onto the desktop page any more. The entry point shipped
+   * first on purpose: it is what decides whether `startFresh` reaches the wizard
+   * at all (§5.2).
+   */
+  {
+    id: "new-project",
+    pattern: "/new-project",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native-style chooser for the two creation paths (plan §11 Phase 3 bullet 2).",
+    audiences: [AUDIENCE.WRITER],
+    protection: "authenticated",
+    screenId: "new-project",
+    shell: MOBILE_SHELL_MODE.FLOW,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
+
+  /*
+   * The creation flow itself. ONE route, TWO surfaces: `step === 1` is the
+   * screenplay editor (`ckm-editor`, immersive) and steps 2–5 are the publish
+   * wizard (`ckm-create-project`, flow). `CreateProjectChrome` chooses; the
+   * manifest records the mode the route *lands* on, which is the editor.
+   *
+   * Both entries share one screen component, because `/create-project/:draftId`
+   * is the same wizard with a draft already loaded — the orchestrator reads the
+   * param itself (`useParams`), so there is nothing for the route to hand over.
+   *
+   * COMPETITION MODE IS EXCLUDED, DELIBERATELY. `?ctx=competition` replaces the
+   * whole publish wizard with a deadline bar and a one-way Submit
+   * (`components/competition/CompetitionBar`, `CompetitionPitch`), and neither
+   * is ported. Without this exclusion a competition writer on a phone would get
+   * the mobile editor with no way at all to submit their entry — a regression,
+   * not a gap. Declared here rather than checked inside the screen so the
+   * limitation is greppable from the manifest, which is the file that is
+   * supposed to answer "what does mobile cover?".
+   */
+  {
+    id: "create-project",
+    pattern: "/create-project",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native screenplay editor (mode A) and publish wizard (mode B) — plan §11 Phase 3 bullet 2.",
+    audiences: [AUDIENCE.WRITER],
+    protection: "authenticated",
+    screenId: "create-project",
+    shell: MOBILE_SHELL_MODE.IMMERSIVE,
+    excludeQuery: { ctx: "competition" },
+    excludeReason: "competition-mode-not-ported",
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
+  {
+    id: "create-project-draft",
+    pattern: "/create-project/:draftId",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "The same flow with a draft loaded; the orchestrator reads :draftId itself.",
+    audiences: [AUDIENCE.WRITER],
+    protection: "authenticated",
+    screenId: "create-project",
+    shell: MOBILE_SHELL_MODE.IMMERSIVE,
+    excludeQuery: { ctx: "competition" },
+    excludeReason: "competition-mode-not-ported",
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
+  /*
+   * The upload flow. One route, four surfaces (`UploadChrome` chooses): access
+   * refused, an `?edit=` load still resolving, the submitted screen, and the
+   * ten-panel flow itself — which the manifest records, because it is what the
+   * route lands on.
+   *
+   * TWO QUERY FORMS, BOTH COVERED, and both were previously undocumented in the
+   * plan's §9 route ledger:
+   *   • `?draft=<id>` converts a project written in the screenplay editor into
+   *     an upload — the orchestrator loads it and carries `scriptId`, so the
+   *     submit updates that project rather than creating a second one;
+   *   • `?edit=<id>` updates a published script. If the loaded script reports
+   *     `isCollaborator && canEditMetadata === false` it becomes CONTENT-ONLY
+   *     mode: one field, no steps, and a submit that posts to
+   *     `/collab/:id/revisions` instead of `/scripts/upload`.
+   *
+   * Neither needs a manifest entry of its own. They are the same component on
+   * the same path, and the orchestrator reads them itself through
+   * `useSearchParams` — there is nothing for the route to hand over. They are
+   * named here so "what does mobile cover?" stays answerable from this file.
+   *
+   * NO `excludeQuery`. Unlike `/create-project`, every query form of this route
+   * is ported, so there is nothing to fall through to desktop.
+   */
+  {
+    id: "upload",
+    pattern: "/upload",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native ten-panel upload flow, its two query forms and its three non-flow states — plan §11 Phase 3 bullet 3.",
+    audiences: [AUDIENCE.WRITER],
+    protection: "authenticated",
+    screenId: "upload",
+    shell: MOBILE_SHELL_MODE.FLOW,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
   migration("search", "/search"),
   migration("project-payment", "/script/:id/pay"),
   migration("project-detail-id", "/script/:id"),

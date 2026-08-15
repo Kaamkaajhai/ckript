@@ -18,8 +18,15 @@ export const Section = ({ id, eyebrow, title, subtitle, children, className = ""
   </section>
 );
 
-export const Card = ({ children, className = "" }) => (
-  <div className={`ckc-card ckc-card-pad ${className}`}>{children}</div>
+export const Card = ({ children, className = "", onClick, role, tabIndex }) => (
+  <div 
+    className={`ckc-card ckc-card-pad ${className}`}
+    onClick={onClick}
+    role={role}
+    tabIndex={tabIndex}
+  >
+    {children}
+  </div>
 );
 
 export const Stat = ({ label, value }) => (

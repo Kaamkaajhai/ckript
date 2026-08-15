@@ -112,6 +112,40 @@ export const adminUploadImage = async (req, res) => {
   }
 };
 
+export const adminUploadResource = async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "No file provided" });
+    }
+
+    const mimeType = req.file.mimetype || "";
+    let resourceType = "raw";
+    if (mimeType.startsWith("image/")) resourceType = "image";
+    else if (mimeType.startsWith("video/")) resourceType = "video";
+
+    const ext = req.file.originalname ? req.file.originalname.split('.').pop() : '';
+    const publicId = resourceType === "raw" && ext 
+      ? `resource-${Date.now()}.${ext}` 
+      : `resource-${Date.now()}`;
+
+    const cloudUpload = await uploadToCloudinary(req.file.buffer, {
+      folder: "scriptbridge/admin/competitions/resources",
+      resource_type: resourceType,
+      public_id: publicId,
+      originalFilename: req.file.originalname,
+      mimeType: req.file.mimetype,
+    });
+
+    res.json({ url: cloudUpload.secure_url });
+  } catch (error) {
+    try {
+      (await import('fs')).appendFileSync('error.log', new Date().toISOString() + '\\n[UPLOAD] ' + (error?.stack || error) + '\\n\\n');
+    } catch(e) {}
+    console.error("[admin resource upload] failed:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
 export const adminListCompetitions = async (req, res) => {
   try {
     const competitions = await Competition.find({}).sort({ "dates.startsAt": -1 }).lean();
@@ -253,6 +287,16 @@ export const adminUpdateCompetition = async (req, res) => {
     }
 
     const incoming = normalizeContent({ ...rest });
+    
+    // Clean up stale base64 images from hot-reloaded frontend state
+    if (Array.isArray(incoming.judges)) {
+      incoming.judges.forEach(j => {
+        if (typeof j.photoUrl === 'string' && j.photoUrl.startsWith('data:image')) {
+          j.photoUrl = '';
+        }
+      });
+    }
+
     for (const field of CONTENT_FIELDS) {
       if (incoming[field] !== undefined) competition[field] = incoming[field];
     }
@@ -260,10 +304,11 @@ export const adminUpdateCompetition = async (req, res) => {
     await competition.save();
     return res.json({ competition, phase: getCompetitionPhase(competition) });
   } catch (error) {
-    console.error("[competition admin] update failed:", error?.message || error);
-    // Fixed string, like every other handler here. Mongoose cast/validation errors carry schema
-    // paths and raw values; the detail belongs in the log above, not in the browser.
-    return res.status(500).json({ message: "Failed to update the competition." });
+    try {
+      (await import('fs')).appendFileSync('error.log', new Date().toISOString() + '\\n' + (error?.stack || error) + '\\n\\n');
+    } catch(e) {}
+    console.error("[competition admin] update failed:", error?.stack || error);
+    return res.status(500).json({ message: "Failed to update the competition.", error: error?.stack || error?.message });
   }
 };
 

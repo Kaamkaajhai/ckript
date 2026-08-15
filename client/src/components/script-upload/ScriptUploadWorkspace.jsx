@@ -338,12 +338,39 @@ function AccessPanel({ vm }) {
   );
 }
 
+/*
+ * The determinate figure `postMedia` reports through axios's `onUploadProgress`
+ * (decision D14, 2026-08-09). Until then these three requests — up to 5 MB,
+ * 250 MB and 90 MB — showed nothing at all while they ran, and the only progress
+ * bar on the page was the simulated one on step 1.
+ *
+ * `<progress>` rather than a styled div pair: it carries its own value semantics,
+ * so it is announced with its percentage without an `aria-valuenow` of ours that
+ * could drift from the drawn width. The live region is the text beside it, not
+ * the bar — announcing a hundred increments is noise.
+ */
+function MediaUploadProgress({ label, progress }) {
+  if (!progress) return null;
+  const percent = Math.max(0, Math.min(100, Math.round(Number(progress.percent) || 0)));
+  const text = progress.status === "failed"
+    ? "Upload failed"
+    : progress.status === "done" ? "Uploaded" : `Uploading ${percent}%`;
+
+  return (
+    <p className={`su-media-progress${progress.status === "failed" ? " is-failed" : ""}`}>
+      <progress max={100} value={percent} aria-label={`${label} upload progress`} />
+      <span role="status" aria-live="polite">{text}</span>
+    </p>
+  );
+}
+
 function MediaPanel({ vm }) {
   const { state, actions, elements, mode } = vm;
   const { thumbnailInputRef, trailerInputRef, pitchVideoInputRef } = elements;
   const plan = String(vm.user?.subscription?.plan || "free").toLowerCase();
   const pitchLocked = ["free", "silver"].includes(plan);
   const hasCoverHistory = state.aiCoverHistory.length > 1;
+  const mediaProgress = state.mediaProgress || {};
 
   return (
     <div id="su-media" className="su-media-grid" tabIndex={-1} {...validationFieldProps(state, "su-media")}>
@@ -356,10 +383,10 @@ function MediaPanel({ vm }) {
               <strong>Upload</strong>
               <small>JPG/PNG · 5 MB</small>
             </button>
-            <button type="button" className="is-ai" disabled={state.isGeneratingAiCover} onClick={actions.generateAiCover}>
+            <button type="button" className="is-ai" disabled={state.aiCoverRemaining <= 0 || state.isGeneratingAiCover} onClick={actions.generateAiCover}>
               {state.isGeneratingAiCover ? <span className="su-spinner" /> : <MatIcon name="auto_awesome" size={24} />}
-              <strong>{state.isGeneratingAiCover ? "Generating…" : "AI generate"}</strong>
-              <small>From your script</small>
+              <strong>{state.aiCoverRemaining <= 0 ? "AI cover limit reached" : state.isGeneratingAiCover ? "Generating…" : "AI generate"}</strong>
+              <small>{state.aiCoverRemaining <= 0 ? "No covers left this plan period" : "From your script"}</small>
             </button>
           </div>
         ) : (
@@ -367,7 +394,7 @@ function MediaPanel({ vm }) {
             <img src={state.thumbnailPreviewUrl} alt="Selected script cover" />
             <div>
               <strong>{state.thumbnailFile.name || "AI-generated cover"}</strong>
-              <span>Cover ready · {state.aiCoverAttempts}/3 AI tries used</span>
+              <span>Cover ready · {state.aiCoverRemaining} AI covers left on your plan</span>
               {hasCoverHistory && (
                 <div className="su-cover-history" aria-label="AI cover history">
                   <button type="button" disabled={state.aiCoverIndex <= 0} onClick={() => actions.setAiCoverHistoryIndex(state.aiCoverIndex - 1)} aria-label="Previous AI cover">
@@ -381,10 +408,11 @@ function MediaPanel({ vm }) {
               )}
               <div>
                 <button type="button" onClick={() => thumbnailInputRef.current?.click()}>Replace</button>
-                <button type="button" onClick={actions.generateAiCover} disabled={state.aiCoverAttempts >= 3 || state.isGeneratingAiCover}>Try another</button>
+                <button type="button" onClick={actions.generateAiCover} disabled={state.aiCoverRemaining <= 0 || state.isGeneratingAiCover}>Try another</button>
                 <button type="button" onClick={() => actions.downloadWatermarkedImage(state.thumbnailFile)}>Download proof</button>
                 <button type="button" onClick={() => actions.setThumbnailFile(null)}>Remove</button>
               </div>
+              <MediaUploadProgress label="Cover image" progress={mediaProgress.thumbnail} />
             </div>
           </div>
         )}
@@ -406,6 +434,7 @@ function MediaPanel({ vm }) {
               <span><MatIcon name="check_circle" size={18} /><strong>{state.trailerFile.name}</strong></span>
               {state.trailerMetaLabel && <small>{state.trailerMetaLabel}</small>}
               <button type="button" onClick={() => actions.setTrailerFile(null)}>Remove</button>
+              <MediaUploadProgress label="Trailer video" progress={mediaProgress.trailer} />
             </div>
           </div>
         )}
@@ -427,6 +456,7 @@ function MediaPanel({ vm }) {
             <strong>{state.pitchVideoFile.name}</strong>
             {state.pitchVideoMetaLabel && <small>{state.pitchVideoMetaLabel}</small>}
             <button type="button" onClick={() => actions.setPitchVideoFile(null)}>Remove</button>
+            <MediaUploadProgress label="Pitch video" progress={mediaProgress.pitchVideo} />
           </div>
         )}
         <input ref={pitchVideoInputRef} type="file" accept="video/mp4,video/mpeg,video/quicktime,video/webm,video/x-m4v" onChange={(event) => { actions.handlePitchVideoSelect(event.target.files?.[0]); event.target.value = ""; }} />
@@ -754,7 +784,7 @@ function PublishPanel({ vm }) {
               }}
               {...validationFieldProps(state, "su-legal-terms")}
             />
-            <span>I accept the <Link to="/script-upload-terms" target="_blank" rel="noopener noreferrer">Script Upload Terms & Conditions</Link>.</span>
+            <span>I accept the <Link to="/script-upload-terms" target="_blank" rel="noopener noreferrer" onClick={actions.flushWorkingSnapshot}>Script Upload Terms & Conditions</Link>.</span>
           </label>
           <label>
             <input
@@ -820,11 +850,12 @@ export default function ScriptUploadWorkspace({ vm }) {
               <header className="su-screen-header"><span>{mode.isContentOnlyEditMode ? "Content-only edit" : copy[0]}</span><h1>{mode.isContentOnlyEditMode ? "Edit script content" : mode.editId && state.step === 1 ? "Update your script" : copy[1]}</h1><p>{mode.isContentOnlyEditMode ? "Update the body of the script without changing owner-controlled metadata or commercial terms." : copy[2]}</p></header>
               {state.pdfNotice && <div className="su-alert su-alert--warning" role="status"><MatIcon name="warning" size={19} /><span>{state.pdfNotice}</span></div>}
               {state.creationBlocked && <div className="su-alert su-alert--limit" role="alert"><MatIcon name="lock" size={19} /><span><strong>You've reached your {state.scriptLimit?.plan || "current"} plan limit.</strong><small>You already have {state.scriptLimit?.used || 0} submitted scripts. Upgrade before starting another upload.</small><Link to="/pricing">View plans & upgrade</Link></span></div>}
+              {state.sourceLoad?.status === "local-only" && <div className="su-alert su-alert--limit" role="status"><MatIcon name="history" size={19} /><span><strong>This is the copy saved on this device.</strong><small>You can review it, but saving and submitting stay blocked until Ckript confirms the current server version.</small><button type="button" onClick={actions.retrySourceLoad}>Reload server copy</button></span></div>}
               <AnimatePresence mode="wait"><Motion.div key={screenKey} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.2 }}><Panel vm={vm} /></Motion.div></AnimatePresence>
             </div>
           </div>
           <footer className="su-action-bar">
-            {mode.isContentOnlyEditMode ? <><button type="button" className="su-back" onClick={actions.cancelContentEdit}><MatIcon name="close" size={17} />Cancel</button><span className="su-save-state">Only script content will change</span><button type="submit" className="su-next" disabled={state.loading}>{state.loading ? "Saving…" : "Submit revision"}<MatIcon name="arrow_forward" size={18} /></button></> : <><button type="button" className="su-back" disabled={state.step === 1} onClick={actions.handleBack}><MatIcon name="arrow_back" size={18} />Back</button><span className="su-save-state"><MatIcon name="cloud_done" size={15} />{mode.editId ? "Changes submit for review" : state.fromDraft ? "Draft saved" : "Drafts stay private"}</span><span className="su-action-spacer" />{!mode.editId && <button type="button" className="su-save" onClick={actions.handleSaveDraft} disabled={state.loading || state.creationBlocked || state.mediaRecoveryPending}>{state.loading ? "Saving…" : state.mediaRecoveryPending ? "Project saved" : "Save draft"}</button>}{state.step === 5 ? <button type="submit" className="su-publish" disabled={state.loading || state.creationBlocked}>{state.loading ? "Submitting…" : mode.editId ? "Submit update" : "Publish for review"}<MatIcon name="arrow_forward" size={18} /></button> : <button type="button" className="su-next" onClick={actions.handleNext} disabled={state.creationBlocked || state.isExtracting}>{state.step === 2 && state.detailStep < 5 ? "Next" : state.step === 2 ? "Continue to Classify" : "Continue"}<MatIcon name="arrow_forward" size={18} /></button>}</>}
+            {mode.isContentOnlyEditMode ? <><button type="button" className="su-back" onClick={actions.cancelContentEdit}><MatIcon name="close" size={17} />Cancel</button><span className="su-save-state">{state.workingDraftDirty ? (state.localSnapshotSaved ? "Local copy saved" : "Unsaved changes") : "Only script content will change"}</span><button type="submit" className="su-next" disabled={state.loading || state.sourceWriteBlocked}>{state.loading ? "Saving…" : "Submit revision"}<MatIcon name="arrow_forward" size={18} /></button></> : <><button type="button" className="su-back" disabled={state.step === 1} onClick={actions.handleBack}><MatIcon name="arrow_back" size={18} />Back</button><span className="su-save-state"><MatIcon name="cloud_done" size={15} />{mode.editId ? (state.workingDraftDirty ? (state.localSnapshotSaved ? "Local copy saved" : "Unsaved changes") : "Changes submit for review") : state.fromDraft && !state.workingDraftDirty ? "Draft saved" : state.localSnapshotSaved ? "Saved on this device" : state.workingDraftDirty ? "Unsaved changes" : "Drafts stay private"}</span><span className="su-action-spacer" />{!mode.editId && <button type="button" className="su-save" onClick={actions.handleSaveDraft} disabled={state.loading || state.creationBlocked || state.mediaRecoveryPending || state.sourceWriteBlocked}>{state.loading ? "Saving…" : state.mediaRecoveryPending ? "Project saved" : "Save draft"}</button>}{state.step === 5 ? <button type="submit" className="su-publish" disabled={state.loading || state.creationBlocked || state.sourceWriteBlocked}>{state.loading ? "Submitting…" : mode.editId ? "Submit update" : "Publish for review"}<MatIcon name="arrow_forward" size={18} /></button> : <button type="button" className="su-next" onClick={actions.handleNext} disabled={state.creationBlocked || state.isExtracting}>{state.step === 2 && state.detailStep < 5 ? "Next" : state.step === 2 ? "Continue to Classify" : "Continue"}<MatIcon name="arrow_forward" size={18} /></button>}</>}
           </footer>
         </form>
       </section>

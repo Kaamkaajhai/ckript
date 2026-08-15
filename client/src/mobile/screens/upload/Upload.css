@@ -1,0 +1,690 @@
+/*
+ * Ckript Mobile — the upload flow (prefix: ckm-upload)
+ * ---------------------------------------------------------------------------
+ * `/upload`, its two query forms (`?draft=`, `?edit=`) and the three surfaces
+ * the route shows instead of the flow (refused, resolving, submitted).
+ *
+ * A sibling of ckm-create-project, not a reuse of it (§7.2). The two screens
+ * look alike because they share the shell, the Phase 1 form family and the
+ * ckm-media slots — but they ask different questions in a different order, and a
+ * single prefix answering for both would leave neither stylesheet readable on
+ * its own.
+ *
+ * Almost everything here is layout. The controls are ckm-field / ckm-control /
+ * ckm-chip / ckm-checkbox / ckm-radio / ckm-switch, the surfaces are ckm-card
+ * and ckm-message, the media is ckm-media and the overlays are ckm-dialog,
+ * ckm-bottom-sheet, ckm-action-sheet and ckm-confirm. What is left for this file
+ * is spacing, the two chrome bars, the script picker's three states, the
+ * agreement box, the invoice and the three full-screen states.
+ *
+ * NONE OF `ScriptUploadWorkspace.css` IS PORTED, and that is decision D8. Its
+ * own phone breakpoints breach four of this plan's floors (DEF-4): the save
+ * indicator is `display: none` at ≤720px, the sub-step tabs are `font-size: 0`
+ * at ≤520px, the action-bar buttons are 42px wide, and the phase strip is 10.5px
+ * text with a 19×19px indicator.
+ */
+
+/* --- Host --------------------------------------------------------------- */
+
+/*
+ * The wrapper the orchestrator renders under `nativeChrome`, between
+ * `.ckm-root` and `.ckm-shell`. `.ckm-shell` is `height: 100%`, so a
+ * default-height element here collapses the whole screen to the height of its
+ * content.
+ */
+.ckm .ckm-upload__host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.ckm .ckm-upload__host > .ckm-shell {
+  flex: 1;
+  min-height: 0;
+}
+
+/* --- Top bar ------------------------------------------------------------ */
+
+.ckm .ckm-upload__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-2);
+  padding: var(--ckm-space-2) var(--ckm-space-3);
+  background: var(--ckm-bg);
+  border-bottom: 1px solid var(--ckm-line);
+}
+
+.ckm .ckm-upload__bar-text {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ckm .ckm-upload__bar-title {
+  margin: 0;
+  font-family: var(--ckm-display);
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-ink);
+  /* One line. The title is whatever a writer types, and a bar that grows to
+     three lines pushes the form down every time they add a word. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ckm .ckm-upload__bar-position {
+  margin: 0;
+  font-size: var(--ckm-text-micro);
+  line-height: var(--ckm-leading-micro);
+  color: var(--ckm-text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* --- Save state --------------------------------------------------------- */
+
+/*
+ * Desktop hides this below 720px (DEF-4). It stays here at every width, because
+ * the local snapshot and the confirmed server draft are different guarantees,
+ * and "is my work safe?" is the question the screen is most likely to be asked.
+ */
+.ckm .ckm-upload__save {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-1);
+  flex: none;
+  font-size: var(--ckm-text-micro);
+  line-height: var(--ckm-leading-micro);
+  font-weight: var(--ckm-weight-medium);
+  color: var(--ckm-text-3);
+  white-space: nowrap;
+}
+
+/* The dot is a second channel for the same state, not the state itself — the
+   label always says it in words (§14, never colour alone). */
+.ckm .ckm-upload__save-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ckm-muted);
+}
+
+.ckm .ckm-upload__save--saving .ckm-upload__save-dot { background: #b26a00; }
+.ckm .ckm-upload__save--saved .ckm-upload__save-dot { background: #1c7c4a; }
+.ckm .ckm-upload__save--dirty .ckm-upload__save-dot { background: var(--ckm-accent); }
+
+/* A title, two actions and a useful save label cannot honestly share one row
+   on a narrow phone. Give the status its own line instead of hiding the words
+   or letting the overflow action drift beyond the viewport. */
+@media (max-width: 479px) {
+  .ckm .ckm-upload__bar {
+    display: grid;
+    grid-template-columns: var(--ckm-touch-target) minmax(0, 1fr) var(--ckm-touch-target);
+    grid-template-rows: auto auto;
+    column-gap: var(--ckm-space-2);
+    row-gap: 2px;
+  }
+
+  .ckm .ckm-upload__bar > .ckm-icon-button:first-child {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+
+  .ckm .ckm-upload__bar-text {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .ckm .ckm-upload__save {
+    grid-column: 2;
+    grid-row: 2;
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .ckm .ckm-upload__save-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .ckm .ckm-upload__bar > .ckm-icon-button:last-child:not(:first-child) {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    align-self: center;
+  }
+}
+
+/* --- Progress ----------------------------------------------------------- */
+
+.ckm .ckm-upload__progress {
+  height: 3px;
+  background: var(--ckm-line-2);
+}
+
+.ckm .ckm-upload__progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--ckm-accent);
+  transition: width 240ms ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ckm .ckm-upload__progress-fill { transition: none; }
+}
+
+/* --- Notices ------------------------------------------------------------ */
+
+.ckm .ckm-upload__notice {
+  margin: var(--ckm-space-3) var(--ckm-space-4) 0;
+}
+
+/* --- Panel body --------------------------------------------------------- */
+
+.ckm .ckm-upload__scroll {
+  background: var(--ckm-bg);
+}
+
+.ckm .ckm-upload__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-5);
+  padding: var(--ckm-space-5) var(--ckm-space-4) var(--ckm-space-7);
+}
+
+.ckm .ckm-upload__panel-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-1);
+}
+
+.ckm .ckm-upload__panel-title {
+  margin: 0;
+  font-family: var(--ckm-display);
+  font-size: var(--ckm-text-section);
+  line-height: var(--ckm-leading-section);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-ink);
+}
+
+.ckm .ckm-upload__panel-blurb {
+  margin: 0;
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  color: var(--ckm-text-3);
+}
+
+/*
+ * The validation anchor. It carries the shared contract's `fieldId` and nothing
+ * else, so it must not introduce a box: `display: contents` leaves the control
+ * inside laid out exactly as its siblings are, while `getElementById` still
+ * finds it. Anchors that wrap a grid cell (the two age fields) are the one
+ * exception and are handled by the pair rule below.
+ */
+.ckm .ckm-upload__anchor {
+  display: contents;
+}
+
+/* --- Sections and groups ------------------------------------------------ */
+
+.ckm .ckm-upload__section,
+.ckm .ckm-upload__field-group,
+.ckm .ckm-upload__fieldset {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-3);
+  /* A <fieldset> arrives with a border, padding and a min-width that refuses to
+     shrink below its content — the last of which is what makes a fieldset
+     overflow a 320px viewport. */
+  min-width: 0;
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ckm .ckm-upload__section-head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ckm-space-2);
+}
+
+.ckm .ckm-upload__section-title {
+  margin: 0;
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-ink);
+}
+
+.ckm .ckm-upload__stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The one grid that survives 320px: two fields holding at most a few digits
+   each. Everything else in this flow is a single column, deliberately. */
+.ckm .ckm-upload__pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--ckm-space-3);
+}
+
+.ckm .ckm-upload__card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-3);
+}
+
+.ckm .ckm-upload__card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ckm-space-2);
+}
+
+.ckm .ckm-upload__card-eyebrow {
+  margin: 0;
+  font-size: var(--ckm-text-micro);
+  line-height: var(--ckm-leading-micro);
+  font-weight: var(--ckm-weight-semibold);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-upload__note {
+  display: flex;
+  gap: var(--ckm-space-2);
+  margin: 0;
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-upload__note-icon {
+  flex: none;
+  color: var(--ckm-muted);
+}
+
+.ckm .ckm-upload__ai-action {
+  align-self: flex-start;
+}
+
+/* Announced but not shown — the same contract as ckm-sr-only, kept local so a
+   status line cannot be styled out of the accessibility tree by accident. */
+.ckm .ckm-upload__sr-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* --- Step 1 · the script picker ----------------------------------------- */
+
+/*
+ * A <label> for a real <input type="file">, which MDN gives as the way to make
+ * a file input both stylable and reachable by assistive technology. Desktop's
+ * `<div role="button">` with drag-and-drop handlers is not ported: a touch
+ * screen has nothing to drag a file from.
+ */
+.ckm .ckm-upload__picker {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ckm-space-2);
+  /* Well past the 44px floor: it is the whole point of the screen and it is
+     aimed at with a thumb. */
+  min-height: 160px;
+  padding: var(--ckm-space-6) var(--ckm-space-4);
+  border: 1px dashed var(--ckm-line-strong);
+  border-radius: var(--ckm-r-lg);
+  background: var(--ckm-bg-fill);
+  color: var(--ckm-text-2);
+  text-align: center;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.ckm .ckm-upload__picker:focus-within {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: var(--ckm-focus-ring-offset);
+}
+
+.ckm .ckm-upload__picker.is-busy {
+  cursor: progress;
+}
+
+.ckm .ckm-upload__picker-icon { color: var(--ckm-muted); }
+
+.ckm .ckm-upload__picker-title {
+  font-size: var(--ckm-text-card);
+  line-height: var(--ckm-leading-card);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-ink);
+}
+
+.ckm .ckm-upload__picker-hint {
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+}
+
+/*
+ * INDETERMINATE, and deliberately so (DEF-9). `POST /scripts/extract-pdf`
+ * reports no progress, so desktop's bar invents one — 10% every 200ms, capped
+ * at 90%. WCAG 4.1.3 treats a progress bar as a status message; this one says
+ * "still working" and claims no figure. The status in words lives in the
+ * picker's own hint text and in a polite live region, so nothing here is the
+ * only channel.
+ */
+.ckm .ckm-upload__picker-bar {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 40%;
+  height: 3px;
+  background: var(--ckm-accent);
+  animation: ckm-upload-indeterminate 1.4s ease-in-out infinite;
+}
+
+@keyframes ckm-upload-indeterminate {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(250%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ckm .ckm-upload__picker-bar {
+    animation: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+}
+
+/* Visually hidden, never display:none and never removed: it is the element that
+   is focused, labelled and announced. */
+.ckm .ckm-upload__file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.ckm .ckm-upload__file-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+}
+
+.ckm .ckm-upload__file-head {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-2);
+  margin: 0;
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-ink);
+}
+
+/* #1c7c4a on --ckm-bg measures ~4.8:1. The tick is a second channel for
+   "attached"; the filename beside it carries the same fact in text. */
+.ckm .ckm-upload__file-tick {
+  flex: none;
+  color: #1c7c4a;
+}
+
+.ckm .ckm-upload__file-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ckm .ckm-upload__file-meta {
+  margin: 0;
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-upload__file-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ckm-space-2);
+}
+
+/* The "or start another way" divider. A rule either side of the words would be
+   two more elements to keep centred at 320px; the words alone say it. */
+.ckm .ckm-upload__or {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-3);
+  margin: 0;
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+  text-align: center;
+}
+
+.ckm .ckm-upload__or::before,
+.ckm .ckm-upload__or::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--ckm-line);
+}
+
+.ckm .ckm-upload__starts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+}
+
+/* --- Step 5 · invoice and agreement ------------------------------------- */
+
+/*
+ * What the buyer pays and what the writer receives, as a description list —
+ * they are term/definition pairs, not a table, and a two-column table at 320px
+ * is four words a line.
+ */
+.ckm .ckm-upload__invoice {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-3);
+  margin: 0;
+  padding: var(--ckm-space-4);
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-md);
+  background: var(--ckm-bg-fill);
+}
+
+.ckm .ckm-upload__invoice-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ckm-space-3);
+}
+
+.ckm .ckm-upload__invoice-row dt {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.ckm .ckm-upload__invoice-row dd {
+  margin: 0;
+  flex: none;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-ink);
+}
+
+.ckm .ckm-upload__invoice-item {
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  color: var(--ckm-text-2);
+}
+
+.ckm .ckm-upload__invoice-detail {
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-upload__agreement {
+  max-height: 240px;
+  overflow-y: auto;
+  padding: var(--ckm-space-3);
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-md);
+  background: var(--ckm-bg-fill);
+  /* Contained, so flicking to the end of a long agreement does not carry on
+     into the panel behind it. */
+  overscroll-behavior: contain;
+}
+
+.ckm .ckm-upload__agreement:focus-visible {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: var(--ckm-focus-ring-offset);
+}
+
+.ckm .ckm-upload__agreement-text {
+  margin: 0;
+  font-family: inherit;
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+  white-space: pre-wrap;
+  /* A legal document contains URLs and long defined terms; without this one of
+     them widens the box and the whole page scrolls sideways. */
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-upload__agreement-status {
+  margin: 0;
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-3);
+}
+
+/* --- Sticky footer ------------------------------------------------------ */
+
+.ckm .ckm-upload__footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+  padding: var(--ckm-space-3) var(--ckm-space-4);
+  padding-bottom: calc(var(--ckm-space-3) + var(--ckm-safe-bottom));
+  background: var(--ckm-bg);
+  border-top: 1px solid var(--ckm-line);
+}
+
+.ckm .ckm-upload__footer-reason {
+  margin: 0;
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  color: var(--ckm-text-2);
+}
+
+.ckm .ckm-upload__footer-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-2);
+}
+
+/* Back stays exactly as wide as its label; the primary takes the rest, because
+   it is the one aimed at on nearly every panel. */
+.ckm .ckm-upload__footer-actions > .ckm-button:first-child {
+  flex: none;
+}
+
+/* --- Full-screen states ------------------------------------------------- */
+
+.ckm .ckm-upload__state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ckm-space-3);
+  /* Centred in the scroll surface rather than the viewport: the shell owns the
+     viewport, and `min-height: 100%` here keeps the content scrollable when a
+     long title and a 200% text-size setting push it past the frame. */
+  min-height: 100%;
+  padding: var(--ckm-space-7) var(--ckm-space-5);
+  text-align: center;
+}
+
+.ckm .ckm-upload__state-icon { color: var(--ckm-muted); }
+
+.ckm .ckm-upload__state-mark {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #e7f3ec;
+  color: #14532d;
+}
+
+.ckm .ckm-upload__state-kicker {
+  margin: 0;
+  font-size: var(--ckm-text-micro);
+  line-height: var(--ckm-leading-micro);
+  font-weight: var(--ckm-weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-upload__state-title {
+  margin: 0;
+  font-family: var(--ckm-display);
+  font-size: var(--ckm-text-section);
+  line-height: var(--ckm-leading-section);
+  font-weight: var(--ckm-weight-semibold);
+  color: var(--ckm-ink);
+}
+
+/* The heading takes focus on arrival, so it needs a visible ring — a
+   programmatic focus with no outline leaves a sighted keyboard user with no
+   idea where they are. */
+.ckm .ckm-upload__state-title:focus-visible {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: var(--ckm-focus-ring-offset);
+}
+
+.ckm .ckm-upload__state-body {
+  margin: 0;
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-upload__state-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+  width: 100%;
+  margin-top: var(--ckm-space-3);
+}

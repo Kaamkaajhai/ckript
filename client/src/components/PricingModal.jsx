@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion as Motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import useWriterPlanCheckout, { WRITER_TIERS } from "../hooks/useWriterPlanCheckout";
 import useFilmIndustryProfessionalCheckout from "../hooks/useFilmIndustryProfessionalCheckout";
@@ -59,8 +59,7 @@ const WRITER_PLANS = [
     per: "/ month",
     feats: [
       "Upload 5 scripts",
-      "Appear only in search section",
-      "AI generated synopsis and logline"
+      "Appear only in search section"
     ],
   },
   {
@@ -602,7 +601,7 @@ function PricingModalInner({ onClose, tab = "all" }) {
   }, [globalMsg, toast]);
 
   return (
-    <motion.div
+    <Motion.div
       className="pmx-overlay"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -613,7 +612,7 @@ function PricingModalInner({ onClose, tab = "all" }) {
       }}
       onKeyDown={handleKeyDown}
     >
-      <motion.div
+      <Motion.div
         ref={cardRef}
         className="pmx-card"
         role="dialog"
@@ -688,39 +687,41 @@ function PricingModalInner({ onClose, tab = "all" }) {
             {/* ── Industry Cards ── */}
             {(effectiveTab === "all" || effectiveTab === "industry") && (
               <>
-                {effectiveTab === "industry" && (
-                  <div className="pmx-head">
-                    <div>
-                      <div className="pmx-eyebrow">
-                        <i />
-                        <span>For Industry</span>
-                      </div>
-                      <h2 className="pmx-title" id={titleId}>
-                        Find the perfect script.
-                      </h2>
+                <div className="pmx-head" style={effectiveTab === "all" ? { marginTop: 48, paddingTop: 48, borderTop: "1px solid var(--pmx-border, #333)" } : {}}>
+                  <div>
+                    <div className="pmx-eyebrow">
+                      <i />
+                      <span>Industry Professionals</span>
                     </div>
-                    <div className="pmx-head-aside">
-                      Choose a plan below.
-                    </div>
-                    <div style={{ marginTop: 10, display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
-                      <CurrencyToggle />
-                      <div style={{ display: "flex", alignItems: "center", background: "var(--pmx-bg-elevated, #1c1c1e)", padding: "4px", borderRadius: "8px", gap: "4px", fontSize: "12px", fontWeight: "600", color: "#888" }}>
-                        <button 
-                          type="button" 
-                          onClick={() => setIsAnnual(false)} 
-                          style={{ padding: "4px 12px", borderRadius: "6px", background: !isAnnual ? "var(--pmx-bg-active, #2c2c2e)" : "transparent", color: !isAnnual ? "#fff" : "inherit", transition: "all 0.2s" }}>
-                          Monthly
-                        </button>
-                        <button 
-                          type="button" 
-                          onClick={() => setIsAnnual(true)} 
-                          style={{ padding: "4px 12px", borderRadius: "6px", background: isAnnual ? "var(--pmx-bg-active, #2c2c2e)" : "transparent", color: isAnnual ? "#fff" : "inherit", transition: "all 0.2s" }}>
-                          Annually <span style={{ color: "#4ade80", fontSize: "10px", marginLeft: "2px" }}>-15%</span>
-                        </button>
-                      </div>
-                    </div>
+                    <h2 className="pmx-title" id={effectiveTab === "industry" ? titleId : undefined}>
+                      Discover exceptional scripts & writers.
+                    </h2>
                   </div>
-                )}
+                  {effectiveTab === "industry" && (
+                    <>
+                      <div className="pmx-head-aside">
+                        Choose a plan below.
+                      </div>
+                      <div style={{ marginTop: 10, display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+                        <CurrencyToggle />
+                        <div style={{ display: "flex", alignItems: "center", background: "var(--pmx-bg-elevated, #1c1c1e)", padding: "4px", borderRadius: "8px", gap: "4px", fontSize: "12px", fontWeight: "600", color: "#888" }}>
+                          <button 
+                            type="button" 
+                            onClick={() => setIsAnnual(false)} 
+                            style={{ padding: "4px 12px", borderRadius: "6px", background: !isAnnual ? "var(--pmx-bg-active, #2c2c2e)" : "transparent", color: !isAnnual ? "#fff" : "inherit", transition: "all 0.2s" }}>
+                            Monthly
+                          </button>
+                          <button 
+                            type="button" 
+                            onClick={() => setIsAnnual(true)} 
+                            style={{ padding: "4px 12px", borderRadius: "6px", background: isAnnual ? "var(--pmx-bg-active, #2c2c2e)" : "transparent", color: isAnnual ? "#fff" : "inherit", transition: "all 0.2s" }}>
+                            Annually <span style={{ color: "#4ade80", fontSize: "10px", marginLeft: "2px" }}>-15%</span>
+                          </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
                 <div className="pmx-trio" style={{ marginTop: "40px", justifyContent: "center" }}>
                 {FIP_PLANS.map((plan) => {
                   const isFree = plan.key === "free";
@@ -817,8 +818,8 @@ function PricingModalInner({ onClose, tab = "all" }) {
             <line x1="19" y1="5" x2="5" y2="19" />
           </svg>
         </button>
-      </motion.div>
-    </motion.div>
+      </Motion.div>
+    </Motion.div>
   );
 }
 

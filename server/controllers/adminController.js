@@ -525,7 +525,7 @@ export const getUsers = async (req, res) => {
     try {
         const { role, search, page = 1, limit = 20, isPremium, hasActiveWriterPlan, isSwaApproved } = req.query;
         const pageNumber = Math.max(Number(page) || 1, 1);
-        const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+        const pageLimit = Number(limit) === 0 ? 0 : Math.min(Math.max(Number(limit) || 20, 1), 100);
         const filter = { role: { $ne: "admin" }, isDeactivated: { $ne: true } };
         if (role && typeof role === 'string') filter.role = role;
         if (isPremium === 'true') {
@@ -558,7 +558,7 @@ export const getUsers = async (req, res) => {
 
         const total = await User.countDocuments(filter);
         const users = await User.find(filter)
-            .select("-password -emailVerificationToken -emailVerificationExpires -emailVerificationResendAvailableAt")
+            .select("-password -emailVerificationToken -emailVerificationExpires -emailVerificationResendAvailableAt -activeSessions -passwordResetToken -passwordResetExpires -passwordResetResendAvailableAt -stripeAccountId -stripeCustomerId -googleId")
             .sort({ createdAt: -1 })
             .skip((pageNumber - 1) * pageLimit)
             .limit(pageLimit)
@@ -568,7 +568,7 @@ export const getUsers = async (req, res) => {
             users,
             total,
             page: pageNumber,
-            totalPages: Math.ceil(total / pageLimit),
+            totalPages: pageLimit === 0 ? 1 : Math.ceil(total / pageLimit),
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -711,7 +711,7 @@ export const getDeletedAccountRequests = async (req, res) => {
     try {
         const { page = 1, limit = 20, search = "", role = "" } = req.query;
         const pageNumber = Math.max(Number(page) || 1, 1);
-        const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+        const pageLimit = Number(limit) === 0 ? 0 : Math.min(Math.max(Number(limit) || 20, 1), 100);
         const normalizedRole = String(role || "").trim().toLowerCase();
 
         const filter = {
@@ -766,7 +766,7 @@ export const getDeletedAccountRequests = async (req, res) => {
             requests: rows,
             total,
             page: pageNumber,
-            totalPages: Math.ceil(total / pageLimit),
+            totalPages: pageLimit === 0 ? 1 : Math.ceil(total / pageLimit),
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -1130,12 +1130,20 @@ export const sendAudienceBroadcast = async (req, res) => {
             const targetEmail = String(req.body?.targetEmail || "").trim();
             if (!targetEmail) return res.status(400).json({ message: "Target email is required for direct-user broadcast." });
             
+            const emailList = targetEmail.split(",").map(e => e.trim().toLowerCase()).filter(Boolean);
+            if (emailList.length === 0) return res.status(400).json({ message: "Valid target email is required." });
+            
             audienceConfig = {
                 key: "direct-user",
-                audienceLabel: `specific user (${targetEmail})`,
+                audienceLabel: emailList.length === 1 ? `specific user (${emailList[0]})` : `specific users (${emailList.length})`,
                 getRecipients: async () => {
-                    const user = await User.findOne({ email: targetEmail.toLowerCase() }).select("_id name email").lean();
-                    return user ? [user] : [];
+                    const users = await User.find({ email: { $in: emailList } }).select("_id name email").lean();
+                    const foundEmails = new Set(users.map(u => u.email));
+                    
+                    const missingEmails = emailList.filter(e => !foundEmails.has(e));
+                    const missingRecipients = missingEmails.map(e => ({ name: "User", email: e }));
+                    
+                    return [...users, ...missingRecipients];
                 }
             };
         } else {
@@ -1172,19 +1180,12 @@ export const sendAudienceBroadcast = async (req, res) => {
             return res.status(404).json({ message: `No active ${audienceConfig.key} found` });
         }
 
-        const notificationMessage = `${title}\n\n${content}`.trim();
-        await Notification.insertMany(
-            recipients.map((recipient) => ({
-                user: recipient._id,
-                type: "admin_alert",
-                from: req.user?._id,
-                message: notificationMessage,
-            })),
-            { ordered: false }
-        ).catch(() => null);
+        // Removed in-app notification creation for admin emails as requested
 
         const emailRecipients = recipients.filter((recipient) => String(recipient?.email || "").trim());
-        const emailResults = await Promise.allSettled(
+        
+        // Start email sending in the background to prevent lagging
+        Promise.allSettled(
             emailRecipients.map((recipient) =>
                 sendAdminBroadcastEmail(recipient.email, recipient.name, {
                     title,
@@ -1196,18 +1197,21 @@ export const sendAudienceBroadcast = async (req, res) => {
                     attachments,
                 })
             )
-        );
-
-        const emailSent = emailResults.filter((result) => result.status === "fulfilled" && result.value?.success).length;
-        const emailFailed = emailResults.length - emailSent;
+        ).then((emailResults) => {
+            const emailSent = emailResults.filter((result) => result.status === "fulfilled" && result.value?.success).length;
+            const emailFailed = emailResults.length - emailSent;
+            console.log(`[admin] Broadcast to ${audienceConfig.key} finished: ${emailSent} sent, ${emailFailed} failed.`);
+        }).catch((err) => {
+            console.error("[admin] Background broadcast failed:", err);
+        });
 
         return res.json({
-            message: `Broadcast sent to ${recipients.length} ${audienceConfig.key}.`,
+            message: `Broadcast started for ${recipients.length} ${audienceConfig.key}.`,
             audience: audienceConfig.key,
             notified: recipients.length,
             emailAttempted: emailRecipients.length,
-            emailSent,
-            emailFailed,
+            emailSent: "pending",
+            emailFailed: "pending",
         });
     } catch (error) {
         // This was `require('fs').writeFileSync('last_broadcast_error.txt', ...)`. In an ESM module
@@ -1865,9 +1869,9 @@ export const getTrailerRequests = async (req, res) => {
         const scripts = await Script.find(filter)
             .populate("creator", "name email role profileImage")
             .sort({ createdAt: -1 })
-            .skip((page - 1) * limit)
-            .limit(Number(limit));
-        res.json({ scripts, total, page: Number(page), totalPages: Math.ceil(total / limit) });
+            .skip((pageNumber - 1) * pageLimit)
+            .limit(pageLimit);
+        res.json({ scripts, total, page: pageNumber, totalPages: pageLimit === 0 ? 1 : Math.ceil(total / pageLimit) });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -1877,7 +1881,7 @@ export const getAvailableTrailers = async (req, res) => {
     try {
         const { page = 1, limit = 20 } = req.query;
         const pageNumber = Math.max(Number(page) || 1, 1);
-        const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+        const pageLimit = Number(limit) === 0 ? 0 : Math.min(Math.max(Number(limit) || 20, 1), 100);
         const filter = getAdminTrailerLibraryFilter();
 
         const total = await Script.countDocuments(filter);
@@ -1887,7 +1891,7 @@ export const getAvailableTrailers = async (req, res) => {
             .skip((pageNumber - 1) * pageLimit)
             .limit(pageLimit);
 
-        res.json({ scripts, total, page: pageNumber, totalPages: Math.ceil(total / pageLimit) });
+        res.json({ scripts, total, page: pageNumber, totalPages: pageLimit === 0 ? 1 : Math.ceil(total / pageLimit) });
     } catch (error) {
         res.status(500).json({ message: error.message });
     }
@@ -2008,7 +2012,7 @@ export const uploadTrailerAsAdmin = async (req, res) => {
 // ─── Login As User (Impersonation) ───
 export const loginAsUser = async (req, res) => {
     try {
-        const user = await User.findById(req.params.userId).select("-password");
+        const user = await User.findById(req.params.userId).select("-password -activeSessions -passwordResetToken -passwordResetExpires -passwordResetResendAvailableAt -stripeAccountId -stripeCustomerId -googleId");
         if (!user) return res.status(404).json({ message: "User not found" });
         if (user.isDeactivated) {
             return res.status(400).json({ message: "Cannot login as a deleted account" });
@@ -2242,7 +2246,7 @@ export const getPendingWriterMembershipReviews = async (req, res) => {
     try {
         const { page = 1, limit = 20, search = "" } = req.query;
         const pageNumber = Math.max(Number(page) || 1, 1);
-        const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+        const pageLimit = Number(limit) === 0 ? 0 : Math.min(Math.max(Number(limit) || 20, 1), 100);
 
         const pendingMembershipFilter = {
             $or: [
@@ -2312,7 +2316,7 @@ export const getPendingWriterMembershipReviews = async (req, res) => {
             reviews,
             total,
             page: pageNumber,
-            totalPages: Math.max(1, Math.ceil(total / pageLimit)),
+            totalPages: pageLimit === 0 ? 1 : Math.ceil(total / pageLimit),
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -2760,7 +2764,7 @@ export const getAdminAgreements = async (req, res) => {
         } = req.query;
 
         const pageNumber = Math.max(Number(page) || 1, 1);
-        const pageLimit = Math.min(Math.max(Number(limit) || 20, 1), 100);
+        const pageLimit = Number(limit) === 0 ? 0 : Math.min(Math.max(Number(limit) || 20, 1), 100);
 
         const filter = {};
         if (status) {
@@ -2790,7 +2794,7 @@ export const getAdminAgreements = async (req, res) => {
             agreements,
             total,
             page: pageNumber,
-            totalPages: Math.ceil(total / pageLimit),
+            totalPages: pageLimit === 0 ? 1 : Math.ceil(total / pageLimit),
         });
     } catch (error) {
         res.status(500).json({ message: error.message || "Failed to load agreements." });

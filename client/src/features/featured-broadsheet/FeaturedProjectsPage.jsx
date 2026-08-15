@@ -42,7 +42,7 @@ import { useAuthModal } from "../../context/AuthModalContext";
 import { usesAppShell, isWriterAudience } from "../../layouts/app-shell/shellPolicy";
 import {
   hasActiveFilmIndustryProfessionalAccess,
-  hasBusinessEmail,
+  isIndustryProfessionalWithPersonalEmail,
   isFilmIndustryProfessionalRole,
 } from "../../utils/industryAccess";
 import { getScriptCanonicalPath } from "../../utils/scriptPath";
@@ -148,8 +148,7 @@ const FeaturedProjectsPage = () => {
    * a personal email address may browse featured metadata but not open a
    * project until it verifies a business email or takes the FIP plan.
    */
-  const isBlocked = isFilmIndustryProfessionalRole(user)
-    && !hasBusinessEmail(user?.email)
+  const isBlocked = isIndustryProfessionalWithPersonalEmail(user)
     && !hasActiveFilmIndustryProfessionalAccess(user);
 
   const mandate = useMemo(() => getMandate(user), [user]);
@@ -204,7 +203,7 @@ const FeaturedProjectsPage = () => {
     (async () => {
       const [featuredRes, listRes] = await Promise.allSettled([
         api.get("/scripts/featured"),
-        api.get(`/scripts?${buildQueryParams({ sort, filters })}`),
+        api.get(`/scripts?${buildQueryParams({ sort, filters })}&goldOnly=true`),
       ]);
       // Every state write happens past this await, so a response that arrives
       // after the viewer moved on is dropped instead of overwriting the page.

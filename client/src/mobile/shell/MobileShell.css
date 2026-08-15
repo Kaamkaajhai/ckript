@@ -66,6 +66,20 @@
   padding-bottom: 0;
 }
 
+/* An immersive screen that keeps a chrome slot (the editor overrides appBar and
+   bottomNav back on — §8.1) supplies that bar's own surface. The shell's default
+   page-white would paint a band across the top of a dark reading surface. */
+.ckm .ckm-shell--immersive > .ckm-shell__app-bar,
+.ckm .ckm-shell--immersive > .ckm-shell__bottom {
+  background: transparent;
+}
+
+/* Immersive keeps its own top inset too: the bar decides whether the status-bar
+   strip belongs to it or to the content behind it. */
+.ckm .ckm-shell--immersive > .ckm-shell__app-bar {
+  padding-top: 0;
+}
+
 /* Flow screens (onboarding / create / upload / payment) hide the tab bar and
    give the stepper body a little more breathing room at the foot. */
 .ckm .ckm-shell--flow > .ckm-shell__scroll {

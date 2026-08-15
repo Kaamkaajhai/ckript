@@ -87,6 +87,7 @@ const createVm = (stateOverrides = {}) => ({
     thumbnailPreviewUrl: "",
     isGeneratingAiCover: false,
     aiCoverAttempts: 0,
+    aiCoverRemaining: 15,
     aiCoverHistory: [],
     aiCoverIndex: -1,
     trailerFile: null,
@@ -153,6 +154,7 @@ const createVm = (stateOverrides = {}) => ({
     handleBack: vi.fn(),
     handleNext: vi.fn(),
     handleSaveDraft: vi.fn(),
+    flushWorkingSnapshot: vi.fn(),
     handleSubmit: vi.fn((event) => event.preventDefault()),
     cancelContentEdit: vi.fn(),
   },
@@ -236,6 +238,19 @@ describe("ScriptUploadWorkspace", () => {
     expect(publishButton.disabled).toBe(false);
     act(() => publishButton.click());
     expect(vm.actions.handleSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it("flushes the local snapshot before opening the terms in a new tab", () => {
+    const vm = createVm({ step: 5 });
+    renderWorkspace(vm);
+    const link = Array.from(container.querySelectorAll("a"))
+      .find((element) => element.textContent.includes("Script Upload Terms"));
+
+    expect(link.getAttribute("target")).toBe("_blank");
+    const event = new MouseEvent("click", { bubbles: true, cancelable: true });
+    event.preventDefault();
+    act(() => link.dispatchEvent(event));
+    expect(vm.actions.flushWorkingSnapshot).toHaveBeenCalledTimes(1);
   });
 
   it("shows validation only in the upload toast while marking the owning field", () => {

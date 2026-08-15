@@ -44,8 +44,8 @@ export default function Hero() {
             the title straight through them. */}
         <div className="ckl-hero-content">
           <h1 className="ckl-hero-title">
-            Ckript
-            <br />
+            {/* Ckript
+            <br /> */}
             The Journey from
             <br />
             Page to Screen

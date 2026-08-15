@@ -1,5 +1,6 @@
 import React from "react";
 import { Plus, Trash2, ImageIcon } from "lucide-react";
+import { adminApi } from "../../dashboardShared";
 
 export default function SponsorsModule({ data, onChange }) {
   const sponsors = data.sponsors || [];
@@ -52,7 +53,7 @@ export default function SponsorsModule({ data, onChange }) {
                 
                 {/* Logo Area */}
                 <div className="ml-6 w-32 shrink-0 space-y-3">
-                  <div className="w-32 h-32 rounded-xl border border-[#e4e2e0] overflow-hidden bg-white flex items-center justify-center p-4">
+                  <div className="w-32 h-32 rounded-xl border border-[#e4e2e0] overflow-hidden bg-white flex relative items-center justify-center p-4 group">
                     {sponsor.logoUrl ? (
                       <img src={sponsor.logoUrl} alt={sponsor.name} className="max-w-full max-h-full object-contain" />
                     ) : (
@@ -61,6 +62,29 @@ export default function SponsorsModule({ data, onChange }) {
                         <span className="text-[10px] font-bold uppercase tracking-wider text-center">Logo<br/>(Transparent)</span>
                       </div>
                     )}
+                    <label className="absolute inset-0 bg-black/50 hidden group-hover:flex items-center justify-center text-white text-xs font-bold cursor-pointer transition-opacity">
+                      Upload
+                      <input 
+                        type="file" 
+                        accept="image/*" 
+                        className="hidden" 
+                        onChange={async (e) => {
+                          const file = e.target.files[0];
+                          if (file) {
+                            try {
+                              const formData = new FormData();
+                              formData.append("image", file);
+                              const { data: resData } = await adminApi.post("/admin/competitions/upload", formData, {
+                                headers: { "Content-Type": "multipart/form-data" }
+                              });
+                              updateSponsor(idx, "logoUrl", resData.url);
+                            } catch (err) {
+                              alert("Failed to upload image.");
+                            }
+                          }
+                        }}
+                      />
+                    </label>
                   </div>
                   <input
                     type="text"
@@ -97,6 +121,7 @@ export default function SponsorsModule({ data, onChange }) {
                       <option value="Silver">Silver Sponsor</option>
                       <option value="Bronze">Bronze Sponsor</option>
                       <option value="Community">Community Partner</option>
+                      <option value="In-Kind">In-Kind Sponsor</option>
                       <option value="Media">Media Partner</option>
                     </select>
                   </div>
@@ -109,6 +134,17 @@ export default function SponsorsModule({ data, onChange }) {
                       onChange={(e) => updateSponsor(idx, "url", e.target.value)}
                       placeholder="https://..."
                       className="w-full px-3 py-2 bg-white border border-[#e4e2e0] rounded-lg text-xs text-[#666] focus:outline-none focus:border-[#111]"
+                    />
+                  </div>
+
+                  <div className="col-span-1 md:col-span-2 space-y-1">
+                    <label className="block text-[10px] font-bold text-[#888] uppercase tracking-wide">Company Bio / Description</label>
+                    <textarea
+                      value={sponsor.description || ""}
+                      onChange={(e) => updateSponsor(idx, "description", e.target.value)}
+                      placeholder="Short bio about the sponsor..."
+                      rows={3}
+                      className="w-full px-3 py-2 bg-white border border-[#e4e2e0] rounded-lg text-sm focus:outline-none focus:border-[#111] resize-y"
                     />
                   </div>
 

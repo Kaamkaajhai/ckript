@@ -60,6 +60,7 @@ export default function DataTable({
   pageSize = 25,
   exportName = "",              // enables the Export CSV button when set
   columnsMenu = true,
+  fetchAllData = null,          // async () => any[] (fetches full unpaginated dataset)
 }) {
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState({ key: null, dir: 1 });
@@ -67,6 +68,7 @@ export default function DataTable({
   const [hidden, setHidden] = useState(() => new Set(columns.filter((c) => c.hidden).map((c) => c.key)));
   const [selected, setSelected] = useState(() => new Set());
   const [menuOpen, setMenuOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const menuRef = useRef(null);
 
   const visibleCols = columns.filter((c) => !hidden.has(c.key));
@@ -139,13 +141,42 @@ export default function DataTable({
     });
   };
 
-  const exportCsv = () => {
+  const exportCsv = async () => {
+    if (!sorted.length && !fetchAllData) return;
+    
+    setExporting(true);
+    let dataToExport = sorted;
+    if (fetchAllData) {
+      try {
+        dataToExport = await fetchAllData();
+      } catch (err) {
+        console.error("Failed to fetch full data for export", err);
+        setExporting(false);
+        return;
+      }
+    }
+    
     // The full filtered+sorted set, not the visible page — a partial export understates whatever
-    // the admin is counting.
-    const head = visibleCols.map((c) => csvCell(c.header));
-    const body = sorted.map((row) => visibleCols.map((c) => csvCell(cellValue(row, c))).join(","));
+    // the admin is counting. Export all data fields from the raw objects.
+    const allKeys = Array.from(new Set(dataToExport.flatMap((row) => Object.keys(row))));
+    
+    const head = allKeys.map((k) => csvCell(k));
+    const body = dataToExport.map((row) => {
+      return allKeys.map((k) => {
+        let val = row[k];
+        if (typeof val === "object" && val !== null) {
+          try {
+            val = JSON.stringify(val);
+          } catch (e) {
+            val = String(val);
+          }
+        }
+        return csvCell(val);
+      }).join(",");
+    });
+    
     const csv = [head.join(","), ...body].join("\r\n");
-    const url = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));
+    const url = URL.createObjectURL(new Blob(["\uFEFF" + csv], { type: "text/csv" }));
     const a = document.createElement("a");
     a.href = url;
     a.download = `${exportName}-${new Date().toISOString().slice(0, 10)}.csv`;
@@ -153,6 +184,7 @@ export default function DataTable({
     a.click();
     a.remove();
     URL.revokeObjectURL(url);
+    setExporting(false);
   };
 
   const selectedRows = rows.filter((r) => selected.has(keyOf(r)));

@@ -106,7 +106,7 @@ const competitionSchema = new mongoose.Schema({
     description: String,
     cash: Number,
     currency: String,
-    type: String, // e.g., 'Membership', 'Cash', 'Feature'
+    type: { type: String }, // e.g., 'Membership', 'Cash', 'Feature'
     visibility: { type: String, default: "public" },
     order: { type: Number, default: 0 }
   }],
@@ -120,6 +120,8 @@ const competitionSchema = new mongoose.Schema({
     photoUrl: String, 
     bio: { type: String, maxlength: 600, default: "" },
     company: String,
+    companyBio: { type: String, maxlength: 1000, default: "" },
+    companyLink: String,
     imdb: String,
     linkedin: String,
     order: { type: Number, default: 0 },
@@ -136,7 +138,7 @@ const competitionSchema = new mongoose.Schema({
   }],
   
   communityLinks: [{ label: String, url: String, icon: String }],
-  resources: [{ label: String, url: String, type: String }],
+  resources: [{ label: String, url: String, type: { type: String } }],
 
   // SEO & Automation
   seo: {

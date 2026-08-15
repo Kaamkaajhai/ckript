@@ -17,7 +17,8 @@ import {
   activateProjectSpotlight,
   getInvestorHomeFeed, getTopList,
   requestScriptPurchase, approveScriptPurchase, rejectScriptPurchase, getMyPurchaseRequests,
-  getScriptPdf, generateAiCover
+  getScriptPdf,
+  getSimilarScripts
 } from "../controllers/scriptController.js";
 import {
   exportFountain,
@@ -149,7 +150,11 @@ router.get("/:id/comments", protect, listComments);
 router.post("/:id/comments", protect, createComment);
 router.patch("/:id/comments/:commentId", protect, updateComment);
 router.delete("/:id/comments/:commentId", protect, deleteComment);
-router.post("/generate-ai-cover", protect, generateAiCover);
+// NOTE: a second `router.post("/generate-ai-cover", protect, generateAiCover)` used to sit here.
+// Express matches the FIRST registration, so the line above (line ~112, `generateCoverImage`) has
+// always been the handler and this one never ran. It is removed rather than kept as a decoy —
+// scriptController's `generateAiCover` export is now orphaned and is recorded as dead code in §19
+// of NATIVE_APP_IMPLEMENTATION.md rather than deleted.
 router.get("/:id/pdf", protect, getScriptPdf);
 router.get("/purchase-request/:id/acceptance-pdf", protect, getPurchaseRequestAcceptancePdf);
 // Purchase request routes (must be before /:id)
@@ -157,6 +162,7 @@ router.post("/purchase-request", protect, requestScriptPurchase);
 router.get("/purchase-requests/mine", protect, getMyPurchaseRequests);
 router.put("/purchase-request/:id/approve", protect, approveScriptPurchase);
 router.put("/purchase-request/:id/reject", protect, rejectScriptPurchase);
+router.get("/:id/similar", protect, getSimilarScripts);
 router.get("/:id", protect, getScriptById);
 router.post("/unlock", protect, unlockScript);
 router.post("/hold", protect, holdScript);

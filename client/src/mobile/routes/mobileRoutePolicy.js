@@ -31,11 +31,32 @@ export function findMobileRoute(pathname = "") {
  * "render children" in RootExperience; it is never a redirect or dashboard
  * fallback.
  */
+/**
+ * Whether a route's declared query exclusion applies to the current URL.
+ *
+ * A route can be implemented for mobile in general and deliberately NOT
+ * implemented for one entry mode — `/create-project?ctx=competition` replaces
+ * the whole publish wizard with a competition deadline bar and a one-way
+ * Submit, neither of which is ported. Without this the mobile screen would load
+ * and a competition writer would have no way to submit their entry: worse than
+ * the desktop page, not merely different from it.
+ *
+ * It lives in the manifest rather than inside the screen because the manifest is
+ * the file that answers "what does mobile cover?", and an exception hidden in a
+ * component is an exception nobody finds.
+ */
+function isQueryExcluded(route, search) {
+  if (!route?.excludeQuery) return false;
+  const params = new URLSearchParams(String(search || "").replace(/^\?/, ""));
+  return Object.entries(route.excludeQuery).every(([key, value]) => params.get(key) === value);
+}
+
 export function resolveMobileExperience({
   isMobile = false,
   authLoading = false,
   user = null,
   pathname = "/",
+  search = "",
   isDev = false,
 } = {}) {
   const route = findMobileRoute(pathname);
@@ -56,6 +77,10 @@ export function resolveMobileExperience({
     && route.disposition !== MOBILE_ROUTE_DISPOSITION.SHARED_PUBLIC_SCREEN
   ) {
     return desktopDecision(route, route.disposition);
+  }
+
+  if (isQueryExcluded(route, search)) {
+    return desktopDecision(route, route.excludeReason || "query-excluded", route.fallbackDisposition);
   }
 
   if (route.protection === "authenticated" && !user) {

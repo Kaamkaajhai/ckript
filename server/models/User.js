@@ -375,7 +375,8 @@ const userSchema = new mongoose.Schema({
       messages: { type: Boolean, default: true },
     },
   },
-  // AI Thumbnail limit tracking (max 3 per script title)
+  // Legacy per-title thumbnail counter. No live route reads or writes it; retained so old documents
+  // remain reversible. The enforced quota is subscription.aiImagesGeneratedTotal (15 per period).
   aiThumbnailUsage: [{
     scriptTitle: { type: String },
     count: { type: Number, default: 0 }

@@ -272,7 +272,8 @@ const AdminDashboard = () => {
             
             const { data } = await adminApi.post(`/admin/broadcast/${audience}`, formData);
             showToast(data?.message || `Broadcast sent to ${audienceLabel}.`);
-            reset();
+            // Intentionally not resetting the form fields here so the user can see what they sent
+            // or easily send a similar email to another audience without starting over.
         } catch (err) {
             showToast(err?.response?.data?.message || `Failed to send ${audienceLabel} broadcast`, "error");
         } finally {
@@ -840,9 +841,14 @@ const AdminDashboard = () => {
                     break;
                 }
                 case "writers": {
+                    console.log("Fetching writers and creators...");
                     const { data } = await adminApi.get(`/admin/users?role=writer&page=${page}&search=${encodeURIComponent(activeSearch)}`);
                     const { data: data2 } = await adminApi.get(`/admin/users?role=creator&page=${page}&search=${encodeURIComponent(activeSearch)}`);
-                    setUsers([...data.users, ...data2.users]); setTotalPages(Math.max(data.totalPages, data2.totalPages)); setTotal(data.total + data2.total);
+                    console.log("Writers response:", data, "Creators response:", data2);
+                    
+                    setUsers([...(data?.users || []), ...(data2?.users || [])]);
+                    setTotalPages(Math.max(data?.totalPages || 1, data2?.totalPages || 1));
+                    setTotal((data?.total || 0) + (data2?.total || 0));
                     break;
                 }
                 case "swa-approved": {
@@ -1200,6 +1206,29 @@ const AdminDashboard = () => {
             setMessageList([]);
         } finally {
             if (!silent) setMessagesLoading(false);
+        }
+    };
+
+    const fetchAllTabData = async (tab, search) => {
+        try {
+            const activeSearch = (search || "").trim();
+            switch (tab) {
+                case "investors":
+                case "writers":
+                case "swa-approved":
+                case "readers": {
+                    const { data } = await adminApi.get(`/admin/users?limit=0&search=${encodeURIComponent(activeSearch)}`);
+                    return data?.users || [];
+                }
+                case "deleted-requests": {
+                    const { data } = await adminApi.get(`/admin/users/deleted-requests?limit=0&search=${encodeURIComponent(activeSearch)}`);
+                    return data.requests;
+                }
+            }
+            return [];
+        } catch (e) {
+            console.error("Failed to fetch all tab data", e);
+            return [];
         }
     };
 
@@ -1967,8 +1996,8 @@ const AdminDashboard = () => {
         try {
             // Login as admin — store token ONLY in sessionStorage (does NOT affect user's localStorage session)
             const { data } = await axios.post(`${API_BASE_URL}/auth/login`, {
-                email: "admin@ckript.com",
-                password: "admin123",
+                email: import.meta.env.VITE_ADMIN_EMAIL || "admin@ckript.com",
+                password: import.meta.env.VITE_ADMIN_PASSWORD || "admin123",
                 adminCode: enteredCode,
             });
             sessionStorage.setItem("admin-session", JSON.stringify(data));
@@ -2566,6 +2595,7 @@ const AdminDashboard = () => {
         filteredScripts,
         filteredTransactions,
         filteredUsers,
+        fetchAllTabData,
         handleAdminAttachmentChange,
         handleAdminMessageScroll,
         handleAdminTrailerFileChange,

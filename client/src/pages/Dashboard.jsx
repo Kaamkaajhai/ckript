@@ -23,6 +23,8 @@ import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { readCache, writeCache } from "../utils/localCache";
 import { MatIcon } from "../layouts/app-shell/navigation/icons.jsx";
 import OverlayScrollArea from "../components/OverlayScrollArea";
+import { useAuthModal } from "../context/AuthModalContext";
+import { useWriterPlanCheckout } from "../hooks/useWriterPlanCheckout";
 // This page's own styles. The shell used to import them on every route's behalf;
 // now the page owns them, so they load with the page rather than with the chrome.
 import "./dashboard.css";
@@ -100,6 +102,20 @@ const CreatorDashboard = ({ user }) => {
   const cachedRef = useRef();
   if (cachedRef.current === undefined) cachedRef.current = cacheKey ? readCache(cacheKey) : null;
   const cached = cachedRef.current;
+
+  const { openPricingModal } = useAuthModal();
+  const { isWriter, hasSilverAccess, hasGoldAccess } = useWriterPlanCheckout();
+
+  useEffect(() => {
+    if (!user || !isWriter) return;
+    const isFreePlan = !hasSilverAccess && !hasGoldAccess;
+    const hasSeenPricing = sessionStorage.getItem("writerPricingShown");
+
+    if (isFreePlan && !hasSeenPricing) {
+      openPricingModal("writer");
+      sessionStorage.setItem("writerPricingShown", "true");
+    }
+  }, [user, isWriter, hasSilverAccess, hasGoldAccess, openPricingModal]);
 
   const [myScripts,     setMyScripts]     = useState(cached?.myScripts ?? []);
   const [sharedScripts, setSharedScripts] = useState(cached?.sharedScripts ?? []);

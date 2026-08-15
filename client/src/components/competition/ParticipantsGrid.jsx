@@ -18,7 +18,7 @@ const ParticipantsGrid = ({ totalParticipants = 0, prizePool }) => {
           <Users className="h-8 w-8" style={{ color: '#3b82f6' }} />
         </div>
         <h3 className="text-4xl font-extrabold tracking-tight" style={{ color: 'var(--ckc-ink)' }}>
-          {786 + total}+
+          {287 + total}+
         </h3>
         <p className="mt-2 font-bold uppercase tracking-wider" style={{ fontSize: '0.85rem', color: 'var(--ckc-muted)' }}>
           Writers participate in challenge
@@ -33,7 +33,7 @@ const ParticipantsGrid = ({ totalParticipants = 0, prizePool }) => {
           <Building2 className="h-8 w-8" style={{ color: '#10b981' }} />
         </div>
         <h3 className="text-4xl font-extrabold tracking-tight" style={{ color: 'var(--ckc-ink)' }}>
-          183+
+          88+
         </h3>
         <p className="mt-2 font-bold uppercase tracking-wider" style={{ fontSize: '0.85rem', color: 'var(--ckc-muted)' }}>
           Production Houses Connected

@@ -1,0 +1,159 @@
+/*
+ * Ckript Mobile — new project chooser (prefix: ckm-new-project, plan §7.2).
+ *
+ * Every selector is scoped under `.ckm` (§7.1) and every class here belongs to
+ * the one prefix registered in theme/cssPrefixRegistry.js.
+ *
+ * This file is deliberately small. The card surface, its tap overlay and its
+ * focus ring all come from ckm-card; what is added here is the arrangement of
+ * one card's contents and the pressed state that replaces desktop's hover lift.
+ */
+
+.ckm .ckm-new-project__scroll {
+  padding: var(--ckm-space-5) var(--ckm-space-4-5) var(--ckm-space-8);
+}
+
+/* ---- the two paths ---------------------------------------------------- */
+
+.ckm .ckm-new-project__paths {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-4);
+}
+
+.ckm .ckm-new-project__path {
+  min-width: 0;
+}
+
+/* The chevron is absolutely positioned against the body, so the title and the
+   purpose reserve room for it rather than running underneath. */
+.ckm .ckm-new-project__body {
+  position: relative;
+  gap: var(--ckm-space-3);
+  padding: var(--ckm-space-5);
+}
+
+.ckm .ckm-new-project__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--ckm-r-md);
+  background: var(--ckm-accent-tint);
+  color: var(--ckm-accent-ink);
+}
+
+.ckm .ckm-new-project__title {
+  /* ckm-card clamps its title to two lines for dense project lists. There are
+     two cards on this screen and their titles are the decision, so nothing is
+     clipped here. */
+  display: block;
+  -webkit-line-clamp: none;
+  line-clamp: none;
+  overflow: visible;
+  font-size: var(--ckm-text-section);
+  line-height: var(--ckm-leading-section);
+  /* Room for the chevron at the smallest supported width. */
+  padding-right: var(--ckm-space-6);
+}
+
+.ckm .ckm-new-project__purpose {
+  margin: 0;
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  color: var(--ckm-text-3);
+}
+
+/* ---- affordances ------------------------------------------------------ */
+
+.ckm .ckm-new-project__affordances {
+  list-style: none;
+  margin: var(--ckm-space-1) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+}
+
+.ckm .ckm-new-project__affordance {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ckm-space-2);
+  min-width: 0;
+  font-size: var(--ckm-text-support);
+  line-height: var(--ckm-leading-support);
+  /* --ckm-text-2 (#3a352e) on --ckm-bg (#ffffff) measures ~11.7:1. These are
+     real content, not captions, so they do not use the muted ramp. */
+  color: var(--ckm-text-2);
+}
+
+.ckm .ckm-new-project__tick {
+  flex: none;
+  /* --ckm-green-ink (#2a7a48) on white measures ~4.9:1. The tick is decorative
+     (aria-hidden), but a mark nobody can see is not decoration either. */
+  color: var(--ckm-green-ink);
+  /* Optical alignment with the first line of a 20px-leading sentence. */
+  margin-top: 2px;
+}
+
+/* ---- chevron ---------------------------------------------------------- */
+
+.ckm .ckm-new-project__chevron {
+  position: absolute;
+  top: var(--ckm-space-5);
+  right: var(--ckm-space-4);
+  /* --ckm-muted-2 (#a39d92) measured 2.69:1 on white in the five-width sweep.
+     The chevron is aria-hidden, but it is not decoration: it is the only visual
+     signal that the card navigates, which makes it a graphical object under
+     WCAG 1.4.11 and puts a 3:1 floor on it. --ckm-muted (#8d877e) measures
+     3.57:1 and still reads quieter than the body text, which is the point. */
+  color: var(--ckm-muted);
+  /* Purely a promise that the card goes somewhere; the link underneath is the
+     control, and it already covers the whole card. */
+  pointer-events: none;
+}
+
+/* ---- pressed state ---------------------------------------------------- */
+
+/* Desktop lifts the card on hover and reveals a gradient rule along its top
+   edge. A phone has neither hover nor a pointer to reveal it with, so the same
+   "this is live" signal is given on press instead. */
+.ckm .ckm-new-project__path .ckm-card {
+  transition:
+    transform var(--ckm-duration-press) ease,
+    border-color var(--ckm-duration-press) ease,
+    background-color var(--ckm-duration-press) ease;
+}
+
+.ckm .ckm-new-project__path .ckm-card:has(.ckm-card__link:active) {
+  transform: scale(var(--ckm-press-scale));
+  border-color: var(--ckm-accent);
+  background: var(--ckm-accent-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ckm .ckm-new-project__path .ckm-card {
+    transition: none;
+  }
+
+  /* The colour change stays: it is the feedback. Only the scale goes. */
+  .ckm .ckm-new-project__path .ckm-card:has(.ckm-card__link:active) {
+    transform: none;
+  }
+}
+
+/* ---- footnote --------------------------------------------------------- */
+
+.ckm .ckm-new-project__tip {
+  margin: var(--ckm-space-6) 0 0;
+  font-size: var(--ckm-text-caption);
+  line-height: var(--ckm-leading-caption);
+  /* --ckm-text-3 (#6f695f) on white measures ~5.6:1 — the muted ramp above it
+     does not clear 4.5:1 at 12px. */
+  color: var(--ckm-text-3);
+  text-align: center;
+}

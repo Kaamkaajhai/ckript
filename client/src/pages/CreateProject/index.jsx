@@ -28,8 +28,18 @@ import { getScenes } from "../../components/screenplay/sceneIdentity";
 import { moveScene } from "../../components/screenplay/sceneReorder";
 import { fdxToFountain } from "../../components/screenplay/fdx";
 import { formatScreenplayLikeText } from "../../utils/screenplayText";
-import { allFormats, DETAILS_STEPS, DRAFT_ENDPOINT, LOCAL_WORKING_DRAFT_KEY, SCRIPT_UPLOAD_TERMS_VERSION } from "./constants";
+import { allFormats, DETAILS_STEPS, DRAFT_ENDPOINT, SCRIPT_UPLOAD_TERMS_VERSION } from "./constants";
 import { getContentTypeFromFormat, FORMAT_PAGE_RANGES } from "./lib/format";
+import {
+  buildWorkingDraftSnapshot,
+  chooseDraftRecovery,
+  clearWorkingDraft,
+  pruneWorkingDrafts,
+  readWorkingDraft,
+  writeWorkingDraft,
+} from "./lib/workingDraft";
+import { encodeKeepaliveBody } from "./lib/keepaliveSave";
+import { mergeMediaProgress, uploadProjectMedia, withoutMediaProgress } from "./lib/projectMediaUpload";
 import { THUMBNAIL_ASPECT } from "./lib/imageCrop";
 import { useThumbnailEditor } from "./hooks/useThumbnailEditor";
 import { useVideoUploads } from "./hooks/useVideoUploads";
@@ -39,6 +49,7 @@ import { useGrammarFix } from "./hooks/useGrammarFix";
 import { useAiCover } from "./hooks/useAiCover";
 import { useScreenplayCollab } from "./hooks/useScreenplayCollab";
 import { usePayloads } from "./hooks/usePayloads";
+import { useWriterPlanCheckout } from "../../hooks/useWriterPlanCheckout";
 import ConfirmDialog from "../../components/ConfirmDialog";
 import { Skeleton } from "../../components/skeleton";
 import { buildPagePreviewTexts } from "./lib/preview";
@@ -54,13 +65,83 @@ import Step5Publish from "./steps/Step5Publish";
 import CreateProjectShell from "./CreateProjectShell";
 import "./createProjectEditor.css";
 
-const CreateProject = () => {
+/*
+ * THE CHROME SEAM (plan §11 Phase 3, mode B).
+ *
+ * Everything below this line — every piece of create-project state, the
+ * autosave loop, the draft signature, the keepalive exit save, the working-draft
+ * snapshot, validation, publish — is platform-neutral and is published through
+ * `CreateProjectContext`. What is NOT neutral is the chrome that reads it:
+ * `CreateProjectShell` is a three-pane desktop workspace, and a phone needs a
+ * one-panel flow with a sticky footer.
+ *
+ * So the chrome is injected rather than forked. Two props, both defaulted so an
+ * unchanged desktop call site (`<CreateProject />` in App.jsx) renders exactly
+ * what it rendered before:
+ *
+ *   Shell         the chrome component. Desktop passes nothing and gets
+ *                 CreateProjectShell; mobile passes its own.
+ *   nativeChrome  the native chrome owns the modal surfaces listed below, so
+ *                 this orchestrator must NOT also render its desktop ones. Two
+ *                 exit confirmations stacked on one screen is worse than none,
+ *                 and a `position: fixed` desktop toast lands on top of the
+ *                 mobile editor's docked bar.
+ *
+ * `nativeChrome` suppresses exactly six surfaces, and each is replaced by a
+ * mobile equivalent rather than dropped: the exit-as-draft confirmation
+ * (→ ckm-action-sheet + ckm-confirm), the drafts drawer (→ a ckm-bottom-sheet),
+ * the toast (→ the mobile ToastProvider), the under-review acknowledgement
+ * (→ ckm-dialog), the thumbnail cropper (→ ckm-dialog) and the title-page
+ * configurator (→ ckm-dialog). Nothing else is conditional: the grammar undo
+ * bar and focus mode have no mobile caller and so can never open there, and
+ * suppressing them would be dead code pretending to be a decision.
+ *
+ * One thing deliberately NOT suppressed: `VersionHistoryModal`. It is a shared
+ * component with its own scroll and its own close, the mobile editor has no
+ * control that opens it (version history is a Phase 3 bullet 4 sheet), and
+ * hiding a surface nothing can reach would be the same dead code.
+ */
+const CreateProject = ({
+  Shell = CreateProjectShell,
+  nativeChrome = false,
+  /* The orchestrator's outermost element. Desktop wants a page-width block that
+     clips horizontal overflow; the mobile app shell wants a flex column that
+     passes its height straight down, because `.ckm-shell` is `height: 100%` and
+     a default-height div between it and `.ckm-root` collapses the whole screen
+     to its content. The class name stays on the mobile side of the seam. */
+  hostClassName = "w-full overflow-x-hidden",
+} = {}) => {
+  /* The two props move together or not at all. `nativeChrome` REMOVES the exit
+     confirmation, the drafts drawer, the toast and three modals on the promise
+     that something else is rendering them; paired with the desktop shell that
+     promise is false, and the failure mode is silent — a writer taps Exit and
+     nothing happens. Caught here rather than left to be discovered. */
+  if (import.meta.env?.DEV && nativeChrome && Shell === CreateProjectShell) {
+    console.error(
+      "[create-project] `nativeChrome` was passed with the desktop CreateProjectShell. "
+      + "It suppresses the exit confirmation, drafts drawer, toast, under-review, cropper and "
+      + "title-page surfaces on the assumption a native chrome owns them — pass that chrome as `Shell`."
+    );
+  }
+
   const { isDarkMode: dark, toggleDarkMode } = useDarkMode();
   const { user } = useContext(AuthContext);
   const { openPricingModal } = useAuthModal();
+  const { isWriter, hasGoldAccess } = useWriterPlanCheckout();
 
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    if (!user || !isWriter) return;
+    const hasSeenPricing = sessionStorage.getItem("createProjectPricingShown");
+
+    if (!hasGoldAccess && !hasSeenPricing) {
+      openPricingModal("writer");
+      sessionStorage.setItem("createProjectPricingShown", "true");
+    }
+  }, [user, isWriter, hasGoldAccess, openPricingModal]);
+
   const { draftId } = useParams();
   const shouldStartFresh = !draftId && (
     Boolean(location.state?.startFresh) || new URLSearchParams(location.search).get("fresh") === "1"
@@ -133,6 +214,16 @@ const CreateProject = () => {
   const saveBlockedRef = useRef(false);
   const localDraftHydratedRef = useRef(false);
   const previewPageTextsSignatureRef = useRef("");
+  // The server document's `updatedAt` that THIS editing session loaded. The local snapshot records
+  // it, and recovery compares it back — that is what separates "the server never got my last edits"
+  // from "a co-writer saved while I was away", without trusting this device's clock.
+  const serverUpdatedAtRef = useRef(null);
+  // A snapshot found on disk that holds work the server does not have, where the server copy ALSO
+  // moved on since this session loaded it. Never auto-applied: the writer chooses.
+  const [pendingRecovery, setPendingRecovery] = useState(null);
+  // The exit save was skipped because the browser would have rejected the body (see lib/keepaliveSave).
+  // Recorded so the leaving-the-page warning stays truthful rather than claiming a save that did not happen.
+  const keepaliveRefusedRef = useRef(false);
 
   const [previewPageTexts, setPreviewPageTexts] = useState([]);
 
@@ -198,6 +289,9 @@ const CreateProject = () => {
   // File Upload State
   const [thumbnailFile, setThumbnailFile] = useState(null);
   const [thumbnailPreviewUrl, setThumbnailPreviewUrl] = useState("");
+  const [mediaProgress, setMediaProgress] = useState({});
+  const [mediaUploadActive, setMediaUploadActive] = useState(false);
+  const [pendingMediaRecovery, setPendingMediaRecovery] = useState(null);
   const [toastMessage, setToastMessage] = useState(null);
 
   const showToast = useCallback((msg, type = "error", action = null) => {
@@ -246,6 +340,19 @@ const CreateProject = () => {
   const thumbnailInputRef = useRef(null);
   const stepContentRef = useRef(null);
 
+  // Replacing or removing a file clears its stale done/failed bar. A retry sets
+  // the requested files back to 0% inside `uploadProjectMedia`; there is no
+  // client-side resume hidden behind a bar that starts at the old percentage.
+  useEffect(() => {
+    setMediaProgress((current) => withoutMediaProgress(current, "thumbnail"));
+  }, [thumbnailFile]);
+  useEffect(() => {
+    setMediaProgress((current) => withoutMediaProgress(current, "trailer"));
+  }, [trailerFile]);
+  useEffect(() => {
+    setMediaProgress((current) => withoutMediaProgress(current, "pitchVideo"));
+  }, [pitchVideoFile]);
+
   const {
     isThumbnailEditorOpen,
     thumbnailSourceUrl,
@@ -275,6 +382,7 @@ const CreateProject = () => {
     setIsGeneratingAiCover,
     aiCoverAttempts,
     setAiCoverAttempts,
+    aiCoverRemaining,
     aiCoverHistory,
     setAiCoverHistory,
     aiCoverIndex,
@@ -386,6 +494,16 @@ const CreateProject = () => {
   const [titlePage, setTitlePage] = useState(null);
   const [showTitlePageModal, setShowTitlePageModal] = useState(false);
   const titlePageActive = Boolean(titlePage && Object.values(titlePage).some((v) => String(v || "").trim()));
+  /* Hoisted out of the desktop modal's JSX so the mobile title-page dialog
+     applies the SAME rule: an all-blank set of fields is not an empty title
+     page, it is no title page at all (`null`), which is what `titlePageActive`
+     and the PDF/Fountain exports test for. Two chromes deciding that
+     independently is how one of them starts exporting a blank sheet. */
+  const saveTitlePage = (fields) => {
+    const cleaned = fields && Object.values(fields).some((v) => String(v || "").trim()) ? fields : null;
+    setTitlePage(cleaned);
+    setSaved(false);
+  };
   // Editor zoom — scales how big the text LOOKS while writing (like Ctrl +/− in Docs). Purely visual:
   // the underlying Fountain text, page count, and export are unaffected. 1 = 100%.
   const [editorZoom, setEditorZoom] = useState(1);
@@ -674,13 +792,29 @@ const CreateProject = () => {
       lastDraftSignatureRef.current = `${(data.title || "Untitled Draft").trim()}::${String(data.textContent || "").length}:${String(data.textContent || "").slice(0, 120)}:${String(data.textContent || "").slice(-120)}`;
       // Merge base for duet saves: the exact server content this session started from.
       savedBaseContentRef.current = String(data.fountainContent || data.textContent || "");
+      // The server version this session is based on. Written into every local snapshot, and read
+      // back on the next resume to tell "my edits never reached the server" apart from "someone
+      // else saved while I was gone".
+      serverUpdatedAtRef.current = data.updatedAt ? String(data.updatedAt) : null;
       setSaved(true);
       setShowDrafts(false);
+      // Only now is there a server copy to weigh a local snapshot against (DEF-2 / D7).
+      runWorkingDraftRecoveryRef.current({
+        updatedAt: serverUpdatedAtRef.current,
+        content: savedBaseContentRef.current,
+      });
     } catch (err) {
       if (err?.response?.data?.reason === "pending_invite") {
         setInvitePending(true);
       } else if (err?.response?.status === 403 || err?.response?.status === 404) {
         setAccessDenied(true);
+      } else {
+        // The draft could not be fetched at all — offline, or a transient server error. The local
+        // snapshot is then the only copy this device can show, and showing an empty editor over a
+        // draft that has content is how a writer concludes their work is gone. Nothing is written
+        // back until the network returns, and the save path's three-way merge still protects a
+        // co-writer when it does.
+        runWorkingDraftRecoveryRef.current(null);
       }
     }
   }, [editor]);
@@ -758,6 +892,17 @@ const CreateProject = () => {
       }
     }
 
+    // A keepalive body over 64 KiB is rejected by the browser AFTER fetch() returns, so sending one
+    // and swallowing the rejection told this client it had saved when it had not. Measure first.
+    const encoded = encodeKeepaliveBody(payload);
+    if (!encoded.withinLimit) {
+      keepaliveRefusedRef.current = true;
+      // Deliberately do NOT advance lastDraftSignatureRef: nothing was sent, so the interval
+      // autosave must still see this content as unsaved, and the local snapshot is the record.
+      return false;
+    }
+    keepaliveRefusedRef.current = false;
+
     fetch(DRAFT_ENDPOINT, {
       method: "POST",
       keepalive: true,
@@ -766,7 +911,7 @@ const CreateProject = () => {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         "X-Draft-Save-Reason": reason,
       },
-      body: JSON.stringify(payload),
+      body: encoded.body,
     }).catch(() => {});
 
     lastDraftSignatureRef.current = signature;
@@ -824,6 +969,10 @@ const CreateProject = () => {
       // Advance the merge base to what we just sent, so the next save transmits only the delta since
       // this point and the server can replay it onto a co-writer's concurrent changes.
       savedBaseContentRef.current = String(payload.textContent || "");
+      // Advance the snapshot's base with it, so the version this session is "based on" tracks every
+      // successful save. Without this, the second resume of a long session always looks like a
+      // conflict — the base would still name the version the tab opened with.
+      if (data?.updatedAt) serverUpdatedAtRef.current = String(data.updatedAt);
       // Synchronously record the id so a save that fires before React re-renders still UPDATES.
       scriptIdRef.current = data._id;
       setScriptId(data._id);
@@ -855,13 +1004,12 @@ const CreateProject = () => {
     }
   }, [buildDraftPayload, editApprovalLocked, editor, fetchDrafts, getDraftSignature, hasMeaningfulDraft, loadedScriptStatus, scriptId]);
 
+  // One snapshot per draft (see lib/workingDraft). A brand-new script keeps the bare key it has
+  // always used; a resumed draft gets its own, which is the whole point — the previous code wrote a
+  // snapshot ONLY for scripts that had never been saved, i.e. never for the ones with work to lose.
   const clearLocalWorkingDraft = useCallback(() => {
-    try {
-      localStorage.removeItem(LOCAL_WORKING_DRAFT_KEY);
-    } catch {
-      // Ignore localStorage failures in private mode/restricted environments.
-    }
-  }, []);
+    clearWorkingDraft(draftId);
+  }, [draftId]);
 
   useEffect(() => {
     if (!shouldStartFresh) return;
@@ -914,49 +1062,100 @@ const CreateProject = () => {
     }
   }, [clearLocalWorkingDraft, editor, location.key, shouldStartFresh]);
 
-  const restoreLocalWorkingDraft = useCallback(() => {
-    if (!editor || localDraftHydratedRef.current || draftId || shouldStartFresh) return;
+  // Put a snapshot back into the wizard — content, title, and the position the writer left from
+  // (step AND the Details sub-panel; the sub-step effect clamps it to the current track's panels).
+  const applyWorkingDraftSnapshot = useCallback((snapshot) => {
+    if (!editor || !snapshot) return;
 
-    localDraftHydratedRef.current = true;
-    try {
-      const raw = localStorage.getItem(LOCAL_WORKING_DRAFT_KEY);
-      if (!raw) return;
-
-      const data = JSON.parse(raw);
-      if (!data || typeof data !== "object") return;
-      if (data.userId && user?._id && data.userId !== user._id) return;
-
-      if (typeof data.title === "string") {
-        setTitle(data.title);
-      }
-
-      if (typeof data.textContent === "string" && data.textContent.trim()) {
-        editor.commands.setContent(data.textContent);
-      }
-
-      if (typeof data.fountainContent === "string" && data.fountainContent.trim()) {
-        setScreenplayValue(data.fountainContent);
-      }
-
-      if (typeof data.step === "number" && data.step >= 1 && data.step <= 5) {
-        setStep(data.step);
-      }
-
-      if (typeof data.scriptId === "string" && data.scriptId.trim()) {
-        setScriptId(data.scriptId);
-        setLoadedScriptStatus("draft");
-      }
-    } catch {
-      // Ignore invalid/stale local snapshots.
+    if (typeof snapshot.title === "string") {
+      setTitle(snapshot.title);
     }
-  }, [draftId, editor, shouldStartFresh, user?._id]);
+    if (typeof snapshot.textContent === "string" && snapshot.textContent.trim()) {
+      editor.commands.setContent(snapshot.textContent);
+    }
+    if (typeof snapshot.fountainContent === "string" && snapshot.fountainContent.trim()) {
+      setScreenplayValue(snapshot.fountainContent);
+    }
+    if (typeof snapshot.scriptId === "string" && snapshot.scriptId.trim()) {
+      setScriptId(snapshot.scriptId);
+      setLoadedScriptStatus("draft");
+    }
+
+    const restoredStep = Number(snapshot.step);
+    if (Number.isFinite(restoredStep) && restoredStep >= 1 && restoredStep <= 5) {
+      setStep(restoredStep);
+    }
+    const restoredDetailsStep = Number(snapshot.detailsStep);
+    if (Number.isFinite(restoredDetailsStep) && restoredDetailsStep >= 0) {
+      setDetailsStep(restoredDetailsStep);
+    }
+
+    // Restored content has not been sent anywhere yet — saying "Saved" here is the same lie the
+    // keepalive path used to tell.
+    setSaved(false);
+  }, [editor]);
+
+  /**
+   * Decide what to do with the snapshot on this device.
+   *
+   * A brand-new script has no server copy to weigh it against, so it is restored outright. A
+   * resumed draft runs this AFTER loadDraft, because the snapshot only matters where it disagrees
+   * with what the server just sent — and if the server copy moved on since this session's base
+   * (a co-writer saved, or another device did), it is the writer's call, not ours.
+   */
+  const runWorkingDraftRecovery = useCallback((server = null) => {
+    if (!editor || localDraftHydratedRef.current || shouldStartFresh) return;
+    localDraftHydratedRef.current = true;
+
+    const snapshot = readWorkingDraft(draftId);
+    const { action } = chooseDraftRecovery({ snapshot, userId: user?._id || null, server });
+
+    if (action === "discard") {
+      clearWorkingDraft(draftId);
+      return;
+    }
+    if (action === "none") return;
+    if (action === "conflict") {
+      setPendingRecovery(snapshot);
+      return;
+    }
+    applyWorkingDraftSnapshot(snapshot);
+  }, [applyWorkingDraftSnapshot, draftId, editor, shouldStartFresh, user?._id]);
+
+  // Held in a ref so loadDraft can call it without taking it as a dependency — loadDraft's identity
+  // drives the draft-loading effect, and re-running that would refetch the script on every render.
+  const runWorkingDraftRecoveryRef = useRef(runWorkingDraftRecovery);
+  runWorkingDraftRecoveryRef.current = runWorkingDraftRecovery;
 
   useEffect(() => {
-    restoreLocalWorkingDraft();
-  }, [restoreLocalWorkingDraft]);
+    // A resumed draft waits for loadDraft, which calls the recovery itself once the server copy is
+    // in hand. There is nothing to compare against until then.
+    if (draftId) return;
+    runWorkingDraftRecovery();
+  }, [draftId, runWorkingDraftRecovery]);
+
+  // Snapshots are per draft and they accumulate, so clear out ones nobody is coming back for.
+  useEffect(() => { pruneWorkingDrafts(); }, []);
+
+  const acceptPendingRecovery = useCallback(() => {
+    if (!pendingRecovery) return;
+    applyWorkingDraftSnapshot(pendingRecovery);
+    setPendingRecovery(null);
+  }, [applyWorkingDraftSnapshot, pendingRecovery]);
+
+  const dismissPendingRecovery = useCallback(() => {
+    clearWorkingDraft(draftId);
+    setPendingRecovery(null);
+  }, [draftId]);
 
   useEffect(() => {
-    if (!editor || draftId) return;
+    if (!editor) return;
+    // Until recovery has run, this component's state is the EMPTY initial state, not the writer's
+    // document — and the "no content" branch below clears the snapshot. Writing or clearing before
+    // then would destroy the very snapshot we are about to read. This guard is why the recovery
+    // effect is declared above this one: on the commit where the editor first exists, recovery runs
+    // first and flips the flag.
+    if (!localDraftHydratedRef.current) return;
 
     const html = editor.getHTML();
     const plainText = String(html).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
@@ -968,28 +1167,25 @@ const CreateProject = () => {
       clearLocalWorkingDraft();
       return;
     }
+    // Don't overwrite the snapshot the writer has not answered for yet.
+    if (pendingRecovery) return;
 
     const timeoutId = setTimeout(() => {
-      try {
-        localStorage.setItem(
-          LOCAL_WORKING_DRAFT_KEY,
-          JSON.stringify({
-            userId: user?._id || null,
-            scriptId: scriptId || null,
-            title,
-            textContent: html,
-            fountainContent: screenplayValue,
-            step,
-            updatedAt: Date.now(),
-          })
-        );
-      } catch {
-        // Ignore localStorage write failures.
-      }
+      writeWorkingDraft(draftId, buildWorkingDraftSnapshot({
+        userId: user?._id || null,
+        scriptId: scriptId || draftId || null,
+        draftId,
+        title,
+        textContent: html,
+        fountainContent: screenplayValue,
+        step,
+        detailsStep,
+        baseUpdatedAt: serverUpdatedAtRef.current,
+      }));
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [charCount, clearLocalWorkingDraft, draftId, editor, scriptId, step, title, user?._id, wordCount, screenplayValue]);
+  }, [charCount, clearLocalWorkingDraft, detailsStep, draftId, editor, pendingRecovery, scriptId, step, title, user?._id, wordCount, screenplayValue]);
 
   // Debounced autosave while typing title/content.
   useEffect(() => {
@@ -1027,7 +1223,10 @@ const CreateProject = () => {
 
     const handleBeforeUnload = (event) => {
       const queued = queueKeepaliveDraftSaveRef.current("beforeunload");
-      if (!queued) return;
+      // Warn when a save is in flight (keepalive may still not land) AND when the exit save was
+      // refused for being over the browser's 64 KiB cap — in that case the work really is unsaved
+      // on the server, and this warning plus the local snapshot are all that stand behind it.
+      if (!queued && !keepaliveRefusedRef.current) return;
       event.preventDefault();
       event.returnValue = "";
     };
@@ -1439,38 +1638,18 @@ const CreateProject = () => {
     }
   };
 
-  const uploadSelectedProjectMedia = async (targetScriptId) => {
-    if (!targetScriptId) return;
-
-    const tasks = [];
-
-    if (thumbnailFile) {
-      const thumbnailFormData = new FormData();
-      thumbnailFormData.append("thumbnail", thumbnailFile);
-      tasks.push(api.post(`/scripts/${targetScriptId}/upload-thumbnail`, thumbnailFormData));
-    }
-
-    if (trailerFile) {
-      const trailerFormData = new FormData();
-      trailerFormData.append("trailer", trailerFile);
-      tasks.push(api.post(`/scripts/${targetScriptId}/upload-trailer`, trailerFormData));
-    }
-
-    if (pitchVideoFile) {
-      const pitchFormData = new FormData();
-      pitchFormData.append("pitchVideo", pitchVideoFile);
-      tasks.push(api.post(`/scripts/${targetScriptId}/upload-pitch-video`, pitchFormData));
-    }
-
-    if (tasks.length === 0) return;
-
-    const results = await Promise.allSettled(tasks);
-    const failed = results.find((result) => result.status === "rejected");
-
-    if (failed?.status === "rejected") {
-      const reason = failed.reason;
-      const message = reason?.response?.data?.message || reason?.message || "Failed to upload project media.";
-      throw new Error(message);
+  const uploadSelectedProjectMedia = async (targetScriptId, requestedTypes = null) => {
+    setMediaUploadActive(true);
+    try {
+      return await uploadProjectMedia({
+        apiClient: api,
+        targetScriptId,
+        requestedTypes,
+        files: { thumbnail: thumbnailFile, trailer: trailerFile, pitchVideo: pitchVideoFile },
+        onProgress: (type, next) => mergeMediaProgress(setMediaProgress, type, next),
+      });
+    } finally {
+      setMediaUploadActive(false);
     }
   };
 
@@ -1496,6 +1675,36 @@ const CreateProject = () => {
 
   // Publish
   const handlePublish = async () => {
+    // The project record already exists in this state. Retry only the failed
+    // media requests; posting `/scripts/upload` again would create a duplicate
+    // project and repeating the entire form is unrelated to the failure.
+    if (pendingMediaRecovery) {
+      setLoading(true); setError("");
+      try {
+        const mediaStep = detailsSubSteps.findIndex(({ key }) => key === "media");
+        setStep(2);
+        if (mediaStep >= 0) setDetailsStep(mediaStep);
+        const failedTypes = await uploadSelectedProjectMedia(
+          pendingMediaRecovery.targetScriptId,
+          pendingMediaRecovery.failedTypes,
+        );
+        if (failedTypes.length > 0) {
+          setPendingMediaRecovery((current) => ({ ...current, failedTypes }));
+          setError(`The project is saved, but ${failedTypes.length} media file${failedTypes.length > 1 ? "s" : ""} still could not be uploaded. Replace or remove the highlighted media, then retry.`);
+          return;
+        }
+
+        setPendingMediaRecovery(null);
+        setShowSummaryPdfDialog({
+          scriptId: pendingMediaRecovery.targetScriptId,
+          title: pendingMediaRecovery.title,
+        });
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (editApprovalLocked) {
       setError("This script edit is already in admin review. You can edit again after approval or rejection.");
       return;
@@ -1579,7 +1788,21 @@ const CreateProject = () => {
         targetScriptId = data?._id;
       }
 
-      await uploadSelectedProjectMedia(targetScriptId);
+      const hasSelectedMedia = Boolean(thumbnailFile || trailerFile || pitchVideoFile);
+      if (hasSelectedMedia) {
+        const mediaStep = detailsSubSteps.findIndex(({ key }) => key === "media");
+        setStep(2);
+        if (mediaStep >= 0) setDetailsStep(mediaStep);
+      }
+      const failedTypes = await uploadSelectedProjectMedia(targetScriptId);
+      if (failedTypes.length > 0) {
+        setPendingMediaRecovery({ targetScriptId, failedTypes, title });
+        const mediaStep = detailsSubSteps.findIndex(({ key }) => key === "media");
+        setStep(2);
+        if (mediaStep >= 0) setDetailsStep(mediaStep);
+        setError(`The project is saved, but ${failedTypes.length} media file${failedTypes.length > 1 ? "s" : ""} could not be uploaded. Replace or remove the highlighted media, then retry.`);
+        return;
+      }
       setShowSummaryPdfDialog({ scriptId: targetScriptId, title });
     } catch (err) { 
       setError(err.response?.data?.message || err.message || "Failed to publish."); 
@@ -1679,7 +1902,9 @@ const CreateProject = () => {
     setPublishingDetails,
     setSaved,
     setError,
-    enforceGoldPlan,
+    user,
+    showToast,
+    openPricingModal,
   });
 
   const {
@@ -1815,7 +2040,7 @@ const CreateProject = () => {
   const ctx = {
     hasFullAccess, hasPublishAccess,
     competitionMode, competition, competitionEntry, competitionPhase, competitionServerNow, refreshCompetition,
-    BUYER_COMMISSION_RATE, FORMAT_PRICE_GUIDE, ZOOM_MIN, addRole, addWriter, updateWriter, removeWriter, moveWriter, writers, addSceneComment, adjustZoom, agreementRef, aiBtnCls, aiCoverAttempts, aiCoverHistory, aiCoverIndex, autoSaveInFlightRef, buildDraftPayload, buildRightsPayload, buildScriptPreviewPayload, buyerCommissionAmount, buyerTotalPayable, canComment, canEditContent, cardCls, charCount, chipCls, classification, clearLocalWorkingDraft, collabClearEditRequest, collabCommentsVersion, collabEditRequest, collabLocks, collabMyUserId, collabPeople, collabReleaseHeld, collabRequestEdit, collabSetActiveScene, collabVisibility, confirmExitDiscard, confirmExitSaveDraft, creationBlocked, creationBlockedRef, currentElement, dark, deleteSceneComment, detailsStep, detailsSubSteps, discardingRef, downloadSubmissionSummaryPdf, downloadWatermarkedImage, draftId, drafts, editApprovalLocked, editor, editorZoom, effectivePrice, emphasisState, enforceGoldPlan, error, escapeHtml, estimatedPages, exitGuardRef, exiting, exportMenuOpen, exportingScreenplay, fetchDrafts, filmDetails, focusMode, focusedCommentId, formData, formatDuration, formatInfo, generateAiCover, getDraftSignature, getEditorPlainText, getInvalidRoleAgeRangeMessage, grammarLoading, grammarNotes, handleAddComment, handleAnalyzeFormatting, handleApplyThumbnail, handleBack, handleCaretLine, handleChange, handleDeleteDraft, handleDownloadMainContentPdf, handleExitEditor, handleExportScreenplay, handleFixGrammar, handleFocusComment, handleGenerateMetadata, handleGenerateProse, handleGrammarClick, handleGrammarKeep, handleGrammarUndo, handleImportScreenplayFile, handleNext, handleOutlineChange, handlePitchVideoSelect, handleProseClick, handlePublish, handleReorderScene, handleReplyComment, handleSave, handleScreenplayChange, handleSynopsisChange, handleThumbnailSelect, handleTrailerSelect, handleUnderReviewContinue, hasMeaningfulDraft, importNotice, inputCls, isCommentOrphaned, isEditingExistingScriptFlow, isGeneratingAiCover, isPremium, isScreenplayFormat, isThumbnailEditorOpen, lastDraftSignatureRef, lastSaved, legal, loadDraft, loadedScriptStatus, loading, loadingDrafts, localDraftHydratedRef, location, metaLoadingField, metaNotice, moreMenuOpen, navigate, openPricingModal, openThumbnailEditor, openUnderReviewModal, outlineNotes, outlineWithSceneIds, pageStatus, peopleEnriched, pitchVideoFile, pitchVideoInputRef, pitchVideoMeta, pitchVideoMetaLoading, pitchVideoPreviewUrl, preGrammarContent, presenceBySceneId, presenceEnabled, presenceScenes, previewPageTexts, previewPageTextsSignatureRef, proseLoading, publishReadiness, publishReviewItems, publishSummaryRows, publishingDetails, purchasedServiceCredits, queueKeepaliveDraftSave, queueKeepaliveDraftSaveRef, removeRole, resetThumbnailEditor, restoreLocalWorkingDraft, reviewRedirectTimerRef, rightsLicensing, roles, sanitizePdfFileName, saveBlockedRef, saved, saving, sceneComments, sceneSynopses, screenplayApiRef, screenplayEnabled, screenplayFileInputRef, screenplayMirrorTimer, screenplayOutline, screenplayValue, screenplayValueRef, scriptId, scriptIdRef, scriptLimit, scriptPrice, selectedPublishServices, services, setAiCoverAttempts, setAiCoverHistory, setAiCoverIndex, setCanComment, setCanEditContent, setCharCount, setClassification, setCollabVisibility, setCommentResolved, setCurrentElement, setDetailsStep, setDrafts, setEditApprovalLocked, setEditorZoom, setEmphasisState, setError, setExiting, setExportMenuOpen, setExportingScreenplay, setFilmDetails, setFocusMode, setFocusedCommentId, setFormData, setGrammarLoading, setGrammarNotes, setImportNotice, setIsGeneratingAiCover, setIsPremium, setLastSaved, setLegal, setLoadedScriptStatus, setLoading, setLoadingDrafts, setMetaLoadingField, setMetaNotice, setMoreMenuOpen, setOutlineNotes, setPitchVideoFile, setPitchVideoMeta, setPitchVideoMetaLoading, setPitchVideoPreviewUrl, setPreGrammarContent, setPreviewPageTexts, setProseLoading, setPublishingDetails, setPurchasedServiceCredits, setRightsLicensing, setRoles, setSaved, setSaving, setSceneSynopses, setScreenplayEnabled, setScreenplayValue, setScriptId, setScriptLimit, setScriptPrice, setServices, setShowDrafts, setShowExitConfirm, setShowTitlePageModal, setShowUnderReviewModal, setShowUndoBar, setShowVersionHistory, setStep, setTagsInput, setTargetFilm, setTargetPublishing, setThumbnailCrop, setThumbnailCropPixels, setThumbnailFile, setThumbnailPreviewUrl, setThumbnailRotation, setThumbnailZoom, setTitle, setTitlePage, setToastMessage, setTrailerFile, setTrailerMeta, setTrailerMetaLoading, setTrailerPreviewUrl, setWordCount, shouldStartFresh, showDrafts, showExitConfirm, showTitlePageModal, showToast, showUnderReviewModal, showUndoBar, showVersionHistory, step, stepContentRef, tagsInput, targetFilm, targetPublishing, textToParagraphHtml, thumbnailApplying, thumbnailCrop, thumbnailCropPixels, thumbnailFile, thumbnailInputRef, thumbnailPreviewUrl, thumbnailRotation, thumbnailSourceUrl, thumbnailZoom, title, titlePage, titlePageActive, toastMessage, toggleChip, toggleDarkMode, trailerFile, trailerInputRef, trailerMeta, trailerMetaLoading, trailerPreviewUrl, trailerWorkflowHint, updateRoleAge, updateRoleField, uploadSelectedProjectMedia, useScreenplayEditor, user, validateStep, wordCount, writerPayout,
+    BUYER_COMMISSION_RATE, FORMAT_PRICE_GUIDE, ZOOM_MIN, addRole, addWriter, updateWriter, removeWriter, moveWriter, writers, addSceneComment, adjustZoom, agreementRef, aiBtnCls, aiCoverAttempts, aiCoverRemaining, aiCoverHistory, aiCoverIndex, autoSaveInFlightRef, buildDraftPayload, buildRightsPayload, buildScriptPreviewPayload, buyerCommissionAmount, buyerTotalPayable, canComment, canEditContent, cardCls, charCount, chipCls, classification, clearLocalWorkingDraft, collabClearEditRequest, collabCommentsVersion, collabEditRequest, collabLocks, collabMyUserId, collabPeople, collabReleaseHeld, collabRequestEdit, collabSetActiveScene, collabVisibility, confirmExitDiscard, confirmExitSaveDraft, creationBlocked, creationBlockedRef, currentElement, dark, deleteSceneComment, detailsStep, detailsSubSteps, discardingRef, downloadSubmissionSummaryPdf, downloadWatermarkedImage, draftId, drafts, editApprovalLocked, editor, editorZoom, effectivePrice, emphasisState, enforceGoldPlan, error, escapeHtml, estimatedPages, exitGuardRef, exiting, exportMenuOpen, exportingScreenplay, fetchDrafts, filmDetails, focusMode, focusedCommentId, formData, formatDuration, formatInfo, generateAiCover, getDraftSignature, getEditorPlainText, getInvalidRoleAgeRangeMessage, grammarLoading, grammarNotes, handleAddComment, handleAnalyzeFormatting, handleApplyThumbnail, handleBack, handleCaretLine, handleChange, handleDeleteDraft, handleDownloadMainContentPdf, handleExitEditor, handleExportScreenplay, handleFixGrammar, handleFocusComment, handleGenerateMetadata, handleGenerateProse, handleGrammarClick, handleGrammarKeep, handleGrammarUndo, handleImportScreenplayFile, handleNext, handleOutlineChange, handlePitchVideoSelect, handleProseClick, handlePublish, handleReorderScene, handleReplyComment, handleSave, handleScreenplayChange, handleSynopsisChange, handleThumbnailSelect, handleTrailerSelect, handleUnderReviewContinue, hasMeaningfulDraft, importNotice, inputCls, isCommentOrphaned, isEditingExistingScriptFlow, isGeneratingAiCover, isPremium, isScreenplayFormat, isThumbnailEditorOpen, lastDraftSignatureRef, lastSaved, legal, loadDraft, loadedScriptStatus, loading, loadingDrafts, localDraftHydratedRef, location, mediaProgress, mediaUploadActive, metaLoadingField, metaNotice, moreMenuOpen, navigate, openPricingModal, openThumbnailEditor, openUnderReviewModal, outlineNotes, outlineWithSceneIds, pageStatus, pendingMediaRecovery, peopleEnriched, pitchVideoFile, pitchVideoInputRef, pitchVideoMeta, pitchVideoMetaLoading, pitchVideoPreviewUrl, preGrammarContent, presenceBySceneId, presenceEnabled, presenceScenes, previewPageTexts, previewPageTextsSignatureRef, proseLoading, publishReadiness, publishReviewItems, publishSummaryRows, publishingDetails, purchasedServiceCredits, queueKeepaliveDraftSave, queueKeepaliveDraftSaveRef, removeRole, resetThumbnailEditor, runWorkingDraftRecovery, applyWorkingDraftSnapshot, pendingRecovery, acceptPendingRecovery, dismissPendingRecovery, reviewRedirectTimerRef, rightsLicensing, roles, sanitizePdfFileName, saveBlockedRef, saveTitlePage, saved, saving, sceneComments, sceneSynopses, screenplayApiRef, screenplayEnabled, screenplayFileInputRef, screenplayMirrorTimer, screenplayOutline, screenplayValue, screenplayValueRef, scriptId, scriptIdRef, scriptLimit, scriptPrice, selectedPublishServices, services, setAiCoverAttempts, setAiCoverHistory, setAiCoverIndex, setCanComment, setCanEditContent, setCharCount, setClassification, setCollabVisibility, setCommentResolved, setCurrentElement, setDetailsStep, setDrafts, setEditApprovalLocked, setEditorZoom, setEmphasisState, setError, setExiting, setExportMenuOpen, setExportingScreenplay, setFilmDetails, setFocusMode, setFocusedCommentId, setFormData, setGrammarLoading, setGrammarNotes, setImportNotice, setIsGeneratingAiCover, setIsPremium, setLastSaved, setLegal, setLoadedScriptStatus, setLoading, setLoadingDrafts, setMetaLoadingField, setMetaNotice, setMoreMenuOpen, setOutlineNotes, setPitchVideoFile, setPitchVideoMeta, setPitchVideoMetaLoading, setPitchVideoPreviewUrl, setPreGrammarContent, setPreviewPageTexts, setProseLoading, setPublishingDetails, setPurchasedServiceCredits, setRightsLicensing, setRoles, setSaved, setSaving, setSceneSynopses, setScreenplayEnabled, setScreenplayValue, setScriptId, setScriptLimit, setScriptPrice, setServices, setShowDrafts, setShowExitConfirm, setShowTitlePageModal, setShowUnderReviewModal, setShowUndoBar, setShowVersionHistory, setStep, setTagsInput, setTargetFilm, setTargetPublishing, setThumbnailCrop, setThumbnailCropPixels, setThumbnailFile, setThumbnailPreviewUrl, setThumbnailRotation, setThumbnailZoom, setTitle, setTitlePage, setToastMessage, setTrailerFile, setTrailerMeta, setTrailerMetaLoading, setTrailerPreviewUrl, setWordCount, shouldStartFresh, showDrafts, showExitConfirm, showTitlePageModal, showToast, showUnderReviewModal, showUndoBar, showVersionHistory, step, stepContentRef, tagsInput, targetFilm, targetPublishing, textToParagraphHtml, thumbnailApplying, thumbnailCrop, thumbnailCropPixels, thumbnailFile, thumbnailInputRef, thumbnailPreviewUrl, thumbnailRotation, thumbnailSourceUrl, thumbnailZoom, title, titlePage, titlePageActive, toastMessage, toggleChip, toggleDarkMode, trailerFile, trailerInputRef, trailerMeta, trailerMetaLoading, trailerPreviewUrl, trailerWorkflowHint, updateRoleAge, updateRoleField, uploadSelectedProjectMedia, useScreenplayEditor, user, validateStep, wordCount, writerPayout,
   };
 
   if (accessDenied) {
@@ -1868,9 +2093,9 @@ const CreateProject = () => {
 
   return (
     <CreateProjectContext.Provider value={ctx}>
-    <div className="w-full overflow-x-hidden">
+    <div className={hostClassName}>
       {/* -- Exit-as-draft confirmation -- */}
-      {showExitConfirm && (
+      {showExitConfirm && !nativeChrome && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
           onClick={() => { if (!exiting) setShowExitConfirm(false); }}>
           <div onClick={(e) => e.stopPropagation()}
@@ -1902,7 +2127,7 @@ const CreateProject = () => {
 
       {/* -- Drafts Drawer -- */}
       <AnimatePresence>
-        {showDrafts && (
+        {showDrafts && !nativeChrome && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden mb-6">
             <div className={`${cardCls} p-4`}>
               <div className="flex items-center justify-between mb-3">
@@ -1981,19 +2206,17 @@ const CreateProject = () => {
         />
       )}
 
-      <TitlePageModal
-        key={showTitlePageModal ? "tp-open" : "tp-closed"}
-        open={showTitlePageModal}
-        initial={titlePage}
-        defaultTitle={title}
-        dark={dark}
-        onClose={() => setShowTitlePageModal(false)}
-        onSave={(fields) => {
-          const cleaned = fields && Object.values(fields).some((v) => String(v || "").trim()) ? fields : null;
-          setTitlePage(cleaned);
-          setSaved(false);
-        }}
-      />
+      {!nativeChrome && (
+        <TitlePageModal
+          key={showTitlePageModal ? "tp-open" : "tp-closed"}
+          open={showTitlePageModal}
+          initial={titlePage}
+          defaultTitle={title}
+          dark={dark}
+          onClose={() => setShowTitlePageModal(false)}
+          onSave={saveTitlePage}
+        />
+      )}
 
       <VersionHistoryModal
         open={showVersionHistory}
@@ -2030,7 +2253,7 @@ const CreateProject = () => {
         }}
       />
 
-      {showUnderReviewModal && createPortal(
+      {showUnderReviewModal && !nativeChrome && createPortal(
         <AnimatePresence>
           <motion.div
             key="under-review-modal-bg"
@@ -2152,7 +2375,7 @@ const CreateProject = () => {
       )}
 
       {/* --- Thumbnail Crop/Rotate Modal --- */}
-      {isThumbnailEditorOpen && thumbnailSourceUrl && createPortal(
+      {isThumbnailEditorOpen && thumbnailSourceUrl && !nativeChrome && createPortal(
         <AnimatePresence>
           <motion.div
             key="thumbnail-modal-bg"
@@ -2296,14 +2519,21 @@ const CreateProject = () => {
 
       <div ref={stepContentRef} />
 
-      {/* -- Step Content (wrapped by the unified shell) ------ */}
-      <CreateProjectShell>
-        {step === 1 ? <Step1Write />
-          : step === 2 ? <Step2Details />
-            : step === 3 ? <Step3Classify />
-              : step === 4 ? <Step4FilmInfo />
-                : <Step5Publish />}
-      </CreateProjectShell>
+      {/* -- Step Content (wrapped by the injected chrome) ------
+           A native chrome renders its own step bodies from the same context, so
+           it is handed `null` rather than desktop JSX it would have to remember
+           to ignore. That is the difference between a seam and a trapdoor: with
+           `null`, a chrome that forgets renders nothing and the omission is
+           obvious; with an ignored child, it silently keeps working until
+           someone edits a desktop step and wonders why mobile did not change. */}
+      <Shell>
+        {nativeChrome ? null
+          : step === 1 ? <Step1Write />
+            : step === 2 ? <Step2Details />
+              : step === 3 ? <Step3Classify />
+                : step === 4 ? <Step4FilmInfo />
+                  : <Step5Publish />}
+      </Shell>
 
       {/* Full-screen Loading Overlay for File Imports */}
       <AnimatePresence>
@@ -2333,7 +2563,7 @@ const CreateProject = () => {
       </AnimatePresence>
 
       {/* Professional Toast Notification */}
-      {toastMessage && (
+      {toastMessage && !nativeChrome && (
         <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-[100] animate-in fade-in zoom-in-95 slide-in-from-bottom-8 duration-300">
           <div className={`flex items-center gap-3.5 px-5 py-3.5 rounded-2xl shadow-[0_12px_40px_-10px_rgba(0,0,0,0.15)] dark:shadow-[0_12px_40px_-10px_rgba(0,0,0,0.5)] backdrop-blur-xl border ${
             toastMessage.type === 'error' ? 'bg-white/90 dark:bg-[#1f1313]/90 border-red-200/60 dark:border-red-900/60 text-red-900 dark:text-red-200' :

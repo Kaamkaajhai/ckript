@@ -13,7 +13,7 @@ import { useDarkMode } from "../context/DarkModeContext";
 
 const Navbar = () => {
   const { user, logout } = useContext(AuthContext);
-  const { openAuthModal } = useAuthModal();
+  const { openAuthModal, openPricingModal } = useAuthModal();
   const { isDarkMode: dark } = useDarkMode();
   const navigate = useNavigate();
   const [searchQuery, setSearchQuery] = useState("");
@@ -73,7 +73,7 @@ const Navbar = () => {
     setShowLogoutConfirm(false);
     logout();
     navigate("/", { replace: true });
-    openAuthModal();
+    openPricingModal();
   };
 
   return (

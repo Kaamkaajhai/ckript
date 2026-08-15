@@ -40,9 +40,18 @@
   color: var(--ckm-text-3);
 }
 
+/*
+ * `--ckm-text-3`, not `--ckm-muted`. Measured 2026-08-09 by the create-project
+ * sweep, which was the first to render this flag at all: `--ckm-muted` (#8d877e)
+ * is 3.56:1 on `--ckm-bg`, and "Optional" is 11px body text needing 4.5:1 (WCAG
+ * 1.4.3). `--ckm-text-3` (#6f695f) measures 5.62:1.
+ *
+ * `--ckm-muted` is still correct for the graphical objects it was chosen for —
+ * it clears the 3:1 of SC 1.4.11 — but it was never safe for text this size.
+ */
 .ckm .ckm-field__flag--soft {
   font-weight: var(--ckm-weight-regular);
-  color: var(--ckm-muted);
+  color: var(--ckm-text-3);
 }
 
 /* Guidance left, status right. `align-items: baseline` keeps a one-line count
@@ -55,11 +64,14 @@
   min-width: 0;
 }
 
+/* Same correction as the soft flag above, and it matters more here: a character
+   counter is the one thing a writer checks while the keyboard covers the rest
+   of the field. */
 .ckm .ckm-field__meta {
   flex: none;
   font-size: var(--ckm-text-caption);
   line-height: var(--ckm-leading-caption);
-  color: var(--ckm-muted);
+  color: var(--ckm-text-3);
   font-variant-numeric: tabular-nums;
 }
 
