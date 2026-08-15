@@ -11,15 +11,20 @@ import '@fontsource/courier-prime/700-italic.css'
 import './index.css'
 import App from './App.jsx'
 import recoverFromStaleBuild, { clearStaleBuildFlag } from './utils/recoverFromStaleBuild.js'
+import { announceIfCalendarPopup } from './utils/googleCalendarPopup.js'
 
 // Registered before render so a chunk that goes missing during the very first navigation is caught.
 recoverFromStaleBuild()
 
-createRoot(document.getElementById('root')).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+// If this window is the Google Calendar consent popup coming back, tell the opener and close. Done
+// before render because nobody is going to see this app — the window is about to disappear.
+if (!announceIfCalendarPopup()) {
+  createRoot(document.getElementById('root')).render(
+    <StrictMode>
+      <App />
+    </StrictMode>,
+  )
+}
 
 // We got here, so this build's entry bundle is intact — arm the one-shot reload for next time.
 clearStaleBuildFlag()

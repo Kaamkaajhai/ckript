@@ -1,6 +1,7 @@
-import { useContext, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
+import { POPUP_NAME, POPUP_MARKER, onCalendarPopupResult } from "../utils/googleCalendarPopup";
 
 // Producer's IANA timezone (e.g. "Asia/Kolkata"). Google localizes the event per-attendee from this.
 const detectTimeZone = () => {
@@ -11,8 +12,37 @@ const detectTimeZone = () => {
   }
 };
 
+/* What actually went wrong, in the producer's words.
+   Every failure used to read "Google could not complete the connection", which is true of all of
+   them and useful for none — it cost several rounds of guessing to find out which one was firing. */
+const describeCalendarFailure = (reason) => {
+  switch (reason) {
+    case "denied":
+      return "Google refused the connection. If this account is not on the app's Google test-user list, ask an admin to add it — an unverified app blocks everyone else.";
+    case "no_refresh_token":
+      return "Google did not return a reusable connection, which happens when this account already granted access. Remove Ckript at myaccount.google.com/permissions, then connect again.";
+    case "bad_client_secret":
+      return "The server's Google client secret was rejected. GOOGLE_OAUTH_CLIENT_SECRET does not belong to the configured client ID — an admin needs to copy the current secret from the Google Cloud Console.";
+    case "redirect_uri_mismatch":
+      return "Google rejected the callback URL. The redirect URI registered in the Google Cloud Console does not match the server's — check them character for character.";
+    case "stale_code":
+      return "That sign-in had already been used. Please connect again.";
+    case "exchange_failed":
+      return "Google rejected the connection and did not say why. The server log has the detail.";
+    case "bad_state":
+      return "That took too long and the request expired. Please try connecting again.";
+    case "no_code":
+    case "no_state":
+      return "Google sent an incomplete response. Please try connecting again.";
+    case "server_error":
+      return "The server could not finish the connection. The server log has the detail.";
+    default:
+      return "Google could not complete the connection. Please try again.";
+  }
+};
+
 const MeetingModal = ({ isOpen, onClose, writerId, scriptId, writerName, scriptName, onMeetingScheduled }) => {
-  const { user } = useContext(AuthContext);
+  const { user, setUser } = useContext(AuthContext);
   const [title, setTitle] = useState("");
   const [date, setDate] = useState("");
   const [time, setTime] = useState("");
@@ -25,24 +55,142 @@ const MeetingModal = ({ isOpen, onClose, writerId, scriptId, writerName, scriptN
   // Server can also report a dead connection at submit time (428) — flip to the connect view then.
   const [needsCalendar, setNeedsCalendar] = useState(false);
 
+  // The server's answer, which outranks the AuthContext user. null = not asked yet.
+  const [liveConnected, setLiveConnected] = useState(null);
+  const pollRef = useRef(null);
+  const stopListeningRef = useRef(null);
+
   const timeZone = detectTimeZone();
   const prettyTz = timeZone.replace(/_/g, " ");
-  const calendarConnected = Boolean(user?.googleCalendar?.connected) && !needsCalendar;
+
+  /* Ask the SERVER whether the calendar is connected, every time the modal opens.
+     The AuthContext user is hydrated from localStorage, written at login — it cannot know about a
+     calendar connected afterwards. Trusting it meant a producer who had just connected reopened this
+     modal and was asked to connect again, forever: connect, come back, connect, nothing. */
+  useEffect(() => {
+    if (!isOpen) return undefined;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { data } = await api.get("/google-calendar/status");
+        if (cancelled) return;
+        const connected = Boolean(data?.connected);
+        setLiveConnected(connected);
+        setNeedsCalendar(false);
+        if (data?.configured === false) {
+          setErrorMsg("Google Calendar is not configured on the server.");
+        }
+        // Keep the rest of the app in step, so other surfaces stop disagreeing with this one.
+        if (user && Boolean(user?.googleCalendar?.connected) !== connected) {
+          setUser({
+            ...user,
+            googleCalendar: { connected, calendarEmail: data?.calendarEmail || "" },
+          });
+        }
+      } catch {
+        // Offline or the endpoint failed: fall back to what we last knew rather than blocking.
+        if (!cancelled) setLiveConnected(Boolean(user?.googleCalendar?.connected));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen]);
+
+  // Stop polling if the modal goes away mid-connect.
+  useEffect(() => () => {
+    clearInterval(pollRef.current);
+    stopListeningRef.current?.();
+  }, []);
+
+  const resolvedConnected = liveConnected === null ? Boolean(user?.googleCalendar?.connected) : liveConnected;
+  const calendarConnected = resolvedConnected && !needsCalendar;
 
   if (!isOpen) return null;
 
+  /* Consent runs in a POPUP, not a full-page redirect.
+     Redirecting navigated away from this modal, and a modal is React state — it does not survive the
+     round trip. The producer consented at Google, was returned to the page, and found the scheduling
+     form gone with nothing to say why. A popup leaves the modal mounted, so when consent lands we can
+     drop straight into the form. Falls back to the old redirect if the popup is blocked. */
   const startConnect = async () => {
     setErrorMsg("");
     try {
       setConnecting(true);
-      const returnTo = `${window.location.pathname}${window.location.search}`;
-      const { data } = await api.post("/google-calendar/auth-url", { returnTo });
-      if (data?.url) {
-        window.location.href = data.url; // full-page redirect to Google consent (not an XHR)
-      } else {
+      const plainReturnTo = `${window.location.pathname}${window.location.search}`;
+      // The POPUP's return URL carries the marker that lets it recognise itself — window.name does
+      // not survive Google's COOP context-group swap, so the URL is the only reliable carrier.
+      const sep = plainReturnTo.includes("?") ? "&" : "?";
+      const { data } = await api.post("/google-calendar/auth-url", {
+        returnTo: `${plainReturnTo}${sep}${POPUP_MARKER}=1`,
+      });
+      if (!data?.url) {
         setErrorMsg("Google Calendar is not available right now.");
         setConnecting(false);
+        return;
       }
+
+      const popup = window.open(data.url, POPUP_NAME, "width=520,height=680");
+      if (!popup) {
+        // Popup blocked — fall back to the old full-page redirect, with a URL whose returnTo does
+        // NOT carry the marker: this navigation is the MAIN tab, and a main tab landing on a marker
+        // URL would try to close itself.
+        try {
+          const { data: fallback } = await api.post("/google-calendar/auth-url", { returnTo: plainReturnTo });
+          window.location.href = fallback?.url || data.url;
+        } catch {
+          window.location.href = data.url;
+        }
+        return;
+      }
+
+      const finish = (connected) => {
+        clearInterval(pollRef.current);
+        stopListeningRef.current?.();
+        stopListeningRef.current = null;
+        setConnecting(false);
+        if (!connected) return;
+        try { popup.close(); } catch { /* already gone */ }
+        setLiveConnected(true);
+        setNeedsCalendar(false);
+        if (user) setUser({ ...user, googleCalendar: { ...(user.googleCalendar || {}), connected: true } });
+      };
+
+      // The popup announces itself through storage on the way back — see utils/googleCalendarPopup.
+      stopListeningRef.current?.();
+      stopListeningRef.current = onCalendarPopupResult((status, reason) => {
+        if (status === "connected") return finish(true);
+        finish(false);
+        setErrorMsg(describeCalendarFailure(reason));
+      });
+
+      /* Polling is the backstop, and asks OUR server rather than the popup.
+         `popup.closed` is deliberately never read: Google's consent pages send
+         Cross-Origin-Opener-Policy, which severs the opener link and makes that property report
+         `true` from the moment it opens. Reading it announced a cancellation about a second in,
+         while the producer was still looking at the consent screen. There is no reliable way to see
+         a cancellation through COOP, so an abandoned popup simply times out. */
+      const startedAt = Date.now();
+      clearInterval(pollRef.current);
+      pollRef.current = setInterval(async () => {
+        let connected = false;
+        try {
+          const { data: s } = await api.get("/google-calendar/status");
+          connected = Boolean(s?.connected);
+        } catch {
+          /* transient — keep polling */
+        }
+
+        if (connected) return finish(true);
+
+        if (Date.now() - startedAt > 2 * 60 * 1000) {
+          finish(false);
+          setErrorMsg("Still not connected. Finish the Google window, or try again.");
+        }
+      }, 1500);
     } catch (err) {
       setErrorMsg(err.response?.data?.message || "Couldn't start Google Calendar connection.");
       setConnecting(false);

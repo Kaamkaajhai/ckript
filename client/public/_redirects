@@ -1,20 +1,24 @@
-# A missing build asset must 404, not fall through to the SPA shell.
-#
-# This file used to be the catch-all alone. Because the host answers an unmatched path with
-# index.html at status 200, a request for a hashed chunk that no longer exists — /assets/Landing-
-# DMENHW6G.js after a deploy replaced it — came back as HTML with `Content-Type: text/html`, and the
-# browser refused it with:
-#
-#   Failed to load module script: Expected a JavaScript-or-Wasm module script but the server
-#   responded with a MIME type of "text/html"
-#
-# Every lazy route died at once — Landing, AppShell, Dashboard, Profile, and each icon chunk — so
-# the page rendered blank with no clue pointing at the deploy. A 404 says the true thing instead,
-# and is what the runtime recovery in main.jsx keys off.
-#
-# Existing files still win: the host serves a real static file before consulting these rules, so
-# this only ever catches assets that are genuinely gone.
-/assets/*  /assets/:splat  404
-
-# Everything else is a client-side route.
+# Every path that is not a real file is a client-side route.
 /*  /index.html  200
+
+# ── Why there is no rule 404-ing missing assets ────────────────────────────────
+#
+# There was one, and it does not work here. Cloudflare Pages — which is what serves this site, per
+# the cf-cache-status headers and the cloudflareinsights beacon — only honours 301, 302, 303, 307,
+# 308 and 200 in _redirects. A line ending in 404 is dropped at build time, silently, so
+#
+#     /assets/*  /assets/:splat  404
+#
+# looked like protection and delivered none. Verified against production: a request for an asset
+# that does not exist still answers 200 with Content-Type: text/html, which is what makes the
+# browser say "Expected a JavaScript-or-Wasm module script".
+#
+# So the catch-all above will keep turning a missing chunk into HTML, and the protection has to be
+# on the client, where it provably runs:
+#
+#   index.html                     inline handler for a missing ENTRY bundle
+#   src/utils/recoverFromStaleBuild.js   Vite's vite:preloadError, for a missing LAZY chunk
+#
+# Both reload once to re-read this HTML, which public/_headers keeps un-cached so it always names
+# the current build. Fixing it at the edge instead would mean routing /assets/* through a Pages
+# Function — a Worker invocation on every asset request, to improve an error message.
