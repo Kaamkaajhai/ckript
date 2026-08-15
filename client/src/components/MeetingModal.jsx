@@ -21,8 +21,14 @@ const describeCalendarFailure = (reason) => {
       return "Google refused the connection. If this account is not on the app's Google test-user list, ask an admin to add it — an unverified app blocks everyone else.";
     case "no_refresh_token":
       return "Google did not return a reusable connection, which happens when this account already granted access. Remove Ckript at myaccount.google.com/permissions, then connect again.";
+    case "bad_client_secret":
+      return "The server's Google client secret was rejected. GOOGLE_OAUTH_CLIENT_SECRET does not belong to the configured client ID — an admin needs to copy the current secret from the Google Cloud Console.";
+    case "redirect_uri_mismatch":
+      return "Google rejected the callback URL. The redirect URI registered in the Google Cloud Console does not match the server's — check them character for character.";
+    case "stale_code":
+      return "That sign-in had already been used. Please connect again.";
     case "exchange_failed":
-      return "Google rejected the callback. The redirect URI registered in the Google Cloud Console does not match the server's — check them character for character.";
+      return "Google rejected the connection and did not say why. The server log has the detail.";
     case "bad_state":
       return "That took too long and the request expired. Please try connecting again.";
     case "no_code":

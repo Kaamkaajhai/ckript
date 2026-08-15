@@ -90,10 +90,28 @@ export const handleGoogleCalendarCallback = async (req, res) => {
     try {
       tokens = await exchangeCode(String(code));
     } catch (exchangeError) {
-      // The usual cause is redirect_uri_mismatch: the URI registered in the Google Cloud Console
-      // differs, even by a trailing slash, from GOOGLE_CALENDAR_REDIRECT_URI.
-      console.error("[googleCalendar] token exchange failed:", exchangeError?.message || exchangeError);
-      return clientRedirect(res, returnTo, "error", "exchange_failed");
+      /* Google says which of these it is, and they have nothing to do with each other — a bad
+         secret, an unregistered URI and a stale code need three different fixes. Collapsing them
+         into one "exchange failed" cost a round of chasing the redirect URI when the secret was
+         wrong, so the code Google returns is mapped through rather than thrown away. */
+      const googleCode = String(
+        exchangeError?.response?.data?.error || exchangeError?.message || ""
+      ).toLowerCase();
+
+      const mapped = googleCode.includes("invalid_client")
+        ? "bad_client_secret"
+        : googleCode.includes("redirect_uri_mismatch")
+        ? "redirect_uri_mismatch"
+        : googleCode.includes("invalid_grant")
+        ? "stale_code"
+        : "exchange_failed";
+
+      console.error(
+        "[googleCalendar] token exchange failed (%s):",
+        mapped,
+        exchangeError?.response?.data?.error_description || exchangeError?.message || exchangeError
+      );
+      return clientRedirect(res, returnTo, "error", mapped);
     }
 
     if (!tokens.refreshToken) {
