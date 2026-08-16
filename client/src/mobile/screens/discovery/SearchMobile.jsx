@@ -1,40 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import api from "../../../services/api";
-import useScriptBookmark from "../../../hooks/useScriptBookmark";
 import { resolveMediaUrl } from "../../../utils/mediaUrl";
 import { getProfileCanonicalPath } from "../../../utils/profilePath";
-import { getScriptCanonicalPath } from "../../../utils/scriptPath";
 import AppBar from "../../components/app-bars/AppBar";
-import Badge from "../../components/badges/Badge";
 import Button from "../../components/buttons/Button";
-import IconButton from "../../components/buttons/IconButton";
-import Card, {
-  CardActions,
-  CardBody,
-  CardEyebrow,
-  CardFooter,
-  CardMedia,
-  CardTags,
-  CardText,
-  CardTitle,
-} from "../../components/cards/Card";
 import Chip, { ChipRow } from "../../components/chips/Chip";
 import EmptyState from "../../components/EmptyState";
 import InlineMessage from "../../components/feedback/InlineMessage";
 import SkeletonGroup, { SkeletonRows, SkeletonShape } from "../../components/feedback/Skeletons";
 import { useToast } from "../../components/feedback/toastContext";
-import SelectField from "../../components/forms/SelectField";
 import TextField from "../../components/forms/TextField";
 import List from "../../components/lists/List";
 import ListRow from "../../components/lists/ListRow";
 import LoadMore from "../../components/lists/LoadMore";
 import NavBar from "../../components/navigation/NavBar";
-import Dialog from "../../components/overlays/Dialog";
 import SegmentedControl from "../../components/tabs/SegmentedControl";
 import MobileShell from "../../shell/MobileShell";
 import { MOBILE_SHELL_MODE } from "../../shell/mobileShellModes";
 import { shareProject } from "../../data/shareProject";
+import DiscoveryFiltersDialog from "./components/DiscoveryFiltersDialog";
+import DiscoveryProjectCard from "./components/DiscoveryProjectCard";
 import {
   EMPTY_SEARCH_STATE,
   SEARCH_BUDGETS,
@@ -63,12 +49,6 @@ const compactNumber = (value) => new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 1,
 }).format(Number(value) || 0);
 
-const resultScore = (project) => {
-  const raw = project?.platformScore?.overall ?? project?.scriptScore?.overall ?? project?.rating;
-  const score = Number(raw);
-  return Number.isFinite(score) && score > 0 ? Math.round(score) : null;
-};
-
 const roleLabel = (role) => {
   if (role === "investor") return "Industry";
   if (role === "creator" || role === "writer") return "Writer";
@@ -90,69 +70,6 @@ function PersonAvatar({ person }) {
     <span className="ckm-search__avatar">
       {image ? <img src={image} alt="" loading="lazy" /> : <span aria-hidden="true">{initials}</span>}
     </span>
-  );
-}
-
-function SearchProjectCard({ project, onShare }) {
-  const { isBookmarked, canBookmark, pending, toggleBookmark } = useScriptBookmark(project);
-  const cover = resolveMediaUrl(project?.coverImage);
-  const genre = project?.primaryGenre || project?.genre;
-  const format = project?.contentType || project?.format;
-  const score = resultScore(project);
-  const price = project?.premium && Number(project?.price) > 0
-    ? `₹${Number(project.price).toLocaleString()}`
-    : "Free";
-
-  return (
-    <Card className="ckm-search__project">
-      <CardMedia
-        src={cover}
-        ratio="16 / 9"
-        placeholderIcon="movie"
-        overlay={<Badge tone={project?.verifiedBadge ? "success" : "neutral"} size="sm">{price}</Badge>}
-      />
-      <CardBody>
-        <CardEyebrow>
-          {project?.creator?.name || "Ckript writer"}{genre ? ` · ${genre}` : ""}
-        </CardEyebrow>
-        <CardTitle to={getScriptCanonicalPath(project)}>{project?.title || "Untitled project"}</CardTitle>
-        <CardText>{project?.logline || project?.description || project?.synopsis || "Open this project to learn more."}</CardText>
-        {(genre || format) && (
-          <CardTags>
-            {genre && <Badge size="sm">{genre}</Badge>}
-            {format && <Badge size="sm">{String(format).replace(/_/g, " ")}</Badge>}
-          </CardTags>
-        )}
-      </CardBody>
-      <CardFooter>
-        <span className="ckm-search__project-stats">
-          <span><span className="material-symbols-outlined" aria-hidden="true">visibility</span>{compactNumber(project?.views)}</span>
-          {score != null && <span><span className="material-symbols-outlined" aria-hidden="true">star</span>{score}</span>}
-        </span>
-        <CardActions>
-          {canBookmark && (
-            <IconButton
-              icon={isBookmarked ? "bookmark" : "bookmark_add"}
-              label={`${isBookmarked ? "Remove" : "Save"} ${project?.title || "project"}`}
-              size="sm"
-              active={isBookmarked}
-              disabled={pending}
-              onClick={toggleBookmark}
-            />
-          )}
-          <IconButton
-            icon="ios_share"
-            label={`Share ${project?.title || "project"}`}
-            size="sm"
-            onClick={(event) => {
-              event.preventDefault();
-              event.stopPropagation();
-              onShare(project);
-            }}
-          />
-        </CardActions>
-      </CardFooter>
-    </Card>
   );
 }
 
@@ -314,60 +231,20 @@ export default function SearchMobile({ user, previewData = null }) {
     <MobileShell
       {...shell}
       overlays={(
-        <Dialog
+        <DiscoveryFiltersDialog
           open={filtersOpen}
           onClose={() => setFiltersOpen(false)}
-          title="Filter projects"
           description="Refine the project results. People are matched by your search words."
-          action={(
-            <Button
-              size="sm"
-              variant="tertiary"
-              onClick={() => setFilterDraft({ ...filterDraft, genre: "", contentType: "", budget: "", pricing: "all", sort: "newest" })}
-            >
-              Reset
-            </Button>
-          )}
-          footer={<Button fullWidth onClick={applyFilters}>Show results</Button>}
-          bodyClassName="ckm-search__filter-body"
-        >
-          <SelectField
-            label="Sort by"
-            value={filterDraft.sort}
-            options={SEARCH_SORTS}
-            onChange={(event) => setFilterDraft((current) => ({ ...current, sort: event.target.value }))}
-          />
-          <SelectField
-            label="Genre"
-            value={filterDraft.genre}
-            onChange={(event) => setFilterDraft((current) => ({ ...current, genre: event.target.value }))}
-          >
-            <option value="">All genres</option>
-            {SEARCH_GENRES.map((genre) => <option key={genre} value={genre}>{genre}</option>)}
-          </SelectField>
-          <SelectField
-            label="Content type"
-            value={filterDraft.contentType}
-            onChange={(event) => setFilterDraft((current) => ({ ...current, contentType: event.target.value }))}
-          >
-            <option value="">All types</option>
-            {SEARCH_CONTENT_TYPES.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
-          </SelectField>
-          <SelectField
-            label="Budget"
-            value={filterDraft.budget}
-            onChange={(event) => setFilterDraft((current) => ({ ...current, budget: event.target.value }))}
-          >
-            <option value="">Any budget</option>
-            {SEARCH_BUDGETS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
-          </SelectField>
-          <SelectField
-            label="Pricing"
-            value={filterDraft.pricing}
-            options={SEARCH_PRICING}
-            onChange={(event) => setFilterDraft((current) => ({ ...current, pricing: event.target.value }))}
-          />
-        </Dialog>
+          draft={filterDraft}
+          setDraft={setFilterDraft}
+          onReset={() => setFilterDraft({ ...filterDraft, genre: "", contentType: "", budget: "", pricing: "all", sort: "newest" })}
+          onApply={applyFilters}
+          sortOptions={SEARCH_SORTS}
+          genres={SEARCH_GENRES}
+          contentTypes={SEARCH_CONTENT_TYPES}
+          budgets={SEARCH_BUDGETS}
+          pricingOptions={SEARCH_PRICING}
+        />
       )}
     >
       <header className="ckm-search__header">
@@ -491,7 +368,7 @@ export default function SearchMobile({ user, previewData = null }) {
               <h2 id="ckm-search-projects-title">Projects</h2>
               <div className="ckm-search__project-grid">
                 {results.scripts.map((project) => (
-                  <SearchProjectCard key={project._id} project={project} onShare={onShare} />
+                  <DiscoveryProjectCard key={project._id} project={project} onShare={onShare} />
                 ))}
               </div>
             </section>

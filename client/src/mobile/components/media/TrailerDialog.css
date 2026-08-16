@@ -1,0 +1,57 @@
+/* Trailer playback and the narrated alternative (prefix: ckm-trailer). */
+
+.ckm .ckm-trailer__body {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--ckm-space-4);
+}
+
+/*
+ * The stage is dark regardless of the surface behind it: letterboxing bars on
+ * a light ground read as a broken layout rather than as the edges of a video.
+ * `aspect-ratio` rather than a fixed height so a portrait trailer is not
+ * cropped, and `contain` so neither orientation is.
+ */
+.ckm .ckm-trailer__video {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--ckm-r-md);
+  background: #000;
+  object-fit: contain;
+}
+
+.ckm .ckm-trailer__summary {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--ckm-space-3);
+}
+
+.ckm .ckm-trailer__summary-note {
+  margin: 0;
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+}
+
+.ckm .ckm-trailer__track {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ckm-line-strong);
+  overflow: hidden;
+}
+
+.ckm .ckm-trailer__track > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ckm-accent-ink);
+}
+
+/* The bar reports elapsed time; animating it as well would double-count. */
+@media (prefers-reduced-motion: no-preference) {
+  .ckm .ckm-trailer__track > span {
+    transition: width 120ms linear;
+  }
+}

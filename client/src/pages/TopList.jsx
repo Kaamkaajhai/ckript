@@ -31,7 +31,8 @@ const CONTENT_TYPES = [
 const BUDGETS = [
   { key: "micro", label: "Micro (under Rs10L)" },
   { key: "low", label: "Low (Rs10L - Rs1Cr)" },
-  { key: "mid", label: "Mid (Rs1Cr - Rs10Cr)" },
+  // DEF-20: Script.budget's enum is "medium". "mid" matched no project, ever.
+  { key: "medium", label: "Medium (Rs1Cr - Rs10Cr)" },
   { key: "high", label: "High (Rs10Cr - Rs100Cr)" },
   { key: "blockbuster", label: "Blockbuster (over Rs100Cr)" },
 ];
@@ -40,7 +41,7 @@ const PREMIUM_OPTIONS = [
   { key: "premium", label: "Premium" },
   { key: "free", label: "Free" },
 ];
-const budgetLabel = { micro: "Micro", low: "Low", mid: "Mid", high: "High", blockbuster: "Blockbuster" };
+const budgetLabel = { micro: "Micro", low: "Low", medium: "Medium", high: "High", blockbuster: "Blockbuster" };
 
 /* ── Sort Tabs — merged from all 3 sections ───────── */
 const SORT_TABS = [
