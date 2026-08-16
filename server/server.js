@@ -56,6 +56,9 @@ import {
   authLimiter,
   paymentLimiter,
 } from "./middleware/securityMiddleware.js";
+import { cleanupExpiredMediaUploadSessions } from "./controllers/mediaUploadController.js";
+
+const isVercel = Boolean(process.env.VERCEL);
 
 const ensureDefaultAdmin = async () => {
   const adminEmail = (process.env.ADMIN_EMAIL || "admin@ckript.com").trim().toLowerCase();
@@ -109,12 +112,26 @@ const ensureDefaultAdmin = async () => {
   }
 };
 
-connectDB().then(() => {
+connectDB().then(async () => {
   ensureDefaultAdmin().catch(console.error);
+  cleanupExpiredMediaUploadSessions().catch((error) => {
+    console.error("Initial media upload cleanup failed:", error?.message || error);
+  });
+
+  // Long-running deployments retry orphan cleanup periodically. Serverless
+  // instances still run the initial/lazy cleanup when they start and whenever
+  // another upload session is created.
+  if (!isVercel && process.env.NODE_ENV !== "test") {
+    const timer = setInterval(() => {
+      cleanupExpiredMediaUploadSessions().catch((error) => {
+        console.error("Scheduled media upload cleanup failed:", error?.message || error);
+      });
+    }, 15 * 60 * 1000);
+    timer.unref?.();
+  }
 });
 
 const app = express();
-const isVercel = Boolean(process.env.VERCEL);
 
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
@@ -314,7 +331,13 @@ app.use(cors({
   origin: corsOrigin,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'x-draft-save-reason'],
+  allowedHeaders: [
+    'Content-Type',
+    'Authorization',
+    'x-draft-save-reason',
+    'Content-Range',
+    'X-Chunk-SHA256',
+  ],
   preflightContinue: false,
   optionsSuccessStatus: 204
 }));

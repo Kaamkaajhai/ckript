@@ -150,11 +150,11 @@ describe("describeWizardFooter", () => {
 
     expect(ready.next).toMatchObject({
       id: "retry-media",
-      label: "Retry the media upload",
+      label: "Continue media upload",
       kind: "publish",
       disabled: false,
     });
-    expect(busy.next).toMatchObject({ label: "Retrying…", disabled: true });
+    expect(busy.next).toMatchObject({ label: "Continuing…", disabled: true });
   });
 
   it("holds navigation while a selected file is actively uploading", () => {
@@ -166,6 +166,27 @@ describe("describeWizardFooter", () => {
       label: "Uploading media…",
       disabled: true,
     });
+  });
+
+  it("requires an explicit start after the large-file preflight", () => {
+    const footer = describeWizardFooter({ step: 2, mediaUploadPreflight: true });
+
+    expect(footer.back.disabled).toBe(false);
+    expect(footer.next).toMatchObject({
+      id: "start-media",
+      label: "Start uploads",
+      kind: "start-media",
+      disabled: false,
+    });
+  });
+
+  it("names a cancelled recovery without turning it into a failure", () => {
+    const footer = describeWizardFooter({
+      step: 2,
+      mediaRecovery: { failedTypes: [], cancelledTypes: ["trailer"] },
+    });
+
+    expect(footer.next.label).toBe("Retry cancelled uploads");
   });
 
   it("reports the access refusal first when several gates are shut", () => {

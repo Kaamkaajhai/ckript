@@ -58,6 +58,9 @@ const baseContext = (overrides = {}) => ({
   lastSaved: new Date(2026, 7, 9, 14, 32),
   loading: false,
   mediaUploadActive: false,
+  mediaUploadPreflight: null,
+  cancelProjectMediaUpload: vi.fn(),
+  confirmMediaUploadPreflight: vi.fn(),
   exiting: false,
   creationBlocked: false,
   competitionMode: false,
@@ -404,7 +407,7 @@ describe("Wizard — the footer", () => {
       handlePublish,
     }));
 
-    click(control("Retry the media upload"));
+    click(control("Continue media upload"));
     expect(handlePublish).toHaveBeenCalledTimes(1);
     expect(control("Next")).toBeUndefined();
   });
@@ -414,6 +417,43 @@ describe("Wizard — the footer", () => {
 
     expect(control("Uploading media…").disabled).toBe(true);
     expect(control("Back").disabled).toBe(true);
+  });
+
+  it("turns a large-file preflight into an explicit start action on the media panel", () => {
+    const confirmMediaUploadPreflight = vi.fn();
+    render(baseContext({
+      step: 2,
+      detailsStep: filmSubSteps.findIndex(({ key }) => key === "media"),
+      mediaUploadPreflight: {
+        files: [{ type: "trailer", label: "Trailer video", name: "feature-cut.mp4", size: 30 * 1024 * 1024 }],
+        totalBytes: 30 * 1024 * 1024,
+      },
+      confirmMediaUploadPreflight,
+    }));
+
+    expect(document.querySelector(".ckm-create-project__notice").textContent)
+      .toMatch(/feature-cut\.mp4 \(30\.0 MB\).*total 30\.0 MB/is);
+    click(control("Start uploads"));
+    expect(confirmMediaUploadPreflight).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers cancellation during transfer and labels the resulting recovery as cancelled", () => {
+    const cancelProjectMediaUpload = vi.fn();
+    render(baseContext({ mediaUploadActive: true, loading: true, cancelProjectMediaUpload }));
+    click(control("Cancel uploads"));
+    expect(cancelProjectMediaUpload).toHaveBeenCalledTimes(1);
+
+    act(() => root.unmount());
+    root = undefined;
+    render(baseContext({
+      step: 2,
+      pendingMediaRecovery: { failedTypes: [], cancelledTypes: ["trailer"] },
+      mediaProgress: { trailer: { percent: 41, status: "cancelled" } },
+    }));
+
+    expect(document.body.textContent).toMatch(/media upload cancelled/i);
+    expect(control("Retry cancelled uploads")).toBeTruthy();
+    expect(document.body.textContent).not.toMatch(/upload failed/i);
   });
 });
 

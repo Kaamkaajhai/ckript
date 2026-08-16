@@ -767,6 +767,7 @@ function MediaPanel({ vm }) {
         previewUrl={state.thumbnailPreviewUrl}
         previewKind="image"
         progress={progress.thumbnail || null}
+        disabled={state.mediaUploadActive}
         onSelect={actions.handleThumbnailSelect}
         onRemove={() => actions.setThumbnailFile(null)}
         actions={state.thumbnailFile ? [
@@ -835,6 +836,7 @@ function MediaPanel({ vm }) {
         previewKind="video"
         meta={state.trailerMetaLabel}
         progress={progress.trailer || null}
+        disabled={state.mediaUploadActive}
         onSelect={actions.handleTrailerSelect}
         onRemove={() => actions.setTrailerFile(null)}
       />
@@ -859,6 +861,7 @@ function MediaPanel({ vm }) {
           previewKind="video"
           meta={state.pitchVideoMetaLabel}
           progress={progress.pitchVideo || null}
+          disabled={state.mediaUploadActive}
           onSelect={actions.handlePitchVideoSelect}
           onRemove={() => actions.setPitchVideoFile(null)}
         />

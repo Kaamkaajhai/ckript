@@ -20,7 +20,13 @@ import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { SCRIPT_UPLOAD_TERMS_TEXT, SCRIPT_UPLOAD_TERMS_VERSION } from "../constants/scriptUploadTerms";
 import { DRAFT_ENDPOINT } from "./CreateProject/constants";
 import { encodeKeepaliveBody } from "./CreateProject/lib/keepaliveSave";
-import { mergeMediaProgress, uploadProjectMedia } from "./CreateProject/lib/projectMediaUpload";
+import {
+  buildMediaUploadPreflight,
+  mediaRecoveryTypes,
+  mergeMediaProgress,
+  uploadProjectMedia,
+  withoutMediaProgress,
+} from "./CreateProject/lib/projectMediaUpload";
 import {
   buildUploadWorkingDraftSnapshot,
   chooseUploadWorkingDraftRecovery,
@@ -613,6 +619,10 @@ const ScriptUpload = ({
   const [pitchVideoMeta, setPitchVideoMeta] = useState(null);
   const [pitchVideoMetaLoading, setPitchVideoMetaLoading] = useState(false);
   const [pendingMediaRecovery, setPendingMediaRecovery] = useState(null);
+  const [mediaUploadActive, setMediaUploadActive] = useState(false);
+  const [mediaUploadPreflight, setMediaUploadPreflight] = useState(null);
+  const mediaUploadControllerRef = useRef(null);
+  const acknowledgedMediaPreflightRef = useRef("");
   // { thumbnail?: { percent, status }, trailer?: …, pitchVideo?: … } — see
   // `postMedia` below. Empty until a submit actually starts sending files.
   const [mediaProgress, setMediaProgress] = useState({});
@@ -631,6 +641,23 @@ const ScriptUpload = ({
   const [submissionSuccess, setSubmissionSuccess] = useState(null);
   const [isContentOnlyEditMode, setIsContentOnlyEditMode] = useState(false);
   const [originalEditContent, setOriginalEditContent] = useState("");
+
+  useEffect(() => {
+    setMediaProgress((current) => withoutMediaProgress(current, "thumbnail"));
+    setMediaUploadPreflight(null);
+    acknowledgedMediaPreflightRef.current = "";
+  }, [thumbnailFile]);
+  useEffect(() => {
+    setMediaProgress((current) => withoutMediaProgress(current, "trailer"));
+    setMediaUploadPreflight(null);
+    acknowledgedMediaPreflightRef.current = "";
+  }, [trailerFile]);
+  useEffect(() => {
+    setMediaProgress((current) => withoutMediaProgress(current, "pitchVideo"));
+    setMediaUploadPreflight(null);
+    acknowledgedMediaPreflightRef.current = "";
+  }, [pitchVideoFile]);
+  useEffect(() => () => mediaUploadControllerRef.current?.abort(), []);
 
   // Form data
   const [formData, setFormData] = useState({
@@ -2248,22 +2275,60 @@ const ScriptUpload = ({
    * `services/api.js` already exports an axios instance. Shared code, so both
    * platforms get it.
    */
-  const uploadMediaForScript = async (targetScriptId, requestedTypes = null) => {
-    return uploadProjectMedia({
-      apiClient: api,
-      targetScriptId,
-      requestedTypes,
-      files: {
-        thumbnail: thumbnailFile,
-        trailer: trailerOption === "upload" ? trailerFile : null,
-        pitchVideo: pitchVideoFile,
-      },
-      onProgress: (type, next) => mergeMediaProgress(setMediaProgress, type, next),
-    });
+  const selectedUploadMediaFiles = () => ({
+    thumbnail: thumbnailFile,
+    trailer: trailerOption === "upload" ? trailerFile : null,
+    pitchVideo: pitchVideoFile,
+  });
+
+  const moveToUploadMediaPanel = () => {
+    setStep(UPLOAD_SCREEN_LOCATIONS.media.step);
+    setDetailStep(UPLOAD_SCREEN_LOCATIONS.media.detailStep);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const requireMediaUploadPreflight = (requestedTypes = null) => {
+    if (!nativeChrome) return false;
+    const preflight = buildMediaUploadPreflight({
+      files: selectedUploadMediaFiles(),
+      requestedTypes,
+    });
+    if (!preflight || acknowledgedMediaPreflightRef.current === preflight.signature) {
+      setMediaUploadPreflight(null);
+      return false;
+    }
+
+    setMediaUploadPreflight(preflight);
+    clearValidationFeedback();
+    moveToUploadMediaPanel();
+    return true;
+  };
+
+  const uploadMediaForScript = async (targetScriptId, requestedTypes = null) => {
+    mediaUploadControllerRef.current?.abort();
+    const controller = new AbortController();
+    mediaUploadControllerRef.current = controller;
+    setMediaUploadActive(true);
+    try {
+      return await uploadProjectMedia({
+        apiClient: api,
+        targetScriptId,
+        requestedTypes,
+        files: selectedUploadMediaFiles(),
+        signal: controller.signal,
+        onProgress: (type, next) => mergeMediaProgress(setMediaProgress, type, next),
+      });
+    } finally {
+      if (mediaUploadControllerRef.current === controller) {
+        mediaUploadControllerRef.current = null;
+        setMediaUploadActive(false);
+      }
+    }
+  };
+
+  const cancelMediaUpload = () => mediaUploadControllerRef.current?.abort();
+
+  const handleSubmit = async (e = null) => {
+    e?.preventDefault?.();
     clearValidationFeedback();
     if (sourceWriteBlocked) {
       setError(
@@ -2291,29 +2356,45 @@ const ScriptUpload = ({
       : validateUploadWorkflow(getValidationContext());
     if (!presentValidationIssues(submissionIssues)) return;
 
+    const recoveryRequestedTypes = pendingMediaRecovery
+      ? mediaRecoveryTypes(pendingMediaRecovery)
+      : null;
+    if (requireMediaUploadPreflight(recoveryRequestedTypes)) return;
+
     if (pendingMediaRecovery) {
+      const recovery = pendingMediaRecovery;
       setLoading(true);
       try {
-        const failedTypes = await uploadMediaForScript(
-          pendingMediaRecovery.targetScriptId,
-          pendingMediaRecovery.failedTypes
+        moveToUploadMediaPanel();
+        const mediaResult = await uploadMediaForScript(
+          recovery.targetScriptId,
+          recoveryRequestedTypes,
         );
-        if (failedTypes.length > 0) {
-          setPendingMediaRecovery((current) => ({ ...current, failedTypes }));
-          presentValidationIssues([
-            resolveUploadServerIssue(
-              `The project is saved, but ${failedTypes.length} media file${failedTypes.length > 1 ? "s" : ""} still could not be uploaded. Replace or remove the highlighted media, then submit again.`,
-              "media"
-            ),
-          ]);
+        const issueTypes = mediaRecoveryTypes(mediaResult);
+        if (issueTypes.length > 0) {
+          setPendingMediaRecovery((current) => ({
+            ...current,
+            failedTypes: mediaResult.failedTypes,
+            cancelledTypes: mediaResult.cancelledTypes,
+          }));
+          if (mediaResult.failedTypes.length > 0) {
+            presentValidationIssues([
+              resolveUploadServerIssue(
+                `The project is saved, but ${mediaResult.failedTypes.length} media file${mediaResult.failedTypes.length > 1 ? "s" : ""} still could not be uploaded. Replace or remove the highlighted media, then submit again.`,
+                "media"
+              ),
+            ]);
+          } else {
+            clearValidationFeedback();
+          }
           return;
         }
 
         setPendingMediaRecovery(null);
         markWorkingDraftCommitted();
         setSubmissionSuccess({
-          projectTitle: pendingMediaRecovery.title,
-          reviewPath: pendingMediaRecovery.redirectPath,
+          projectTitle: recovery.title,
+          reviewPath: recovery.redirectPath,
         });
       } catch (recoveryError) {
         presentValidationIssues([
@@ -2432,15 +2513,25 @@ const ScriptUpload = ({
             username: user?.username,
           },
         });
-        const failedTypes = await uploadMediaForScript(editId);
-        if (failedTypes.length > 0) {
-          setPendingMediaRecovery({ targetScriptId: editId, failedTypes, title: payload.title, redirectPath });
-          presentValidationIssues([
-            resolveUploadServerIssue(
-              `The project was updated, but ${failedTypes.length} media file${failedTypes.length > 1 ? "s" : ""} could not be uploaded. Replace or remove the highlighted media, then submit again.`,
-              "media"
-            ),
-          ]);
+        const mediaResult = await uploadMediaForScript(editId);
+        const issueTypes = mediaRecoveryTypes(mediaResult);
+        if (issueTypes.length > 0) {
+          setPendingMediaRecovery({
+            targetScriptId: editId,
+            failedTypes: mediaResult.failedTypes,
+            cancelledTypes: mediaResult.cancelledTypes,
+            title: payload.title,
+            redirectPath,
+          });
+          moveToUploadMediaPanel();
+          if (mediaResult.failedTypes.length > 0) {
+            presentValidationIssues([
+              resolveUploadServerIssue(
+                `The project was updated, but ${mediaResult.failedTypes.length} media file${mediaResult.failedTypes.length > 1 ? "s" : ""} could not be uploaded. Replace or remove the highlighted media, then submit again.`,
+                "media"
+              ),
+            ]);
+          }
           return;
         }
         markWorkingDraftCommitted(data?.updatedAt || null);
@@ -2448,15 +2539,25 @@ const ScriptUpload = ({
       } else {
         const response = await api.post("/scripts/upload", payload);
         const newScriptId = response.data._id;
-        const failedTypes = await uploadMediaForScript(newScriptId);
-        if (failedTypes.length > 0) {
-          setPendingMediaRecovery({ targetScriptId: newScriptId, failedTypes, title: payload.title, redirectPath: "/dashboard" });
-          presentValidationIssues([
-            resolveUploadServerIssue(
-              `The project was created, but ${failedTypes.length} media file${failedTypes.length > 1 ? "s" : ""} could not be uploaded. Replace or remove the highlighted media, then submit again.`,
-              "media"
-            ),
-          ]);
+        const mediaResult = await uploadMediaForScript(newScriptId);
+        const issueTypes = mediaRecoveryTypes(mediaResult);
+        if (issueTypes.length > 0) {
+          setPendingMediaRecovery({
+            targetScriptId: newScriptId,
+            failedTypes: mediaResult.failedTypes,
+            cancelledTypes: mediaResult.cancelledTypes,
+            title: payload.title,
+            redirectPath: "/dashboard",
+          });
+          moveToUploadMediaPanel();
+          if (mediaResult.failedTypes.length > 0) {
+            presentValidationIssues([
+              resolveUploadServerIssue(
+                `The project was created, but ${mediaResult.failedTypes.length} media file${mediaResult.failedTypes.length > 1 ? "s" : ""} could not be uploaded. Replace or remove the highlighted media, then submit again.`,
+                "media"
+              ),
+            ]);
+          }
           return;
         }
         const reviewPath = getScriptCanonicalPath({
@@ -2483,6 +2584,13 @@ const ScriptUpload = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const confirmMediaUploadPreflight = () => {
+    if (!mediaUploadPreflight) return;
+    acknowledgedMediaPreflightRef.current = mediaUploadPreflight.signature;
+    setMediaUploadPreflight(null);
+    handleSubmit();
   };
 
   /*
@@ -2686,6 +2794,9 @@ const ScriptUpload = ({
       validationErrors,
       validationAttempt,
       mediaRecoveryPending: Boolean(pendingMediaRecovery),
+      mediaRecovery: pendingMediaRecovery,
+      mediaUploadActive,
+      mediaUploadPreflight,
       pdfNotice,
       creationBlocked,
       sourceLoad,
@@ -2783,6 +2894,9 @@ const ScriptUpload = ({
         clearValidationFeedback();
         setPitchVideoFile(file);
       },
+      cancelMediaUpload,
+      confirmMediaUploadPreflight,
+      dismissMediaUploadPreflight: () => setMediaUploadPreflight(null),
       setIsPremium: (value) => {
         clearValidationFeedback();
         setIsPremium(value);

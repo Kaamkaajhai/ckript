@@ -74,6 +74,10 @@ import { normalizeWriterCredits, addWriterCredit } from "../utils/writerCredits.
 import { derivePreviewPageTexts } from "../utils/screenplayPages.js";
 import { stripPdfPageFurniture } from "../utils/screenplayImportClean.js";
 import { hasProjectCreatorAccess } from "../utils/projectAccess.js";
+import {
+  attachUploadedScriptMedia,
+  canUploadPitchVideo,
+} from "../utils/scriptMedia.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -7110,36 +7114,14 @@ export const uploadScriptTrailer = async (req, res) => {
       public_id: `trailer-${scriptId}-${Date.now()}`,
     });
 
-    const trailerUrl = result.secure_url;
-    script.uploadedTrailerUrl = trailerUrl;
-    script.trailerSource = "uploaded";
-
-    const shouldKeepAiQueue = Boolean(script.services?.aiTrailer && !script.trailerUrl);
-    if (shouldKeepAiQueue) {
-      if (!["requested", "generating"].includes(script.trailerStatus)) {
-        script.trailerStatus = "requested";
-      }
-      script.trailerWriterFeedback = {
-        status: "pending",
-        note: script.trailerWriterFeedback?.note || "",
-        updatedAt: new Date(),
-      };
-    } else {
-      script.trailerStatus = "ready";
-      script.trailerWriterFeedback = {
-        status: "approved",
-        note: "",
-        updatedAt: new Date(),
-      };
-    }
+    const mediaResult = attachUploadedScriptMedia(script, {
+      kind: "trailer",
+      secureUrl: result.secure_url,
+    });
     await script.save();
 
     res.json({
-      message: shouldKeepAiQueue
-        ? "Trailer uploaded successfully. AI trailer request is still active."
-        : "Trailer uploaded successfully (free)",
-      trailerUrl,
-      trailerSource: "uploaded",
+      ...mediaResult,
       script
     });
   } catch (error) {
@@ -7166,14 +7148,11 @@ export const uploadScriptPitchVideo = async (req, res) => {
       return res.status(403).json({ message: "Only the script creator can upload a pitch video" });
     }
 
-    if (["writer", "creator"].includes(String(req.user.role).toLowerCase())) {
-      const plan = String(req.user.subscription?.plan || "free").toLowerCase();
-      if (plan === "free" || plan === "none") {
-        return res.status(403).json({ 
-          message: "Pitch video uploads are a premium feature. Please upgrade your plan to unlock this.",
-          requiresUpgrade: true
-        });
-      }
+    if (!canUploadPitchVideo(req.user)) {
+      return res.status(403).json({
+        message: "Pitch video uploads are a premium feature. Please upgrade your plan to unlock this.",
+        requiresUpgrade: true
+      });
     }
 
     const result = await uploadToCloudinary(req.file.buffer, {
@@ -7182,12 +7161,14 @@ export const uploadScriptPitchVideo = async (req, res) => {
       public_id: `pitch-${scriptId}-${Date.now()}`,
     });
 
-    script.pitchVideoUrl = result.secure_url;
+    const mediaResult = attachUploadedScriptMedia(script, {
+      kind: "pitchVideo",
+      secureUrl: result.secure_url,
+    });
     await script.save();
 
     res.json({
-      message: "Pitch video uploaded successfully",
-      pitchVideoUrl: result.secure_url,
+      ...mediaResult,
       script,
     });
   } catch (error) {

@@ -403,8 +403,8 @@ function RootExperience({ children }) {
     authLoading: loading,
     user,
     pathname: location.pathname,
-    // A route may declare a query it deliberately does not cover — see
-    // `excludeQuery` in the manifest, and /create-project?ctx=competition.
+    // A route may declare a query it deliberately does not cover. Competition
+    // creation no longer needs an exclusion: the native editor owns it.
     search: location.search,
     isDev: import.meta.env.DEV,
   });
@@ -614,7 +614,7 @@ function App() {
                 />
               )}
               {import.meta.env.DEV && (
-                /* Phase 3 create-project harness, both modes — see
+                /* Phase 3 create-project harness, all surfaces — see
                    mobile/dev/CreateHarness.jsx. /create-project is a real mobile
                    route now, but it authenticates, fetches drafts and autosaves,
                    so it cannot be measured twice and get the same answer. The
@@ -647,6 +647,20 @@ function App() {
                     <AuthContext.Provider value={{ user: { name: "Arshad Rahman", role: "creator", token: "preview" }, loading: false, logout: () => {} }}>
                       <Suspense fallback={null}>
                         <MobileApp devScreen="upload" />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
+              )}
+              {import.meta.env.DEV && (
+                /* Phase 4 Search harness — deterministic mixed, paged results
+                   for browser geometry and accessibility sweeps. */
+                <Route
+                  path="/__mobile-search"
+                  element={
+                    <AuthContext.Provider value={{ user: { _id: "preview-user", name: "Asha Writer", role: "writer", token: "preview", favoriteScripts: [] }, loading: false, logout: () => {}, setUser: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="search" />
                       </Suspense>
                     </AuthContext.Provider>
                   }

@@ -35,11 +35,8 @@ export function findMobileRoute(pathname = "") {
  * Whether a route's declared query exclusion applies to the current URL.
  *
  * A route can be implemented for mobile in general and deliberately NOT
- * implemented for one entry mode — `/create-project?ctx=competition` replaces
- * the whole publish wizard with a competition deadline bar and a one-way
- * Submit, neither of which is ported. Without this the mobile screen would load
- * and a competition writer would have no way to submit their entry: worse than
- * the desktop page, not merely different from it.
+ * implemented for one query-defined entry mode. There are no current query
+ * exclusions, but the generic policy stays available for future partial ports.
  *
  * It lives in the manifest rather than inside the screen because the manifest is
  * the file that answers "what does mobile cover?", and an exception hidden in a

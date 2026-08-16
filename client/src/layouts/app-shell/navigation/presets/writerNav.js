@@ -1,8 +1,10 @@
 /*
  * writerNav — destinations for the writer / creator audience.
  *
- * Mirrors the "Ckript Dashboard 2B" reference rail:
- *   Dashboard · Projects · Create · Upload · Challenge · Messages · Profile
+ * Mirrors the "Ckript Dashboard 2B" reference rail, with one deliberate compact
+ * adaptation: Projects replaces Create in the phone bottom bar. Create remains
+ * in the desktop rail and drawer, while Projects opens the dashboard's canonical
+ * query-string tab rather than inventing a mobile-only route.
  *
  * Projects and Reviews are query-string tabs of the dashboard, not pages of
  * their own — the same shape as "My Competitions" (/challenge?tab=mine) below.
@@ -58,7 +60,10 @@ export const writerNav = ({ profilePath, msgCount }) => ({
    * keeps its place in the rail and drawer — whereas a writer's own project
    * list had no entry point anywhere in the compact bar.
    */
-  mobileKeys: ["dashboard", "create", "messages"],
+  mobileItems: [
+    { key: "projects", path: "/dashboard?tab=projects", label: "Projects", icon: "projects" },
+  ],
+  mobileKeys: ["dashboard", "projects", "messages"],
 
   /*
    * The drawer's contextual list. Writers see the projects they are actively

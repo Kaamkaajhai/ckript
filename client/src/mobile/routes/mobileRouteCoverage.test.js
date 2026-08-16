@@ -15,6 +15,7 @@ const APP_ROUTE_PATTERNS = [
   "/__mobile-create",
   "/__mobile-preview",
   "/__mobile-primitives",
+  "/__mobile-search",
   "/__mobile-upload",
   "/:id",
   "/:projectHeading/:writerUsername",

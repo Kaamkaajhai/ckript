@@ -37,6 +37,14 @@ import {
   deleteComment,
 } from "../controllers/commentController.js";
 import { generateCoverImage } from "../controllers/aiController.js";
+import {
+  abortMediaUploadSession,
+  completeMediaUploadSession,
+  createMediaUploadSession,
+  getMediaUploadSession,
+  uploadMediaPart,
+  SCRIPT_MEDIA_CHUNK_BYTES,
+} from "../controllers/mediaUploadController.js";
 import multer from "multer";
 
 const router = express.Router();
@@ -98,10 +106,37 @@ const uploadPitchVideoWithLimit = (req, res, next) => {
   });
 };
 
+const uploadMediaPartBody = express.raw({
+  type: "application/octet-stream",
+  limit: SCRIPT_MEDIA_CHUNK_BYTES,
+});
+
+const uploadMediaPartWithLimit = (req, res, next) => {
+  uploadMediaPartBody(req, res, (err) => {
+    if (err?.type === "entity.too.large") {
+      return res.status(413).json({
+        message: `Upload parts must be ${SCRIPT_MEDIA_CHUNK_BYTES / (1024 * 1024)} MiB or smaller.`,
+      });
+    }
+    if (err) {
+      return res.status(400).json({ message: err.message || "Upload part could not be read." });
+    }
+    next();
+  });
+};
+
 // Thumbnail, Trailer and Pitch Video upload routes
 router.post("/:id/upload-thumbnail", protect, uploadThumbnailWithLimit, uploadScriptThumbnail);
 router.post("/:id/upload-trailer", protect, uploadTrailerWithLimit, uploadScriptTrailer);
 router.post("/:id/upload-pitch-video", protect, uploadPitchVideoWithLimit, uploadScriptPitchVideo);
+// Resumable video transport. The legacy whole-file endpoints remain for older
+// clients and thumbnails; native creation uses this session contract for both
+// trailer and pitch video uploads.
+router.post("/:id/media-uploads", protect, createMediaUploadSession);
+router.get("/:id/media-uploads/:sessionId", protect, getMediaUploadSession);
+router.put("/:id/media-uploads/:sessionId/parts/:partNumber", protect, uploadMediaPartWithLimit, uploadMediaPart);
+router.post("/:id/media-uploads/:sessionId/complete", protect, completeMediaUploadSession);
+router.delete("/:id/media-uploads/:sessionId", protect, abortMediaUploadSession);
 router.post("/:id/request-ai-trailer/create-order", protect, createScriptTrailerOrder);
 router.post("/:id/request-ai-trailer", protect, verifyScriptTrailerPayment);
 router.post("/:id/trailer-feedback", protect, submitTrailerFeedback);
