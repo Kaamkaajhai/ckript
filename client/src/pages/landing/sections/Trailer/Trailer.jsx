@@ -84,6 +84,8 @@ export default function Trailer() {
               controls
               autoPlay
               playsInline
+              controlsList="nodownload"
+              onContextMenu={(e) => e.preventDefault()}
             />
           </div>
         </div>
