@@ -229,6 +229,60 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
   // second prefix would be a file with nothing in it.
   "ckm-holds": { kind: PAGE_FAMILY, owner: "screens/Holds.css", family: "holds" },
 
+  // --- Discovery (Phase 4) ----------------------------------------------
+  "ckm-search": {
+    kind: PAGE_FAMILY,
+    owner: "screens/discovery/SearchMobile.css",
+    family: "discovery",
+    note: "Authenticated mixed people/project search, URL-backed facets and paged results at /search.",
+  },
+  "ckm-discovery-project": {
+    kind: SHARED_COMPONENT,
+    owner: "screens/discovery/components/DiscoveryProjectCard.css",
+    note: "Shared project summary, ranking metric, bookmark and public-share actions for Search, Top and Featured.",
+  },
+  "ckm-discovery-filter": {
+    kind: SHARED_COMPONENT,
+    owner: "screens/discovery/components/DiscoveryFiltersDialog.css",
+    note: "Shared full-screen five-select project facet task for discovery collections.",
+  },
+  "ckm-top-scripts": {
+    kind: PAGE_FAMILY,
+    owner: "screens/discovery/TopScriptsMobile.css",
+    family: "discovery",
+    note: "Five-mode ranked project collection with URL-backed facets and bounded paging at /top-script.",
+  },
+  "ckm-featured": {
+    kind: PAGE_FAMILY,
+    owner: "screens/discovery/FeaturedProjectsMobile.css",
+    family: "discovery",
+    note: "Paid-placement collection at /featured: lead, spotlight, ranked and mandate-match sections over two bounded sources.",
+  },
+  "ckm-featured-lead": {
+    kind: SHARED_COMPONENT,
+    owner: "screens/discovery/components/FeaturedLeadCard.css",
+    note: "The editorial lead and the sentence explaining why it leads. Its own prefix because it is a different composition from the shared discovery card, not a variant of it.",
+  },
+  "ckm-trailer": {
+    kind: SHARED_COMPONENT,
+    owner: "components/media/TrailerDialog.css",
+    note: "Full-screen trailer playback with source fallback and the narrated-summary alternative. Promoted out of screens/discovery/components in D28, when project detail became its second caller — §6 reserves a family's components/ folder for components exclusive to that family.",
+  },
+
+  // --- Authenticated project detail (Phase 4, D28) ----------------------
+  "ckm-project": {
+    kind: PAGE_FAMILY,
+    owner: "screens/projects/project-detail/ProjectDetailMobile.css",
+    family: "projects",
+    note: "The authenticated project page behind all three route forms: hero, recommended action, and the five stacked sections that replace the desktop workbench's eight-tab rail.",
+  },
+  "ckm-reader": {
+    kind: PAGE_FAMILY,
+    owner: "screens/projects/project-detail/components/ProjectReaderDialog.css",
+    family: "projects",
+    note: "The full-screen screenplay reader. Its own prefix rather than part of ckm-project: it is a typeset fixed-pitch surface with its own horizontal scroll rules, and folding those into the page family would make neither file readable on its own.",
+  },
+
   // --- Project creation (Phase 3) ---------------------------------------
   // The chooser at /new-project. Its own family rather than part of
   // ckm-create-project: it is a different route with a different shell, it

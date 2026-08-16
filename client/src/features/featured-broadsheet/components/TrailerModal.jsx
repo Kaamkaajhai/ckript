@@ -13,18 +13,13 @@
  *      navy gradient.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { resolveMediaUrl } from "../../../utils/mediaUrl";
-import { getContentTypeLabel } from "../featuredBroadsheet";
 import FeaturedIcon from "./FeaturedIcon";
-
-const resolveTrailerCandidates = (script) => {
-  const ai = script?.trailerUrl || "";
-  const uploaded = script?.uploadedTrailerUrl || "";
-  const ordered = script?.trailerSource === "uploaded" ? [uploaded, ai] : [ai, uploaded];
-  return [...new Set(ordered.filter(Boolean))].map((url) => resolveMediaUrl(url)).filter(Boolean);
-};
-
-const DEMO_SECONDS = 30;
+import {
+  NARRATION_SECONDS as DEMO_SECONDS,
+  resolveTrailerCandidates,
+  speakNarration,
+  trailerSubtitle,
+} from "../featuredTrailer";
 
 const NarratedDemo = ({ script }) => {
   const [playing, setPlaying] = useState(false);
@@ -49,24 +44,7 @@ const NarratedDemo = ({ script }) => {
     setPlaying(true);
     setProgress(0);
 
-    const lines = [
-      script?.title,
-      script?.genre ? `A ${script.genre} story` : null,
-      script?.logline || script?.synopsis || script?.description || null,
-      script?.pageCount ? `${script.pageCount} pages.` : null,
-      "Available now on Ckript.",
-    ].filter(Boolean);
-
-    if (typeof window !== "undefined" && "speechSynthesis" in window) {
-      const utterance = new SpeechSynthesisUtterance(lines.join(". "));
-      utterance.rate = 0.92;
-      utterance.pitch = 1.05;
-      const voices = window.speechSynthesis.getVoices();
-      const preferred = voices.find((v) => v.lang === "en-US") || voices[0];
-      if (preferred) utterance.voice = preferred;
-      utterance.onend = stop;
-      window.speechSynthesis.speak(utterance);
-    }
+    speakNarration(script, { onEnd: stop });
 
     let elapsed = 0;
     timerRef.current = setInterval(() => {
@@ -131,9 +109,7 @@ const TrailerModal = ({ script, onClose, onOpenProject }) => {
     setFailed(true);
   };
 
-  const subtitle = [script?.genre, script?.contentType ? getContentTypeLabel(script.contentType) : null]
-    .filter(Boolean)
-    .join(" · ");
+  const subtitle = trailerSubtitle(script);
 
   return (
     <div

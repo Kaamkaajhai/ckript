@@ -1,0 +1,85 @@
+/* Native Top Scripts screen (prefix: ckm-top-scripts). */
+
+.ckm .ckm-top-scripts__scroll {
+  padding: var(--ckm-space-4-5) var(--ckm-space-4-5) var(--ckm-space-8);
+}
+
+.ckm .ckm-top-scripts__header {
+  margin-bottom: var(--ckm-space-5);
+}
+
+.ckm .ckm-top-scripts__eyebrow {
+  margin: 0 0 var(--ckm-space-1);
+  color: var(--ckm-accent-ink);
+  font: var(--ckm-weight-bold) var(--ckm-text-micro) / var(--ckm-leading-micro) var(--ckm-body);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.ckm .ckm-top-scripts__header h1 {
+  margin: 0;
+  color: var(--ckm-text);
+  font: var(--ckm-weight-medium) var(--ckm-text-title) / var(--ckm-leading-title) var(--ckm-display);
+}
+
+.ckm .ckm-top-scripts__header > p:last-child {
+  margin: var(--ckm-space-1) 0 0;
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+}
+
+.ckm .ckm-top-scripts__controls,
+.ckm .ckm-top-scripts__loading,
+.ckm .ckm-top-scripts__results {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-4);
+}
+
+.ckm .ckm-top-scripts__controls {
+  margin-bottom: var(--ckm-space-6);
+}
+
+.ckm .ckm-top-scripts__filter-row,
+.ckm .ckm-top-scripts__results-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ckm-space-3);
+}
+
+.ckm .ckm-top-scripts__results-heading h2,
+.ckm .ckm-top-scripts__results-heading p {
+  margin: 0;
+}
+
+.ckm .ckm-top-scripts__results-heading h2 {
+  color: var(--ckm-text);
+  font: var(--ckm-weight-medium) var(--ckm-text-card) / var(--ckm-leading-card) var(--ckm-display);
+}
+
+.ckm .ckm-top-scripts__results-heading p {
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-medium) var(--ckm-text-caption) / var(--ckm-leading-caption) var(--ckm-body);
+  text-align: right;
+}
+
+.ckm .ckm-top-scripts__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ckm-space-4);
+}
+
+@media (min-width: 540px) {
+  .ckm .ckm-top-scripts__grid,
+  .ckm .ckm-top-scripts__loading {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 359px) {
+  .ckm .ckm-top-scripts__scroll {
+    padding-inline: var(--ckm-space-3);
+  }
+}

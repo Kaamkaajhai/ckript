@@ -11,6 +11,7 @@ const { apiMock } = vi.hoisted(() => ({
     post: vi.fn(),
     put: vi.fn(),
     patch: vi.fn(),
+    delete: vi.fn(),
   },
 }));
 
@@ -46,14 +47,64 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 let container;
 let root;
+let createElement;
 
 const flushAsync = async () => {
   await Promise.resolve();
   await new Promise((resolve) => window.setTimeout(resolve, 0));
 };
 
+function NativeMediaHarness({ vm }) {
+  return (
+    <div data-testid="native-media-harness">
+      <button
+        type="button"
+        data-testid="native-set-title"
+        onClick={() => vm.actions.handleChange({ target: { name: "title", value: "A Monsoon Story", type: "text" } })}
+      >
+        Set title
+      </button>
+      <button
+        type="button"
+        data-testid="native-set-trailer"
+        onClick={() => {
+          const trailer = new File(["media"], "feature-cut.mp4", { type: "video/mp4", lastModified: 7 });
+          Object.defineProperty(trailer, "size", { value: 30 * 1024 * 1024 });
+          vm.actions.handleTrailerSelect(trailer);
+        }}
+      >
+        Set large trailer
+      </button>
+      <button type="button" data-testid="native-submit" onClick={vm.actions.handleSubmit}>Submit</button>
+      {vm.state.mediaUploadPreflight && (
+        <button type="button" data-testid="native-confirm" onClick={vm.actions.confirmMediaUploadPreflight}>
+          Confirm large upload
+        </button>
+      )}
+      {vm.state.mediaUploadActive && (
+        <button type="button" data-testid="native-cancel" onClick={vm.actions.cancelMediaUpload}>
+          Cancel upload
+        </button>
+      )}
+      {vm.state.mediaRecovery?.cancelledTypes?.length > 0 && (
+        <p data-testid="native-cancelled">Cancelled: {vm.state.mediaRecovery.cancelledTypes.join(",")}</p>
+      )}
+    </div>
+  );
+}
+
 beforeEach(() => {
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+  vi.spyOn(window, "fetch").mockResolvedValue(new window.Response(new Uint8Array(), { status: 200 }));
+  vi.spyOn(URL, "createObjectURL").mockReturnValue("data:video/mp4;base64,");
+  vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+  createElement = document.createElement.bind(document);
+  vi.spyOn(document, "createElement").mockImplementation((tagName, options) => {
+    if (String(tagName).toLowerCase() === "video") {
+      return { preload: "", src: "", onloadedmetadata: null, onerror: null };
+    }
+    return createElement(tagName, options);
+  });
   vi.stubGlobal("alert", vi.fn());
   vi.stubGlobal("confirm", vi.fn(() => true));
   apiMock.get.mockImplementation((url) => {
@@ -117,5 +168,89 @@ describe("ScriptUpload success flow", () => {
     expect(window.alert).not.toHaveBeenCalled();
     expect(window.confirm).not.toHaveBeenCalled();
     expect(container.querySelector("[role='dialog']")).toBeNull();
+  });
+
+  it("preflights a large native upload and preserves cancellation as recovery, not failure", async () => {
+    const user = {
+      role: "writer",
+      username: "writer_one",
+      writerProfile: { username: "writer_one" },
+      subscription: { plan: "gold" },
+    };
+    apiMock.post.mockImplementation((url) => {
+      if (url === "/scripts/upload") {
+        return Promise.resolve({ data: { _id: "script-42", title: "A Monsoon Story" } });
+      }
+      if (url === "/scripts/script-42/media-uploads") {
+        return Promise.resolve({ data: { upload: {
+          sessionId: "session-1",
+          chunkSize: 6 * 1024 * 1024,
+          totalParts: 5,
+          nextPart: 0,
+          acceptedBytes: 0,
+          percent: 0,
+        } } });
+      }
+      return Promise.reject(new Error(`Unexpected POST ${url}`));
+    });
+    apiMock.put.mockImplementation((url, _body, config) => {
+      if (url === "/scripts/script-42/media-uploads/session-1/parts/0") {
+        return new Promise((_resolve, reject) => {
+          config.signal.addEventListener(
+            "abort",
+            () => reject({ code: "ERR_CANCELED" }),
+            { once: true },
+          );
+        });
+      }
+      return Promise.reject(new Error(`Unexpected PUT ${url}`));
+    });
+    apiMock.delete.mockResolvedValue({ data: { ok: true } });
+
+    container = document.createElement("div");
+    document.body.appendChild(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <MemoryRouter initialEntries={["/upload"]}>
+          <AuthContext.Provider value={{ user }}>
+            <ScriptUpload Workspace={NativeMediaHarness} nativeChrome />
+          </AuthContext.Provider>
+        </MemoryRouter>
+      );
+      await flushAsync();
+    });
+
+    act(() => container.querySelector("[data-testid='native-set-title']").click());
+    act(() => container.querySelector("[data-testid='native-set-trailer']").click());
+    await act(async () => {
+      container.querySelector("[data-testid='native-submit']").click();
+      await flushAsync();
+    });
+
+    expect(container.querySelector("[data-testid='native-confirm']")).toBeTruthy();
+    expect(apiMock.post).not.toHaveBeenCalledWith("/scripts/upload", expect.anything());
+
+    await act(async () => {
+      container.querySelector("[data-testid='native-confirm']").click();
+      await flushAsync();
+    });
+    expect(container.querySelector("[data-testid='native-cancel']")).toBeTruthy();
+
+    await act(async () => {
+      container.querySelector("[data-testid='native-cancel']").click();
+      await flushAsync();
+    });
+
+    expect(container.querySelector("[data-testid='native-cancelled']").textContent)
+      .toBe("Cancelled: trailer");
+    expect(container.textContent).not.toMatch(/failed/i);
+    expect(apiMock.put).toHaveBeenCalledWith(
+      "/scripts/script-42/media-uploads/session-1/parts/0",
+      expect.any(Blob),
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    );
+    expect(apiMock.delete).toHaveBeenCalledWith("/scripts/script-42/media-uploads/session-1");
   });
 });

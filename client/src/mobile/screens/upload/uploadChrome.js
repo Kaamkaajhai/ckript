@@ -151,7 +151,10 @@ export function describeUploadFooter({
   extracting = false,
   creationBlocked = false,
   editApprovalLocked = false,
+  mediaRecovery = null,
   mediaRecoveryPending = false,
+  mediaUploadActive = false,
+  mediaUploadPreflight = false,
   sourceWriteBlocked = false,
 } = {}) {
   if (contentOnly) {
@@ -184,6 +187,59 @@ export function describeUploadFooter({
     disabled: atStart || loading,
   };
 
+  if (mediaUploadPreflight) {
+    return {
+      back: { ...back, disabled: false },
+      next: {
+        id: "start-media",
+        label: "Start uploads",
+        kind: "start-media",
+        icon: "upload",
+        disabled: false,
+        blockedReason: "",
+      },
+    };
+  }
+
+  if (mediaUploadActive) {
+    return {
+      back: { ...back, disabled: true },
+      next: {
+        id: "uploading-media",
+        label: "Uploading media…",
+        kind: "publish",
+        icon: "upload",
+        disabled: true,
+        blockedReason: "",
+      },
+    };
+  }
+
+  if (mediaRecovery || mediaRecoveryPending) {
+    const cancelledOnly = Boolean(
+      mediaRecovery?.cancelledTypes?.length > 0
+      && !mediaRecovery?.failedTypes?.length
+    );
+    /*
+     * A recovery moves the writer back to the Visual assets panel. This branch
+     * must therefore precede `!isLast`; otherwise the footer silently becomes
+     * an ordinary Next button at the exact moment it owes a retry action.
+     */
+    return {
+      back: { ...back, disabled: false },
+      next: {
+        id: "retry-media",
+        label: loading
+          ? "Continuing…"
+          : cancelledOnly ? "Retry cancelled uploads" : "Continue media upload",
+        kind: "publish",
+        icon: "refresh",
+        disabled: loading,
+        blockedReason: "",
+      },
+    };
+  }
+
   if (!isLast) {
     const blockedReason = creationBlocked
       ? "You've reached your plan's script limit, so a new script can't be submitted yet."
@@ -204,25 +260,6 @@ export function describeUploadFooter({
         icon: "arrow_forward",
         disabled: creationBlocked || extracting,
         blockedReason,
-      },
-    };
-  }
-
-  if (mediaRecoveryPending) {
-    /*
-     * The project is already saved; what failed was one or more media uploads.
-     * Desktop reuses the word "Publish" here, which is wrong twice over — the
-     * project is published, and pressing it does not publish anything.
-     */
-    return {
-      back,
-      next: {
-        id: "retry-media",
-        label: loading ? "Retrying…" : "Retry the media upload",
-        kind: "publish",
-        icon: "refresh",
-        disabled: loading,
-        blockedReason: "",
       },
     };
   }

@@ -7,9 +7,17 @@ const Holds = lazy(() => import("../screens/Holds"));
 const NewProject = lazy(() => import("../screens/NewProject"));
 const CreateProjectRoute = lazy(() => import("../screens/create/CreateProjectRoute"));
 const UploadRoute = lazy(() => import("../screens/upload/UploadRoute"));
+const SearchMobile = lazy(() => import("../screens/discovery/SearchMobile"));
+const TopScriptsMobile = lazy(() => import("../screens/discovery/TopScriptsMobile"));
+const FeaturedProjectsMobile = lazy(() => import("../screens/discovery/FeaturedProjectsMobile"));
+const ProjectDetailMobile = lazy(() => import("../screens/projects/project-detail/ProjectDetailMobile"));
 const PrimitiveGallery = lazy(() => import("../dev/PrimitiveGallery"));
 const CreateHarness = lazy(() => import("../dev/CreateHarness"));
 const UploadHarness = lazy(() => import("../dev/UploadHarness"));
+const SearchHarness = lazy(() => import("../dev/SearchHarness"));
+const TopScriptsHarness = lazy(() => import("../dev/TopScriptsHarness"));
+const FeaturedHarness = lazy(() => import("../dev/FeaturedHarness"));
+const ProjectDetailHarness = lazy(() => import("../dev/ProjectDetailHarness"));
 
 /*
  * MobileRoutes lives inside the app's one existing BrowserRouter. Canonical
@@ -66,6 +74,22 @@ export default function MobileRoutes({
     return <MobileRouteBoundary><UploadHarness /></MobileRouteBoundary>;
   }
 
+  if (devScreen === "search") {
+    return <MobileRouteBoundary><SearchHarness user={user} /></MobileRouteBoundary>;
+  }
+
+  if (devScreen === "top-scripts") {
+    return <MobileRouteBoundary><TopScriptsHarness user={user} /></MobileRouteBoundary>;
+  }
+
+  if (devScreen === "featured") {
+    return <MobileRouteBoundary><FeaturedHarness user={user} /></MobileRouteBoundary>;
+  }
+
+  if (devScreen === "project-detail") {
+    return <MobileRouteBoundary><ProjectDetailHarness user={user} /></MobileRouteBoundary>;
+  }
+
   if (preview) {
     return <MobileRouteBoundary>{dashboard}</MobileRouteBoundary>;
   }
@@ -88,6 +112,18 @@ export default function MobileRoutes({
         {/* One route, and its two query forms (?draft=, ?edit=) need no
             entries of their own — the orchestrator reads them itself. */}
         <Route path="/upload" element={<UploadRoute />} />
+        <Route path="/search" element={<SearchMobile user={user} />} />
+        <Route path="/top-script" element={<TopScriptsMobile user={user} />} />
+        <Route path="/featured" element={<FeaturedProjectsMobile user={user} />} />
+        {/* Three patterns, one screen. The server resolves the id form and both
+            path forms to the same payload, and useProjectDetail rewrites the URL
+            to the canonical one after load — so the screen never asks which
+            alias it was reached by. The two-segment catch-all is LAST for the
+            same reason App.jsx declares it last: it matches any two segments,
+            and every static route above it must win first. */}
+        <Route path="/script/:id" element={<ProjectDetailMobile user={user} />} />
+        <Route path="/script/:projectHeading/:writerUsername" element={<ProjectDetailMobile user={user} />} />
+        <Route path="/:projectHeading/:writerUsername" element={<ProjectDetailMobile user={user} />} />
         {/* Defensive no-op: policy prevents this branch from mounting for an
             unfinished route, and it must never substitute Dashboard. */}
         <Route path="*" element={null} />

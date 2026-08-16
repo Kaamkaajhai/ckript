@@ -68,14 +68,15 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
    * and cannot be measured; the checks that matter most for these two surfaces —
    * touch-target sizes, contrast on the dark chrome, whether the docked bar
    * overlaps the caret line, whether a 29-chip genre row overflows at 320px —
-   * are exactly the ones a jsdom suite cannot answer. This mounts BOTH modes
-   * over a deterministic fixture context so a five-width sweep can.
+   * are exactly the ones a jsdom suite cannot answer. This mounts the editor,
+   * competition variation and wizard over a deterministic fixture context so a
+   * five-width sweep can.
    */
   {
     id: "mobile-create-harness",
     pattern: "/__mobile-create",
     disposition: MOBILE_ROUTE_DISPOSITION.DEV_ONLY,
-    reason: "Development-only harness for the create-project chrome, both modes (plan §11, Phase 3). "
+    reason: "Development-only harness for all create-project chrome surfaces (plan §11, Phase 3). "
       + "The live route is account- and network-dependent and cannot be measured deterministically.",
     screenId: "create-project-harness",
     shell: MOBILE_SHELL_MODE.IMMERSIVE,
@@ -89,6 +90,43 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
       + "cannot be measured twice and get the same answer.",
     screenId: "upload-harness",
     shell: MOBILE_SHELL_MODE.FLOW,
+  },
+  {
+    id: "mobile-search-harness",
+    pattern: "/__mobile-search",
+    disposition: MOBILE_ROUTE_DISPOSITION.DEV_ONLY,
+    reason: "Development-only deterministic mixed-results fixture for the native Search screen (plan §11 Phase 4).",
+    screenId: "search-harness",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+  },
+  {
+    id: "mobile-top-scripts-harness",
+    pattern: "/__mobile-top-scripts",
+    disposition: MOBILE_ROUTE_DISPOSITION.DEV_ONLY,
+    reason: "Development-only ranked and paged fixture for the native Top Scripts screen (plan §11 Phase 4).",
+    screenId: "top-scripts-harness",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+  },
+  {
+    id: "mobile-featured-harness",
+    pattern: "/__mobile-featured",
+    disposition: MOBILE_ROUTE_DISPOSITION.DEV_ONLY,
+    reason: "Development-only fixture for the native Featured screen (plan §11 Phase 4). The live route "
+      + "settles two endpoints independently and its spotlight windows expire against the wall clock, so "
+      + "it cannot be measured twice and get the same answer.",
+    screenId: "featured-harness",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+  },
+  {
+    id: "mobile-project-detail-harness",
+    pattern: "/__mobile-project",
+    disposition: MOBILE_ROUTE_DISPOSITION.DEV_ONLY,
+    reason: "Development-only fixture for the native project-detail screen (plan §11 Phase 4, D28). The "
+      + "live route's payload is personalized — capabilities, preview window, purchase request and "
+      + "contact quota all differ per viewer — so a sweep needs a project whose viewer standing is "
+      + "fixed. Its `?state=` forms cover owner, buyer, preview-only, approved-request and blocked.",
+    screenId: "project-detail-harness",
+    shell: MOBILE_SHELL_MODE.DETAIL,
   },
   {
     id: "writer-dashboard",
@@ -161,9 +199,19 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
   redirect("investor-onboarding-alias", "/investor-onboarding"),
   migration("industry-onboarding", "/industry-onboarding"),
 
-  migration("top-script", "/top-script"),
   redirect("trending-alias", "/trending"),
-  migration("featured", "/featured"),
+  {
+    id: "featured",
+    pattern: "/featured",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native paid-placement collection: lead with its stated reason, spotlight, ranked and "
+      + "mandate-match sections over two bounded, URL-backed sources (plan §11 Phase 4).",
+    audiences: [AUDIENCE.WRITER, AUDIENCE.INDUSTRY],
+    protection: "authenticated",
+    screenId: "featured",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
   migration("follow-requests", "/follow-requests"),
   /*
    * The chooser that opens the creation flow. A `flow` shell, not `standard`:
@@ -197,14 +245,9 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
    * is the same wizard with a draft already loaded — the orchestrator reads the
    * param itself (`useParams`), so there is nothing for the route to hand over.
    *
-   * COMPETITION MODE IS EXCLUDED, DELIBERATELY. `?ctx=competition` replaces the
-   * whole publish wizard with a deadline bar and a one-way Submit
-   * (`components/competition/CompetitionBar`, `CompetitionPitch`), and neither
-   * is ported. Without this exclusion a competition writer on a phone would get
-   * the mobile editor with no way at all to submit their entry — a regression,
-   * not a gap. Declared here rather than checked inside the screen so the
-   * limitation is greppable from the manifest, which is the file that is
-   * supposed to answer "what does mobile cover?".
+   * Competition mode is covered too. `?ctx=competition` stays in the immersive
+   * editor, replaces the publish wizard with the native deadline/pitch/submit
+   * controls, and shares the desktop submission operation and server state.
    */
   {
     id: "create-project",
@@ -215,8 +258,6 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     protection: "authenticated",
     screenId: "create-project",
     shell: MOBILE_SHELL_MODE.IMMERSIVE,
-    excludeQuery: { ctx: "competition" },
-    excludeReason: "competition-mode-not-ported",
     fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
   },
   {
@@ -228,8 +269,6 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     protection: "authenticated",
     screenId: "create-project",
     shell: MOBILE_SHELL_MODE.IMMERSIVE,
-    excludeQuery: { ctx: "competition" },
-    excludeReason: "competition-mode-not-ported",
     fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
   },
   /*
@@ -267,10 +306,66 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     shell: MOBILE_SHELL_MODE.FLOW,
     fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
   },
-  migration("search", "/search"),
+  {
+    id: "search",
+    pattern: "/search",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native mixed discovery screen with URL-backed scope/facets and server-paged results (plan §11 Phase 4).",
+    audiences: [AUDIENCE.WRITER, AUDIENCE.INDUSTRY],
+    protection: "authenticated",
+    screenId: "search",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
+  {
+    id: "top-script",
+    pattern: "/top-script",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native five-mode ranked discovery with URL-backed facets and bounded paging (plan §11 Phase 4).",
+    audiences: [AUDIENCE.WRITER, AUDIENCE.INDUSTRY],
+    protection: "authenticated",
+    screenId: "top-scripts",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
   migration("project-payment", "/script/:id/pay"),
-  migration("project-detail-id", "/script/:id"),
-  migration("project-detail-canonical", "/script/:projectHeading/:writerUsername"),
+  /*
+   * The three authenticated detail forms (D28).
+   *
+   * They are three entries and ONE screen, because the server resolves all three to one payload:
+   * `getScriptByPath` looks a heading/username pair up and then calls `getScriptById`. Listing
+   * them separately is not duplication — it is the file that answers "what does mobile cover?",
+   * and a reader looking up `/script/:id` must not have to know that a catch-all further down
+   * happens to serve it too.
+   *
+   * ORDER IS LOad-BEARING for the last one. `/:projectHeading/:writerUsername` is a catch-all that
+   * matches `/pricing/anything` as readily as a real project, so it stays exactly where App.jsx
+   * puts it — last — and `findMobileRoute` returns the FIRST match, so every static route above
+   * still wins. Promoting it does not change that ordering; it only changes what happens once
+   * nothing else has claimed the URL.
+   */
+  {
+    id: "project-detail-id",
+    pattern: "/script/:id",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native project detail: hero, role-aware recommended action, five sections, trailer and full-screen reader (plan §11 Phase 4, D28).",
+    audiences: [AUDIENCE.WRITER, AUDIENCE.INDUSTRY],
+    protection: "authenticated",
+    screenId: "project-detail",
+    shell: MOBILE_SHELL_MODE.DETAIL,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
+  {
+    id: "project-detail-canonical",
+    pattern: "/script/:projectHeading/:writerUsername",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "The `/script/…` alias of the canonical project path; the same screen, canonicalized after load (D28).",
+    audiences: [AUDIENCE.WRITER, AUDIENCE.INDUSTRY],
+    protection: "authenticated",
+    screenId: "project-detail",
+    shell: MOBILE_SHELL_MODE.DETAIL,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
   migration("messages", "/messages"),
   migration("profile", "/profile/:id?"),
   /*
@@ -343,7 +438,17 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
   migration("finance", "/finance"),
 
   // App.jsx intentionally declares these catch-alls last as well.
-  migration("canonical-project-catchall", "/:projectHeading/:writerUsername"),
+  {
+    id: "canonical-project-catchall",
+    pattern: "/:projectHeading/:writerUsername",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "The CANONICAL project URL — the one every share link and every post-load redirect uses. Same screen as the two `/script/…` aliases (D28).",
+    audiences: [AUDIENCE.WRITER, AUDIENCE.INDUSTRY],
+    protection: "authenticated",
+    screenId: "project-detail",
+    shell: MOBILE_SHELL_MODE.DETAIL,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
   migration("profile-or-referral-catchall", "/:id"),
 ]);
 

@@ -38,6 +38,7 @@ import adminNav from "./presets/adminNav";
  * @typedef {Object} NavPreset
  * @property {Array}  rail
  * @property {Array}  drawer
+ * @property {Array}  [mobileItems]
  * @property {string[]} mobileKeys
  * @property {{title: string, endpoint: string, select?: Function}|null} collection
  */
@@ -66,8 +67,14 @@ export const MOBILE_SLOTS = 4;
  * which is exactly what happened when Challenge was added. Selecting by key
  * means the rail can be reordered or grown without touching mobile.
  */
-const buildMobile = (rail, mobileKeys, profilePath) => {
-  const byKey = new Map(rail.filter((item) => item?.key).map((item) => [item.key, item]));
+const buildMobile = (rail, mobileKeys, profilePath, mobileItems = []) => {
+  // Most compact destinations come from the rail. A preset may also publish a
+  // compact-only destination when the phone's information architecture differs
+  // deliberately — for example, Projects replaces Create for writers without
+  // adding a query-tab destination to the desktop rail.
+  const byKey = new Map(
+    [...rail, ...mobileItems].filter((item) => item?.key).map((item) => [item.key, item]),
+  );
 
   const picked = mobileKeys
     .map((key) => byKey.get(key))
@@ -103,7 +110,7 @@ export function buildNav({ user, profilePath, msgCount = 0 } = {}) {
     // sites and tests read the same.
     primary: preset.rail,
     drawer: preset.drawer,
-    mobile: buildMobile(preset.rail, preset.mobileKeys, profilePath),
+    mobile: buildMobile(preset.rail, preset.mobileKeys, profilePath, preset.mobileItems),
     collection: preset.collection ?? null,
 
     // Per-audience chrome. The topbar and drawer read these instead of

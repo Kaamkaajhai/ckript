@@ -50,6 +50,23 @@ import {
 } from "../utils/remoteAssetPolicy.js";
 import { parseMongoObjectId } from "../utils/mongoId.js";
 import { asTrimmedString, asInt, asSearchRegex } from "../utils/requestValue.js";
+import {
+  TOP_LIST_RESULT_EXCLUDE,
+  parseTopListQuery,
+  unpackTopListFacet,
+} from "../utils/topListQuery.js";
+import {
+  SCRIPT_LIST_BODY_FIELDS,
+  SCRIPT_LIST_RESULT_EXCLUDE,
+  buildScriptListPagination,
+  parseScriptListPaging,
+  stripScriptBody,
+  unpackScriptListFacet,
+} from "../utils/scriptListPaging.js";
+import {
+  SCRIPT_DETAIL_CREATOR_SELECT,
+  buildScriptDetailBodyAccess,
+} from "../utils/scriptDetailPayload.js";
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import { resolveCurrency, convertInrToCurrency, toSubunits } from "../utils/currencyFx.js";
@@ -74,6 +91,10 @@ import { normalizeWriterCredits, addWriterCredit } from "../utils/writerCredits.
 import { derivePreviewPageTexts } from "../utils/screenplayPages.js";
 import { stripPdfPageFurniture } from "../utils/screenplayImportClean.js";
 import { hasProjectCreatorAccess } from "../utils/projectAccess.js";
+import {
+  attachUploadedScriptMedia,
+  canUploadPitchVideo,
+} from "../utils/scriptMedia.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -3205,6 +3226,7 @@ export const getScripts = async (req, res) => {
     await expireActiveExclusiveLicenses();
 
     const { genre, contentType, budget, sort, search, premium, minPrice, maxPrice, goldOnly } = req.query;
+    const { page, limit, paged, limited } = parseScriptListPaging(req.query);
     const query = { ...PUBLIC_SCRIPT_FILTER };
 
     if (goldOnly === "true") {
@@ -3300,14 +3322,31 @@ export const getScripts = async (req, res) => {
         },
       });
       pipeline.push({ $unwind: { path: "$creator", preserveNullAndEmptyArrays: true } });
+      // DEF-21: a list response must never carry a screenplay or a private
+      // asset URL. Applied on both the legacy and the paged path, because the
+      // leak was never specific to paging.
+      pipeline.push({ $project: SCRIPT_LIST_RESULT_EXCLUDE });
 
-      const scripts = await Script.aggregate(pipeline);
-      // Strip full synopsis and fullContent from list view
-      const sanitized = scripts.map(s => ({
+      if (paged) {
+        pipeline.push({
+          $facet: {
+            scripts: [{ $skip: (page - 1) * limit }, { $limit: limit }],
+            meta: [{ $count: "total" }],
+          },
+        });
+      } else if (limited) {
+        // DEF-22: `limit` has always been accepted here and never read.
+        pipeline.push({ $limit: limit });
+      }
+
+      const rows = await Script.aggregate(pipeline);
+      const result = paged ? unpackScriptListFacet(rows, { page, limit }) : { scripts: rows };
+      // Strip full synopsis from list view
+      const sanitized = result.scripts.map(s => ({
         ...s,
         synopsis: s.synopsis ? s.synopsis.substring(0, 120) + (s.synopsis.length > 120 ? '...' : '') : null,
-        fullContent: undefined,
       }));
+      if (paged) return res.json({ ...result, scripts: sanitized });
       return res.json(sanitized);
     }
 
@@ -3317,9 +3356,24 @@ export const getScripts = async (req, res) => {
     if (sort === "price_low") sortObj = { price: 1 };
     if (sort === "price_high") sortObj = { price: -1 };
 
-    const scripts = await Script.find(query)
+    /*
+     * The documents are fetched WHOLE and stripped after `toObject()` rather
+     * than `.select()`-ed: the `sid` backfill below calls `doc.save()`, and
+     * saving a document with unselected paths is how a partial write happens.
+     * The projection is applied to the serialized copy instead, which is the
+     * only thing that leaves the process.
+     */
+    const cursor = Script.find(query)
       .populate("creator", "name profileImage role")
       .sort(sortObj);
+    if (paged) cursor.skip((page - 1) * limit).limit(limit);
+    else if (limited) cursor.limit(limit);
+
+    // An authoritative count, not the length of the page just fetched.
+    const [scripts, total] = await Promise.all([
+      cursor,
+      paged ? Script.countDocuments(query) : Promise.resolve(0),
+    ]);
 
     await Promise.all(
       scripts.map(async (doc) => {
@@ -3329,15 +3383,20 @@ export const getScripts = async (req, res) => {
       })
     );
 
-    // Strip full synopsis and fullContent from list view
+    // Strip full synopsis and every script body from list view (DEF-21)
     const sanitized = scripts.map(s => {
-      const obj = s.toObject();
+      const obj = stripScriptBody(s.toObject());
       return {
         ...obj,
         synopsis: obj.synopsis ? obj.synopsis.substring(0, 120) + (obj.synopsis.length > 120 ? '...' : '') : null,
-        fullContent: undefined,
       };
     });
+    if (paged) {
+      return res.json({
+        scripts: sanitized,
+        pagination: buildScriptListPagination({ page, limit, total }),
+      });
+    }
     res.json(sanitized);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -3475,6 +3534,23 @@ export const getScriptPdf = async (req, res) => {
       return res.status(403).json({ message: "This script has been purchased and is no longer publicly available" });
     }
 
+    // ── DEF-27, RECORDED AND DELIBERATELY NOT FIXED HERE (see NATIVE_APP_IMPLEMENTATION.md §19) ──
+    // Every check above this line is a MARKETPLACE check — is your email a business address, is
+    // this a private draft, has it already been sold. None of them asks the question this endpoint
+    // actually turns on: may you read the WHOLE screenplay? So any authenticated viewer who clears
+    // the marketplace gate receives the complete PDF of any published, unsold project without
+    // buying it — while `getScriptById` withholds the very same text (see DEF-25 there) and
+    // `exportScreenplayPdf`, the sibling that serves the SAME screenplay in generated form,
+    // refuses outright via `canAccessScript`.
+    //
+    // The obvious gate (owner || isAdmin || isBuyer || canCollaboratorRead) is NOT applied,
+    // because it would also break a legitimate surface: the desktop Preview panel points
+    // `ScreenplayPdfViewer` at THIS url and limits the visible pages in the browser, so
+    // preview-entitled viewers reach it too — which is also why the leak exists at all. Closing it
+    // properly means serving a preview-entitled viewer a page-limited document instead of the
+    // whole file, and that is a product/fidelity decision (real PDF sliced server-side vs. a
+    // Ckript-generated preview PDF vs. the structured-text fallback), not a mobile session's to
+    // make. Do not "fix" this by adding the gate alone.
     const pdfUrl = String(script.fileUrl || "").trim();
     if (!pdfUrl) {
       return res.status(404).json({ message: "PDF file not available." });
@@ -3507,8 +3583,11 @@ export const getScriptById = async (req, res) => {
     await expireApprovedUnpaidRequests({ scriptId });
     await expireActiveExclusiveLicenses({ scriptId });
 
+    // DEF-26: `email` and `phone` are deliberately absent from this select — see
+    // SCRIPT_DETAIL_CREATOR_SELECT for why. The writer's contact details are released by the
+    // quota-charging `writerContact` block at the bottom of this handler, not by this populate.
     const script = await Script.findById(scriptId)
-      .populate("creator", "name email phone profileImage role bio followers username writerProfile.username writerProfile.links")
+      .populate("creator", SCRIPT_DETAIL_CREATOR_SELECT)
       // Credits link to profiles where the credited person is a Ckript user (non-users stay name-only).
       .populate("writers.userId", "name profileImage username writerProfile.username")
       .populate("heldBy", "name role");
@@ -3902,10 +3981,12 @@ export const getScriptById = async (req, res) => {
       scriptPreviewPageTexts: hasViewablePreview ? getScriptPreviewPageTexts(script) : [],
       // Always return full synopsis. Only script body/content remains gated.
       synopsis: script.synopsis,
-      // Hide full content unless unlocked, creator, or admin.
-      fullContent: canViewFullScript ? script.fullContent : null,
-      // Hide script text unless unlocked, creator, or admin.
-      textContent: canViewFullScript ? script.textContent : null,
+      // DEF-25: all FOUR body fields are gated together now. `fullContent` and `textContent` were
+      // gated here from the start; `fountainContent` (the canonical screenplay, which the client
+      // reader prefers over textContent) and `fileUrl` (the private URL of the stored PDF) rode
+      // out on the `...script.toObject()` spread above and defeated that gate. One decision, in
+      // one file, pinned by scriptDetailPayload.test.js.
+      ...buildScriptDetailBodyAccess({ script, canViewFullScript }),
       canonicalPath: buildScriptCanonicalPath(script),
       shareMeta: buildScriptShareMeta(req, script),
     };
@@ -4955,6 +5036,7 @@ export const addRoles = async (req, res) => {
 
 export const getFeaturedScripts = async (req, res) => {
   try {
+    const { page, limit, paged } = parseScriptListPaging(req.query);
     const now = new Date();
     const featuredFilter = {
       $or: [
@@ -5020,24 +5102,52 @@ export const getFeaturedScripts = async (req, res) => {
         },
       },
       { $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, trendScore: -1, rating: -1, createdAt: -1 } },
-      { $limit: 12 },
-      { $project: { _id: 1 } },
+      /*
+       * A caller asking for a page gets an authoritative count and its own
+       * slice; the historical caller keeps the hard 12-item editorial set it
+       * has always received. Both branches read the same ranking, so a paged
+       * page 1 and the legacy response agree on order.
+       */
+      ...(paged
+        ? [{
+          $facet: {
+            ids: [{ $skip: (page - 1) * limit }, { $limit: limit }, { $project: { _id: 1 } }],
+            meta: [{ $count: "total" }],
+          },
+        }]
+        : [{ $limit: 12 }, { $project: { _id: 1 } }]),
     ]);
 
-    if (!ranked.length) return res.json([]);
+    const facet = paged ? (ranked[0] || {}) : null;
+    const rankedIds = paged ? (facet.ids || []) : ranked;
+    const total = paged ? Math.max(0, Number(facet.meta?.[0]?.total || 0)) : rankedIds.length;
 
-    const ids = ranked.map((s) => s._id);
+    if (!rankedIds.length) {
+      if (paged) {
+        return res.json({ scripts: [], pagination: buildScriptListPagination({ page, limit, total }) });
+      }
+      return res.json([]);
+    }
 
-    // Step 2: fetch full documents with populated creator (preserving sort order)
-    const docs = await Script.find({ _id: { $in: ids }, ...PUBLIC_SCRIPT_FILTER, ...featuredFilter }).populate(
-      "creator",
-      "name profileImage role"
-    );
+    const ids = rankedIds.map((s) => s._id);
+
+    // Step 2: fetch the display documents with populated creator (preserving
+    // sort order). Script bodies and private asset URLs are excluded here as
+    // well — this is a discovery list, not a reader response (DEF-21).
+    const docs = await Script.find({ _id: { $in: ids }, ...PUBLIC_SCRIPT_FILTER, ...featuredFilter })
+      .select(SCRIPT_LIST_BODY_FIELDS.map((field) => `-${field}`).join(" "))
+      .populate("creator", "name profileImage role");
 
     const idStr = (id) => id.toString();
     const docMap = Object.fromEntries(docs.map((d) => [idStr(d._id), d]));
     const ordered = ids.map((id) => docMap[idStr(id)]).filter(Boolean);
 
+    if (paged) {
+      return res.json({
+        scripts: ordered,
+        pagination: buildScriptListPagination({ page, limit, total }),
+      });
+    }
     res.json(ordered);
   } catch (error) {
     console.error("getFeaturedScripts error:", error);
@@ -5481,10 +5591,18 @@ export const getInvestorHomeFeed = async (req, res) => {
 // ═══════════════════════════════════════════════════════════
 export const getTopList = async (req, res) => {
   try {
-    const { genre, contentType, budget, sort = "platform", premium, limit } = req.query;
+    const {
+      genre,
+      contentType,
+      budget,
+      sort,
+      premium,
+      page,
+      limit,
+      paged,
+    } = parseTopListQuery(req.query);
     const now = new Date();
     const blockedUserIds = await getBlockedUserIdsForViewer(req.user?._id);
-    const parsedLimit = Math.max(1, Math.min(Number(limit) || 24, 50));
     const match = { ...PUBLIC_SCRIPT_FILTER };
     if (genre) match.genre = genre;
     if (contentType) match.contentType = contentType;
@@ -5596,25 +5714,49 @@ export const getTopList = async (req, res) => {
     else if (sort === "views") pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, views: -1, _id: -1 } });
     else pipeline.push({ $sort: { verifiedPriority: -1, aiTrailerPriority: -1, evaluationPriority: -1, spotlightPriority: -1, platformScore: -1, _id: -1 } }); // default: platform
 
-    // Populate creator
-    pipeline.push({
-      $lookup: {
-        from: "users",
-        localField: "creator",
-        foreignField: "_id",
-        as: "creator",
-        pipeline: [{ $project: { name: 1, profileImage: 1, role: 1 } }],
+    const populateCreator = [
+      {
+        $lookup: {
+          from: "users",
+          localField: "creator",
+          foreignField: "_id",
+          as: "creator",
+          pipeline: [{ $project: { name: 1, username: 1, profileImage: 1, role: 1, "writerProfile.username": 1 } }],
+        },
       },
-    });
-    pipeline.push({ $unwind: { path: "$creator", preserveNullAndEmptyArrays: true } });
-    pipeline.push({ $limit: parsedLimit });
+      { $unwind: { path: "$creator", preserveNullAndEmptyArrays: true } },
+      // The qualification lookup uses a full User document. It must never
+      // escape through this discovery endpoint, nor may a project summary
+      // become a second script-reader response merely because Script grows a
+      // new body or asset field.
+      { $project: TOP_LIST_RESULT_EXCLUDE },
+    ];
 
-    const scripts = await Script.aggregate(pipeline);
-    const sanitized = scripts.map((s) => ({
+    if (paged) {
+      pipeline.push({
+        $facet: {
+          scripts: [
+            { $skip: (page - 1) * limit },
+            { $limit: limit },
+            ...populateCreator,
+          ],
+          meta: [{ $count: "total" }],
+        },
+      });
+    } else {
+      pipeline.push(...populateCreator, { $limit: limit });
+    }
+
+    const rows = await Script.aggregate(pipeline);
+    const result = paged ? unpackTopListFacet(rows, { page, limit }) : { scripts: rows };
+    const sanitized = result.scripts.map((s) => ({
       ...s,
       synopsis: s.synopsis ? s.synopsis.substring(0, 120) + (s.synopsis.length > 120 ? "..." : "") : null,
-      fullContent: undefined,
     }));
+    if (paged) {
+      res.json({ ...result, scripts: sanitized });
+      return;
+    }
     res.json(sanitized);
   } catch (error) {
     console.error("getTopList error:", error);
@@ -7110,36 +7252,14 @@ export const uploadScriptTrailer = async (req, res) => {
       public_id: `trailer-${scriptId}-${Date.now()}`,
     });
 
-    const trailerUrl = result.secure_url;
-    script.uploadedTrailerUrl = trailerUrl;
-    script.trailerSource = "uploaded";
-
-    const shouldKeepAiQueue = Boolean(script.services?.aiTrailer && !script.trailerUrl);
-    if (shouldKeepAiQueue) {
-      if (!["requested", "generating"].includes(script.trailerStatus)) {
-        script.trailerStatus = "requested";
-      }
-      script.trailerWriterFeedback = {
-        status: "pending",
-        note: script.trailerWriterFeedback?.note || "",
-        updatedAt: new Date(),
-      };
-    } else {
-      script.trailerStatus = "ready";
-      script.trailerWriterFeedback = {
-        status: "approved",
-        note: "",
-        updatedAt: new Date(),
-      };
-    }
+    const mediaResult = attachUploadedScriptMedia(script, {
+      kind: "trailer",
+      secureUrl: result.secure_url,
+    });
     await script.save();
 
     res.json({
-      message: shouldKeepAiQueue
-        ? "Trailer uploaded successfully. AI trailer request is still active."
-        : "Trailer uploaded successfully (free)",
-      trailerUrl,
-      trailerSource: "uploaded",
+      ...mediaResult,
       script
     });
   } catch (error) {
@@ -7166,14 +7286,11 @@ export const uploadScriptPitchVideo = async (req, res) => {
       return res.status(403).json({ message: "Only the script creator can upload a pitch video" });
     }
 
-    if (["writer", "creator"].includes(String(req.user.role).toLowerCase())) {
-      const plan = String(req.user.subscription?.plan || "free").toLowerCase();
-      if (plan === "free" || plan === "none") {
-        return res.status(403).json({ 
-          message: "Pitch video uploads are a premium feature. Please upgrade your plan to unlock this.",
-          requiresUpgrade: true
-        });
-      }
+    if (!canUploadPitchVideo(req.user)) {
+      return res.status(403).json({
+        message: "Pitch video uploads are a premium feature. Please upgrade your plan to unlock this.",
+        requiresUpgrade: true
+      });
     }
 
     const result = await uploadToCloudinary(req.file.buffer, {
@@ -7182,12 +7299,14 @@ export const uploadScriptPitchVideo = async (req, res) => {
       public_id: `pitch-${scriptId}-${Date.now()}`,
     });
 
-    script.pitchVideoUrl = result.secure_url;
+    const mediaResult = attachUploadedScriptMedia(script, {
+      kind: "pitchVideo",
+      secureUrl: result.secure_url,
+    });
     await script.save();
 
     res.json({
-      message: "Pitch video uploaded successfully",
-      pitchVideoUrl: result.secure_url,
+      ...mediaResult,
       script,
     });
   } catch (error) {

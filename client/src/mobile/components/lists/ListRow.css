@@ -115,7 +115,9 @@
   font-weight: var(--ckm-weight-bold);
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--ckm-muted);
+  /* --ckm-muted is only 3.56:1 on white. Search is the first production
+     surface to render this 11px slot, so use the AA-safe text rung. */
+  color: var(--ckm-text-3);
 }
 
 /* One line, ellipsised: a wrapping title turns a scannable list into prose.
@@ -149,13 +151,15 @@
   gap: var(--ckm-space-2);
   font-size: var(--ckm-text-caption);
   line-height: var(--ckm-leading-caption);
-  color: var(--ckm-muted);
+  color: var(--ckm-text-3);
   font-variant-numeric: tabular-nums;
 }
 
 .ckm .ckm-row__chevron {
   flex: none;
-  color: var(--ckm-muted-3);
+  /* A navigation affordance is a graphical object, not decorative hairline;
+     --ckm-muted clears its 3:1 floor while --ckm-muted-3 does not. */
+  color: var(--ckm-muted);
 }
 
 /* --- States -------------------------------------------------------------- */

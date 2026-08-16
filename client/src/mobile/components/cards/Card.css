@@ -91,7 +91,8 @@
   font-weight: var(--ckm-weight-bold);
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--ckm-muted);
+  /* 11px metadata needs 4.5:1; --ckm-muted measures only 3.56:1 on white. */
+  color: var(--ckm-text-3);
 }
 
 .ckm .ckm-card__title {

@@ -1,25 +1,6 @@
-// Helper functions for rights/license labels
-const RIGHTS_TYPE_LABELS = {
-  full_rights_sale: "Full Rights Sale (Ownership Transfer)",
-  exclusive_license: "Exclusive License",
-  custom_negotiation_required: "Custom Negotiation Required",
-};
-const MODIFICATION_LABELS = {
-  buyer_can_modify_freely: "Buyer can modify freely",
-  buyer_must_consult_writer: "Buyer must consult writer",
-  writer_retains_creative_approval_rights: "Writer retains creative approval rights",
-};
-const PAYMENT_LABELS = {
-  one_time_upfront_payment: "One-time upfront payment",
-  lower_upfront_plus_royalty_percent: "Lower upfront + royalty %",
-  revenue_sharing_model: "Revenue sharing model",
-  custom_deal: "Custom deal",
-};
-const NEGOTIATION_LABELS = {
-  fixed_terms_non_negotiable: "Fixed terms (non-negotiable)",
-  open_to_discussion_after_purchase: "Open to discussion after purchase",
-  ckript_not_involved: "Ckript not involved",
-};
+// DEF-28: four rights/licence label maps used to be declared here and read NOWHERE — this file is
+// a controller and does not render them. They were one of four drifting copies of a closed schema
+// enum; the surviving copy lives in ./script-detail/scriptDealLabels.js.
 import { useState, useEffect, useContext, useRef } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -40,11 +21,9 @@ import { formatScreenplayLikeText } from "../utils/screenplayText";
 import { addCkriptWatermarkToJsPdf, buildWatermarkedPdfFromPdfBlob } from "../utils/pdfWatermark";
 import { splitScreenplayIntoPages } from "../components/screenplay/pages";
 import ProducerRatingCard from "../components/ProducerRatingCard";
-import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 import {
   hasBusinessEmail,
-  hasActiveFilmIndustryProfessionalAccess,
   hasAnyFipAccess,
   getRemainingContacts,
   getContactsLimit,
@@ -71,6 +50,7 @@ import {
   getRecommendedAction,
   getViewerCapabilities,
 } from "./script-detail/scriptDetailModel";
+import { PROJECT_DETAIL_STATUS, useProjectDetail } from "./script-detail/useProjectDetail";
 
 const BUYER_COMMISSION_RATE = 0.05;
 const SOCKET_ORIGIN = getApiBaseUrl().replace(/\/api\/?$/, "").replace(/\/$/, "");
@@ -187,11 +167,35 @@ const ScriptDetail = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [script, setScript] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [accessMessage, setAccessMessage] = useState("");
-  const [accessRequiresBusinessEmail, setAccessRequiresBusinessEmail] = useState(false);
+  /*
+   * D28: loading, canonicalization, the blocked/failed split, the bookmark and the similar-project
+   * shelf are the shared data layer now. This page keeps every write it owns; what it stopped
+   * owning is the answer to "which URL do I call, and what does a 403 mean here", because the
+   * native screen has to give the same answer.
+   */
+  const {
+    script,
+    setScript,
+    status: detailStatus,
+    failure: detailFailure,
+    similar: similarScripts,
+    isBookmarked,
+    toggleBookmark: handleToggleBookmark,
+    reload,
+    refresh,
+  } = useProjectDetail({
+    id,
+    projectHeading,
+    writerUsername,
+    user,
+    pathname: location.pathname,
+    onCanonicalPath: (path) => navigate(path, { replace: true }),
+  });
+
+  const loading = detailStatus === PROJECT_DETAIL_STATUS.LOADING;
+  const accessMessage = detailStatus === PROJECT_DETAIL_STATUS.BLOCKED ? (detailFailure?.message || "") : "";
+  const accessRequiresBusinessEmail = Boolean(detailFailure?.requiresBusinessEmail);
+  const loadError = detailStatus === PROJECT_DETAIL_STATUS.ERROR ? (detailFailure?.message || "") : "";
   const [coverError, setCoverError] = useState(false);
   const [trailerError, setTrailerError] = useState(false);
   const [trailerSourceIndex, setTrailerSourceIndex] = useState(0);
@@ -220,7 +224,6 @@ const ScriptDetail = () => {
   const [pendingReqActionId, setPendingReqActionId] = useState(null);
   const [rejectNoteModal, setRejectNoteModal] = useState(null); // { id, investorName }
   const [rejectNoteText, setRejectNoteText] = useState("");
-  const [isBookmarked, setIsBookmarked] = useState(false);
   const [notice, setNotice] = useState(null); // { type: "success" | "error", message: string }
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
@@ -239,7 +242,6 @@ const ScriptDetail = () => {
   const [showMeetingModal, setShowMeetingModal] = useState(false);
   const [meetingSent, setMeetingSent] = useState(false);
   const [meetingStats, setMeetingStats] = useState(null);
-  const [similarScripts, setSimilarScripts] = useState([]);
   const viewStartRef = useRef(Date.now());
   const noticeTimerRef = useRef(null);
   const browserOrigin = typeof window !== "undefined" ? window.location.origin : "";
@@ -415,10 +417,12 @@ const ScriptDetail = () => {
   // empty). Editor-authored projects store textContent, not a file — so only point the viewer at the
   // PDF when there really is one; otherwise it renders the structured screenplay pages directly
   // (no failed fetch, no "PDF rendering failed" banner).
-  const uploadedScriptPdfUrl = activeScriptId 
-    ? String(script?.fileUrl || "").trim()
-      ? resolveMediaUrl(`/api/scripts/${activeScriptId}/pdf`)
-      : ""
+  // DEF-25: the existence question is answered by the payload's own boolean now, because a viewer
+  // without full access no longer receives `fileUrl`. The URL this builds is the authenticated
+  // proxy, not the private storage URL, and that has not changed.
+  const hasStoredScriptPdf = Boolean(script?.hasUploadedScriptFile) || Boolean(String(script?.fileUrl || "").trim());
+  const uploadedScriptPdfUrl = activeScriptId && hasStoredScriptPdf
+    ? resolveMediaUrl(`/api/scripts/${activeScriptId}/pdf`)
     : "";
   const handlePrint = async () => {
     const uploadedPdfUrl = resolveMediaUrl(script?.fileUrl || "");
@@ -611,8 +615,9 @@ const ScriptDetail = () => {
     setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
   };
 
+  // The load itself is the hook's; this only clears the per-project view state that must not
+  // survive a navigation to a different project.
   useEffect(() => {
-    fetchScript();
     setCoverError(false);
     setTrailerError(false);
     setHasRecordedSynopsisRead(false);
@@ -640,7 +645,7 @@ const ScriptDetail = () => {
     const maxAttempts = 36; // 3 minutes
     const timer = setInterval(async () => {
       attempts += 1;
-      await fetchScript({ silent: true });
+      await fetchScript();
       if (attempts >= maxAttempts) clearInterval(timer);
     }, 5000);
 
@@ -676,14 +681,6 @@ const ScriptDetail = () => {
   }, []);
 
   useEffect(() => {
-    const favoriteIds = user?.favoriteScripts || [];
-    const hasBookmark = Array.isArray(favoriteIds)
-      ? favoriteIds.some((item) => (typeof item === "string" ? item : item?._id) === activeScriptId)
-      : false;
-    setIsBookmarked(hasBookmark);
-  }, [user?.favoriteScripts, activeScriptId]);
-
-  useEffect(() => {
     if (script?.isCreator) {
       fetchPendingRequestsForScript();
     }
@@ -705,13 +702,13 @@ const ScriptDetail = () => {
 
     const handleCollaboratorRemoved = async (payload = {}) => {
       if (String(payload.scriptId || "") !== String(activeScriptId)) return;
-      await fetchScript({ silent: true });
+      await fetchScript();
       showNotice("Your collaboration access was removed.", "error");
     };
 
     const handleRoleOrMembershipChanged = async (payload = {}) => {
       if (String(payload.scriptId || "") !== String(activeScriptId)) return;
-      await fetchScript({ silent: true });
+      await fetchScript();
     };
 
     socket.on("collaborator_removed", handleCollaboratorRemoved);
@@ -733,54 +730,18 @@ const ScriptDetail = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, script?._id, user?._id]);
 
-  const fetchScript = async ({ silent = false } = {}) => {
-    try {
-      if (!silent) {
-        setLoading(true);
-      }
-      setAccessMessage("");
-      setLoadError("");
-      const hasCanonicalPathParams = Boolean(projectHeading && writerUsername);
-      const endpoint = hasCanonicalPathParams
-        ? `/scripts/path/${encodeURIComponent(projectHeading)}/${encodeURIComponent(writerUsername)}`
-        : `/scripts/${id}`;
-      const { data } = await api.get(endpoint);
-      setScript(data);
-
-      if (data?._id) {
-        api.get(`/scripts/${data._id}/similar`)
-          .then(res => setSimilarScripts(res.data))
-          .catch(err => console.error("Failed to load similar scripts", err));
-      }
-
-      const canonicalPath = getScriptCanonicalPath(data || {});
-      if (canonicalPath && canonicalPath !== location.pathname) {
-        navigate(canonicalPath, { replace: true });
-      }
-    } catch (error) {
-      const status = error?.response?.status;
-      const message = String(error?.response?.data?.message || "").toLowerCase();
-      const isAccessBlocked =
-        status === 403 ||
-        message.includes("company email") ||
-        message.includes("purchase a plan") ||
-        message.includes("login with a company") ||
-        message.includes("business email");
-
-      if (isAccessBlocked) {
-        setScript(null);
-        setAccessMessage(error?.response?.data?.message || "You need a business email or a plan to access this.");
-        setAccessRequiresBusinessEmail(Boolean(error?.response?.data?.requiresBusinessEmail));
-        return;
-      }
-      setScript(null);
-      setLoadError(error?.response?.data?.message || "Unable to load this project right now.");
-    } finally {
-      if (!silent) {
-        setLoading(false);
-      }
-    }
-  };
+  /*
+   * The endpoint choice, the canonicalization and the three-way failure split moved into
+   * `useProjectDetail` so the native mobile screen consumes the same definitions (D28).
+   *
+   * Every remaining call site here wants "the same screen, newer data" — after an approval, a
+   * payment, a collaborator change or an evaluation poll — which is what `refresh` is. The old
+   * `{ silent }` flag chose between that and blanking the page to a skeleton; nothing wanted the
+   * blank, and the two call sites that passed no flag were refreshing a project the viewer was
+   * already reading. The retry control uses `reload`, which is the one place a fresh LOADING state
+   * is correct.
+   */
+  const fetchScript = refresh;
 
   const handleHold = async () => {
     setShowHoldModal(true);
@@ -847,7 +808,7 @@ const ScriptDetail = () => {
               };
             });
 
-            await fetchScript({ silent: true });
+            await fetchScript();
             setShowTrailerPaymentModal(false);
             alert(data?.message || "AI trailer request received! Your trailer is now queued for admin approval.");
           } catch (err) {
@@ -917,7 +878,7 @@ const ScriptDetail = () => {
         });
       }
 
-      await fetchScript({ silent: true });
+      await fetchScript();
       if (data?.message) {
         alert(data.message);
       } else {
@@ -1081,33 +1042,8 @@ const ScriptDetail = () => {
     navigate(`/messages?recipientId=${writerId}&recipientName=${encodeURIComponent(script?.creator?.name || "Writer")}`);
   };
 
-  const handleToggleBookmark = async () => {
-    if (!user?._id || !script?._id || script?.creator?._id === user?._id) return;
-    try {
-      const { data } = await api.post(`/scripts/${script._id}/favorite`);
-      const nextFavorited = Boolean(data?.favorited);
-      setIsBookmarked(nextFavorited);
-
-      setUser((prev) => {
-        if (!prev) return prev;
-        const currentIds = Array.isArray(prev.favoriteScripts)
-          ? prev.favoriteScripts.map((item) => (typeof item === "string" ? item : item?._id)).filter(Boolean)
-          : [];
-        const updatedIds = nextFavorited
-          ? Array.from(new Set([...currentIds, script._id]))
-          : currentIds.filter((item) => item !== script._id);
-        const updatedUser = { ...prev, favoriteScripts: updatedIds };
-        localStorage.setItem("user", JSON.stringify(updatedUser));
-        return updatedUser;
-      });
-
-      window.dispatchEvent(new CustomEvent("bookmarkUpdated", {
-        detail: { scriptId: script._id, bookmarked: nextFavorited },
-      }));
-    } catch {
-      // silent fail for bookmark toggle
-    }
-  };
+  // handleToggleBookmark now lives in useProjectDetail, so the mobile screen writes the account,
+  // the cache and the `bookmarkUpdated` event exactly the way this page always has.
 
   const handleRequestPurchase = async (note = "") => {
     setRequestLoading(true);
@@ -1207,7 +1143,7 @@ const ScriptDetail = () => {
       setReviewComment("");
 
       await Promise.all([
-        fetchScript({ silent: true }),
+        fetchScript(),
         fetchReviews({ page: 1 }),
       ]);
 
@@ -1231,7 +1167,7 @@ const ScriptDetail = () => {
       const message = err?.response?.data?.message || "Failed to approve request";
       if (!quiet) showNotice(message, "error");
       if (err?.response?.status === 409) {
-        await fetchScript({ silent: true });
+        await fetchScript();
         await fetchPendingRequestsForScript();
       }
       return false;
@@ -1445,7 +1381,7 @@ const ScriptDetail = () => {
         <h2 className={`text-lg font-bold mb-1 ${t.title}`}>{loadError ? "Unable to load project" : "Script not found"}</h2>
         {loadError && <p className={`max-w-md mx-auto mt-2 mb-5 text-sm ${t.muted}`}>{loadError}</p>}
         <div className="flex items-center justify-center gap-3">
-          {loadError && <button type="button" onClick={() => fetchScript()} className={`px-4 py-2 rounded-xl text-sm font-semibold border ${t.btnPrim}`}>Retry</button>}
+          {loadError && <button type="button" onClick={() => reload()} className={`px-4 py-2 rounded-xl text-sm font-semibold border ${t.btnPrim}`}>Retry</button>}
           <Link to="/search" className={`hover:underline text-sm font-semibold ${isDarkMode ? "text-blue-300" : "text-[#1e3a5f]"}`}>Browse scripts</Link>
         </div>
       </div>
@@ -1518,9 +1454,10 @@ const ScriptDetail = () => {
   const scriptRawContent = (typeof script?.fountainContent === "string" && script.fountainContent.trim())
     ? script.fountainContent
     : (typeof script?.textContent === "string" ? script.textContent : "");
-  const uploadedScriptUrl = resolveImage(script?.fileUrl || "");
   const hasScriptTextContent = Boolean(scriptRawContent.trim());
-  const hasUploadedScriptPdf = Boolean(uploadedScriptUrl);
+  // DEF-25: "is there a PDF" no longer depends on holding its private URL. The viewer this feeds
+  // is pointed at the authenticated proxy either way.
+  const hasUploadedScriptPdf = hasStoredScriptPdf;
   const normalizedScriptHtml = scriptRawContent.trimStart();
   const hasHtmlScriptContent = normalizedScriptHtml.startsWith("<");
   const formattedPlainScriptText = hasHtmlScriptContent ? "" : formatScreenplayLikeText(scriptRawContent);

@@ -1,0 +1,80 @@
+/* The editorial lead (prefix: ckm-featured-lead). */
+
+/*
+ * The sentence the whole page exists to be honest about. It reads as a pull
+ * quote rather than body copy — an accent rule, not a coloured background,
+ * because a tinted panel here would look like the promotional badge it is
+ * explaining. --ckm-text-2 keeps it above the logline in weight without
+ * competing with the title.
+ */
+.ckm .ckm-featured-lead__why {
+  margin: var(--ckm-space-3) 0 0;
+  padding-left: var(--ckm-space-3);
+  border-left: 3px solid var(--ckm-accent-ink);
+  color: var(--ckm-text-2);
+  font: var(--ckm-weight-medium) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+}
+
+.ckm .ckm-featured-lead__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ckm-space-3);
+  margin: var(--ckm-space-4) 0 0;
+}
+
+.ckm .ckm-featured-lead__fact dt {
+  margin: 0 0 2px;
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-medium) var(--ckm-text-micro) / var(--ckm-leading-micro) var(--ckm-body);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ckm .ckm-featured-lead__fact dd {
+  margin: 0;
+  color: var(--ckm-text);
+  font: var(--ckm-weight-medium) var(--ckm-text-caption) / var(--ckm-leading-caption) var(--ckm-body);
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-featured-lead__actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-3);
+  margin-top: var(--ckm-space-4);
+}
+
+.ckm .ckm-featured-lead__action-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-2);
+}
+
+/*
+ * Prev / position / next. The position is between its two controls so the
+ * reading order matches the visual order, and it is the flexible cell so the
+ * two 44px targets stay pinned to the edges at every width.
+ */
+.ckm .ckm-featured-lead__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ckm-space-2);
+  margin-top: var(--ckm-space-4);
+  padding-top: var(--ckm-space-3);
+  border-top: 1px solid var(--ckm-line);
+}
+
+.ckm .ckm-featured-lead__position {
+  flex: 1 1 auto;
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-medium) var(--ckm-text-caption) / var(--ckm-leading-caption) var(--ckm-body);
+  text-align: center;
+}
+
+@media (max-width: 359px) {
+  /* Two columns of facts would wrap "Not evaluated" onto three lines. */
+  .ckm .ckm-featured-lead__facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

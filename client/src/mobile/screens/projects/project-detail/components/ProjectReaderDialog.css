@@ -1,0 +1,44 @@
+/* The full-screen screenplay reader (prefix: ckm-reader). */
+
+/*
+ * The dialog body is the reader's scroll surface and owns no padding of its
+ * own: a screenplay is typeset to its own margins, and a second gutter around
+ * it costs the 320px width the fixed-pitch lines need.
+ */
+.ckm .ckm-reader__body {
+  padding: 0;
+}
+
+.ckm .ckm-reader__viewer,
+.ckm .ckm-reader__screenplay {
+  width: 100%;
+}
+
+/*
+ * Screenplay text is fixed-pitch and does not reflow: at 320px a 60-column
+ * line is wider than the frame, so the reader scrolls HORIZONTALLY inside its
+ * own container rather than letting the page do it. Shrinking the type to fit
+ * instead would put it under the 11px floor at the widths that matter most.
+ */
+.ckm .ckm-reader__screenplay {
+  overflow-x: auto;
+}
+
+.ckm .ckm-reader__prose {
+  padding: var(--ckm-space-4-5);
+  color: var(--ckm-text-2);
+  font: var(--ckm-weight-regular) var(--ckm-text-body) / var(--ckm-leading-body) var(--ckm-body);
+}
+
+.ckm .ckm-reader__prose img {
+  max-width: 100%;
+  height: auto;
+}
+
+.ckm .ckm-reader__empty {
+  margin: 0;
+  padding: var(--ckm-space-6) var(--ckm-space-4-5);
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+  text-align: center;
+}

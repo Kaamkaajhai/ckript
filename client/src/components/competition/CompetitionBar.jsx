@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useCreateProject } from "../../pages/CreateProject/CreateProjectContext";
 import CountdownTimer from "./CountdownTimer";
 import SubmitEntryModal from "./SubmitEntryModal";
+import { isCompetitionEntrySubmitted } from "./competitionSubmission";
 
 /**
  * The competition mode header strip: which challenge, how long is left, autosave state, live counts,
@@ -25,7 +26,7 @@ export default function CompetitionBar() {
   if (!competition) return null;
 
   const sceneCount = (screenplayOutline || []).filter((item) => item.type === "scene").length;
-  const alreadySubmitted = submitted || ["submitted", "ai_processed", "judged"].includes(competitionEntry?.status);
+  const alreadySubmitted = submitted || isCompetitionEntrySubmitted(competitionEntry);
   const hasContent = charCount > 0 || wordCount > 0;
   const canSubmit = !alreadySubmitted && hasContent;
 

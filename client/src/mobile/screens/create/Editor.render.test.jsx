@@ -54,6 +54,11 @@ const baseContext = (overrides = {}) => ({
   collabMyUserId: "me",
   collabRequestEdit: vi.fn(),
   competitionMode: false,
+  competition: null,
+  competitionEntry: null,
+  competitionError: "",
+  competitionLoading: false,
+  competitionServerNow: null,
   creationBlocked: false,
   currentElement: "action",
   dark: true,
@@ -69,7 +74,9 @@ const baseContext = (overrides = {}) => ({
   handleExitEditor: vi.fn(),
   handleExportScreenplay: vi.fn(),
   handleImportScreenplayFile: vi.fn(),
+  handleChange: vi.fn(),
   handleNext: vi.fn(),
+  handleSave: vi.fn(async () => true),
   handleScreenplayChange: vi.fn(),
   hasFullAccess: true,
   importNotice: "",
@@ -78,11 +85,13 @@ const baseContext = (overrides = {}) => ({
   saved: false,
   saving: false,
   sceneComments: [],
+  screenplayOutline: [],
   screenplayApiRef: { current: { setElementType: vi.fn(), applyEmphasis: vi.fn(), applyCase: vi.fn(), applyCentered: vi.fn(), scrollToLine: vi.fn() } },
   screenplayEnabled: true,
   screenplayFileInputRef: { current: null },
   screenplayValue: "",
   setCurrentElement: vi.fn(),
+  setCanEditContent: vi.fn(),
   setEmphasisState: vi.fn(),
   setError: vi.fn(),
   setScreenplayEnabled: vi.fn(),
@@ -90,6 +99,7 @@ const baseContext = (overrides = {}) => ({
   setShowTitlePageModal: vi.fn(),
   setTitle: vi.fn(),
   setSaved: vi.fn(),
+  refreshCompetition: vi.fn(),
   showExitConfirm: false,
   title: "",
   titlePage: {},
@@ -116,6 +126,8 @@ const baseContext = (overrides = {}) => ({
   collabPeople: [],
   scriptId: "s1",
   setScreenplayValue: vi.fn(),
+  charCount: 0,
+  wordCount: 0,
   ...overrides,
 });
 
@@ -176,6 +188,12 @@ const click = (el) => act(() => { el.dispatchEvent(new MouseEvent("click", { bub
    invisible to it. The prototype setter is the documented way in. */
 const type = (input, value) => act(() => {
   Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")
+    .set.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+});
+
+const typeArea = (input, value) => act(() => {
+  Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")
     .set.call(input, value);
   input.dispatchEvent(new Event("input", { bubbles: true }));
 });
@@ -1011,6 +1029,120 @@ describe("Editor — Reports (D20)", () => {
     render(baseContext({ useScreenplayEditor: false, screenplayEnabled: false }));
     click(control("More editor actions"));
     expect(control("Reports")).toBeFalsy();
+  });
+});
+
+describe("Editor — native competition mode (D23)", () => {
+  const competition = {
+    _id: "competition-1",
+    name: "Forty Eight Hour Script Challenge",
+    slug: "48-hour-2026",
+    dates: { endsAt: "2099-08-15T12:00:00.000Z" },
+  };
+
+  const competitionContext = (overrides = {}) => baseContext({
+    competitionMode: true,
+    competition,
+    competitionServerNow: "2099-08-13T12:00:00.000Z",
+    screenplayOutline: [{ type: "scene" }, { type: "beat" }, { type: "scene" }],
+    wordCount: 127,
+    charCount: 804,
+    formData: { logline: "", synopsis: "" },
+    ...overrides,
+  });
+
+  it("pins the authoritative challenge, clock and live script counts under the app bar", () => {
+    render(competitionContext());
+    const panel = container.querySelector(".ckm-editor__competition");
+
+    expect(panel.textContent).toContain("Forty Eight Hour Script Challenge");
+    expect(panel.textContent).toContain("Time left");
+    expect(panel.textContent).toContain("127 words");
+    expect(panel.textContent).toContain("2 scenes");
+    expect(panel.textContent).toContain("804 chars");
+    expect(control("Submit script")).toBeTruthy();
+  });
+
+  it("uses a native dialog to edit the shared logline and synopsis fields", () => {
+    const ctx = competitionContext();
+    render(ctx);
+    click(control("Pitch"));
+
+    expect(document.querySelector(".ckm-dialog__title").textContent).toBe("Logline & synopsis");
+    const logline = document.querySelector("textarea[name='logline']");
+    typeArea(logline, "A writer races a clock.");
+    expect(ctx.handleChange).toHaveBeenCalledWith(expect.objectContaining({ target: logline }));
+    expect(logline.maxLength).toBe(500);
+  });
+
+  it("keeps final submission disabled until there is script content and both confirmations", () => {
+    render(competitionContext({ wordCount: 0, charCount: 0 }));
+    expect(control("Submit script").disabled).toBe(true);
+
+    act(() => root.unmount());
+    container.remove();
+    render(competitionContext());
+    click(control("Submit script"));
+    expect(control("Submit final script").disabled).toBe(true);
+    document.querySelectorAll(".ckm-checkbox__input").forEach((checkbox) => click(checkbox));
+    expect(control("Submit final script").disabled).toBe(false);
+  });
+
+  it("flushes, submits through the shared endpoint, locks editing and shows the result", async () => {
+    collabApi.post.mockResolvedValue({
+      data: {
+        entry: { status: "submitted", submittedAt: "2026-08-13T12:00:00.000Z" },
+        timeline: [{ key: "submitted", label: "Script submitted", status: "done" }],
+      },
+    });
+    const ctx = competitionContext();
+    render(ctx);
+    click(control("Submit script"));
+    document.querySelectorAll(".ckm-checkbox__input").forEach((checkbox) => click(checkbox));
+
+    await act(async () => {
+      control("Submit final script").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(ctx.handleSave).toHaveBeenCalledWith(false);
+    expect(collabApi.post).toHaveBeenCalledWith("/competitions/competition-1/submit", {
+      confirmOriginal: true,
+      confirmFinal: true,
+    });
+    expect(ctx.setCanEditContent).toHaveBeenCalledWith(false);
+    expect(ctx.refreshCompetition).toHaveBeenCalled();
+    expect(document.querySelector(".ckm-dialog__title").textContent).toBe("Submission successful");
+    expect(control("Back to competition").getAttribute("href"))
+      .toBe("/challenge/dashboard?c=48-hour-2026");
+  });
+
+  it("does not freeze a stale server draft when the final flush fails", async () => {
+    const ctx = competitionContext({ handleSave: vi.fn(async () => false) });
+    render(ctx);
+    click(control("Submit script"));
+    document.querySelectorAll(".ckm-checkbox__input").forEach((checkbox) => click(checkbox));
+
+    await act(async () => {
+      control("Submit final script").dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(collabApi.post).not.toHaveBeenCalled();
+    expect(document.querySelector(".ckm-dialog").textContent)
+      .toContain("Could not save your latest changes");
+  });
+
+  it("renders submitted server state as locked status instead of another submit action", () => {
+    render(competitionContext({
+      canEditContent: false,
+      competitionEntry: { status: "ai_processed" },
+    }));
+
+    expect(container.querySelector(".ckm-editor__competition-status").textContent).toContain("Submitted");
+    expect(control("Submit script")).toBeFalsy();
   });
 });
 
