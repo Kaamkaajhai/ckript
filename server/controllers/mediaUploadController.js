@@ -294,10 +294,15 @@ export function createMediaUploadHandlers(overrides = {}) {
       if (!CHECKSUM_PATTERN.test(suppliedChecksum)) {
         return respondError(res, 400, "A SHA-256 checksum is required for every part.");
       }
-      if (!Buffer.isBuffer(req.body) || req.body.length === 0) {
+      if (!Buffer.isBuffer(req.body)) {
+        return respondError(res, 400, "The upload part must be binary data.");
+      }
+      
+      const chunk = req.body;
+      if (chunk.length === 0) {
         return respondError(res, 400, "The upload part is empty.");
       }
-      if (range.total !== Number(session.fileSize) || range.size !== req.body.length) {
+      if (range.total !== Number(session.fileSize) || range.size !== chunk.length) {
         return respondError(res, 409, "The part range does not match the upload session.");
       }
 
