@@ -96,3 +96,65 @@
   padding-bottom: 6px;
   transition: border-color .22s ease;
 }
+
+/* ═══════════════════════ TRAILER VIDEO POPUP ═══════════════════════ */
+.ckl-trailer-popup-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  animation: ckl-trailer-fadeIn 0.25s ease-out;
+}
+.ckl-trailer-popup {
+  position: relative;
+  width: 90vw;
+  max-width: 960px;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.6);
+  animation: ckl-trailer-scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.ckl-trailer-popup-video {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 80vh;
+  background: #000;
+  border-radius: 16px;
+}
+.ckl-trailer-popup-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.ckl-trailer-popup-close:hover {
+  background: rgba(139, 30, 30, 0.8);
+  transform: scale(1.1);
+}
+
+@keyframes ckl-trailer-fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes ckl-trailer-scaleIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
