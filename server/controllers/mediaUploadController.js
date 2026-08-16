@@ -294,7 +294,7 @@ export function createMediaUploadHandlers(overrides = {}) {
       if (!CHECKSUM_PATTERN.test(suppliedChecksum)) {
         return respondError(res, 400, "A SHA-256 checksum is required for every part.");
       }
-      if (!Buffer.isBuffer(req.body)) {
+      if (Array.isArray(req.body) || typeof req.body === "string" || !Buffer.isBuffer(req.body)) {
         return respondError(res, 400, "The upload part must be binary data.");
       }
       
