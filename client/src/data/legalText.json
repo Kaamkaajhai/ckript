@@ -1745,6 +1745,44 @@
     ]
   },
   {
+  "id": "section-google-api-limited-use",
+  "title": "Google API Services User Data and Limited Use Compliance",
+  "content": [
+    {
+      "type": "paragraph",
+      "text": "Ckript's use and transfer of information received from Google APIs complies with the Google API Services User Data Policy, including the Limited Use requirements."
+    },
+    {
+      "type": "paragraph",
+      "text": "Google Workspace user data obtained through Google APIs is used only to provide functionality and services explicitly requested or authorized by the user. Ckript does not use Google Workspace user data, including raw, aggregated, or derived data, to develop, train, or improve generalized or foundational artificial intelligence or machine learning models."
+    },
+    {
+      "type": "paragraph",
+      "text": "Ckript does not sell Google Workspace user data or use such data for advertising or purposes unrelated to the functionality requested by the user."
+    },
+    {
+      "type": "paragraph",
+      "text": "Google Calendar Data: When a user explicitly authorizes Ckript to connect their Google Calendar, Ckript uses the requested Google Calendar permissions to provide meeting scheduling functionality. For example, when a producer schedules a meeting through Ckript, Ckript may create the corresponding event on the user's authorized primary Google Calendar, add the relevant attendee, and generate a Google Meet link."
+    },
+    {
+      "type": "paragraph",
+      "text": "Ckript does not use Google Calendar data to train, develop, or improve generalized or foundational AI or machine learning models. Google Calendar data is not used for advertising, sold to third parties, or used for unrelated purposes."
+    },
+    {
+      "type": "paragraph",
+      "text": "Ckript requests only the Google API permissions necessary to provide the requested Google Calendar functionality. Access to Google Calendar data is provided only after the user explicitly authorizes the applicable Google OAuth consent screen."
+    },
+    {
+      "type": "paragraph",
+      "text": "Ckript does not intentionally transfer Google Workspace user data to third-party AI or machine learning services for the purpose of training, developing, or improving generalized or foundational AI or machine learning models."
+    },
+    {
+      "type": "paragraph",
+      "text": "The use of raw or derived user data received from Workspace APIs adheres to the Google User Data Policy, including the Limited Use requirements."
+    }
+  ]
+}
+  {
     "id": "section-40",
     "title": "40. How We Share Information",
     "content": [
