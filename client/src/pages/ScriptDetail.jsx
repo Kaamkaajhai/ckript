@@ -51,6 +51,7 @@ import {
   getViewerCapabilities,
 } from "./script-detail/scriptDetailModel";
 import { PROJECT_DETAIL_STATUS, useProjectDetail } from "./script-detail/useProjectDetail";
+import { useProjectActions } from "./script-detail/useProjectActions";
 
 const BUYER_COMMISSION_RATE = 0.05;
 const SOCKET_ORIGIN = getApiBaseUrl().replace(/\/api\/?$/, "").replace(/\/$/, "");
@@ -216,34 +217,41 @@ const ScriptDetail = () => {
   const [hasRecordedSynopsisRead, setHasRecordedSynopsisRead] = useState(false);
   const [unlockLoading, setUnlockLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
-  const [requestLoading, setRequestLoading] = useState(false);
-  const [pendingRequests, setPendingRequests] = useState([]); // for creator view on this script
-  const [pendingReqLoading, setPendingReqLoading] = useState(false);
-  const [pendingReqActionId, setPendingReqActionId] = useState(null);
   const [rejectNoteModal, setRejectNoteModal] = useState(null); // { id, investorName }
   const [rejectNoteText, setRejectNoteText] = useState("");
   const [notice, setNotice] = useState(null); // { type: "success" | "error", message: string }
-  const [reviews, setReviews] = useState([]);
-  const [reviewsLoading, setReviewsLoading] = useState(false);
-  const [reviewsPage, setReviewsPage] = useState(1);
-  const [reviewsTotalPages, setReviewsTotalPages] = useState(1);
-  const [reviewsTotal, setReviewsTotal] = useState(0);
-  const [myReview, setMyReview] = useState(null);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
-  const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [showWriterInfo, setShowWriterInfo] = useState(false);
-  const [revealedContact, setRevealedContact] = useState(null);
-  const [revealLoading, setRevealLoading] = useState(false);
-  const [revealError, setRevealError] = useState("");
-  const [revealStats, setRevealStats] = useState(null);
   const [showMeetingModal, setShowMeetingModal] = useState(false);
   const [meetingSent, setMeetingSent] = useState(false);
-  const [meetingStats, setMeetingStats] = useState(null);
   const viewStartRef = useRef(Date.now());
   const noticeTimerRef = useRef(null);
+
+  const showNotice = (message, type = "success") => {
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    setNotice({ type, message });
+    noticeTimerRef.current = setTimeout(() => setNotice(null), 4500);
+  };
+
+  /*
+   * D29: every WRITE this page makes now lives in `useProjectActions`, next to the load D28 moved
+   * into `useProjectDetail`.
+   *
+   * The handlers below are what is left of them — the parts that are genuinely this page's: which
+   * modal to close, where to navigate, which notice to raise. Nine request bodies, their role
+   * gates, their quota bookkeeping and their refusal messages are shared with the native screen,
+   * because "may this producer still request this project" must have exactly one answer.
+   */
+  const projectActions = useProjectActions({
+    script,
+    user,
+    setUser,
+    refresh,
+    notify: showNotice,
+  });
+
   const browserOrigin = typeof window !== "undefined" ? window.location.origin : "";
   const activeScriptId = script?._id || id;
   const currentUserId = String(user?._id || "");
@@ -255,10 +263,7 @@ const ScriptDetail = () => {
       : null;
   const pendingRequestBaseAmount = Number(myPendingRequest?.amount || script?.price || 0);
   const pendingRequestCheckoutTotal = getBuyerCheckoutTotal(pendingRequestBaseAmount);
-  const pendingRequestBadgeCount = Math.max(
-    Number(script?.pendingRequestsCount || 0),
-    pendingRequests.filter((request) => request?.status === "pending").length
-  );
+  const pendingRequestBadgeCount = projectActions.pendingRequestCount;
   const writerCustomConditions = String(script?.legal?.customInvestorTerms || "").trim();
   const hasWriterCustomConditions = writerCustomConditions.length > 0;
   const canViewWriterCustomConditions = Boolean(!script?.isCreator && script?.canPurchase);
@@ -271,6 +276,8 @@ const ScriptDetail = () => {
 
   const revealStatus = script?.writerContactRevealStatus || null;
   // Use locally revealed contact (after clicking reveal) or the contact from the API response
+  const revealedContact = projectActions.revealedContact;
+  const revealStats = projectActions.revealStats;
   const activeWriterContact = revealedContact || script?.writerContact || {};
   const writerContact = activeWriterContact;
   const contactAlreadyRevealed = Boolean(
@@ -290,6 +297,7 @@ const ScriptDetail = () => {
   const messageWriterBlocked = viewerHasProAccess && !writerAlreadyMessaged && remainingMessageWriters <= 0;
 
   const meetingAlreadyScheduled = hasScheduledMeeting(user, script?.creator?._id);
+  const meetingStats = projectActions.meetingStats;
   const remainingMeetings = meetingStats?.remainingMeetings ?? getRemainingMeetings(user);
   const meetingsLimit = meetingStats?.meetingsLimit ?? getMeetingsLimit(user);
   const meetingsUsed = meetingStats?.meetingsUsed ?? getScheduledMeetingsCount(user);
@@ -384,31 +392,22 @@ const ScriptDetail = () => {
     ? previewPageBlocks.map((page) => page.displayText || page.text).join("\n\n")
     : (previewFormattedText || previewSourceText || previewRawText || "");
   const hasPreviewDownload = Boolean(previewPdfSourceText.trim());
-  const showNotice = (message, type = "success") => {
-    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
-    setNotice({ type, message });
-    noticeTimerRef.current = setTimeout(() => setNotice(null), 4500);
-  };
 
   /* ── Handlers ─────────────────────────────────────────── */
 
   const handleDeleteScript = async () => {
-    if (!activeScriptId) return;
-    try {
-      setDeleteLoading(true);
-      await api.delete(`/scripts/${activeScriptId}`);
-      window.dispatchEvent(new CustomEvent("scriptDeleted", { detail: { id: activeScriptId } }));
-      setShowDeleteModal(false);
-      navigate(
-        getProfileCanonicalPath(user, {
-          viewerId: user?._id,
-          viewerRole: user?.role,
-        })
-      );
-    } catch (err) {
-      console.error("Delete failed:", err);
-      setDeleteLoading(false);
+    const removed = await projectActions.remove();
+    if (!removed) {
+      showNotice(projectActions.deleteError || "Failed to delete this project.", "error");
+      return;
     }
+    setShowDeleteModal(false);
+    navigate(
+      getProfileCanonicalPath(user, {
+        viewerId: user?._id,
+        viewerRole: user?.role,
+      })
+    );
   };
 
   const resolveImage = resolveMediaUrl;
@@ -679,13 +678,6 @@ const ScriptDetail = () => {
       if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
     };
   }, []);
-
-  useEffect(() => {
-    if (script?.isCreator) {
-      fetchPendingRequestsForScript();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [script?._id, script?.isCreator]);
 
   useEffect(() => {
     if (!script?._id) return;
@@ -979,233 +971,54 @@ const ScriptDetail = () => {
   };
 
   const handleRevealContact = async () => {
-    const writerId = String(script?.creator?._id || "");
-    if (!writerId || revealLoading) return;
-    setRevealError("");
-    setRevealLoading(true);
-    try {
-      const { data } = await api.post(`/payment/reveal-contact/${writerId}`);
-      setRevealedContact(data.contact);
-      setRevealStats({
-        contactsUsed: data.contactsUsed,
-        contactsLimit: data.contactsLimit,
-        remainingContacts: data.remainingContacts,
-      });
-      setShowWriterInfo(true);
-      if (data.contactsUsed !== undefined && user) {
-        setUser((prev) => {
-          if (!prev) return prev;
-          const updatedSubscription = {
-            ...(prev.subscription || {}),
-            revealedContacts: [
-              ...(Array.isArray(prev.subscription?.revealedContacts) ? prev.subscription.revealedContacts : []),
-              { writerId, revealedAt: new Date().toISOString() },
-            ],
-          };
-          return { ...prev, subscription: updatedSubscription };
-        });
-      }
-    } catch (err) {
-      const msg = err?.response?.data?.message || "Failed to reveal contact.";
-      setRevealError(msg);
-    } finally {
-      setRevealLoading(false);
-    }
+    const revealed = await projectActions.revealContact();
+    if (revealed) setShowWriterInfo(true);
   };
 
   const handleMessageWriter = async () => {
-    const writerId = String(script?.creator?._id || "");
-    if (!writerId) return;
-
-    if (!script?.isUnlocked && !writerAlreadyMessaged) {
-      try {
-        const { data } = await api.post(`/payment/message-writer/${writerId}`);
-        if (data.messagesUsed !== undefined && user) {
-          setUser((prev) => {
-            if (!prev) return prev;
-            const updatedSubscription = {
-              ...(prev.subscription || {}),
-              messagedWriters: [
-                ...(Array.isArray(prev.subscription?.messagedWriters) ? prev.subscription.messagedWriters : []),
-                { writerId, messagedAt: new Date().toISOString() },
-              ],
-            };
-            return { ...prev, subscription: updatedSubscription };
-          });
-        }
-      } catch (err) {
-        setRevealError(err?.response?.data?.message || "Failed to initiate message.");
-        return;
-      }
-    }
-
-    navigate(`/messages?recipientId=${writerId}&recipientName=${encodeURIComponent(script?.creator?.name || "Writer")}`);
+    // The hook spends a message slot only when this is the first conversation with this writer,
+    // and answers with "" when the slot could not be spent — so an over-quota viewer is never
+    // dropped into a thread they were not entitled to open.
+    const path = await projectActions.messageWriter();
+    if (path) navigate(path);
   };
 
   // handleToggleBookmark now lives in useProjectDetail, so the mobile screen writes the account,
   // the cache and the `bookmarkUpdated` event exactly the way this page always has.
 
   const handleRequestPurchase = async (note = "") => {
-    setRequestLoading(true);
-    try {
-      await api.post("/scripts/purchase-request", {
-        scriptId: script._id,
-        note: String(note || "").trim() || "I reviewed the project and would like to request purchase access.",
-      });
-      setShowRequestModal(false);
-      await fetchScript();
-      showNotice("Purchase request sent to the writer.", "success");
-      return true;
-    } catch (err) {
-      showNotice(err.response?.data?.message || "Failed to submit purchase request", "error");
-      return false;
-    } finally {
-      setRequestLoading(false);
-    }
+    const sent = await projectActions.submitPurchaseRequest(note);
+    if (sent) setShowRequestModal(false);
+    return sent;
   };
 
-  const fetchPendingRequestsForScript = async () => {
-    if (!script?.isCreator) return;
-    setPendingReqLoading(true);
-    try {
-      const { data } = await api.get("/scripts/purchase-requests/mine");
-      const currentScriptId = String(script?._id || "");
-      const requestsForScript = (Array.isArray(data) ? data : [])
-        .filter((r) => {
-          const requestScriptId = String(r?.script?._id || r?.script || "");
-          return requestScriptId === currentScriptId;
-        })
-        .sort((a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0));
 
-      setPendingRequests(requestsForScript);
-    } catch {
-      // silent
-    } finally {
-      setPendingReqLoading(false);
-    }
-  };
 
-  useEffect(() => {
-    if (!script?.isCreator || !script?._id) return;
-
-    const intervalId = setInterval(() => {
-      fetchPendingRequestsForScript();
-    }, 15000);
-
-    return () => clearInterval(intervalId);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [script?._id, script?.isCreator]);
-
-  const fetchReviews = async ({ page = 1 } = {}) => {
-    if (!script?._id) return;
-    setReviewsLoading(true);
-    try {
-      const { data } = await api.get(`/reviews/${script._id}?page=${page}&limit=8`);
-      setReviews(Array.isArray(data?.reviews) ? data.reviews : []);
-      setReviewsPage(Number(data?.page || page));
-      setReviewsTotalPages(Number(data?.totalPages || 1));
-      setReviewsTotal(Number(data?.total || 0));
-      setMyReview(data?.myReview || null);
-    } catch {
-      setReviews([]);
-      setReviewsPage(1);
-      setReviewsTotalPages(1);
-      setReviewsTotal(0);
-      setMyReview(null);
-    } finally {
-      setReviewsLoading(false);
-    }
-  };
+  const fetchReviews = projectActions.loadReviews;
 
   const handleSubmitReview = async (e) => {
     e.preventDefault();
     if (!canSubmitReview) return;
-
-    const trimmedComment = String(reviewComment || "").trim();
-    if (!reviewRating) {
-      showNotice("Please select a rating before submitting.", "error");
-      return;
-    }
-    if (trimmedComment.length < 5) {
-      showNotice("Please write at least 5 characters for your review.", "error");
-      return;
-    }
-
-    setReviewSubmitting(true);
-    try {
-      await api.post("/reviews", {
-        script: script._id,
-        rating: reviewRating,
-        comment: trimmedComment,
-      });
-
+    const submitted = await projectActions.submitReview({ rating: reviewRating, comment: reviewComment });
+    // The draft is cleared only on success. A review the server refused — too short, already
+    // reviewed, not a reader — is still the words the user wrote, and clearing them makes the
+    // refusal unrecoverable.
+    if (submitted) {
       setReviewRating(0);
       setReviewComment("");
-
-      await Promise.all([
-        fetchScript(),
-        fetchReviews({ page: 1 }),
-      ]);
-
-      showNotice("Review submitted successfully.", "success");
-    } catch (err) {
-      showNotice(err?.response?.data?.message || "Failed to submit review.", "error");
-    } finally {
-      setReviewSubmitting(false);
     }
   };
 
-  const handleApproveRequest = async (reqId, { quiet = false } = {}) => {
-    setPendingReqActionId(reqId);
-    try {
-      await api.put(`/scripts/purchase-request/${reqId}/approve`);
-      if (!quiet) showNotice("Request approved. Buyer was notified to complete payment.", "success");
-      await fetchScript();
-      await fetchPendingRequestsForScript();
-      return true;
-    } catch (err) {
-      const message = err?.response?.data?.message || "Failed to approve request";
-      if (!quiet) showNotice(message, "error");
-      if (err?.response?.status === 409) {
-        await fetchScript();
-        await fetchPendingRequestsForScript();
-      }
-      return false;
-    } finally {
-      setPendingReqActionId(null);
-    }
-  };
+  const handleApproveRequest = projectActions.approveRequest;
 
-  const handleRejectRequest = async (requestId, note = "") => {
-    if (!requestId) return false;
-    setPendingReqActionId(requestId);
-    try {
-      await api.put(`/scripts/purchase-request/${requestId}/reject`, { note: String(note || "").trim() });
-      await fetchScript();
-      await fetchPendingRequestsForScript();
-      showNotice("Purchase request declined.", "success");
-      return true;
-    } catch (err) {
-      showNotice(err.response?.data?.message || "Failed to reject request", "error");
-      return false;
-    } finally {
-      setPendingReqActionId(null);
-    }
-  };
+  const handleRejectRequest = projectActions.rejectRequest;
 
   const handleRejectRequestSubmit = async () => {
     if (!rejectNoteModal) return;
-    setPendingReqActionId(rejectNoteModal.id);
-    try {
-      await api.put(`/scripts/purchase-request/${rejectNoteModal.id}/reject`, { note: rejectNoteText });
+    const declined = await projectActions.rejectRequest(rejectNoteModal.id, rejectNoteText);
+    if (declined) {
       setRejectNoteModal(null);
       setRejectNoteText("");
-      await fetchScript();
-      await fetchPendingRequestsForScript();
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to reject request");
-    } finally {
-      setPendingReqActionId(null);
     }
   };
 
@@ -1617,7 +1430,7 @@ const ScriptDetail = () => {
     setMeetingSent(true);
     setTimeout(() => setMeetingSent(false), 3000);
     if (payload?.remainingMeetings !== undefined) {
-      setMeetingStats({
+      projectActions.setMeetingStats({
         meetingsUsed: payload.meetingsUsed,
         meetingsLimit: payload.meetingsLimit,
         remainingMeetings: payload.remainingMeetings,
@@ -1674,28 +1487,28 @@ const ScriptDetail = () => {
           handleDownloadPreview,
           handleDownload,
           handlePrint,
-          reviews,
-          reviewsLoading,
-          reviewsPage,
-          reviewsTotalPages,
-          reviewsTotal,
-          myReview,
+          reviews: projectActions.reviews,
+          reviewsLoading: projectActions.reviewsLoading,
+          reviewsPage: projectActions.reviewsPage,
+          reviewsTotalPages: projectActions.reviewsTotalPages,
+          reviewsTotal: projectActions.reviewsTotal,
+          myReview: projectActions.myReview,
           canSubmitReview,
           reviewRating,
           setReviewRating,
           reviewComment,
           setReviewComment,
-          reviewSubmitting,
+          reviewSubmitting: projectActions.reviewSubmitting,
           handleSubmitReview,
           fetchReviews,
           onProducerAggregate: (aggregate) => setScript((current) => current ? { ...current, producerRating: aggregate } : current),
-          pendingRequests,
-          pendingReqLoading,
-          pendingReqActionId,
+          pendingRequests: projectActions.requests,
+          pendingReqLoading: projectActions.requestsLoading,
+          pendingReqActionId: projectActions.decidingId,
           pendingRequestBadgeCount,
           handleApproveRequest,
           handleRejectRequest,
-          requestLoading,
+          requestLoading: projectActions.requestPending,
           handleRequestPurchase,
           writerCustomConditions,
           writerContact,
@@ -1705,8 +1518,8 @@ const ScriptDetail = () => {
           contactRevealBlocked,
           contactsUsed,
           contactsLimit,
-          revealLoading,
-          revealError,
+          revealLoading: projectActions.revealPending,
+          revealError: projectActions.revealError,
           handleRevealContact,
           messageWriterBlocked,
           messageWritersUsed,
@@ -1721,7 +1534,7 @@ const ScriptDetail = () => {
           handleMeetingScheduled,
           showDeleteModal,
           setShowDeleteModal,
-          deleteLoading,
+          deleteLoading: projectActions.deletePending,
           handleDeleteScript,
           handleInvoicePdfAction,
           trailerDurationChoice,

@@ -34,6 +34,22 @@ export const INDUSTRY_BUSINESS_EMAIL_REQUIRED_MESSAGE =
 
 export const FILM_PROFESSIONAL_ROLE_LIST = ["investor", "producer", "director", "industry", "professional"];
 
+/*
+ * The other side of the marketplace.
+ *
+ * "writer" and "creator" are the same account type under two names — the second is historical —
+ * and three files had already written that pair out privately (`utils/profileCompletion.js`,
+ * `utils/scriptLimits.js`, and every inline `["writer", "creator"]` in the controllers). They all
+ * happen to agree today; DEF-28 is what it costs when four copies of a closed role vocabulary stop
+ * agreeing. Named here, beside the industry list it is the counterpart to.
+ */
+export const WRITER_ROLE_LIST = ["writer", "creator"];
+
+export const isWriterRole = (roleOrUser = "") => {
+  const role = typeof roleOrUser === "string" ? roleOrUser : roleOrUser?.role;
+  return WRITER_ROLE_LIST.includes(String(role || "").trim().toLowerCase());
+};
+
 export const getEmailDomain = (email = "") => {
   const normalized = String(email || "").trim().toLowerCase();
   const atIndex = normalized.lastIndexOf("@");

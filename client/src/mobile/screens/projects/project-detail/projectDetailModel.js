@@ -23,6 +23,7 @@
  * text, rather than hidden: "you have not been approved for this project" is information, and a
  * missing button is not.
  */
+import { MIN_REVIEW_COMMENT } from "../../../../pages/script-detail/projectActions";
 import {
   modificationLabel,
   negotiationLabel,
@@ -58,17 +59,37 @@ export const formatCount = (value) => new Intl.NumberFormat(undefined, {
  *
  * `story` first because a buyer decides on the premise; `read` second because the next question is
  * always "can I actually read it"; `evidence` third because the scores only matter once the story
- * is interesting; `deal` fourth. `contact` is last and exists on every viewer's screen — for a
- * viewer with no contact entitlement it says so, which is the state the desktop page renders as an
- * empty panel.
+ * is interesting; `feedback` fourth because it is the human half of the same question and it is
+ * where the viewer adds their own; `deal` fifth. `purchase` follows the terms, because asking to
+ * buy is what a reader of the terms does next — and for the writer it is where the asks arrive.
+ * `contact` is second to last and exists on every viewer's screen — for a viewer with no contact
+ * entitlement it says so, which is the state the desktop page renders as an empty panel. `manage`
+ * is owner-only and last: destructive controls do not belong above the thing they destroy.
  */
 export const PROJECT_SECTIONS = Object.freeze([
   Object.freeze({ id: "story", title: "The story", icon: "menu_book" }),
   Object.freeze({ id: "read", title: "Read the screenplay", icon: "auto_stories" }),
   Object.freeze({ id: "evidence", title: "Evidence", icon: "verified" }),
+  Object.freeze({ id: "feedback", title: "Ratings and reviews", icon: "reviews" }),
   Object.freeze({ id: "deal", title: "Deal terms", icon: "handshake" }),
+  Object.freeze({ id: "purchase", title: "Buying this project", icon: "shopping_bag" }),
   Object.freeze({ id: "contact", title: "The writer", icon: "person" }),
+  Object.freeze({ id: "manage", title: "Manage this project", icon: "settings" }),
 ]);
+
+/**
+ * One section by id, with an optional title override.
+ *
+ * The screen used to index this array by position, which was fine at five sections and a bug
+ * waiting at eight — inserting `feedback` in the middle would have retitled every section after
+ * it. The override exists because two sections are the same landmark with different meanings for
+ * different viewers: `purchase` is "Buying this project" to a producer and "Purchase requests" to
+ * the writer who receives them.
+ */
+export const getSection = (id, title = "") => {
+  const found = PROJECT_SECTIONS.find((section) => section.id === id) || PROJECT_SECTIONS[0];
+  return has(title) ? { ...found, title } : found;
+};
 
 /**
  * The project's own state, as a badge plus a sentence.
@@ -310,16 +331,23 @@ export const describeTransactionStanding = ({ script = {}, capabilities = {} } =
 };
 
 /**
- * The writer's contact standing, as text only.
+ * The writer's contact standing.
  *
- * D28 renders it and does not act on it. The quota numbers come from the server's own
- * `writerContactRevealStatus`, so the phone never computes an entitlement the server did not
- * grant — and it never shows a contact the payload did not contain, which after DEF-26 is the only
- * way a contact can arrive at all.
+ * The quota numbers come from the server's own `writerContactRevealStatus`, so the phone never
+ * computes an entitlement the server did not grant — and it never shows a contact the payload did
+ * not contain, which after DEF-26 is the only way a contact can arrive at all.
+ *
+ * D29 added the two arguments that make it usable AFTER a reveal: `revealed` is the contact the
+ * reveal call just returned and `stats` the quota it just reported. Both take precedence over the
+ * payload, because the payload was fetched before the reveal happened — re-reading the project to
+ * learn what the reveal already told us would be a second round trip for an answer we hold.
  */
-export const describeContactStanding = ({ script = {}, capabilities = {} } = {}) => {
-  const reveal = script?.writerContactRevealStatus || null;
-  const contact = script?.writerContact || null;
+export const describeContactStanding = ({ script = {}, capabilities = {}, revealed = null, stats = null } = {}) => {
+  const payloadReveal = script?.writerContactRevealStatus || null;
+  const reveal = payloadReveal || stats
+    ? { ...(payloadReveal || {}), ...(stats || {}), alreadyRevealed: Boolean(payloadReveal?.alreadyRevealed) || Boolean(revealed) }
+    : null;
+  const contact = revealed || script?.writerContact || null;
   const writerName = text(script?.creator?.name) || "the writer";
 
   if (capabilities?.owner) {
@@ -422,3 +450,282 @@ export const resolveRecommendedAction = ({ recommended = {}, reader = {}, script
   if (id === "tools") return { kind: "section", section: "deal", label: "Review this project" };
   return { kind: "section", section: "story", label: recommended?.label || "Read the project" };
 };
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * D29 — the WRITE half.
+ *
+ * Every function below answers the same two questions for one action: may this viewer take it,
+ * and if not, what is the true reason. The reason is never omitted and never softened into a
+ * disabled control, because on a phone a greyed-out button with no explanation is a dead end the
+ * viewer cannot inspect — there is no tooltip and no hover.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/**
+ * What the viewer can do about BUYING this project, as one resolved action.
+ *
+ * The order of the branches is the order of the facts: a project that is gone cannot be bought by
+ * anyone; a viewer who already owns it has nothing to ask for; an approved request is a bill, not
+ * an invitation; and only then does "may this account buy at all" matter.
+ */
+export const describePurchaseAction = ({ script = {}, capabilities = {} } = {}) => {
+  const id = text(script?._id);
+
+  if (capabilities?.owner) {
+    return { kind: "none", label: "", note: "Requests to buy this project arrive here." };
+  }
+  if (capabilities?.buyer) {
+    return { kind: "none", label: "", note: "You have bought this project. The full screenplay is unlocked." };
+  }
+  if (script?.isSold || text(script?.transactionStatus) === "sold_licensed") {
+    return { kind: "none", label: "", note: "This project has been sold and is no longer available." };
+  }
+
+  const request = script?.myPendingRequest || null;
+  const status = text(request?.status);
+  if (status === "approved") {
+    return {
+      kind: "payment",
+      to: `/script/${id}/pay`,
+      label: "Continue to payment",
+      note: "The writer approved your request. Payment unlocks the full screenplay.",
+    };
+  }
+  if (status === "pending") {
+    return { kind: "none", label: "", note: "Your request is with the writer. You will be notified when they respond." };
+  }
+  if (status === "rejected") {
+    return {
+      kind: "none",
+      label: "",
+      note: has(request?.note)
+        ? `The writer declined this request: "${text(request.note)}"`
+        : "The writer declined this request.",
+    };
+  }
+
+  if (capabilities?.canPurchase) {
+    return {
+      kind: "request",
+      label: "Request purchase access",
+      note: "The writer reviews every request before a sale can go ahead.",
+    };
+  }
+
+  return {
+    kind: "none",
+    label: "",
+    note: capabilities?.collaborator
+      ? "You are a collaborator on this project, so you cannot also buy it."
+      : "Screenplay purchases are made by verified industry accounts.",
+  };
+};
+
+const REQUEST_STATUS_TONES = Object.freeze({
+  pending: { label: "Awaiting your decision", tone: "warning" },
+  approved: { label: "Approved", tone: "success" },
+  rejected: { label: "Declined", tone: "neutral" },
+  expired: { label: "Expired unpaid", tone: "neutral" },
+  cancelled: { label: "Cancelled", tone: "neutral" },
+});
+
+/**
+ * One incoming purchase request, as a row the writer can decide on.
+ *
+ * `decidable` is the whole point: only a pending request has an approve/decline pair, and the
+ * desktop page renders its buttons from the same fact. A row whose status changed under the
+ * writer (someone paid, the approval expired) loses its buttons on the next poll rather than
+ * offering a decision the server will refuse.
+ */
+export const describeRequestRow = (request = {}) => {
+  const status = text(request?.status) || "pending";
+  const known = REQUEST_STATUS_TONES[status] || { label: status.replace(/_/g, " "), tone: "neutral" };
+  const investor = request?.investor || {};
+  const paid = text(request?.paymentStatus) === "released";
+  return {
+    id: text(request?._id),
+    name: text(investor?.name) || "An industry member",
+    role: text(investor?.role),
+    amount: formatMoney(request?.amount),
+    note: text(request?.note),
+    statusLabel: paid && status === "approved" ? "Paid" : known.label,
+    tone: paid && status === "approved" ? "success" : known.tone,
+    createdAt: request?.createdAt || null,
+    decidable: status === "pending",
+  };
+};
+
+/**
+ * Which kind of feedback THIS viewer can leave, and whether they already have.
+ *
+ * Readers write reviews; industry accounts leave a producer rating. They are different tables
+ * with different role gates on the server, and the phone must not offer the form the viewer's
+ * account will be refused for. Both are refused entirely on an unpublished project, which is a
+ * fact worth stating on a writer's own draft — otherwise the empty section reads as a bug.
+ */
+export const describeFeedbackStanding = ({ script = {}, capabilities = {}, myReview = null, myRating = null } = {}) => {
+  const published = text(script?.status) === "published";
+
+  if (capabilities?.owner) {
+    return { mode: "none", canSubmit: false, headline: "Your own project", note: "You cannot review or rate your own project." };
+  }
+  if (!published) {
+    return {
+      mode: "none",
+      canSubmit: false,
+      headline: "Not open for feedback yet",
+      note: "Only published projects can be reviewed or rated.",
+    };
+  }
+  if (capabilities?.reader) {
+    return myReview
+      ? {
+        mode: "review",
+        canSubmit: false,
+        existing: myReview,
+        headline: "You reviewed this project",
+        note: "Your review is public to the writer and to other members.",
+        label: "Write a review",
+      }
+      : {
+        mode: "review",
+        canSubmit: true,
+        existing: null,
+        headline: "Write a review",
+        note: `A rating and at least ${MIN_REVIEW_COMMENT} characters. Reader reviews are public.`,
+        label: "Write a review",
+      };
+  }
+  if (capabilities?.industry) {
+    return {
+      mode: "rating",
+      canSubmit: true,
+      existing: myRating,
+      headline: myRating ? "Your producer rating" : "Rate this project",
+      note: myRating
+        ? "Rating again replaces the one you gave."
+        : "Producer ratings are the industry credibility signal on this project. Notes are optional.",
+      label: myRating ? "Change your rating" : "Rate this project",
+    };
+  }
+  return {
+    mode: "none",
+    canSubmit: false,
+    headline: "Reviews come from readers",
+    note: "Reader accounts write reviews; industry accounts leave a producer rating.",
+  };
+};
+
+/**
+ * The state of a quota-bound writer action — message or meeting — in one shape.
+ *
+ * Both follow the identical rule: a plan grants N per billing cycle, doing it again with the SAME
+ * writer costs nothing, and a viewer with no plan is not merely blocked but blocked for a reason
+ * they can act on. Writing it once means the two can never drift apart in the copy, which on the
+ * desktop page they already had ("message limit" against "scheduled meetings limit").
+ */
+const describeQuotaAction = ({ entitled, repeat, remaining, limit, labels }) => {
+  if (!entitled) {
+    return { id: "no-entitlement", canAct: false, label: labels.action, note: labels.upsell };
+  }
+  if (repeat) {
+    return { id: "repeat", canAct: true, label: labels.repeatAction, note: labels.repeatNote };
+  }
+  if (Number(remaining) <= 0) {
+    return {
+      id: "quota-spent",
+      canAct: false,
+      label: labels.action,
+      note: `You have used all ${Number(limit) || 0} ${labels.unit} included in your plan this month.`,
+    };
+  }
+  return {
+    id: "available",
+    canAct: true,
+    label: labels.action,
+    note: `${Number(remaining)} of ${Number(limit) || 0} ${labels.unit} left this month. This uses one.`,
+  };
+};
+
+export const describeMessageStanding = ({ script = {}, capabilities = {}, entitled = false, alreadyMessaged = false, remaining = 0, limit = 0 } = {}) => {
+  if (capabilities?.owner) return { id: "self", canAct: false, label: "", note: "" };
+  return describeQuotaAction({
+    // An unlocked project is a completed purchase: the buyer talks to the writer for free.
+    entitled: entitled || Boolean(script?.isUnlocked),
+    repeat: alreadyMessaged || Boolean(script?.isUnlocked),
+    remaining,
+    limit,
+    labels: {
+      action: "Message the writer",
+      repeatAction: "Open the conversation",
+      repeatNote: "You have already opened a conversation with this writer.",
+      upsell: "A Film Industry Professional plan includes direct messages to writers.",
+      unit: "writer messages",
+    },
+  });
+};
+
+export const describeMeetingStanding = ({ capabilities = {}, entitled = false, alreadyScheduled = false, remaining = 0, limit = 0 } = {}) => {
+  if (capabilities?.owner) return { id: "self", canAct: false, label: "", note: "" };
+  return describeQuotaAction({
+    entitled,
+    repeat: alreadyScheduled,
+    remaining,
+    limit,
+    labels: {
+      action: "Request a meeting",
+      repeatAction: "Request another meeting",
+      repeatNote: "You have already met this writer, so another request costs nothing.",
+      upsell: "A Film Industry Professional plan includes scheduled meetings with writers.",
+      unit: "meetings",
+    },
+  });
+};
+
+/**
+ * The owner's own controls, and the situations where one of them is honestly unavailable.
+ *
+ * Deleting is a SOFT delete on the server — the project leaves the listings and existing buyers
+ * keep what they paid for — so the confirmation says that rather than "permanently". Promising a
+ * permanent erase the server does not perform is the version of this dialog that lies.
+ */
+export const describeOwnerManage = ({ script = {}, capabilities = {} } = {}) => {
+  if (!capabilities?.owner) return { visible: false };
+
+  const editLocked = text(script?.status) === "pending_approval";
+  const competitionLocked = Boolean(script?.competitionLocked);
+  const sold = Boolean(script?.isSold) || text(script?.transactionStatus) === "sold_licensed";
+
+  return {
+    visible: true,
+    canEdit: !editLocked,
+    editPath: projectEditorPath(script),
+    editNote: editLocked
+      ? "Editing is locked while your submission is with an admin."
+      : "Opens this project in the editor it was written in.",
+    canDelete: !competitionLocked,
+    deleteNote: competitionLocked
+      ? "This project was entered into a competition and cannot be deleted."
+      : sold
+        ? "It will be removed from listings. The buyer keeps the access they paid for."
+        : "It will be removed from listings and from your profile.",
+    deleteConfirm: sold
+      ? "This project has been sold. Removing it takes it out of the listings and off your profile; the buyer keeps the access they paid for. This cannot be undone from the app."
+      : "This takes the project out of the listings and off your profile. Anyone who already bought it keeps their access. This cannot be undone from the app.",
+  };
+};
+
+/**
+ * The empty meeting draft.
+ *
+ * It lives with the view model rather than with the sheet for a mechanical reason and a real one:
+ * a component file that also exports a helper breaks fast refresh, and the shape of a form the
+ * SCREEN owns is the screen's model, not the sheet's.
+ */
+export const emptyMeetingDraft = (projectTitle = "") => ({
+  title: has(projectTitle) ? `Ckript meeting: ${text(projectTitle)}` : "Ckript meeting",
+  date: "",
+  time: "",
+  duration: "30",
+  message: "",
+  needsCalendar: false,
+});

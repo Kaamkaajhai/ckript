@@ -5,10 +5,17 @@ import {
   buildEvidence,
   buildStoryFacts,
   describeContactStanding,
+  describeFeedbackStanding,
+  describeMeetingStanding,
+  describeMessageStanding,
+  describeOwnerManage,
   describeProjectStatus,
+  describePurchaseAction,
+  describeRequestRow,
   describeReaderAccess,
   describeTransactionStanding,
   formatMoney,
+  getSection,
   projectEditorPath,
   resolveRecommendedAction,
 } from "./projectDetailModel";
@@ -272,5 +279,181 @@ describe("the recommended action", () => {
         expect(PROJECT_SECTIONS.some((section) => section.id === action.section)).toBe(true);
       }
     }
+  });
+});
+
+/* ── D29: the write half ────────────────────────────────────────────────── */
+
+describe("what the viewer can do about buying", () => {
+  const producer = { canPurchase: true };
+
+  it("puts the facts in the order they overrule each other", () => {
+    // Gone beats everything; owning it beats being able to buy it; an approved request is a bill
+    // rather than an invitation.
+    expect(describePurchaseAction({ script: { isSold: true }, capabilities: producer }).kind).toBe("none");
+    expect(describePurchaseAction({ script: {}, capabilities: { ...producer, buyer: true } }).kind).toBe("none");
+    expect(describePurchaseAction({
+      script: { _id: "p1", myPendingRequest: { status: "approved" } },
+      capabilities: producer,
+    })).toMatchObject({ kind: "payment", to: "/script/p1/pay" });
+    expect(describePurchaseAction({ script: {}, capabilities: producer }).kind).toBe("request");
+  });
+
+  it("says why there is no control, in every case where there is none", () => {
+    for (const [script, capabilities] of [
+      [{ isSold: true }, producer],
+      [{}, { owner: true }],
+      [{}, { buyer: true }],
+      [{}, { collaborator: true }],
+      [{}, {}],
+      [{ myPendingRequest: { status: "pending" } }, producer],
+      [{ myPendingRequest: { status: "rejected" } }, producer],
+    ]) {
+      const action = describePurchaseAction({ script, capabilities });
+      expect(action.kind).toBe("none");
+      expect(action.note.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("quotes the writer's reason when they gave one", () => {
+    const action = describePurchaseAction({
+      script: { myPendingRequest: { status: "rejected", note: "Optioned elsewhere." } },
+      capabilities: producer,
+    });
+    expect(action.note).toContain("Optioned elsewhere.");
+  });
+});
+
+describe("one incoming request", () => {
+  it("offers a decision only on a request that is still open", () => {
+    expect(describeRequestRow({ _id: "r1", status: "pending" }).decidable).toBe(true);
+    for (const status of ["approved", "rejected", "expired", "cancelled"]) {
+      expect(describeRequestRow({ _id: "r1", status }).decidable, status).toBe(false);
+    }
+  });
+
+  it("says 'Paid' rather than 'Approved' once the money has moved", () => {
+    const row = describeRequestRow({ _id: "r1", status: "approved", paymentStatus: "released" });
+    expect(row.statusLabel).toBe("Paid");
+    expect(row.tone).toBe("success");
+  });
+
+  it("names an unpopulated buyer rather than rendering an empty row", () => {
+    expect(describeRequestRow({ _id: "r1", status: "pending" }).name).toBe("An industry member");
+  });
+});
+
+describe("who may leave what kind of feedback", () => {
+  const published = { status: "published" };
+
+  it("offers a reader the review form and an industry account the rating", () => {
+    expect(describeFeedbackStanding({ script: published, capabilities: { reader: true } })).toMatchObject({
+      mode: "review", canSubmit: true,
+    });
+    expect(describeFeedbackStanding({ script: published, capabilities: { industry: true } })).toMatchObject({
+      mode: "rating", canSubmit: true,
+    });
+  });
+
+  it("never offers a form the server would refuse", () => {
+    // Reviews are reader-only, ratings are industry-only, both are refused on the owner's own
+    // project and on anything unpublished. A form that posts into a 403 is worse than no form.
+    expect(describeFeedbackStanding({ script: published, capabilities: { owner: true } }).canSubmit).toBe(false);
+    expect(describeFeedbackStanding({ script: { status: "draft" }, capabilities: { reader: true } }).canSubmit).toBe(false);
+    expect(describeFeedbackStanding({ script: published, capabilities: {} }).canSubmit).toBe(false);
+  });
+
+  it("tells a reader who already reviewed that they did, instead of offering a second one", () => {
+    const standing = describeFeedbackStanding({
+      script: published,
+      capabilities: { reader: true },
+      myReview: { rating: 4, comment: "Strong second act." },
+    });
+    expect(standing.canSubmit).toBe(false);
+    expect(standing.existing.rating).toBe(4);
+  });
+
+  it("lets a producer replace a rating, and says that is what will happen", () => {
+    const standing = describeFeedbackStanding({
+      script: published,
+      capabilities: { industry: true },
+      myRating: { rating: 3 },
+    });
+    expect(standing.canSubmit).toBe(true);
+    expect(standing.note).toContain("replaces");
+  });
+});
+
+describe("the quota-bound writer actions", () => {
+  it("distinguishes no plan from a spent quota, because only one of them can be fixed by waiting", () => {
+    expect(describeMessageStanding({ capabilities: {}, entitled: false }).id).toBe("no-entitlement");
+    expect(describeMessageStanding({ capabilities: {}, entitled: true, remaining: 0, limit: 10 }).id).toBe("quota-spent");
+    expect(describeMessageStanding({ capabilities: {}, entitled: true, remaining: 3, limit: 10 }).id).toBe("available");
+  });
+
+  it("charges nothing for a writer already spoken to", () => {
+    const repeat = describeMessageStanding({ capabilities: {}, entitled: true, alreadyMessaged: true, remaining: 0, limit: 10 });
+    expect(repeat.canAct).toBe(true);
+    expect(repeat.id).toBe("repeat");
+  });
+
+  it("treats a completed purchase as its own entitlement to talk to the writer", () => {
+    const buyer = describeMessageStanding({ script: { isUnlocked: true }, capabilities: {}, entitled: false });
+    expect(buyer.canAct).toBe(true);
+  });
+
+  it("counts meetings by the same rule and in the same words", () => {
+    expect(describeMeetingStanding({ capabilities: {}, entitled: true, remaining: 0, limit: 4 }).note).toContain("all 4");
+    expect(describeMeetingStanding({ capabilities: {}, entitled: true, remaining: 2, limit: 4 }).note).toContain("2 of 4");
+    expect(describeMeetingStanding({ capabilities: { owner: true } }).canAct).toBe(false);
+  });
+});
+
+describe("the owner's own controls", () => {
+  it("exists for nobody else", () => {
+    expect(describeOwnerManage({ script: {}, capabilities: {} }).visible).toBe(false);
+  });
+
+  it("locks editing while an admin holds the submission, and says so", () => {
+    const manage = describeOwnerManage({ script: { status: "pending_approval" }, capabilities: { owner: true } });
+    expect(manage.canEdit).toBe(false);
+    expect(manage.editNote).toContain("admin");
+  });
+
+  it("refuses to offer a delete the server will refuse", () => {
+    const locked = describeOwnerManage({ script: { competitionLocked: true }, capabilities: { owner: true } });
+    expect(locked.canDelete).toBe(false);
+    expect(locked.deleteNote).toContain("competition");
+  });
+
+  it("promises a removal, not an erasure, because the server soft-deletes", () => {
+    const manage = describeOwnerManage({ script: {}, capabilities: { owner: true } });
+    expect(manage.deleteConfirm).not.toContain("permanent");
+    expect(manage.deleteConfirm).toContain("already bought it keeps their access");
+
+    const sold = describeOwnerManage({ script: { isSold: true }, capabilities: { owner: true } });
+    expect(sold.deleteConfirm).toContain("buyer keeps the access they paid for");
+  });
+});
+
+describe("the section registry", () => {
+  it("is addressed by id, so inserting a section cannot retitle its neighbours", () => {
+    expect(getSection("deal").title).toBe("Deal terms");
+    expect(getSection("purchase", "Purchase requests").title).toBe("Purchase requests");
+    // An unknown id still yields a renderable section rather than undefined.
+    expect(getSection("nope").id).toBe("story");
+  });
+});
+
+describe("the contact standing after a reveal", () => {
+  it("prefers what the reveal just returned over the payload it was fetched before", () => {
+    const standing = describeContactStanding({
+      script: { creator: { name: "Mira" }, writerContactRevealStatus: { canReveal: true, alreadyRevealed: false, remainingContacts: 3, contactsLimit: 10 } },
+      capabilities: {},
+      revealed: { email: "mira@example.com" },
+      stats: { remainingContacts: 2, contactsLimit: 10 },
+    });
+    expect(standing.id).toBe("revealed");
+    expect(standing.contact.email).toBe("mira@example.com");
   });
 });
