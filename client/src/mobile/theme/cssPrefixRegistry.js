@@ -291,6 +291,14 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     note: "The payment route at /script/:id/pay. Its own prefix rather than part of ckm-project: it is a single-purpose transactional surface — an amount, a set of acceptances and one docked action — and it is the only mobile screen whose primary control hands the viewer to a third-party overlay outside our DOM.",
   },
 
+  // --- Public project preview (Phase 4, D31) ----------------------------
+  "ckm-public-project": {
+    kind: PAGE_FAMILY,
+    owner: "screens/projects/public-project/ProjectPublicMobile.css",
+    family: "projects",
+    note: "The unauthenticated project share at /share/project/:id. It consumes only the server's public projection and never derives signed-in marketplace capabilities.",
+  },
+
   // --- Project creation (Phase 3) ---------------------------------------
   // The chooser at /new-project. Its own family rather than part of
   // ckm-create-project: it is a different route with a different shell, it

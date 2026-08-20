@@ -360,6 +360,20 @@ describe("mobileRoutePolicy — experience selection", () => {
     });
   });
 
+  it("mounts the public project screen without an account (D31)", () => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: null,
+      pathname: "/share/project/project-1",
+    })).toMatchObject({
+      experience: "mobile",
+      routeId: "shared-project",
+      screenId: "public-project",
+      disposition: "shared-public-screen",
+    });
+  });
+
   it("leaves the preview route to its deterministic App.jsx fixture", () => {
     expect(resolveMobileExperience({
       isMobile: true,

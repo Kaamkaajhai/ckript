@@ -12,6 +12,7 @@ const TopScriptsMobile = lazy(() => import("../screens/discovery/TopScriptsMobil
 const FeaturedProjectsMobile = lazy(() => import("../screens/discovery/FeaturedProjectsMobile"));
 const ProjectDetailMobile = lazy(() => import("../screens/projects/project-detail/ProjectDetailMobile"));
 const ProjectCheckoutMobile = lazy(() => import("../screens/projects/checkout/ProjectCheckoutMobile"));
+const ProjectPublicMobile = lazy(() => import("../screens/projects/public-project/ProjectPublicMobile"));
 const PrimitiveGallery = lazy(() => import("../dev/PrimitiveGallery"));
 const CreateHarness = lazy(() => import("../dev/CreateHarness"));
 const UploadHarness = lazy(() => import("../dev/UploadHarness"));
@@ -121,6 +122,7 @@ export default function MobileRoutes({
         <Route path="/search" element={<SearchMobile user={user} />} />
         <Route path="/top-script" element={<TopScriptsMobile user={user} />} />
         <Route path="/featured" element={<FeaturedProjectsMobile user={user} />} />
+        <Route path="/share/project/:id" element={<ProjectPublicMobile />} />
         {/* Three patterns, one screen. The server resolves the id form and both
             path forms to the same payload, and useProjectDetail rewrites the URL
             to the canonical one after load — so the screen never asks which

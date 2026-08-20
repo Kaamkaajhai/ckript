@@ -195,7 +195,15 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
   migration("forgot-password", "/forgot-password"),
   migration("accept-invite", "/invite/:token"),
   migration("shared-profile", "/share/profile/:id"),
-  migration("shared-project", "/share/project/:id"),
+  {
+    id: "shared-project",
+    pattern: "/share/project/:id",
+    disposition: MOBILE_ROUTE_DISPOSITION.SHARED_PUBLIC_SCREEN,
+    reason: "Native public project preview over the server's deliberately projected unauthenticated payload (plan §11 Phase 4, D31).",
+    protection: "public",
+    screenId: "public-project",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+  },
 
   migration("challenge-hub", "/challenge"),
   migration("challenge-detail", "/challenge/c/:slug"),
