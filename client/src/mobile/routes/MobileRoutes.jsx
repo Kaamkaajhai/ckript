@@ -11,6 +11,7 @@ const SearchMobile = lazy(() => import("../screens/discovery/SearchMobile"));
 const TopScriptsMobile = lazy(() => import("../screens/discovery/TopScriptsMobile"));
 const FeaturedProjectsMobile = lazy(() => import("../screens/discovery/FeaturedProjectsMobile"));
 const ProjectDetailMobile = lazy(() => import("../screens/projects/project-detail/ProjectDetailMobile"));
+const ProjectCheckoutMobile = lazy(() => import("../screens/projects/checkout/ProjectCheckoutMobile"));
 const PrimitiveGallery = lazy(() => import("../dev/PrimitiveGallery"));
 const CreateHarness = lazy(() => import("../dev/CreateHarness"));
 const UploadHarness = lazy(() => import("../dev/UploadHarness"));
@@ -18,6 +19,7 @@ const SearchHarness = lazy(() => import("../dev/SearchHarness"));
 const TopScriptsHarness = lazy(() => import("../dev/TopScriptsHarness"));
 const FeaturedHarness = lazy(() => import("../dev/FeaturedHarness"));
 const ProjectDetailHarness = lazy(() => import("../dev/ProjectDetailHarness"));
+const CheckoutHarness = lazy(() => import("../dev/CheckoutHarness"));
 
 /*
  * MobileRoutes lives inside the app's one existing BrowserRouter. Canonical
@@ -90,6 +92,10 @@ export default function MobileRoutes({
     return <MobileRouteBoundary><ProjectDetailHarness user={user} /></MobileRouteBoundary>;
   }
 
+  if (devScreen === "checkout") {
+    return <MobileRouteBoundary><CheckoutHarness user={user} /></MobileRouteBoundary>;
+  }
+
   if (preview) {
     return <MobileRouteBoundary>{dashboard}</MobileRouteBoundary>;
   }
@@ -121,6 +127,10 @@ export default function MobileRoutes({
             alias it was reached by. The two-segment catch-all is LAST for the
             same reason App.jsx declares it last: it matches any two segments,
             and every static route above it must win first. */}
+        {/* Before the detail forms, because `/script/:projectHeading/:writerUsername` matches
+            `/script/p1/pay` too. React Router ranks the static "pay" segment higher either way;
+            the order is kept explicit so the file reads the way the manifest does. */}
+        <Route path="/script/:id/pay" element={<ProjectCheckoutMobile user={user} />} />
         <Route path="/script/:id" element={<ProjectDetailMobile user={user} />} />
         <Route path="/script/:projectHeading/:writerUsername" element={<ProjectDetailMobile user={user} />} />
         <Route path="/:projectHeading/:writerUsername" element={<ProjectDetailMobile user={user} />} />

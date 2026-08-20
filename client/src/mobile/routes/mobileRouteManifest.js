@@ -129,6 +129,18 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     shell: MOBILE_SHELL_MODE.DETAIL,
   },
   {
+    id: "mobile-checkout-harness",
+    pattern: "/__mobile-checkout",
+    disposition: MOBILE_ROUTE_DISPOSITION.DEV_ONLY,
+    reason: "Development-only fixture for the native checkout screen (plan §11 Phase 4, D30). The live "
+      + "route cannot be measured twice: its standing depends on an approved purchase request whose "
+      + "72-hour window is running against the wall clock, and its one primary control opens a "
+      + "third-party overlay that cannot be opened in a sweep at all. Its `?state=` forms cover "
+      + "payable, free, expired, pending, no-request, sold, owned and a charge awaiting verification.",
+    screenId: "checkout-harness",
+    shell: MOBILE_SHELL_MODE.FLOW,
+  },
+  {
     id: "writer-dashboard",
     pattern: "/dashboard",
     disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
@@ -328,7 +340,27 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     shell: MOBILE_SHELL_MODE.STANDARD,
     fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
   },
-  migration("project-payment", "/script/:id/pay"),
+  /*
+   * The buyer's checkout (D30).
+   *
+   * ITS POSITION IS LOAD-BEARING. `/script/:projectHeading/:writerUsername` two entries below
+   * matches `/script/p1/pay` just as readily as a real canonical project path, and
+   * `findMobileRoute` returns the FIRST match — so the payment route has to be declared before
+   * the detail forms, exactly as it is in App.jsx.
+   */
+  {
+    id: "project-payment",
+    pattern: "/script/:id/pay",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native screenplay checkout: the amount, the rights being bought, the acceptances, the "
+      + "72-hour payment window and the Razorpay handover, plus recovery for a charge this browser "
+      + "took but never verified (plan §11 Phase 4, D30).",
+    audiences: [AUDIENCE.WRITER, AUDIENCE.INDUSTRY],
+    protection: "authenticated",
+    screenId: "project-checkout",
+    shell: MOBILE_SHELL_MODE.FLOW,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
   /*
    * The three authenticated detail forms (D28).
    *

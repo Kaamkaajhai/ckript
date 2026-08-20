@@ -714,6 +714,23 @@ function App() {
                   }
                 />
               )}
+              {import.meta.env.DEV && (
+                /* Phase 4 checkout harness (D30). The live route's standing runs
+                   against the wall clock (a 72-hour payment window) and its one
+                   primary control opens a third-party overlay a sweep cannot
+                   enter, so the fixture supplies both the account and the
+                   standing through `?state=`. */
+                <Route
+                  path="/__mobile-checkout"
+                  element={
+                    <AuthContext.Provider value={{ user: { _id: "viewer-1", name: "Ravi Menon", role: "producer", email: "ravi@studio.com", token: "preview", favoriteScripts: [] }, loading: false, logout: () => {}, setUser: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="checkout" />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
+              )}
               <Route path="/:id" element={<SingleSegmentProfileOrReferralRoute />} />
             </Routes>
             </RootExperience>
