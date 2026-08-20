@@ -9,7 +9,7 @@ import { ToastContext } from "../../../components/feedback/toastContext";
 import ProjectDetailMobile from "./ProjectDetailMobile";
 
 vi.mock("../../../../services/api", () => ({
-  default: { get: vi.fn(), post: vi.fn() },
+  default: { get: vi.fn(), post: vi.fn(), put: vi.fn(), delete: vi.fn() },
 }));
 
 // The reader mounts CodeMirror and pdf.js, neither of which belongs in a unit run — what this
@@ -278,5 +278,256 @@ describe("ProjectDetailMobile — the three route forms", () => {
     api.get.mockResolvedValue({ data: project() });
     await mount("/a b/mira");
     expect(api.get.mock.calls[0][0]).toBe("/scripts/path/a%20b/mira");
+  });
+});
+
+/*
+ * D29 — the write half.
+ *
+ * These mount the REAL load path (no `previewData`) because the writes and their lists are
+ * disabled under the preview fixture: the fixture exists so a five-width sweep measures a settled
+ * screen, not so it can stand in for a session that talks to a server.
+ */
+const respond = (project_, extra = {}) => {
+  api.get.mockImplementation((url) => {
+    if (url.includes("/similar")) return Promise.resolve({ data: [] });
+    if (url.startsWith("/reviews/")) {
+      return Promise.resolve({ data: { reviews: [], page: 1, totalPages: 1, total: 0, myReview: extra.myReview || null } });
+    }
+    if (url.startsWith("/producer-ratings/")) {
+      return Promise.resolve({ data: { ratings: [], myRating: extra.myRating || null, aggregate: { average: 0, count: 0 }, canRate: true } });
+    }
+    if (url.includes("purchase-requests/mine")) return Promise.resolve({ data: extra.requests || [] });
+    return Promise.resolve({ data: project_ });
+  });
+};
+
+/*
+ * Type into a controlled field the way React can see.
+ *
+ * Assigning `.value` directly leaves React's own value tracker holding the previous string, so the
+ * change event it synthesises is dropped and the component never learns what was typed — the field
+ * shows the text and the state does not have it.
+ */
+const typeInto = async (field, value) => {
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value").set.call(field, value);
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+};
+
+/** Let every chained fetch this screen makes settle before asserting on what it rendered. */
+const settle = async () => {
+  await act(async () => {
+    for (let i = 0; i < 8; i += 1) await Promise.resolve();
+  });
+};
+
+describe("ProjectDetailMobile — requesting a purchase", () => {
+  it("sends the buyer's own note and closes the sheet", async () => {
+    respond(project());
+    const el = await mount("/script/p1");
+    await settle();
+
+    await act(async () => { buttonWith(el, "Request purchase access").click(); });
+    const note = el.querySelector("textarea");
+    expect(note).toBeTruthy();
+    await typeInto(note, "I produce documentaries.");
+
+    api.post.mockResolvedValueOnce({ data: {} });
+    await act(async () => { buttonWith(el, "Send request").click(); });
+    await settle();
+
+    expect(api.post).toHaveBeenCalledWith("/scripts/purchase-request", {
+      scriptId: "p1",
+      note: "I produce documentaries.",
+    });
+    expect(toast.success).toHaveBeenCalled();
+  });
+
+  it("keeps the sheet and the words when the server refuses", async () => {
+    respond(project());
+    const el = await mount("/script/p1");
+    await settle();
+
+    await act(async () => { buttonWith(el, "Request purchase access").click(); });
+    api.post.mockRejectedValueOnce({ response: { status: 400, data: { message: "You already have a pending purchase request." } } });
+    await act(async () => { buttonWith(el, "Send request").click(); });
+    await settle();
+
+    expect(toast.error).toHaveBeenCalledWith("You already have a pending purchase request.");
+    expect(el.querySelector("textarea")).toBeTruthy();
+  });
+
+  it("offers no control, and a reason, to an account that cannot buy", async () => {
+    respond(project({ canPurchase: false }));
+    const el = await mount("/script/p1", { user: { ...producer, role: "reader" } });
+    await settle();
+
+    expect(buttonWith(el, "Request purchase access")).toBeUndefined();
+    expect(sectionText(el, "purchase")).toContain("verified industry accounts");
+  });
+});
+
+describe("ProjectDetailMobile — the writer deciding", () => {
+  const asOwner = (extra = {}) => ({
+    user: writerAccount,
+    project: project({ isCreator: true, canPurchase: false, creator: { ...creator, _id: "writer-1" } }),
+    requests: [{
+      _id: "r1",
+      status: "pending",
+      amount: 240000,
+      note: "We are casting now.",
+      createdAt: new Date().toISOString(),
+      investor: { name: "Ravi Menon", role: "producer" },
+      script: { _id: "p1" },
+      ...extra,
+    }],
+  });
+
+  it("states the three-day lock BEFORE the approval, not after the server refuses the next one", async () => {
+    const { user, project: doc, requests } = asOwner();
+    respond(doc, { requests });
+    const el = await mount("/script/p1", { user });
+    await settle();
+
+    expect(sectionText(el, "purchase")).toContain("Ravi Menon");
+    await act(async () => { buttonWith(el, "Approve").click(); });
+
+    const dialog = el.querySelector('[role="alertdialog"]');
+    expect(dialog.textContent).toContain("three days");
+    expect(dialog.textContent).toContain("Ravi Menon");
+
+    api.put.mockResolvedValueOnce({ data: {} });
+    await act(async () => { buttonWith(el, "Approve request").click(); });
+    await settle();
+    expect(api.put).toHaveBeenCalledWith("/scripts/purchase-request/r1/approve");
+  });
+
+  it("declines with the reason the writer typed", async () => {
+    const { user, project: doc, requests } = asOwner();
+    respond(doc, { requests });
+    const el = await mount("/script/p1", { user });
+    await settle();
+
+    await act(async () => { buttonWith(el, "Decline").click(); });
+    const note = el.querySelector("textarea");
+    await typeInto(note, "Not for us this year.");
+
+    api.put.mockResolvedValueOnce({ data: {} });
+    await act(async () => { buttonWith(el, "Decline request").click(); });
+    await settle();
+    expect(api.put).toHaveBeenCalledWith("/scripts/purchase-request/r1/reject", { note: "Not for us this year." });
+  });
+
+  it("shows a settled request's outcome without offering a decision on it", async () => {
+    const { user, project: doc } = asOwner();
+    respond(doc, { requests: [{ _id: "r2", status: "approved", amount: 0, investor: { name: "Ravi Menon" }, script: { _id: "p1" } }] });
+    const el = await mount("/script/p1", { user });
+    await settle();
+
+    expect(sectionText(el, "purchase")).toContain("Approved");
+    expect(buttonWith(el, "Approve")).toBeUndefined();
+    expect(buttonWith(el, "Decline")).toBeUndefined();
+  });
+});
+
+describe("ProjectDetailMobile — revealing a contact", () => {
+  it("spends the quota once and then prints what the server returned", async () => {
+    respond(project({
+      writerContactRevealStatus: { canReveal: true, alreadyRevealed: false, remainingContacts: 11, contactsLimit: 15 },
+    }));
+    const el = await mount("/script/p1");
+    await settle();
+
+    api.post.mockResolvedValueOnce({
+      data: {
+        contact: { email: "mira@example.com", phone: "+91 90000 00000" },
+        alreadyRevealed: false,
+        contactsUsed: 5,
+        contactsLimit: 15,
+        remainingContacts: 10,
+      },
+    });
+    await act(async () => { buttonWith(el, "Reveal contact details").click(); });
+    await settle();
+
+    expect(api.post).toHaveBeenCalledWith("/payment/reveal-contact/writer-1");
+    expect(el.querySelector('a[href="mailto:mira@example.com"]')).toBeTruthy();
+    expect(buttonWith(el, "Reveal contact details")).toBeUndefined();
+  });
+
+  it("says why it could not, in the section, rather than in a toast that scrolls away", async () => {
+    respond(project({
+      writerContactRevealStatus: { canReveal: true, alreadyRevealed: false, remainingContacts: 1, contactsLimit: 15 },
+    }));
+    const el = await mount("/script/p1");
+    await settle();
+
+    api.post.mockRejectedValueOnce({ response: { status: 403, data: { message: "This writer has opted out.", optedOut: true } } });
+    await act(async () => { buttonWith(el, "Reveal contact details").click(); });
+    await settle();
+
+    expect(sectionText(el, "contact")).toContain("This writer has opted out.");
+  });
+});
+
+describe("ProjectDetailMobile — the owner's own controls", () => {
+  it("confirms a removal in the words the server will actually honour", async () => {
+    const doc = project({ isCreator: true, canPurchase: false, isSold: true });
+    respond(doc);
+    const el = await mount("/script/p1", { user: writerAccount });
+    await settle();
+
+    await act(async () => { buttonWith(el, "Delete this project").click(); });
+    const dialog = el.querySelector('[role="alertdialog"]');
+    // A soft delete, described as one: the listing goes, the buyer's access does not.
+    expect(dialog.textContent).toContain("buyer keeps the access they paid for");
+    expect(dialog.textContent).not.toContain("permanently");
+
+    api.delete.mockResolvedValueOnce({ data: { softDeleted: true } });
+    await act(async () => { buttonWith(el, "Remove project").click(); });
+    await settle();
+    expect(api.delete).toHaveBeenCalledWith("/scripts/p1");
+  });
+
+  it("withholds the delete from a competition entry and says why", async () => {
+    respond(project({ isCreator: true, canPurchase: false, competitionLocked: true }));
+    const el = await mount("/script/p1", { user: writerAccount });
+    await settle();
+
+    expect(buttonWith(el, "Delete this project")).toBeUndefined();
+    expect(sectionText(el, "manage")).toContain("competition");
+  });
+});
+
+describe("ProjectDetailMobile — feedback", () => {
+  it("refuses an empty review in the form rather than posting it", async () => {
+    respond(project());
+    const el = await mount("/script/p1", { user: { ...producer, role: "reader" } });
+    await settle();
+
+    await act(async () => { buttonWith(el, "Write a review").click(); });
+    await act(async () => { buttonWith(el, "Submit review").click(); });
+
+    expect(api.post).not.toHaveBeenCalledWith("/reviews", expect.anything());
+    expect(el.querySelector('[role="alert"]').textContent).toContain("rating");
+  });
+
+  it("sends a producer's rating with an optional note", async () => {
+    respond(project());
+    const el = await mount("/script/p1");
+    await settle();
+
+    await act(async () => { buttonWith(el, "Rate this project").click(); });
+    const stars = el.querySelectorAll('.ckm-project__star input');
+    expect(stars).toHaveLength(5);
+    await act(async () => { stars[3].click(); });
+
+    api.post.mockResolvedValueOnce({ data: { rating: { rating: 4 }, aggregate: { average: 4, count: 1 } } });
+    await act(async () => { buttonWith(el, "Save rating").click(); });
+    await settle();
+
+    expect(api.post).toHaveBeenCalledWith("/producer-ratings", { script: "p1", rating: 4, review: "" });
   });
 });
