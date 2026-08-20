@@ -19,7 +19,7 @@ describe("mobileRoutePolicy — experience selection", () => {
     });
   });
 
-  it.each(["/messages", "/profile/writer-1", "/script/project-1/pay"])(
+  it.each(["/messages", "/profile/writer-1"])(
     "keeps the canonical desktop route during migration instead of swallowing %s",
     (pathname) => {
       expect(resolveMobileExperience({
@@ -33,6 +33,25 @@ describe("mobileRoutePolicy — experience selection", () => {
       });
     },
   );
+
+  /*
+   * The checkout was one of those migration fallbacks until D30 promoted it. It is asserted
+   * separately from the detail forms because its pattern sits ABOVE them in the manifest on
+   * purpose: `/script/:projectHeading/:writerUsername` matches `/script/project-1/pay` too, and
+   * `findMobileRoute` returns the first match.
+   */
+  it.each([writer, producer])("mounts the native checkout for authenticated $role users", (user) => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user,
+      pathname: "/script/project-1/pay",
+    })).toMatchObject({
+      experience: "mobile",
+      routeId: "project-payment",
+      screenId: "project-checkout",
+    });
+  });
 
   it.each([writer, creator, producer])("mounts native search for authenticated $role users", (user) => {
     expect(resolveMobileExperience({

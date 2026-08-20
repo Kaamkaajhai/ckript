@@ -283,6 +283,14 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     note: "The full-screen screenplay reader. Its own prefix rather than part of ckm-project: it is a typeset fixed-pitch surface with its own horizontal scroll rules, and folding those into the page family would make neither file readable on its own.",
   },
 
+  // --- The buyer's checkout (Phase 4, D30) ------------------------------
+  "ckm-checkout": {
+    kind: PAGE_FAMILY,
+    owner: "screens/projects/checkout/ProjectCheckoutMobile.css",
+    family: "projects",
+    note: "The payment route at /script/:id/pay. Its own prefix rather than part of ckm-project: it is a single-purpose transactional surface — an amount, a set of acceptances and one docked action — and it is the only mobile screen whose primary control hands the viewer to a third-party overlay outside our DOM.",
+  },
+
   // --- Project creation (Phase 3) ---------------------------------------
   // The chooser at /new-project. Its own family rather than part of
   // ckm-create-project: it is a different route with a different shell, it
