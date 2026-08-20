@@ -5,6 +5,7 @@ import { serializeTitlePage, hasTitlePage } from "../utils/classify.js";
 import { formatScriptCredit } from "../utils/writerCredits.js";
 import { stripPdfPageFurniture } from "../utils/screenplayImportClean.js";
 import { htmlToPlainText } from "../utils/htmlText.js";
+import { canReadFullScript } from "../utils/scriptReadAccess.js";
 
 // Map (mongoose) | Map | plain → plain object of title-page fields, or null when empty.
 const titlePageToObject = (tp) => {
@@ -35,8 +36,8 @@ const resolveScreenplayText = (script) => {
 // Determine whether the requester may read this script's full content.
 const canAccessScript = (script, user) => {
   const userId = user._id.toString();
-  if (String(script.creator || "") === userId) return { ok: true, isOwner: true };
-  if (user.role === "admin") return { ok: true, isOwner: false, isAdmin: true };
+  const isOwner = String(script.creator || "") === userId;
+  const isAdmin = user.role === "admin";
 
   const isCollaborator = (script.collaborators || []).some(
     (c) => String(c.userId) === userId && c.isActive !== false && c.status === "accepted"
@@ -45,7 +46,11 @@ const canAccessScript = (script, user) => {
     (script.unlockedBy || []).some((id) => String(id) === userId) ||
     (script.purchasedBy || []).some((id) => String(id) === userId);
 
-  return { ok: isCollaborator || hasPurchased, isOwner: false };
+  return {
+    ok: canReadFullScript({ isOwner, isAdmin, isBuyer: hasPurchased, canCollaboratorRead: isCollaborator }),
+    isOwner,
+    isAdmin,
+  };
 };
 
 const loadScriptForExport = async (req, res) => {

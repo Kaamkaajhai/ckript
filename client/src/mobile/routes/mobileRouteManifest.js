@@ -467,7 +467,17 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
 
   migration("reader-home", "/reader"),
   migration("reader-search", "/reader/search"),
-  migration("reader-script", "/reader/script/:id"),
+  {
+    id: "reader-script",
+    pattern: "/reader/script/:id",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Reader-account project consumption reuses the native detail/reader surface with reader-specific back navigation and no canonical URL rewrite (plan §11 Phase 4, D32).",
+    audiences: [AUDIENCE.READER],
+    protection: "authenticated",
+    screenId: "reader-project",
+    shell: MOBILE_SHELL_MODE.DETAIL,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
   migration("reader-profile", "/reader/profile/:id?"),
   redirect("reader-featured-alias", "/reader/featured"),
 

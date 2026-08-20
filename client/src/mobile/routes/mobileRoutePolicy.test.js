@@ -374,6 +374,19 @@ describe("mobileRoutePolicy — experience selection", () => {
     });
   });
 
+  it("mounts the shared native project surface for a reader without rewriting its route (D32)", () => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: { id: "reader-1", role: "reader" },
+      pathname: "/reader/script/project-1",
+    })).toMatchObject({
+      experience: "mobile",
+      routeId: "reader-script",
+      screenId: "reader-project",
+    });
+  });
+
   it("leaves the preview route to its deterministic App.jsx fixture", () => {
     expect(resolveMobileExperience({
       isMobile: true,

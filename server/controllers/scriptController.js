@@ -91,6 +91,7 @@ import { normalizeWriterCredits, addWriterCredit } from "../utils/writerCredits.
 import { derivePreviewPageTexts } from "../utils/screenplayPages.js";
 import { stripPdfPageFurniture } from "../utils/screenplayImportClean.js";
 import { hasProjectCreatorAccess } from "../utils/projectAccess.js";
+import { canReadFullScript, FULL_SCRIPT_ACCESS_MESSAGE } from "../utils/scriptReadAccess.js";
 import {
   attachUploadedScriptMedia,
   canUploadPitchVideo,
@@ -3534,23 +3535,13 @@ export const getScriptPdf = async (req, res) => {
       return res.status(403).json({ message: "This script has been purchased and is no longer publicly available" });
     }
 
-    // ── DEF-27, RECORDED AND DELIBERATELY NOT FIXED HERE (see NATIVE_APP_IMPLEMENTATION.md §19) ──
-    // Every check above this line is a MARKETPLACE check — is your email a business address, is
-    // this a private draft, has it already been sold. None of them asks the question this endpoint
-    // actually turns on: may you read the WHOLE screenplay? So any authenticated viewer who clears
-    // the marketplace gate receives the complete PDF of any published, unsold project without
-    // buying it — while `getScriptById` withholds the very same text (see DEF-25 there) and
-    // `exportScreenplayPdf`, the sibling that serves the SAME screenplay in generated form,
-    // refuses outright via `canAccessScript`.
-    //
-    // The obvious gate (owner || isAdmin || isBuyer || canCollaboratorRead) is NOT applied,
-    // because it would also break a legitimate surface: the desktop Preview panel points
-    // `ScreenplayPdfViewer` at THIS url and limits the visible pages in the browser, so
-    // preview-entitled viewers reach it too — which is also why the leak exists at all. Closing it
-    // properly means serving a preview-entitled viewer a page-limited document instead of the
-    // whole file, and that is a product/fidelity decision (real PDF sliced server-side vs. a
-    // Ckript-generated preview PDF vs. the structured-text fallback), not a mobile session's to
-    // make. Do not "fix" this by adding the gate alone.
+    // This endpoint returns the COMPLETE stored document. Listing visibility, a business email,
+    // and the writer's preview switch are not full-content grants. Preview-only clients render
+    // `scriptPreviewPageTexts` / `previewExcerpt` from getScriptById instead; enforcing that split
+    // here closes DEF-27 at the only boundary that can actually protect the file.
+    if (!canReadFullScript({ isOwner, isAdmin, isBuyer, canCollaboratorRead })) {
+      return res.status(403).json({ message: FULL_SCRIPT_ACCESS_MESSAGE, previewOnly: true });
+    }
     const pdfUrl = String(script.fileUrl || "").trim();
     if (!pdfUrl) {
       return res.status(404).json({ message: "PDF file not available." });
@@ -3762,7 +3753,12 @@ export const getScriptById = async (req, res) => {
     // Check if user has unlocked this script
     const isUnlocked = isBuyer || hasUserInIdArray(script.unlockedBy, req.user._id) || hasUserInIdArray(script.purchasedBy, req.user._id);
     const isCreator = script.creator._id.toString() === req.user._id.toString();
-    const canViewFullScript = isUnlocked || isCreator || isAdmin || canCollaboratorRead;
+    const canViewFullScript = canReadFullScript({
+      isOwner: isCreator,
+      isAdmin,
+      isBuyer: isUnlocked,
+      canCollaboratorRead,
+    });
     const userRole = req.user.role;
     const isWriter = userRole === 'writer' || userRole === 'creator';
     const canPurchase = !canCollaboratorRead && ['investor', 'producer', 'director', 'industry', 'professional'].includes(userRole);

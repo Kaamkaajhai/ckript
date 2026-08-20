@@ -118,6 +118,9 @@ function ProjectDetailLoading() {
 export default function ProjectDetailMobile({
   user: userProp = undefined,
   previewData = null,
+  canonicalize = true,
+  backTo = "/search",
+  screenId = "project-detail",
   /*
    * The lists the API would have supplied, for the sweep harness only.
    *
@@ -143,7 +146,7 @@ export default function ProjectDetailMobile({
     writerUsername: params.writerUsername,
     user,
     pathname: location.pathname,
-    onCanonicalPath: (path) => navigate(path, { replace: true }),
+    onCanonicalPath: canonicalize ? (path) => navigate(path, { replace: true }) : undefined,
     // The harness supplies a settled project so a five-width sweep measures the same screen twice.
     enabled: !previewData,
   });
@@ -373,7 +376,7 @@ export default function ProjectDetailMobile({
     <PageHeader
       title={script?.title || (status === PROJECT_DETAIL_STATUS.LOADING ? "Loading project" : "Project")}
       eyebrow={script ? describeCredit(script) : ""}
-      backTo="/search"
+      backTo={backTo}
       backLabel="Back"
       actions={script ? (
         <>
@@ -395,7 +398,7 @@ export default function ProjectDetailMobile({
   const shell = (children, overlays = null) => (
     <MobileShell
       mode={MOBILE_SHELL_MODE.DETAIL}
-      screenId="project-detail"
+      screenId={screenId}
       className="ckm-project"
       scrollClassName="ckm-project__scroll"
       appBar={header}

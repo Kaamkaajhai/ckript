@@ -123,6 +123,10 @@ export default function MobileRoutes({
         <Route path="/top-script" element={<TopScriptsMobile user={user} />} />
         <Route path="/featured" element={<FeaturedProjectsMobile user={user} />} />
         <Route path="/share/project/:id" element={<ProjectPublicMobile />} />
+        <Route
+          path="/reader/script/:id"
+          element={<ProjectDetailMobile user={user} canonicalize={false} backTo="/reader" screenId="reader-project" />}
+        />
         {/* Three patterns, one screen. The server resolves the id form and both
             path forms to the same payload, and useProjectDetail rewrites the URL
             to the canonical one after load — so the screen never asks which
