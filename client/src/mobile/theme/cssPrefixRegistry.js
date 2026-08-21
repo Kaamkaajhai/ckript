@@ -328,6 +328,13 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     note: "The native own-account settings tab: privacy, email, password, notifications, sessions, localization, integrations, blocks, deleted projects, and deletion.",
   },
 
+  "ckm-follow-requests": {
+    kind: PAGE_FAMILY,
+    owner: "screens/profiles/follow-requests/FollowRequestsMobile.css",
+    family: "profiles",
+    note: "The native inbound follow-request queue with profile links and shared accept/reject mutations.",
+  },
+
   // --- Project creation (Phase 3) ---------------------------------------
   // The chooser at /new-project. Its own family rather than part of
   // ckm-create-project: it is a different route with a different shell, it

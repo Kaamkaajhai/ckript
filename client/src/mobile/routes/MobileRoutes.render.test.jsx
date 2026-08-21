@@ -37,6 +37,10 @@ vi.mock("../screens/profiles/owner-profile/AccountSettingsMobile", () => ({
   default: () => <main data-testid="mobile-account-settings">Account settings</main>,
 }));
 
+vi.mock("../screens/profiles/follow-requests/FollowRequestsMobile", () => ({
+  default: () => <main data-testid="mobile-follow-requests">Follow requests</main>,
+}));
+
 vi.mock("../screens/profiles/visitor-profile/ProfileVisitorMobile", () => ({
   default: () => <main data-testid="mobile-visitor-profile">Visitor profile</main>,
 }));
@@ -137,6 +141,11 @@ describe("MobileRoutes", () => {
     const el = await mount("/profile?tab=settings", { user: { _id: "writer-1", role: "writer" } });
     expect(el.querySelector('[data-testid="mobile-account-settings"]')).toBeTruthy();
     expect(el.querySelector('[data-testid="mobile-owner-profile"]')).toBeNull();
+  });
+
+  it("renders incoming follow requests at their canonical route", async () => {
+    const el = await mount("/follow-requests", { user: { _id: "writer-1", role: "writer" } });
+    expect(el.querySelector('[data-testid="mobile-follow-requests"]')).toBeTruthy();
   });
 
   it("renders the stable fixture directly when App.jsx owns the preview route", async () => {

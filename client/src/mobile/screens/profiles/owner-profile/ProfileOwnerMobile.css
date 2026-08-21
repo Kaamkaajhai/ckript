@@ -18,6 +18,7 @@
 .ckm .ckm-owner-profile__connections { display: flex; gap: var(--ckm-space-4); padding: var(--ckm-space-4); color: var(--ckm-text-3); font-size: var(--ckm-text-support); }
 .ckm .ckm-owner-profile__connections strong { color: var(--ckm-text); }
 .ckm .ckm-owner-profile__actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ckm-space-2); padding: 0 var(--ckm-space-4) var(--ckm-space-4); }
+.ckm .ckm-owner-profile__actions > :last-child:nth-child(3) { grid-column: 1 / -1; }
 .ckm .ckm-owner-profile__stats { display: grid; grid-template-columns: repeat(2, 1fr); }
 .ckm .ckm-owner-profile__stats div { display: grid; gap: 2px; min-width: 0; padding: var(--ckm-space-3); border-right: 1px solid var(--ckm-line); border-bottom: 1px solid var(--ckm-line); }
 .ckm .ckm-owner-profile__stats strong { color: var(--ckm-text); font: var(--ckm-weight-bold) var(--ckm-text-card) / 1 var(--ckm-display); }

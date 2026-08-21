@@ -9,6 +9,7 @@ import Sidebar from "../components/Sidebar";
 import BrandLogo from "../components/BrandLogo";
 import ConfirmDialog from "../components/ConfirmDialog";
 import api from "../services/api";
+import { decideIncomingFollowRequest } from "../pages/profile/authenticatedProfile";
 import { getApiOrigin, isSocketSupported } from "../utils/apiOrigin";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
@@ -307,10 +308,8 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
     const fromUserId = notification?.from?._id || notification?.from;
     if (!fromUserId) return;
     try {
-      const endpoint = decision === "accept"
-        ? "/users/follow-requests/accept"
-        : "/users/follow-requests/reject";
-      await api.post(endpoint, { fromUserId });
+      const result = await decideIncomingFollowRequest({ fromUserId, decision });
+      if (!result.ok) throw result.cause || new Error(result.message);
       // Remove this notification locally and refresh.
       setNotifications((prev) => prev.filter((n) => n._id !== notification._id));
       if (!notification.read) setUnreadCount((c) => Math.max(0, c - 1));

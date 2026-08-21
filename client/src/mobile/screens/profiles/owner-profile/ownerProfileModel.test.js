@@ -10,6 +10,7 @@ describe("owner profile view", () => {
         email: "mira@example.com",
         phone: "123",
         profileViews: 12,
+        pendingFollowRequestCount: 3,
         followers: [{ _id: "1" }],
         following: [{ _id: "2" }, { _id: "3" }],
         favoriteScripts: ["saved-1"],
@@ -25,6 +26,7 @@ describe("owner profile view", () => {
       username: "mira",
       email: "mira@example.com",
       completion: { percentage: 73, completedFields: 8, totalFields: 11, isComplete: false },
+      pendingFollowRequests: 3,
     });
     expect(Object.fromEntries(view.stats.map(({ key, value }) => [key, value]))).toEqual({
       projects: 1,

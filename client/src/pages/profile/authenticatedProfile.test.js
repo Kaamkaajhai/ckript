@@ -3,7 +3,9 @@ import api from "../../services/api";
 import {
   AUTHENTICATED_PROFILE_STATUS,
   classifyProfileFailure,
+  decideIncomingFollowRequest,
   getAuthenticatedProfile,
+  loadIncomingFollowRequests,
   revealProfileContact,
   sendProfileMessage,
   toggleProfileBlock,
@@ -80,6 +82,29 @@ describe("authenticated profile actions", () => {
     expect(await updateProfileFollow({ profileId: "w1", relationship: { isFollowing: true } }))
       .toMatchObject({ ok: true, data: { isFollowing: false } });
     expect(api.post).toHaveBeenLastCalledWith("/users/unfollow", { userId: "w1" });
+  });
+
+  it("loads and normalizes incoming follow requests", async () => {
+    api.get.mockResolvedValueOnce({ data: { requests: [{ _id: "request-1" }] } });
+    await expect(loadIncomingFollowRequests()).resolves.toEqual({
+      ok: true,
+      data: [{ _id: "request-1" }],
+    });
+    expect(api.get).toHaveBeenLastCalledWith("/users/follow-requests", { signal: undefined });
+
+    api.get.mockResolvedValueOnce({ data: { requests: null } });
+    await expect(loadIncomingFollowRequests()).resolves.toEqual({ ok: true, data: [] });
+  });
+
+  it("uses one validated accept/reject mutation boundary", async () => {
+    api.post.mockResolvedValue({ data: { status: "accepted" } });
+    await expect(decideIncomingFollowRequest({ fromUserId: " writer-1 ", decision: "accept" }))
+      .resolves.toEqual({ ok: true, data: { status: "accepted" } });
+    expect(api.post).toHaveBeenLastCalledWith("/users/follow-requests/accept", { fromUserId: "writer-1" });
+
+    const invalid = await decideIncomingFollowRequest({ fromUserId: "writer-1", decision: "ignore" });
+    expect(invalid.ok).toBe(false);
+    expect(api.post).toHaveBeenCalledTimes(1);
   });
 
   it("sends the profile composer through the real message endpoint", async () => {

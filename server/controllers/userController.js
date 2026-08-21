@@ -1578,10 +1578,11 @@ export const getFollowRequests = async (req, res) => {
 
 export const acceptFollowRequest = async (req, res) => {
   try {
-    const fromUserId = String(req.body.fromUserId || "").trim();
-    if (!fromUserId) {
-      return res.status(400).json({ message: "fromUserId is required" });
+    const requesterId = asObjectId(req.body.fromUserId);
+    if (!requesterId) {
+      return res.status(400).json({ message: "A valid fromUserId is required" });
     }
+    const fromUserId = requesterId.toString();
 
     const me = await User.findById(req.user._id);
     if (!me) return res.status(404).json({ message: "User not found" });
@@ -1593,7 +1594,7 @@ export const acceptFollowRequest = async (req, res) => {
       return res.status(404).json({ message: "No pending follow request from this user" });
     }
 
-    const requester = await User.findById(fromUserId);
+    const requester = await User.findById(requesterId);
     if (!requester) {
       // Cleanup stale request
       me.followRequests.splice(pendingIndex, 1);
@@ -1611,6 +1612,12 @@ export const acceptFollowRequest = async (req, res) => {
     await me.save();
     await requester.save();
 
+    await Notification.deleteMany({
+      user: me._id,
+      type: "follow_request",
+      from: requester._id,
+    });
+
     await Notification.create({
       user: requester._id,
       type: "follow_request_accepted",
@@ -1626,10 +1633,11 @@ export const acceptFollowRequest = async (req, res) => {
 
 export const rejectFollowRequest = async (req, res) => {
   try {
-    const fromUserId = String(req.body.fromUserId || "").trim();
-    if (!fromUserId) {
-      return res.status(400).json({ message: "fromUserId is required" });
+    const requesterId = asObjectId(req.body.fromUserId);
+    if (!requesterId) {
+      return res.status(400).json({ message: "A valid fromUserId is required" });
     }
+    const fromUserId = requesterId.toString();
 
     const me = await User.findById(req.user._id);
     if (!me) return res.status(404).json({ message: "User not found" });
@@ -1647,7 +1655,7 @@ export const rejectFollowRequest = async (req, res) => {
 
     // The requester is no longer allowed to follow, so remove me from their `following` array.
     await User.updateOne(
-      { _id: fromUserId },
+      { _id: requesterId },
       { 
         $pull: { 
           sentFollowRequests: { to: req.user._id },

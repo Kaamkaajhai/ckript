@@ -416,6 +416,15 @@ describe("mobileRoutePolicy — experience selection", () => {
     })).toMatchObject({ experience: "mobile", routeId: "profile", screenId: "profile-owner" });
   });
 
+  it("mounts incoming follow requests through the native network route", () => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: writer,
+      pathname: "/follow-requests",
+    })).toMatchObject({ experience: "mobile", routeId: "follow-requests", screenId: "follow-requests" });
+  });
+
   it("mounts the shared native project surface for a reader without rewriting its route (D32)", () => {
     expect(resolveMobileExperience({
       isMobile: true,

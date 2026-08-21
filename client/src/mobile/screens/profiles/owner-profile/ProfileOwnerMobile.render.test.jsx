@@ -37,6 +37,7 @@ const readyState = () => ({
     bio: "Writes stories about memory and place.",
     followers: [],
     following: [],
+    pendingFollowRequestCount: 2,
     profileCompletion: { percentage: 73, completedFields: 8, totalFields: 11, isComplete: false },
     writerProfile: { username: "mira", genres: ["Drama"], specializedTags: ["Raw"] },
   },
@@ -89,6 +90,7 @@ describe("ProfileOwnerMobile", () => {
     expect(container.textContent).toContain("73% complete");
     expect(container.textContent).toContain("mira@example.com");
     expect(container.querySelector('a[href="/profile?tab=settings"]')).toBeTruthy();
+    expect(container.querySelector('a[href="/follow-requests"]')?.textContent).toContain("2");
     expect(container.querySelector('a[href="/script/project-1"]')).toBeTruthy();
   });
 

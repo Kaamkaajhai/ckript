@@ -117,6 +117,33 @@ export async function updateProfileFollow({ profileId, relationship = {} } = {})
   }
 }
 
+export async function loadIncomingFollowRequests({ signal } = {}) {
+  try {
+    const { data } = await api.get("/users/follow-requests", { signal });
+    return { ok: true, data: Array.isArray(data?.requests) ? data.requests : [] };
+  } catch (cause) {
+    if (signal?.aborted || cause?.code === "ERR_CANCELED") {
+      return { ok: false, cancelled: true, message: "", flags: {}, cause };
+    }
+    return failure(cause, "Could not load follow requests.");
+  }
+}
+
+export async function decideIncomingFollowRequest({ fromUserId, decision } = {}) {
+  const requesterId = text(fromUserId);
+  if (!requesterId) return failure(null, "This follow request is no longer actionable.");
+  if (!["accept", "reject"].includes(decision)) {
+    return failure(null, "Choose whether to accept or reject this follow request.");
+  }
+
+  try {
+    const { data } = await api.post(`/users/follow-requests/${decision}`, { fromUserId: requesterId });
+    return { ok: true, data };
+  } catch (cause) {
+    return failure(cause, `Could not ${decision} this follow request.`);
+  }
+}
+
 export async function toggleProfileBlock({ profileId, blocked } = {}) {
   const userId = text(profileId);
   if (!userId) return failure(null, "This profile cannot be blocked.");

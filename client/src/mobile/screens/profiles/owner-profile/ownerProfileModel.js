@@ -41,6 +41,7 @@ export function buildOwnerProfileView({
       totalFields: count(completion.totalFields),
       isComplete: Boolean(completion.isComplete),
     },
+    pendingFollowRequests: count(profile.pendingFollowRequestCount),
     links,
     stats: [
       { key: "projects", label: "Published", value: base.projects.length },

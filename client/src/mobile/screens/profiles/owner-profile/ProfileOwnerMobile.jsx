@@ -159,7 +159,7 @@ export default function ProfileOwnerMobile({ user }) {
           <div><p>{view.role}</p><h2 id="owner-profile-name">{view.name}</h2><span>{view.username ? `@${view.username}` : view.location || "Ckript member"}</span></div>
         </div>
         <div className="ckm-owner-profile__connections"><span><strong>{view.followers}</strong> followers</span><span><strong>{view.following}</strong> following</span></div>
-        <div className="ckm-owner-profile__actions"><Button onClick={() => setEditorOpen(true)}>Edit profile</Button><Button variant="secondary" to="/profile?tab=settings">Account &amp; security</Button></div>
+        <div className="ckm-owner-profile__actions"><Button onClick={() => setEditorOpen(true)}>Edit profile</Button><Button variant="secondary" to="/profile?tab=settings">Account &amp; security</Button><Button variant="secondary" to="/follow-requests">Follow requests{view.pendingFollowRequests ? ` (${view.pendingFollowRequests})` : ""}</Button></div>
       </section>
 
       <section className="ckm-owner-profile__stats" aria-label="Profile workspace totals">
