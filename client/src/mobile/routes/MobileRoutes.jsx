@@ -1,5 +1,5 @@
 import { lazy } from "react";
-import { Route, Routes, useParams } from "react-router-dom";
+import { Route, Routes, useLocation, useParams } from "react-router-dom";
 import MobileRouteBoundary from "../shell/MobileRouteBoundary";
 import { isOwnProfileKey } from "./mobileRoutePolicy";
 
@@ -17,6 +17,7 @@ const ProjectPublicMobile = lazy(() => import("../screens/projects/public-projec
 const PublicProfileMobile = lazy(() => import("../screens/profiles/public-profile/PublicProfileMobile"));
 const ProfileVisitorMobile = lazy(() => import("../screens/profiles/visitor-profile/ProfileVisitorMobile"));
 const ProfileOwnerMobile = lazy(() => import("../screens/profiles/owner-profile/ProfileOwnerMobile"));
+const AccountSettingsMobile = lazy(() => import("../screens/profiles/owner-profile/AccountSettingsMobile"));
 const PrimitiveGallery = lazy(() => import("../dev/PrimitiveGallery"));
 const CreateHarness = lazy(() => import("../dev/CreateHarness"));
 const UploadHarness = lazy(() => import("../dev/UploadHarness"));
@@ -28,9 +29,12 @@ const CheckoutHarness = lazy(() => import("../dev/CheckoutHarness"));
 
 function AuthenticatedProfileRoute({ user }) {
   const { id } = useParams();
-  return isOwnProfileKey(id, user)
-    ? <ProfileOwnerMobile user={user} />
-    : <ProfileVisitorMobile user={user} />;
+  const { search } = useLocation();
+  const own = isOwnProfileKey(id, user);
+  if (own && new URLSearchParams(search).get("tab") === "settings") {
+    return <AccountSettingsMobile user={user} />;
+  }
+  return own ? <ProfileOwnerMobile user={user} /> : <ProfileVisitorMobile user={user} />;
 }
 
 /*

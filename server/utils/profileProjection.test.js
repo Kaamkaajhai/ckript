@@ -4,6 +4,7 @@ import {
   buildBusinessEmailProfileDenial,
   buildPrivateProfileDenial,
   buildVisitorProfile,
+  redactOwnerProfileSecrets,
   VISITOR_PROFILE_SCRIPT_FIELDS,
 } from "./profileProjection.js";
 
@@ -67,6 +68,39 @@ describe("authenticated visitor profile projection", () => {
     }
     assert.equal(VISITOR_PROFILE_SCRIPT_FIELDS.includes("title"), true);
     assert.equal(VISITOR_PROFILE_SCRIPT_FIELDS.includes("logline"), true);
+  });
+});
+
+describe("own profile projection", () => {
+  test("keeps settings fields but removes credentials, sessions, and payment references", () => {
+    const projected = redactOwnerProfileSecrets({
+      email: "owner@example.com",
+      pendingEmail: "next@example.com",
+      emailVerified: false,
+      isPrivate: true,
+      notificationPrefs: { viewAlerts: true },
+      password: "hash",
+      googleId: "provider-id",
+      emailVerificationToken: "otp-hash",
+      passwordResetToken: "reset-hash",
+      activeSessions: [{ sessionId: "session-secret" }],
+      stripeAccountId: "acct-secret",
+      stripeCustomerId: "cus-secret",
+      accountDeletion: { archivedProfile: { email: "archived@example.com" } },
+      subscription: { plan: "pro", checkoutReference: "order-secret", paymentId: "pay-secret" },
+      googleCalendar: { connected: true, calendarEmail: "calendar@example.com", accessToken: "oauth-secret", scopes: ["scope-secret"] },
+    });
+
+    assert.equal(projected.email, "owner@example.com");
+    assert.equal(projected.pendingEmail, "next@example.com");
+    assert.equal(projected.isPrivate, true);
+    assert.equal(projected.subscription.plan, "pro");
+    assert.deepEqual(projected.googleCalendar, { connected: true, calendarEmail: "calendar@example.com" });
+
+    const serialized = JSON.stringify(projected);
+    for (const secret of ["hash", "provider-id", "session-secret", "acct-secret", "cus-secret", "archived@example.com", "order-secret", "pay-secret", "oauth-secret", "scope-secret"]) {
+      assert.equal(serialized.includes(secret), false, `leaked ${secret}`);
+    }
   });
 });
 

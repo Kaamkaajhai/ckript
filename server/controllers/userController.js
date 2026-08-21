@@ -31,9 +31,11 @@ import {
   buildBusinessEmailProfileDenial,
   buildPrivateProfileDenial,
   buildVisitorProfile,
+  redactOwnerProfileSecrets,
   VISITOR_PROFILE_SCRIPT_FIELDS,
 } from "../utils/profileProjection.js";
 import { resolveProfileImageUpdate } from "../utils/profileUpdate.js";
+import { retainCurrentSession } from "../utils/accountSecurity.js";
 
 const WRITER_REPRESENTATION_STATUSES = ["unrepresented", "manager", "agent", "manager_and_agent"];
 const BANK_REVIEW_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
@@ -976,9 +978,12 @@ export const getUserProfile = async (req, res) => {
     userObj.language = normalizeLanguagePreference(userObj.language);
     if (!isOwnProfile) {
       userObj = buildVisitorProfile(userObj);
-    } else if (isOwnProfile && userObj.bankDetails && userObj.bankDetails.accountNumber) {
-      // Sanitize account number even for own profile (for security)
-      userObj.bankDetails.accountNumber = '****' + userObj.bankDetails.accountNumber.slice(-4);
+    } else if (isOwnProfile) {
+      userObj = redactOwnerProfileSecrets(userObj);
+      if (userObj.bankDetails?.accountNumber) {
+        // Sanitize account number even for own profile (for security)
+        userObj.bankDetails.accountNumber = '****' + userObj.bankDetails.accountNumber.slice(-4);
+      }
     }
 
     userObj.blockedByCurrent = blockedByCurrent;
@@ -2189,8 +2194,9 @@ export const changePassword = async (req, res) => {
     if (!isMatch) return res.status(401).json({ message: "Current password is incorrect" });
 
     user.password = newPassword;
+    user.activeSessions = retainCurrentSession(user.activeSessions, req.sessionId);
     await user.save();
-    res.json({ message: "Password changed successfully" });
+    res.json({ message: "Password changed successfully. Other devices were signed out." });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

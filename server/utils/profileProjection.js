@@ -134,6 +134,45 @@ export function buildVisitorProfile(user = {}) {
   };
 }
 
+/**
+ * The owner receives private profile/settings fields, but not credentials or
+ * session material. Those have dedicated authenticated endpoints with smaller
+ * response contracts and should never hitch a ride on a general profile load.
+ */
+export function redactOwnerProfileSecrets(user = {}) {
+  const projected = { ...user };
+  for (const field of [
+    "password",
+    "googleId",
+    "emailVerificationToken",
+    "emailVerificationExpires",
+    "emailVerificationResendAvailableAt",
+    "passwordResetToken",
+    "passwordResetExpires",
+    "passwordResetResendAvailableAt",
+    "passwordResetAttempts",
+    "activeSessions",
+    "stripeAccountId",
+    "stripeCustomerId",
+    "accountDeletion",
+  ]) {
+    delete projected[field];
+  }
+
+  if (projected.subscription) {
+    projected.subscription = { ...projected.subscription };
+    delete projected.subscription.checkoutReference;
+    delete projected.subscription.paymentId;
+  }
+  if (projected.googleCalendar) {
+    projected.googleCalendar = {
+      connected: Boolean(projected.googleCalendar.connected),
+      calendarEmail: text(projected.googleCalendar.calendarEmail),
+    };
+  }
+  return projected;
+}
+
 export function buildPrivateProfileDenial({ userId, followRequestPending, blockedByCurrent, blockedByProfile } = {}) {
   return {
     message: "This account is private.",

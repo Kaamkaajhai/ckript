@@ -58,8 +58,8 @@ export function findMobileRoute(pathname = "") {
  * Whether a route's declared query exclusion applies to the current URL.
  *
  * A route can be implemented for mobile in general and deliberately NOT
- * implemented for one query-defined entry mode. The own-profile workspace is
- * native, while its account-security tab remains an explicit desktop boundary.
+ * implemented for one query-defined entry mode. D37 removed the last current
+ * exclusion, but the policy remains here for future partial route ports.
  *
  * It lives in the manifest rather than inside the screen because the manifest is
  * the file that answers "what does mobile cover?", and an exception hidden in a

@@ -374,7 +374,7 @@ describe("mobileRoutePolicy — experience selection", () => {
     });
   });
 
-  it("selects the public, authenticated visitor, or own profile variant (D34-D36)", () => {
+  it("selects the public, authenticated visitor, or own profile variant (D34-D37)", () => {
     expect(resolveMobileExperience({
       isMobile: true, authLoading: false, user: null, pathname: "/share/profile/mira",
     })).toMatchObject({ experience: "mobile", routeId: "shared-profile", screenId: "public-profile" });
@@ -406,14 +406,14 @@ describe("mobileRoutePolicy — experience selection", () => {
     })).toMatchObject({ experience: "mobile", routeId: "profile-or-referral-catchall", screenId: "profile-owner" });
   });
 
-  it("keeps account-security settings on the explicit desktop boundary", () => {
+  it("mounts account-security settings through the native owner route", () => {
     expect(resolveMobileExperience({
       isMobile: true,
       authLoading: false,
       user: writer,
       pathname: "/profile",
       search: "?tab=settings",
-    })).toMatchObject({ experience: "desktop", reason: "account-security-desktop-boundary" });
+    })).toMatchObject({ experience: "mobile", routeId: "profile", screenId: "profile-owner" });
   });
 
   it("mounts the shared native project surface for a reader without rewriting its route (D32)", () => {

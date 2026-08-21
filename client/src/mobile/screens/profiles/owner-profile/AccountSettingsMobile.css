@@ -1,0 +1,26 @@
+.ckm .ckm-account-settings__page { display: grid; gap: var(--ckm-space-4); padding: var(--ckm-space-4); padding-bottom: calc(var(--ckm-space-8) + env(safe-area-inset-bottom)); }
+.ckm .ckm-account-settings__section { overflow: hidden; border: 1px solid var(--ckm-line); border-radius: var(--ckm-r-lg); background: var(--ckm-bg); box-shadow: var(--ckm-shadow-card); }
+.ckm .ckm-account-settings__section > header { padding: var(--ckm-space-4); border-bottom: 1px solid var(--ckm-line); }
+.ckm .ckm-account-settings__section > header h2 { margin: 0; color: var(--ckm-text); font: var(--ckm-weight-bold) var(--ckm-text-section) / var(--ckm-leading-section) var(--ckm-display); }
+.ckm .ckm-account-settings__section > header p { margin: var(--ckm-space-1) 0 0; color: var(--ckm-text-3); font-size: var(--ckm-text-support); line-height: var(--ckm-leading-body); overflow-wrap: anywhere; }
+.ckm .ckm-account-settings__section-body { display: grid; gap: var(--ckm-space-4); padding: var(--ckm-space-4); }
+.ckm .ckm-account-settings__form { display: grid; gap: var(--ckm-space-3); padding-top: var(--ckm-space-3); border-top: 1px solid var(--ckm-line); }
+.ckm .ckm-account-settings__currency, .ckm .ckm-account-settings__integration, .ckm .ckm-account-settings__member, .ckm .ckm-account-settings__deleted, .ckm .ckm-account-settings__danger { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: var(--ckm-space-3); }
+.ckm .ckm-account-settings__currency > span, .ckm .ckm-account-settings__integration > span, .ckm .ckm-account-settings__member > span, .ckm .ckm-account-settings__deleted > span, .ckm .ckm-account-settings__danger > span { display: grid; min-width: 0; gap: 2px; }
+.ckm .ckm-account-settings__currency strong, .ckm .ckm-account-settings__integration strong, .ckm .ckm-account-settings__member strong, .ckm .ckm-account-settings__deleted strong, .ckm .ckm-account-settings__danger strong { color: var(--ckm-text); font-size: var(--ckm-text-body); overflow-wrap: anywhere; }
+.ckm .ckm-account-settings__currency small, .ckm .ckm-account-settings__integration small, .ckm .ckm-account-settings__member small, .ckm .ckm-account-settings__deleted small, .ckm .ckm-account-settings__danger small { color: var(--ckm-text-3); font-size: var(--ckm-text-caption); text-transform: none; overflow-wrap: anywhere; }
+.ckm .ckm-account-settings__verify { display: grid; gap: var(--ckm-space-2); }
+.ckm .ckm-account-settings__verify > div { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ckm-space-2); }
+.ckm .ckm-account-settings__session { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: var(--ckm-space-3); padding: var(--ckm-space-3); border: 1px solid var(--ckm-line); border-radius: var(--ckm-r-md); background: var(--ckm-bg-soft); }
+.ckm .ckm-account-settings__session > div { display: grid; min-width: 0; gap: 2px; }
+.ckm .ckm-account-settings__session strong { color: var(--ckm-text); overflow-wrap: anywhere; }
+.ckm .ckm-account-settings__session span { width: fit-content; color: var(--ckm-green-ink); font-size: var(--ckm-text-caption); font-weight: var(--ckm-weight-bold); text-transform: uppercase; }
+.ckm .ckm-account-settings__session p, .ckm .ckm-account-settings__session small { margin: 0; color: var(--ckm-text-3); font-size: var(--ckm-text-caption); overflow-wrap: anywhere; }
+.ckm .ckm-account-settings__member, .ckm .ckm-account-settings__deleted { padding: var(--ckm-space-3); border-radius: var(--ckm-r-md); background: var(--ckm-bg-soft); }
+.ckm .ckm-account-settings__deleted time { flex: 0 0 auto; color: var(--ckm-text-3); font-size: var(--ckm-text-caption); }
+.ckm .ckm-account-settings__empty { margin: 0; color: var(--ckm-text-3); font-size: var(--ckm-text-support); }
+.ckm .ckm-account-settings__section--danger { border-color: color-mix(in srgb, var(--ckm-red) 35%, var(--ckm-line)); }
+.ckm .ckm-account-settings__danger { padding: var(--ckm-space-3); border-radius: var(--ckm-r-md); background: var(--ckm-red-bg); }
+.ckm .ckm-account-settings__loading, .ckm .ckm-account-settings__state { display: grid; gap: var(--ckm-space-4); padding: var(--ckm-space-4); }
+
+@media (max-width: 350px) { .ckm .ckm-account-settings__currency, .ckm .ckm-account-settings__integration, .ckm .ckm-account-settings__danger { align-items: stretch; flex-direction: column; } .ckm .ckm-account-settings__verify > div { grid-template-columns: 1fr; } }

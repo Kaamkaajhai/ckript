@@ -33,6 +33,10 @@ vi.mock("../screens/profiles/owner-profile/ProfileOwnerMobile", () => ({
   default: () => <main data-testid="mobile-owner-profile">Owner profile</main>,
 }));
 
+vi.mock("../screens/profiles/owner-profile/AccountSettingsMobile", () => ({
+  default: () => <main data-testid="mobile-account-settings">Account settings</main>,
+}));
+
 vi.mock("../screens/profiles/visitor-profile/ProfileVisitorMobile", () => ({
   default: () => <main data-testid="mobile-visitor-profile">Visitor profile</main>,
 }));
@@ -127,6 +131,12 @@ describe("MobileRoutes", () => {
 
     el = await mount("/profile/writer-2", { user: { _id: "writer-1", role: "writer" } });
     expect(el.querySelector('[data-testid="mobile-visitor-profile"]')).toBeTruthy();
+  });
+
+  it("selects native account settings only for the owner settings query", async () => {
+    const el = await mount("/profile?tab=settings", { user: { _id: "writer-1", role: "writer" } });
+    expect(el.querySelector('[data-testid="mobile-account-settings"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="mobile-owner-profile"]')).toBeNull();
   });
 
   it("renders the stable fixture directly when App.jsx owns the preview route", async () => {

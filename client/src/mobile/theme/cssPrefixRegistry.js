@@ -318,7 +318,14 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     kind: PAGE_FAMILY,
     owner: "screens/profiles/owner-profile/ProfileOwnerMobile.css",
     family: "profiles",
-    note: "The authenticated account's native identity and professional overview, including the shared profile editor; account-security workflows intentionally fall back to desktop.",
+    note: "The authenticated account's native identity and professional overview, including the shared profile editor.",
+  },
+
+  "ckm-account-settings": {
+    kind: PAGE_FAMILY,
+    owner: "screens/profiles/owner-profile/AccountSettingsMobile.css",
+    family: "profiles",
+    note: "The native own-account settings tab: privacy, email, password, notifications, sessions, localization, integrations, blocks, deleted projects, and deletion.",
   },
 
   // --- Project creation (Phase 3) ---------------------------------------

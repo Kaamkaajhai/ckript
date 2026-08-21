@@ -50,6 +50,18 @@ import {
   toggleProfileBlock,
   updateProfileFollow,
 } from "./profile/authenticatedProfile";
+import {
+  changeAccountEmail,
+  changeAccountPassword,
+  deleteOwnAccount,
+  loadAccountSessions,
+  revokeAccountSession,
+  revokeOtherAccountSessions,
+  sendAccountEmailVerification,
+  unblockAccountUser,
+  updateAccountSettings,
+  verifyAccountEmail,
+} from "./profile/accountSecurity";
 
 /* â”€â”€ Helper components â”€â”€ */
 
@@ -508,7 +520,8 @@ const Profile = () => {
   const handleUnblockFromSettings = async (userId) => {
     try {
       setSavingSettings(true);
-      await api.post("/users/unblock", { userId });
+      const result = await unblockAccountUser(userId);
+      if (!result.ok) throw result.cause || new Error(result.message);
       setBlockedUsers((prev) => prev.filter((u) => u._id !== userId));
       setSettingsMsg("User unblocked");
       setTimeout(() => setSettingsMsg(""), 2500);
@@ -586,7 +599,8 @@ const Profile = () => {
     try {
       setDeletingAccount(true);
       setSettingsErr("");
-      await api.delete("/users/account", { data: { reason } });
+      const result = await deleteOwnAccount(reason);
+      if (!result.ok) throw result.cause || new Error(result.message);
       setShowDeleteAccountModal(false);
       setDeleteAccountReason("");
       setSettingsMsg("Account deleted successfully");
@@ -623,8 +637,9 @@ const Profile = () => {
   const fetchSessions = useCallback(async () => {
     try {
       setLoadingSessions(true);
-      const { data } = await api.get("/auth/sessions");
-      setSessions(data);
+      const result = await loadAccountSessions();
+      if (!result.ok) throw result.cause || new Error(result.message);
+      setSessions(result.data);
     } catch (error) {
       console.error("Failed to fetch sessions:", error);
     } finally {
@@ -640,7 +655,8 @@ const Profile = () => {
 
   const handleRemoveSession = async (sessionId) => {
     try {
-      await api.delete(`/auth/sessions/${sessionId}`);
+      const result = await revokeAccountSession(sessionId);
+      if (!result.ok) throw result.cause || new Error(result.message);
       fetchSessions();
     } catch (error) {
       console.error("Failed to remove session:", error);
@@ -649,7 +665,8 @@ const Profile = () => {
 
   const handleRemoveAllOtherSessions = async () => {
     try {
-      await api.delete("/auth/sessions/all-others");
+      const result = await revokeOtherAccountSessions();
+      if (!result.ok) throw result.cause || new Error(result.message);
       fetchSessions();
     } catch (error) {
       console.error("Failed to remove all other sessions:", error);
@@ -2482,7 +2499,7 @@ const Profile = () => {
                   <p className={`text-[13px] font-semibold ${dark ? "text-white/70" : "text-gray-700"}`}>Private Account</p>
                   <p className={`text-[11px] ${dark ? "text-white/25" : "text-gray-400"}`}>Only approved followers can see your profile</p>
                 </div>
-                <button aria-label="Toggle private account" aria-pressed={Boolean(profile.isPrivate)} onClick={async () => { try { setSavingSettings(true); await api.put("/users/settings", { isPrivate: !profile.isPrivate }); setProfile({ ...profile, isPrivate: !profile.isPrivate }); setSettingsMsg("Privacy updated"); setTimeout(() => setSettingsMsg(""), 3000); } catch { setSettingsErr("Failed"); } finally { setSavingSettings(false); } }}
+                <button aria-label="Toggle private account" aria-pressed={Boolean(profile.isPrivate)} onClick={async () => { try { setSavingSettings(true); const result = await updateAccountSettings({ isPrivate: !profile.isPrivate }); if (!result.ok) throw result.cause || new Error(result.message); setProfile({ ...profile, isPrivate: !profile.isPrivate }); setSettingsMsg("Privacy updated"); setTimeout(() => setSettingsMsg(""), 3000); } catch { setSettingsErr("Failed"); } finally { setSavingSettings(false); } }}
                   className={`profile-workspace-settings__switch w-10 h-[22px] rounded-full flex items-center px-0.5 transition-colors cursor-pointer ${profile.isPrivate ? dark ? "bg-emerald-500/30" : "bg-emerald-100" : dark ? "bg-white/[0.06]" : "bg-gray-200"}`}>
                   <div className={`w-[18px] h-[18px] rounded-full transition-all ${profile.isPrivate ? `${dark ? "bg-emerald-400" : "bg-emerald-500"} translate-x-[18px]` : `${dark ? "bg-white/30" : "bg-white"}`}`} />
                 </button>
@@ -2503,7 +2520,8 @@ const Profile = () => {
                       try {
                         setSavingSettings(true);
                         setSettingsErr("");
-                        await api.put("/users/settings", { allowIndustryContact });
+                        const result = await updateAccountSettings({ allowIndustryContact });
+                        if (!result.ok) throw result.cause || new Error(result.message);
                         setProfile({ ...profile, allowIndustryContact });
                         setSettingsMsg("Contact preference updated");
                         setTimeout(() => setSettingsMsg(""), 3000);
@@ -2538,7 +2556,8 @@ const Profile = () => {
                         try {
                           setSendingVerificationCode(true);
                           setSettingsErr("");
-                          await api.post("/users/email-verification/send");
+                          const result = await sendAccountEmailVerification();
+                          if (!result.ok) throw result.cause || new Error(result.message);
                           setVerificationCodeSent(true);
                           setSettingsMsg("Verification code sent to your email");
                           setTimeout(() => setSettingsMsg(""), 3000);
@@ -2576,7 +2595,8 @@ const Profile = () => {
                           try {
                             setVerifyingEmailCode(true);
                             setSettingsErr("");
-                            await api.post("/users/email-verification/verify", { otp: emailVerificationCode });
+                            const result = await verifyAccountEmail(emailVerificationCode);
+                            if (!result.ok) throw result.cause || new Error(result.message);
                             const verifiedEmail = profile.pendingEmail || profile.email;
                             setProfile({ ...profile, email: verifiedEmail, emailVerified: true, pendingEmail: undefined });
                             setEmailVerificationCode("");
@@ -2599,7 +2619,8 @@ const Profile = () => {
                           try {
                             setSendingVerificationCode(true);
                             setSettingsErr("");
-                            await api.post("/users/email-verification/send");
+                            const result = await sendAccountEmailVerification();
+                            if (!result.ok) throw result.cause || new Error(result.message);
                             setVerificationCodeSent(true);
                             setSettingsMsg("Verification code resent");
                             setTimeout(() => setSettingsMsg(""), 3000);
@@ -2627,7 +2648,7 @@ const Profile = () => {
                 <div className="space-y-2.5">
                   <input id="change-email-input" type="email" placeholder="New email address" value={emailForm.newEmail} onChange={e => setEmailForm({ ...emailForm, newEmail: e.target.value })} className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] border outline-none transition-colors ${dark ? "bg-white/[0.03] border-white/[0.08] text-white/80 placeholder:text-white/15 focus:border-white/20" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-300 focus:border-gray-400"}`} />
                   <PasswordInput placeholder="Current password" value={emailForm.password} onChange={e => setEmailForm({ ...emailForm, password: e.target.value })} className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] border outline-none transition-colors ${dark ? "bg-white/[0.03] border-white/[0.08] text-white/80 placeholder:text-white/15 focus:border-white/20" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-300 focus:border-gray-400"}`} />
-                  <button disabled={savingSettings || !emailForm.newEmail || !emailForm.password} onClick={async () => { try { setSavingSettings(true); setSettingsErr(""); const { data } = await api.put("/users/change-email", emailForm); setProfile({ ...profile, email: data.email, pendingEmail: data.pendingEmail, emailVerified: true }); setEmailForm({ password: "", newEmail: "" }); setEmailVerificationCode(""); setVerificationCodeSent(true); setSettingsMsg(data.message || "Verification code sent to new email."); setTimeout(() => setSettingsMsg(""), 3000); } catch (e) { setSettingsErr(e.response?.data?.message || "Failed"); } finally { setSavingSettings(false); } }}
+                  <button disabled={savingSettings || !emailForm.newEmail || !emailForm.password} onClick={async () => { try { setSavingSettings(true); setSettingsErr(""); const result = await changeAccountEmail(emailForm, profile.email); if (!result.ok) throw result.cause || new Error(result.message); const data = result.data; setProfile({ ...profile, email: data.email, pendingEmail: data.pendingEmail, emailVerified: profile.emailVerified }); setEmailForm({ password: "", newEmail: "" }); setEmailVerificationCode(""); setVerificationCodeSent(true); setSettingsMsg(data.message || "Verification code sent to new email."); setTimeout(() => setSettingsMsg(""), 3000); } catch (e) { setSettingsErr(e.response?.data?.message || e.message || "Failed"); } finally { setSavingSettings(false); } }}
                     className={`px-4 py-2 rounded-xl text-[12px] font-bold transition-colors ${dark ? "bg-[#1e3a5f] text-white hover:bg-[#254a75] disabled:opacity-30" : "bg-[#1e3a5f] text-white hover:bg-[#254a75] disabled:opacity-40"}`}>{savingSettings ? "Saving..." : "Update Email"}</button>
                 </div>
               </div>
@@ -2637,7 +2658,7 @@ const Profile = () => {
                   <PasswordInput placeholder="Current password" value={pwForm.currentPassword} onChange={e => setPwForm({ ...pwForm, currentPassword: e.target.value })} className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] border outline-none transition-colors ${dark ? "bg-white/[0.03] border-white/[0.08] text-white/80 placeholder:text-white/15 focus:border-white/20" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-300 focus:border-gray-400"}`} />
                   <PasswordInput placeholder="New password (min 6 chars)" value={pwForm.newPassword} onChange={e => setPwForm({ ...pwForm, newPassword: e.target.value })} className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] border outline-none transition-colors ${dark ? "bg-white/[0.03] border-white/[0.08] text-white/80 placeholder:text-white/15 focus:border-white/20" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-300 focus:border-gray-400"}`} />
                   <PasswordInput placeholder="Confirm new password" value={pwForm.confirmPassword} onChange={e => setPwForm({ ...pwForm, confirmPassword: e.target.value })} className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] border outline-none transition-colors ${dark ? "bg-white/[0.03] border-white/[0.08] text-white/80 placeholder:text-white/15 focus:border-white/20" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-300 focus:border-gray-400"}`} />
-                  <button disabled={savingSettings || !pwForm.currentPassword || !pwForm.newPassword || pwForm.newPassword !== pwForm.confirmPassword} onClick={async () => { try { setSavingSettings(true); setSettingsErr(""); await api.put("/users/change-password", { currentPassword: pwForm.currentPassword, newPassword: pwForm.newPassword }); setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" }); setSettingsMsg("Password changed"); setTimeout(() => setSettingsMsg(""), 3000); } catch (e) { setSettingsErr(e.response?.data?.message || "Failed"); } finally { setSavingSettings(false); } }}
+                  <button disabled={savingSettings || !pwForm.currentPassword || !pwForm.newPassword || pwForm.newPassword !== pwForm.confirmPassword} onClick={async () => { try { setSavingSettings(true); setSettingsErr(""); const result = await changeAccountPassword(pwForm); if (!result.ok) throw result.cause || new Error(result.message); setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" }); setSettingsMsg("Password changed"); setTimeout(() => setSettingsMsg(""), 3000); } catch (e) { setSettingsErr(e.response?.data?.message || e.message || "Failed"); } finally { setSavingSettings(false); } }}
                     className={`px-4 py-2 rounded-xl text-[12px] font-bold transition-colors ${dark ? "bg-[#1e3a5f] text-white hover:bg-[#254a75] disabled:opacity-30" : "bg-[#1e3a5f] text-white hover:bg-[#254a75] disabled:opacity-40"}`}>{savingSettings ? "Saving..." : "Change Password"}</button>
                 </div>
               </div>
@@ -2652,7 +2673,7 @@ const Profile = () => {
               {[{ key: "smartMatchAlerts", label: "Smart Match Alerts", desc: "When a new script matches your mandates" }, { key: "holdAlerts", label: "Hold Alerts", desc: "Option hold status updates" }, { key: "viewAlerts", label: "View Alerts", desc: "When someone views your profile" }].map((pref) => (
                 <div key={pref.key} className={`profile-workspace-settings__preference flex items-center justify-between py-2.5 px-3 rounded-xl ${dark ? "bg-white/[0.02]" : "bg-gray-50/60"}`}>
                   <div><p className={`text-[13px] font-semibold ${dark ? "text-white/65" : "text-gray-700"}`}>{pref.label}</p><p className={`text-[11px] ${dark ? "text-white/25" : "text-gray-400"}`}>{pref.desc}</p></div>
-                  <button aria-label={`Toggle ${pref.label}`} aria-pressed={Boolean(profile.notificationPrefs?.[pref.key])} onClick={async () => { const nv = !profile.notificationPrefs?.[pref.key]; try { await api.put("/users/settings", { notificationPrefs: { [pref.key]: nv } }); setProfile({ ...profile, notificationPrefs: { ...profile.notificationPrefs, [pref.key]: nv } }); } catch { setSettingsErr("Failed"); } }}
+                  <button aria-label={`Toggle ${pref.label}`} aria-pressed={Boolean(profile.notificationPrefs?.[pref.key])} onClick={async () => { const nv = !profile.notificationPrefs?.[pref.key]; try { const result = await updateAccountSettings({ notificationPrefs: { [pref.key]: nv } }); if (!result.ok) throw result.cause || new Error(result.message); setProfile({ ...profile, notificationPrefs: { ...profile.notificationPrefs, [pref.key]: nv } }); } catch { setSettingsErr("Failed"); } }}
                     className={`profile-workspace-settings__switch w-10 h-[22px] rounded-full flex items-center px-0.5 transition-colors cursor-pointer ${profile.notificationPrefs?.[pref.key] ? dark ? "bg-emerald-500/30" : "bg-emerald-100" : dark ? "bg-white/[0.06]" : "bg-gray-200"}`}>
                     <div className={`w-[18px] h-[18px] rounded-full transition-all ${profile.notificationPrefs?.[pref.key] ? `${dark ? "bg-emerald-400" : "bg-emerald-500"} translate-x-[18px]` : `${dark ? "bg-white/30" : "bg-white"}`}`} />
                   </button>
@@ -2714,14 +2735,14 @@ const Profile = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-white/30" : "text-gray-400"}`}>Language</p>
-                <select value={getProfileLanguageValue(profile.language)} onChange={async (e) => { const nextLanguage = getBackendLanguageValue(e.target.value); try { await api.put("/users/settings", { language: nextLanguage }); setProfile({ ...profile, language: nextLanguage }); if (currentUser) { const updatedUser = { ...currentUser, language: nextLanguage }; setUser(updatedUser); localStorage.setItem("user", JSON.stringify(updatedUser)); } await applyLanguagePreference(nextLanguage, { forceReload: true }); setSettingsMsg("Language updated"); setTimeout(() => setSettingsMsg(""), 3000); } catch { setSettingsErr("Failed"); } }}
+                <select value={getProfileLanguageValue(profile.language)} onChange={async (e) => { const nextLanguage = getBackendLanguageValue(e.target.value); try { const result = await updateAccountSettings({ language: nextLanguage }); if (!result.ok) throw result.cause || new Error(result.message); setProfile({ ...profile, language: nextLanguage }); if (currentUser) { const updatedUser = { ...currentUser, language: nextLanguage }; setUser(updatedUser); localStorage.setItem("user", JSON.stringify(updatedUser)); } await applyLanguagePreference(nextLanguage, { forceReload: true }); setSettingsMsg("Language updated"); setTimeout(() => setSettingsMsg(""), 3000); } catch { setSettingsErr("Failed"); } }}
                   className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] border outline-none cursor-pointer ${dark ? "bg-white/[0.03] border-white/[0.08] text-white/80" : "bg-white border-gray-200 text-gray-800"}`}>
                   <option value="en">English</option><option value="hi">Hindi</option><option value="es">Spanish</option><option value="fr">French</option><option value="de">German</option><option value="ja">Japanese</option><option value="ko">Korean</option><option value="zh">Chinese</option>
                 </select>
               </div>
               <div>
                 <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-white/30" : "text-gray-400"}`}>Timezone</p>
-                <select value={profile.timezone || "Asia/Kolkata"} onChange={async (e) => { try { await api.put("/users/settings", { timezone: e.target.value }); setProfile({ ...profile, timezone: e.target.value }); setSettingsMsg("Timezone updated"); setTimeout(() => setSettingsMsg(""), 3000); } catch { setSettingsErr("Failed"); } }}
+                <select value={profile.timezone || "Asia/Kolkata"} onChange={async (e) => { try { const result = await updateAccountSettings({ timezone: e.target.value }); if (!result.ok) throw result.cause || new Error(result.message); setProfile({ ...profile, timezone: e.target.value }); setSettingsMsg("Timezone updated"); setTimeout(() => setSettingsMsg(""), 3000); } catch { setSettingsErr("Failed"); } }}
                   className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] border outline-none cursor-pointer ${dark ? "bg-white/[0.03] border-white/[0.08] text-white/80" : "bg-white border-gray-200 text-gray-800"}`}>
                   <option value="Asia/Kolkata">Asia/Kolkata (IST)</option><option value="America/New_York">America/New_York (EST)</option><option value="America/Los_Angeles">America/Los_Angeles (PST)</option><option value="America/Chicago">America/Chicago (CST)</option><option value="Europe/London">Europe/London (GMT)</option><option value="Europe/Paris">Europe/Paris (CET)</option><option value="Asia/Tokyo">Asia/Tokyo (JST)</option><option value="Asia/Shanghai">Asia/Shanghai (CST)</option><option value="Australia/Sydney">Australia/Sydney (AEST)</option>
                 </select>
