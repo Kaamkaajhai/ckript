@@ -22,7 +22,6 @@ import { getProfileCanonicalPath } from "../../../utils/profilePath";
 /** Types that open the draft in the editor, because they are an invitation to work on it. */
 const COLLAB_TYPES = new Set([
   "collab_invite",
-  "collab_request",
   "collab_update",
   "revision_update",
 ]);
@@ -69,6 +68,7 @@ export const getNotificationActionLabel = (notification) => {
   const type = String(notification?.type || "");
   if (type === "purchase_request" || type === "purchase_rejected") return "Review";
   if (type === "follow_request") return "Review";
+  if (type === "collab_request") return "Review";
   if (type === "message_request") return "Reply";
   if (PROFILE_TYPES.has(type) && notification?.from) return "Profile";
   return "Open";
@@ -85,6 +85,14 @@ export const getNotificationTarget = (notification, viewer) => {
   const type = String(notification?.type || "");
 
   if (FIXED_TYPES[type]) return FIXED_TYPES[type];
+
+  if (type === "collab_invite" && notification?.actionToken) {
+    return `/invite/${encodeURIComponent(notification.actionToken)}`;
+  }
+
+  // An owner's incoming request needs a decision, which lives in the canonical request queue.
+  // Invitations and membership/revision updates still open the project workspace itself.
+  if (type === "collab_request") return "/collaborations";
 
   /*
    * Collaboration lands in the EDITOR, not on the script's public page: every one of these

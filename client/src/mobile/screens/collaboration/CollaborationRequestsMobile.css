@@ -1,0 +1,25 @@
+.ckm .ckm-collaboration__page { display: grid; gap: var(--ckm-space-4); padding: var(--ckm-space-4); padding-bottom: calc(var(--ckm-space-8) + env(safe-area-inset-bottom)); }
+.ckm .ckm-collaboration__intro { margin: 0; color: var(--ckm-text-2); font-size: var(--ckm-text-support); line-height: var(--ckm-leading-body); }
+.ckm .ckm-collaboration__panel { display: grid; gap: var(--ckm-space-4); outline: none; }
+.ckm .ckm-collaboration__panel:focus-visible { border-radius: var(--ckm-r-sm); outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring); outline-offset: var(--ckm-focus-ring-offset); }
+.ckm .ckm-collaboration__state, .ckm .ckm-collaboration__list { display: grid; gap: var(--ckm-space-3); padding: 0; margin: 0; list-style: none; }
+.ckm .ckm-collaboration__card { display: grid; gap: var(--ckm-space-3); padding: var(--ckm-space-4); border: 1px solid var(--ckm-line); border-radius: var(--ckm-r-lg); background: var(--ckm-bg); box-shadow: var(--ckm-shadow-card); }
+.ckm .ckm-collaboration__card-head { display: flex; gap: var(--ckm-space-3); align-items: flex-start; justify-content: space-between; }
+.ckm .ckm-collaboration__card-head > div { display: grid; min-width: 0; gap: 2px; }
+.ckm .ckm-collaboration__card-head span:first-child { color: var(--ckm-text-3); font-size: var(--ckm-text-caption); }
+.ckm .ckm-collaboration__card-head strong { color: var(--ckm-text); font: var(--ckm-weight-bold) var(--ckm-text-body) / var(--ckm-leading-body) var(--ckm-display); overflow-wrap: anywhere; }
+.ckm .ckm-collaboration__status { flex: none; padding: 4px 9px; border-radius: 999px; background: var(--ckm-bg-soft); color: var(--ckm-text-2); font-size: var(--ckm-text-caption); font-weight: var(--ckm-weight-bold); text-transform: capitalize; }
+.ckm .ckm-collaboration__status.is-pending { background: var(--ckm-gold-bg); color: var(--ckm-text-2); }
+.ckm .ckm-collaboration__status.is-accepted { background: var(--ckm-green-bg); color: var(--ckm-text-2); }
+.ckm .ckm-collaboration__status.is-rejected { background: var(--ckm-red-bg); color: var(--ckm-red); }
+.ckm .ckm-collaboration__card > p { margin: 0; color: var(--ckm-text-2); font-size: var(--ckm-text-support); line-height: var(--ckm-leading-body); overflow-wrap: anywhere; }
+.ckm .ckm-collaboration__decision { display: grid; gap: var(--ckm-space-2); }
+.ckm .ckm-collaboration__decision label { display: grid; gap: var(--ckm-space-1); color: var(--ckm-text-2); font-size: var(--ckm-text-caption); font-weight: var(--ckm-weight-bold); }
+.ckm .ckm-collaboration__decision select { width: 100%; min-height: var(--ckm-touch-min); padding: 0 var(--ckm-space-3); border: 1px solid var(--ckm-line-strong); border-radius: var(--ckm-r-md); background: var(--ckm-bg); color: var(--ckm-text); font: inherit; font-size: var(--ckm-text-body); }
+.ckm .ckm-collaboration__decision small { color: var(--ckm-text-2); font-size: var(--ckm-text-caption); }
+.ckm .ckm-collaboration__decision > div { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ckm-space-2); }
+.ckm .ckm-collaboration__project-link { display: inline-flex; min-height: var(--ckm-touch-min); align-items: center; color: var(--ckm-accent-ink); font-size: var(--ckm-text-support); font-weight: var(--ckm-weight-bold); }
+.ckm .ckm-collaboration__pager { display: grid; grid-template-columns: 1fr auto 1fr; gap: var(--ckm-space-2); align-items: center; color: var(--ckm-text-3); font-size: var(--ckm-text-caption); text-align: center; }
+.ckm .ckm-collaboration__pager > :last-child { justify-self: end; }
+
+@media (max-width: 350px) { .ckm .ckm-collaboration__decision > div { grid-template-columns: 1fr; } }

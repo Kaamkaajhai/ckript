@@ -85,6 +85,7 @@ const AdminCompetitionsEditor = lazy(() => import("./pages/admin/competitions/Ad
 const AdminScriptView = lazy(() => import("./pages/AdminScriptView"));
 const AdminAgreements = lazy(() => import("./pages/AdminAgreements"));
 const FollowRequests = lazy(() => import("./pages/FollowRequests"));
+const Collaborations = lazy(() => import("./pages/Collaborations"));
 const MainLayout = lazy(() => import("./layouts/MainLayout"));
 const AppShell = lazy(() => import("./layouts/app-shell/AppShell"));
 const MobileApp = lazy(() => import("./mobile/MobileApp"));
@@ -535,6 +536,7 @@ function App() {
                 <Route path="/trending" element={<Navigate to="/top-script" replace />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/follow-requests" element={<FollowRequests />} />
+                <Route path="/collaborations" element={<Collaborations />} />
                 <Route path="/new-project" element={<NewProject />} />
                 <Route path="/create-project" element={<CreateProject />} />
                 <Route path="/create-project/:draftId" element={<CreateProject />} />

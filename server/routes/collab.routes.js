@@ -7,6 +7,8 @@ import {
   getActivityLog,
   getCollaborators,
   getCollabRequestsInbox,
+  getMyCollabRequest,
+  getOutgoingCollabRequests,
   getScriptRequests,
   inviteCollaborator,
   publishScript,
@@ -39,11 +41,13 @@ const requestLimiter = rateLimit({
 });
 
 router.get("/requests/inbox", protect, getCollabRequestsInbox);
+router.get("/requests/outgoing", protect, getOutgoingCollabRequests);
 
 router.post("/:scriptId/invite", protect, checkPermission("manage"), inviteLimiter, inviteCollaborator);
 router.get("/invite/:token", protect, acceptInvite);
 
 router.post("/:scriptId/request", protect, requestLimiter, requestCollab);
+router.get("/:scriptId/request/mine", protect, getMyCollabRequest);
 router.post("/:scriptId/request/:requestId/respond", protect, checkPermission("manage"), respondToRequest);
 router.get("/:scriptId/requests", protect, checkPermission("manage"), getScriptRequests);
 

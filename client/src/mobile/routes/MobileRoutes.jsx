@@ -19,6 +19,7 @@ const ProfileVisitorMobile = lazy(() => import("../screens/profiles/visitor-prof
 const ProfileOwnerMobile = lazy(() => import("../screens/profiles/owner-profile/ProfileOwnerMobile"));
 const AccountSettingsMobile = lazy(() => import("../screens/profiles/owner-profile/AccountSettingsMobile"));
 const FollowRequestsMobile = lazy(() => import("../screens/profiles/follow-requests/FollowRequestsMobile"));
+const CollaborationRequestsMobile = lazy(() => import("../screens/collaboration/CollaborationRequestsMobile"));
 const MessagesMobile = lazy(() => import("../screens/messages/MessagesMobile"));
 const ReaderProfileMobile = lazy(() => import("../screens/reader/reader-profile/ReaderProfileMobile"));
 const PrimitiveGallery = lazy(() => import("../dev/PrimitiveGallery"));
@@ -141,6 +142,7 @@ export default function MobileRoutes({
         <Route path="/top-script" element={<TopScriptsMobile user={user} />} />
         <Route path="/featured" element={<FeaturedProjectsMobile user={user} />} />
         <Route path="/follow-requests" element={<FollowRequestsMobile user={user} />} />
+        <Route path="/collaborations" element={<CollaborationRequestsMobile user={user} />} />
         <Route path="/messages" element={<MessagesMobile user={user} />} />
         <Route path="/share/project/:id" element={<ProjectPublicMobile />} />
         <Route path="/share/profile/:id" element={user ? <AuthenticatedProfileRoute user={user} /> : <PublicProfileMobile />} />

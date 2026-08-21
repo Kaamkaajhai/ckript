@@ -410,6 +410,24 @@ describe("mobileRoutePolicy — experience selection", () => {
     })).toMatchObject({ experience: "mobile", routeId: "follow-requests", screenId: "follow-requests" });
   });
 
+  it.each([writer, creator])("mounts collaboration requests through the native $role queue", (user) => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user,
+      pathname: "/collaborations",
+    })).toMatchObject({ experience: "mobile", routeId: "collaborations", screenId: "collaborations" });
+  });
+
+  it("does not expose the writer collaboration queue as a native producer screen", () => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: producer,
+      pathname: "/collaborations",
+    })).toMatchObject({ experience: "desktop", reason: "audience-not-implemented" });
+  });
+
   it("mounts the canonical messages route through the native inbox", () => {
     expect(resolveMobileExperience({
       isMobile: true,

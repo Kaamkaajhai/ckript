@@ -340,6 +340,13 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     note: "The native inbound follow-request queue with profile links and shared accept/reject mutations.",
   },
 
+  "ckm-collaboration": {
+    kind: PAGE_FAMILY,
+    owner: "screens/collaboration/CollaborationRequestsMobile.css",
+    family: "collaboration",
+    note: "The native incoming and sent collaboration-request queue with shared paged decisions at /collaborations.",
+  },
+
   "ckm-reader-profile": {
     kind: PAGE_FAMILY,
     owner: "screens/reader/reader-profile/ReaderProfileMobile.css",

@@ -62,16 +62,26 @@ describe("getNotificationTarget", () => {
    * public-page destination after the routing changed.
    */
   it.each([
-    "collab_invite", "collab_request", "collab_update", "revision_update",
+    "collab_invite", "collab_update", "revision_update",
   ])("%s opens the draft in the editor", (type) => {
     expect(getNotificationTarget({ type, script }, viewer)).toBe("/create-project/s1");
   });
 
   it.each([
-    "collab_invite", "collab_request", "collab_update", "revision_update",
+    "collab_invite", "collab_update", "revision_update",
   ])("%s never dead-ends when the script carries no id", (type) => {
     // Returning null here makes the click do nothing at all.
     expect(getNotificationTarget({ type, script: { title: "Untitled" } }, viewer)).toBe("/dashboard");
+  });
+
+  it("routes an owner's collaboration request to the decision queue", () => {
+    expect(getNotificationTarget({ type: "collab_request", script }, viewer)).toBe("/collaborations");
+    expect(getNotificationActionLabel({ type: "collab_request" })).toBe("Review");
+  });
+
+  it("makes an in-app collaboration invite actionable when its recipient token is present", () => {
+    expect(getNotificationTarget({ type: "collab_invite", actionToken: "invite/token", script }, viewer))
+      .toBe("/invite/invite%2Ftoken");
   });
 
   it.each(["follow", "profile_view", "like", "comment"])(

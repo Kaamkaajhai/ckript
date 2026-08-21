@@ -35,6 +35,7 @@ const APP_ROUTE_PATTERNS = [
   "/challenge/dashboard",
   "/challenge/register",
   "/challenges",
+  "/collaborations",
   "/contact",
   "/create-project",
   "/create-project/:draftId",

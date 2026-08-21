@@ -11,8 +11,8 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import api from "../services/api";
 import { decideIncomingFollowRequest } from "../pages/profile/authenticatedProfile";
 import { getApiOrigin, isSocketSupported } from "../utils/apiOrigin";
-import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
+import { getNotificationActionLabel, getNotificationTarget } from "./app-shell/hooks/notificationTargets";
 
 const SOCKET_ORIGIN = getApiOrigin() || (typeof window !== "undefined" ? window.location.origin : "");
 const POPUP_STACK_LIMIT = 1;
@@ -416,17 +416,6 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
     return titles[type] || "New notification";
   };
 
-  const getNotifActionLabel = (notification) => {
-    const type = String(notification?.type || "");
-
-    if (["purchase_request", "purchase_rejected"].includes(type)) return "Review";
-    if (type === "message_request") return "Reply";
-    if (["follow", "follow_request_accepted", "profile_view"].includes(type) && notification?.from) return "Profile";
-    if (type === "follow_request") return "Review";
-    if (["collab_invite", "collab_request", "collab_update", "revision_update"].includes(type)) return "View";
-    return "Open";
-  };
-
   const handleSearch = (e) => {
     e.preventDefault();
     if (searchQuery.trim()) navigate(`/search?q=${encodeURIComponent(searchQuery.trim())}`);
@@ -448,67 +437,10 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
 
     dismissNotificationPopup(notification._id, { rememberSeen: true });
 
-    const type = String(notification.type || "");
-    const scriptTarget = notification?.script ? getScriptCanonicalPath(notification.script) : null;
-    const profileTarget = notification?.from
-      ? getProfileCanonicalPath(notification.from, {
-        viewerId: user?._id,
-        viewerRole: user?.role,
-      })
-      : null;
-
-    if (["purchase_request", "purchase_rejected"].includes(type)) {
-      navigate("/purchase-requests");
-      return;
-    }
-
-    if (type === "message_request") {
-      navigate("/messages");
-      return;
-    }
-
-    if (type === "follow_request") {
-      navigate("/follow-requests");
-      return;
-    }
-
-    if (type === "admin_alert") {
-      navigate("/profile");
-      return;
-    }
-
-    if (["collab_invite", "collab_request", "collab_update", "revision_update"].includes(type)) {
-      if (notification?.script?._id) {
-        navigate(`/create-project/${notification.script._id}`);
-        return;
-      }
-    }
-
-    if (scriptTarget && [
-      "purchase_approved",
-      "unlock",
-      "smart_match",
-      "script_score",
-      "trailer_ready",
-      "audition",
-      "hold",
-      "hold_expiring",
-      "script_approved",
-      "script_rejected",
-      "script_pitch",
-      "purchase",
-    ].includes(type)) {
-      navigate(scriptTarget);
-      return;
-    }
-
-    if (profileTarget && ["follow", "follow_request_accepted", "profile_view", "like", "comment"].includes(type)) {
-      navigate(profileTarget);
-      return;
-    }
-
-    setNotifOpen(true);
-  }, [dismissNotificationPopup, navigate, user?._id, user?.role]);
+    const target = getNotificationTarget(notification, user);
+    if (target) navigate(target);
+    else setNotifOpen(true);
+  }, [dismissNotificationPopup, navigate, user]);
 
   const handleLogout = () => {
     setDropdownOpen(false);
@@ -677,7 +609,7 @@ const MainLayout = ({ children, contentVariant = "page" }) => {
                               : "bg-[#161513] !text-white hover:bg-[#2c2a26]"
                           }`}
                         >
-                          {getNotifActionLabel(notification)}
+                          {getNotificationActionLabel(notification)}
                         </button>
                       )}
                     </div>

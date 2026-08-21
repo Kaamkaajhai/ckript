@@ -37,6 +37,7 @@ import {
 import { generateScreenplayPdf } from "../utils/screenplayPdf.js";
 import { extractTextFromPdfUrl } from "../utils/pdfTextExtraction.js";
 import { runScriptScoreGeneration } from "./aiController.js";
+import { isWriterRole } from "../utils/industryAccess.js";
 
 // Script.titlePage is a Mongoose Map — convert to a plain object (or null) for generateScreenplayPdf.
 const titlePageToObject = (tp) => {
@@ -48,10 +49,10 @@ const titlePageToObject = (tp) => {
 // `commenter` is a first-class role in the Script schema enum and in PERMISSIONS (it grants the
 // `comment` tier without `write`), but it was missing here — and normalizeCollaboratorRoleInput
 // falls back to "editor" for anything unlisted. Inviting someone as a Commenter therefore granted
-// them full write access instead. Listed for invites; requests stay on the narrower set because
-// CollabRequest has its own enum that does not include it.
+// them full write access instead. Invites and new requests share this current vocabulary; the
+// CollabRequest model retains `merger` only so historic pending documents remain actionable.
 const VALID_COLLAB_ROLES = ["editor", "viewer", "full_admin", "commenter"];
-const REQUESTABLE_ROLES = ["editor", "viewer", "full_admin"];
+const REQUESTABLE_ROLES = [...VALID_COLLAB_ROLES];
 const REVIEW_DECISIONS = ["approved", "rejected"];
 const REQUEST_DECISIONS = ["accepted", "rejected"];
 const PR_REVIEW_DECISIONS = ["approved", "rejected"];
@@ -59,6 +60,21 @@ const VALID_ACCESS_LEVELS = Object.values(COLLAB_ACCESS_LEVELS);
 const dmp = new diff_match_patch();
 
 const normalizeObjectId = (value) => String(value?._id || value?.id || value || "");
+
+const getPaging = (query = {}) => {
+  const page = Math.max(1, Number.parseInt(query.page, 10) || 1);
+  const limit = Math.min(50, Math.max(1, Number.parseInt(query.limit, 10) || 12));
+  return { page, limit, skip: (page - 1) * limit };
+};
+
+const getPagination = ({ page, limit, total }) => ({
+  page,
+  limit,
+  total,
+  pages: Math.max(1, Math.ceil(total / limit)),
+  hasNext: page * limit < total,
+  hasPrevious: page > 1,
+});
 
 const getIo = (req) => req.app.get("io");
 
@@ -104,6 +120,33 @@ const COLLAB_ROLE_LABELS = {
   full_admin: "Co-owner",
 };
 const getCollabRoleLabel = (value) => COLLAB_ROLE_LABELS[normalizeCollaboratorRoleInput(value)] || "Editor";
+const normalizeRequestedRoleForDecision = (value) => {
+  const normalized = String(value || "").trim().toLowerCase();
+  // `merger` belonged to the retired branch-review workflow. Existing requests must remain
+  // actionable, but silently turning one into a live co-writer would grant broader access than
+  // was requested. Comment-only is the least-privilege migration default; the owner can choose a
+  // current role explicitly when accepting it.
+  return normalized === "merger" ? "commenter" : normalized;
+};
+
+const mapRequestForResponse = (request, script = null) => ({
+  _id: request?._id,
+  scriptId: normalizeObjectId(request?.scriptId?._id || request?.scriptId),
+  scriptTitle: script?.title || request?.scriptId?.title || "Untitled Script",
+  requester: request?.requesterId?.name
+    ? {
+      _id: request.requesterId._id,
+      name: request.requesterId.name || "Writer",
+      profileImage: request.requesterId.profileImage || "",
+    }
+    : null,
+  requestedRole: normalizeRequestedRoleForDecision(request?.requestedRole) || "editor",
+  legacyRequestedRole: String(request?.requestedRole || "").toLowerCase() === "merger" ? "merger" : null,
+  message: sanitizeMessage(request?.message, 1000),
+  status: String(request?.status || "pending").toLowerCase(),
+  createdAt: request?.createdAt || null,
+  respondedAt: request?.respondedAt || null,
+});
 const CONTENT_ONLY_SECTION_FIELDS = new Set(["textContent", "fullContent"]);
 const FULL_ACCESS_SECTION_FIELDS = new Set(["textContent", "fullContent", "description", "synopsis", "logline"]);
 
@@ -328,6 +371,7 @@ export const inviteCollaborator = async (req, res) => {
         from: req.user._id,
         script: script._id,
         message: `You were invited to collaborate on ${script.title} as ${role}.`,
+        actionToken: inviteToken,
       });
 
       emitNotification(req, invitedUser._id, "collab_invite", {
@@ -409,6 +453,15 @@ export const resendInvite = async (req, res) => {
       emailSkipped: emailResult?.skipped === true,
     });
 
+    await createNotification({
+      userId: invitedUser._id,
+      type: "collab_invite",
+      from: req.user._id,
+      script: script._id,
+      message: `Your collaboration invitation for ${script.title} was refreshed.`,
+      actionToken: inviteToken,
+    });
+
     return res.status(200).json({
       message: emailResult?.success === true
         ? "Invite resent successfully"
@@ -488,6 +541,18 @@ export const acceptInvite = async (req, res) => {
 
     await script.save();
 
+    // The action token is single-use. Removing its notifications prevents a successful invite
+    // from leaving a bell action that can only answer "already used" on the next click.
+    try {
+      await Notification.deleteMany({
+        user: req.user._id,
+        type: "collab_invite",
+        script: script._id,
+      });
+    } catch (notificationError) {
+      console.error("acceptInvite notification cleanup failed:", notificationError.message);
+    }
+
     await createAuditEntry(script._id, req.user._id, "invite_accepted", {
       role: collaborator.role,
     });
@@ -532,6 +597,10 @@ export const acceptInvite = async (req, res) => {
 
 export const requestCollab = async (req, res) => {
   try {
+    if (!isWriterRole(req.user)) {
+      return res.status(403).json({ error: "Only writer accounts can request script collaboration." });
+    }
+
     const script = await Script.findById(req.params.scriptId).select("title creator collabVisibility collaborators competitionId competitionReleasedAt");
     if (!script) {
       return res.status(404).json({ error: "Script not found" });
@@ -648,8 +717,10 @@ export const requestCollab = async (req, res) => {
         ? "Request sent successfully"
         : "Request sent successfully. Email delivery is unavailable, but the writer will still see it in-app.",
       requestId: collabRequest._id,
+      request: mapRequestForResponse(collabRequest, script),
       emailSent: emailResult?.success === true,
     });
+
   } catch (error) {
     console.error("requestCollab failed:", error.message);
     return res.status(500).json({ error: "Failed to send collaboration request" });
@@ -678,7 +749,8 @@ export const respondToRequest = async (req, res) => {
     }
 
     if (decision === "accepted") {
-      const role = String(collabRequest.requestedRole || "").trim().toLowerCase();
+      const requestedRole = normalizeRequestedRoleForDecision(collabRequest.requestedRole);
+      const role = String(req.body?.role || requestedRole).trim().toLowerCase();
       const accessLevel = normalizeAccessLevel(req.body?.accessLevel);
       if (!VALID_COLLAB_ROLES.includes(role)) {
         return res.status(400).json({ error: "Invalid collaborator role" });
@@ -744,7 +816,12 @@ export const respondToRequest = async (req, res) => {
         assignedRole: role,
       });
 
-      return res.status(200).json({ message: "Request accepted" });
+      return res.status(200).json({
+        message: "Request accepted",
+        request: mapRequestForResponse(collabRequest, script),
+        assignedRole: role,
+        accessLevel,
+      });
     }
 
     collabRequest.status = "rejected";
@@ -777,7 +854,10 @@ export const respondToRequest = async (req, res) => {
       note: sanitizeMessage(req.body?.note, 1000),
     });
 
-    return res.status(200).json({ message: "Request rejected" });
+    return res.status(200).json({
+      message: "Request rejected",
+      request: mapRequestForResponse(collabRequest, script),
+    });
   } catch (error) {
     console.error("respondToRequest failed:", error.message);
     return res.status(500).json({ error: "Failed to respond to request" });
@@ -1094,11 +1174,36 @@ export const publishScript = async (req, res) => {
 
 export const getActivityLog = async (req, res) => {
   try {
-    const entries = await AuditLog.find({ scriptId: req.params.scriptId })
+    const { page, limit, skip } = getPaging(req.query);
+    const filter = { scriptId: req.params.scriptId };
+    const [entries, total] = await Promise.all([
+      AuditLog.find(filter)
       .sort({ createdAt: -1 })
-      .populate("actorId", "name profileImage");
+      .skip(skip)
+      .limit(limit)
+      .populate("actorId", "name profileImage")
+      .lean(),
+      AuditLog.countDocuments(filter),
+    ]);
 
-    return res.status(200).json({ activity: entries });
+    return res.status(200).json({
+      activity: entries.map((entry) => ({
+        _id: entry._id,
+        action: entry.action,
+        actor: entry.actorId ? {
+          _id: entry.actorId._id,
+          name: entry.actorId.name || "Unknown user",
+          profileImage: entry.actorId.profileImage || "",
+        } : null,
+        // Audit metadata can contain invited email addresses and internal merge details. The
+        // read-permission endpoint exposes only the vocabulary its timeline actually renders.
+        metadata: {
+          role: entry.metadata?.role || entry.metadata?.assignedRole || entry.metadata?.requestedRole || null,
+        },
+        createdAt: entry.createdAt,
+      })),
+      pagination: getPagination({ page, limit, total }),
+    });
   } catch (error) {
     console.error("getActivityLog failed:", error.message);
     return res.status(500).json({ error: "Failed to load activity log" });
@@ -1107,23 +1212,33 @@ export const getActivityLog = async (req, res) => {
 
 export const getCollabRequestsInbox = async (req, res) => {
   try {
+    if (!isWriterRole(req.user)) {
+      return res.status(403).json({ error: "Only writer accounts have a collaboration inbox." });
+    }
+
+    const { page, limit, skip } = getPaging(req.query);
     const ownedScripts = await Script.find({ creator: req.user._id }).select("_id title");
     const scriptIds = ownedScripts.map((script) => script._id);
     const scriptTitleMap = new Map(ownedScripts.map((script) => [normalizeObjectId(script._id), script.title]));
-
-    const requests = await CollabRequest.find({
+    const filter = {
       scriptId: { $in: scriptIds },
       status: "pending",
-    })
-      .sort({ createdAt: -1 })
-      .populate("requesterId", "name email profileImage")
-      .lean();
+    };
+    const [requests, total] = await Promise.all([
+      CollabRequest.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("requesterId", "name profileImage")
+        .lean(),
+      CollabRequest.countDocuments(filter),
+    ]);
 
     return res.status(200).json({
-      requests: requests.map((request) => ({
-        ...request,
-        scriptTitle: scriptTitleMap.get(normalizeObjectId(request.scriptId)) || "Untitled Script",
+      requests: requests.map((request) => mapRequestForResponse(request, {
+        title: scriptTitleMap.get(normalizeObjectId(request.scriptId)),
       })),
+      pagination: getPagination({ page, limit, total }),
     });
   } catch (error) {
     console.error("getCollabRequestsInbox failed:", error.message);
@@ -1131,15 +1246,82 @@ export const getCollabRequestsInbox = async (req, res) => {
   }
 };
 
-export const getScriptRequests = async (req, res) => {
+export const getOutgoingCollabRequests = async (req, res) => {
   try {
-    const requests = await CollabRequest.find({ scriptId: req.params.scriptId })
-      .sort({ createdAt: -1 })
-      .populate("requesterId", "name email profileImage")
-      .lean();
+    if (!isWriterRole(req.user)) {
+      return res.status(403).json({ error: "Only writer accounts can send collaboration requests." });
+    }
+
+    const { page, limit, skip } = getPaging(req.query);
+    const filter = { requesterId: req.user._id };
+    const [requests, total] = await Promise.all([
+      CollabRequest.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("scriptId", "title")
+        .lean(),
+      CollabRequest.countDocuments(filter),
+    ]);
 
     return res.status(200).json({
-      requests,
+      requests: requests.map((request) => mapRequestForResponse(request)),
+      pagination: getPagination({ page, limit, total }),
+    });
+  } catch (error) {
+    console.error("getOutgoingCollabRequests failed:", error.message);
+    return res.status(500).json({ error: "Failed to load collaboration requests" });
+  }
+};
+
+export const getMyCollabRequest = async (req, res) => {
+  try {
+    const script = await Script.findById(req.params.scriptId)
+      .select("_id title creator collabVisibility collaborators competitionId competitionReleasedAt");
+    if (!script) {
+      return res.status(404).json({ error: "Script not found" });
+    }
+
+    const isOwner = normalizeObjectId(getOwnerId(script)) === normalizeObjectId(req.user._id);
+    const collaborator = getAcceptedCollaborator(script, req.user._id);
+    const request = await CollabRequest.findOne({
+      scriptId: script._id,
+      requesterId: req.user._id,
+    }).sort({ createdAt: -1 }).lean();
+
+    return res.status(200).json({
+      request: request ? mapRequestForResponse(request, script) : null,
+      isOwner,
+      isCollaborator: Boolean(collaborator),
+      canRequest: isWriterRole(req.user)
+        && !isOwner
+        && !collaborator
+        && script.collabVisibility === "open"
+        && !(script.competitionId && !script.competitionReleasedAt),
+    });
+  } catch (error) {
+    console.error("getMyCollabRequest failed:", error.message);
+    return res.status(500).json({ error: "Failed to load collaboration request" });
+  }
+};
+
+export const getScriptRequests = async (req, res) => {
+  try {
+    const { page, limit, skip } = getPaging(req.query);
+    const filter = { scriptId: req.params.scriptId };
+    const [requests, total] = await Promise.all([
+      CollabRequest.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("requesterId", "name profileImage")
+        .lean(),
+      CollabRequest.countDocuments(filter),
+    ]);
+
+    return res.status(200).json({
+      requests: requests.map((request) => mapRequestForResponse(request, req.script)),
+      pagination: getPagination({ page, limit, total }),
     });
   } catch (error) {
     console.error("getScriptRequests failed:", error.message);

@@ -13,6 +13,10 @@ const notificationSchema = new mongoose.Schema({
   audition: { type: mongoose.Schema.Types.ObjectId, ref: "Audition" },
   message: { type: String },
   matchScore: { type: Number },
+  // Recipient-only action material for collaboration invitations. Notification queries are
+  // always scoped to `user`; keeping the token here makes the in-app invite actionable instead
+  // of sending the recipient to a locked editor that tells them to find an email.
+  actionToken: { type: String, default: "", maxlength: 256 },
   read: { type: Boolean, default: false },
 }, { timestamps: true });
 

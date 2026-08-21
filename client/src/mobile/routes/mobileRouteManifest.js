@@ -254,6 +254,17 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     shell: MOBILE_SHELL_MODE.STANDARD,
     fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
   },
+  {
+    id: "collaborations",
+    pattern: "/collaborations",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native incoming/sent collaboration-request queue over the shared paged decision contract (plan §11 Phase 5, D43).",
+    audiences: [AUDIENCE.WRITER],
+    protection: "authenticated",
+    screenId: "collaborations",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
   /*
    * The chooser that opens the creation flow. A `flow` shell, not `standard`:
    * this is step zero of creating a project, and leaving the tab bar up invites

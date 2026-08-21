@@ -1,6 +1,9 @@
 import mongoose from "mongoose";
 
-const VALID_REQUESTED_ROLES = ["editor", "merger", "viewer", "full_admin"];
+// `merger` is retained only so historic documents remain readable; new requests use the same
+// current role vocabulary as collaboration itself. The controller maps legacy merger requests to
+// least-privilege commenter access unless an owner explicitly assigns another current role.
+const VALID_REQUESTED_ROLES = ["editor", "commenter", "viewer", "full_admin", "merger"];
 const normalizeRequestedRole = (value) => {
   return String(value || "").trim().toLowerCase();
 };
