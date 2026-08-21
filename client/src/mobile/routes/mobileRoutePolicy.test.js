@@ -374,14 +374,30 @@ describe("mobileRoutePolicy — experience selection", () => {
     });
   });
 
-  it("mounts the public profile only for a signed-out visitor (D34)", () => {
+  it("selects the public or authenticated visitor profile without replacing the own variant (D34/D35)", () => {
     expect(resolveMobileExperience({
       isMobile: true, authLoading: false, user: null, pathname: "/share/profile/mira",
     })).toMatchObject({ experience: "mobile", routeId: "shared-profile", screenId: "public-profile" });
 
     expect(resolveMobileExperience({
       isMobile: true, authLoading: false, user: writer, pathname: "/share/profile/mira",
-    })).toMatchObject({ experience: "desktop", reason: "authenticated-variant-pending" });
+    })).toMatchObject({ experience: "mobile", routeId: "shared-profile", screenId: "profile-visitor" });
+
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: writer, pathname: "/share/profile/writer-1",
+    })).toMatchObject({ experience: "desktop", reason: "own-profile-variant-pending" });
+  });
+
+  it("mounts id and canonical visitor profiles but retains the own workspace", () => {
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: writer, pathname: "/profile/other-writer",
+    })).toMatchObject({ experience: "mobile", routeId: "profile", screenId: "profile-visitor" });
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: writer, pathname: "/mira",
+    })).toMatchObject({ experience: "mobile", routeId: "profile-or-referral-catchall", screenId: "profile-visitor" });
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: writer, pathname: "/profile",
+    })).toMatchObject({ experience: "desktop", reason: "own-profile-variant-pending" });
   });
 
   it("mounts the shared native project surface for a reader without rewriting its route (D32)", () => {

@@ -2,7 +2,6 @@ import { useEffect, useState, useContext, useRef, useCallback } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { motion as Motion } from "framer-motion";
 import api from "../services/api";
-import { sendPitch } from "../services/scriptPitchService";
 import { AuthContext } from "../context/AuthContext";
 import { useAuthModal } from "../context/AuthModalContext";
 import { useDarkMode } from "../context/DarkModeContext";
@@ -42,6 +41,15 @@ import {
   isSameProfile,
   isWriterProfileRole,
 } from "../features/profile-pc";
+import {
+  getAuthenticatedProfile,
+  getPitchableScripts,
+  revealProfileContact,
+  sendProfilePitch,
+  sendProfileMessage,
+  toggleProfileBlock,
+  updateProfileFollow,
+} from "./profile/authenticatedProfile";
 
 /* â”€â”€ Helper components â”€â”€ */
 
@@ -271,6 +279,7 @@ const Profile = () => {
   const [meetings, setMeetings] = useState([]);
   const [meetingsLoading, setMeetingsLoading] = useState(false);
   const [profileAccessMessage, setProfileAccessMessage] = useState("");
+  const [profileAccessId, setProfileAccessId] = useState("");
   const [profileRequiresBusinessEmail, setProfileRequiresBusinessEmail] = useState(false);
   const profileRequestRef = useRef(null);
   if (!profileRequestRef.current) {
@@ -292,16 +301,27 @@ const Profile = () => {
         setProfileRequiresBusinessEmail(false);
       }
 
-      const { data } = await api.get(`/users/${profileId}`, { signal: controller.signal });
-      if (!profileRequestRef.current.isCurrent(requestId)) return;
-      const canonicalProfilePath = getProfileCanonicalPath(data?.user, {
-        viewerId: currentUser?._id,
-        viewerRole: currentUser?.role,
+      const result = await getAuthenticatedProfile({
+        profileKey: profileId,
+        viewer: { _id: currentUser?._id, role: currentUser?.role },
+        signal: controller.signal,
       });
+      if (result.cancelled) return;
+      if (!result.ok) throw result.cause || new Error(result.message);
+      const data = {
+        user: result.data.profile,
+        scripts: result.data.scripts,
+        deletedScripts: result.data.deletedScripts,
+        purchasedScripts: result.data.purchasedScripts,
+        bookmarkedScripts: result.data.bookmarkedScripts,
+      };
+      if (!profileRequestRef.current.isCurrent(requestId)) return;
+      const canonicalProfilePath = result.data.canonicalPath;
       if (canonicalProfilePath && canonicalProfilePath !== location.pathname) {
         navigate(canonicalProfilePath, { replace: true });
       }
       setProfileAccessMessage("");
+      setProfileAccessId("");
       setProfile(data.user);
       setScripts((data.scripts || []).filter((s) => s.status !== "draft" && !s.isDeleted));
       setDeletedScripts(data.deletedScripts || []);
@@ -346,6 +366,7 @@ const Profile = () => {
       const isPrivateAccount = Boolean(error?.response?.data?.privateAccount);
       const isBlockedView = Boolean(error?.response?.data?.blockedByProfile);
       const requiresBusinessEmail = Boolean(error?.response?.data?.requiresBusinessEmail);
+      setProfileAccessId(String(error?.response?.data?.profileId || ""));
 
       if (status === 403 && requiresBusinessEmail) {
         setProfile(null);
@@ -430,32 +451,28 @@ const Profile = () => {
     if (isBlockedByCurrent || blockedByProfile || followLoading) return;
     try {
       setFollowLoading(true);
-      if (isFollowing) {
-        await api.post("/users/unfollow", { userId: profile._id });
-        setIsFollowing(false);
+      const result = await updateProfileFollow({
+        profileId: profile._id,
+        relationship: { isFollowing, followRequestPending, isFollowsMe },
+      });
+      if (!result.ok) throw result.cause || new Error(result.message);
+      setIsFollowing(result.data.isFollowing);
+      setFollowRequestPending(result.data.followRequestPending);
+      if (isFollowing && !result.data.isFollowing) {
         setProfile({
           ...profile,
           followers: profile.followers.filter(
             (f) => f._id !== currentUser._id
           ),
         });
-      } else if (followRequestPending) {
-        await api.post("/users/follow-requests/cancel", { userId: profile._id });
-        setFollowRequestPending(false);
-      } else {
-        const { data } = await api.post("/users/follow", { userId: profile._id });
-        if (data?.status === "pending") {
-          setFollowRequestPending(true);
-        } else {
-          setIsFollowing(true);
-          setProfile({
-            ...profile,
-            followers: [
-              ...profile.followers,
-              { _id: currentUser._id, name: currentUser.name },
-            ],
-          });
-        }
+      } else if (!isFollowing && result.data.isFollowing) {
+        setProfile({
+          ...profile,
+          followers: [
+            ...profile.followers,
+            { _id: currentUser._id, name: currentUser.name },
+          ],
+        });
       }
     } catch (error) {
       console.error("Error following/unfollowing:", error);
@@ -468,19 +485,21 @@ const Profile = () => {
     if (!profile?._id || blockingAction) return;
     try {
       setBlockingAction(true);
-      if (isBlockedByCurrent) {
-        await api.post("/users/unblock", { userId: profile._id });
-        setIsBlockedByCurrent(false);
+      const result = await toggleProfileBlock({
+        profileId: profile._id,
+        blocked: isBlockedByCurrent,
+      });
+      if (!result.ok) throw result.cause || new Error(result.message);
+      setIsBlockedByCurrent(result.data.blocked);
+      if (!result.data.blocked) {
         setSettingsMsg("User unblocked");
       } else {
-        await api.post("/users/block", { userId: profile._id });
-        setIsBlockedByCurrent(true);
         setIsFollowing(false);
         setSettingsMsg("User blocked");
       }
       setTimeout(() => setSettingsMsg(""), 2500);
     } catch (error) {
-      setSettingsErr(error.response?.data?.message || "Failed to update block status");
+      setSettingsErr(error.response?.data?.message || error.message || "Failed to update block status");
     } finally {
       setBlockingAction(false);
     }
@@ -502,14 +521,14 @@ const Profile = () => {
 
   const handleOpenPitchModal = async () => {
     setShowPitchModal(true);
-    try {
-      const { data } = await api.get("/scripts/mine");
-      setMyScripts(data);
-      if (data.length > 0) {
-        setPitchData(prev => ({ ...prev, scriptId: data[0]._id }));
-      }
-    } catch (err) {
-      console.error("Error fetching user scripts:", err);
+    const result = await getPitchableScripts();
+    if (!result.ok) {
+      console.error("Error fetching user scripts:", result.cause || result.message);
+      return;
+    }
+    setMyScripts(result.data);
+    if (result.data.length > 0) {
+      setPitchData(prev => ({ ...prev, scriptId: result.data[0]._id }));
     }
   };
 
@@ -517,11 +536,12 @@ const Profile = () => {
     if (!pitchData.scriptId) return alert("Please select a script");
     try {
       setSendingPitch(true);
-      await sendPitch({
+      const result = await sendProfilePitch({
         scriptId: pitchData.scriptId,
-        investorId: profile._id,
+        profileId: profile._id,
         note: pitchData.note
       });
+      if (!result.ok) throw result.cause || new Error(result.message);
       setPitchSuccess(true);
       setTimeout(() => {
         setShowPitchModal(false);
@@ -530,7 +550,7 @@ const Profile = () => {
       }, 2000);
     } catch (error) {
       console.error("Error sending pitch:", error);
-      alert(error.response?.data?.message || "Failed to send pitch");
+      alert(error.response?.data?.message || error.message || "Failed to send pitch");
     } finally {
       setSendingPitch(false);
     }
@@ -541,10 +561,11 @@ const Profile = () => {
 
     try {
       setSendingRequest(true);
-      await api.post("/users/message-request", {
-        recipientId: profile._id,
-        message: messageRequestText
+      const result = await sendProfileMessage({
+        profileId: profile._id,
+        message: messageRequestText,
       });
+      if (!result.ok) throw result.cause || new Error(result.message);
       setRequestSuccess(true);
       setTimeout(() => {
         setShowMessageRequestModal(false);
@@ -553,7 +574,7 @@ const Profile = () => {
       }, 2000);
     } catch (error) {
       console.error("Error sending message request:", error);
-      alert(error.response?.data?.message || "Failed to send message request");
+      alert(error.response?.data?.message || error.message || "Failed to send message request");
     } finally {
       setSendingRequest(false);
     }
@@ -695,7 +716,7 @@ const Profile = () => {
     title: profile?.shareMeta?.title || `${profile?.name || "Profile"} | Ckript`,
     text: profile?.shareMeta?.text || `Check out ${profile?.name || "this creator"}'s profile on Ckript.`,
   };
-  const profileContactLinks = profile?.writerProfile?.links || {};
+  const profileContactLinks = revealedProfileContact?.links || profile?.writerProfile?.links || {};
   const profileContactLinkItems = [
     { key: "portfolio", label: "Portfolio", href: profileContactLinks.portfolio },
     { key: "linkedin", label: "LinkedIn", href: profileContactLinks.linkedin },
@@ -716,7 +737,9 @@ const Profile = () => {
     setContactRevealError("");
     setContactRevealLoading(true);
     try {
-      const { data } = await api.post(`/payment/reveal-contact/${profileWriterId}`);
+      const result = await revealProfileContact({ profileId: profileWriterId });
+      if (!result.ok) throw result.cause || new Error(result.message);
+      const data = result.data;
       setRevealedProfileContact(data.contact);
       setContactRevealStats({
         contactsUsed: data.contactsUsed,
@@ -747,7 +770,7 @@ const Profile = () => {
         });
       }
     } catch (err) {
-      setContactRevealError(err?.response?.data?.message || "Failed to reveal contact.");
+      setContactRevealError(err?.response?.data?.message || err.message || "Failed to reveal contact.");
     } finally {
       setContactRevealLoading(false);
     }
@@ -892,13 +915,12 @@ const Profile = () => {
           <button
             onClick={async () => {
               try {
-                if (followRequestPending) {
-                  await api.post("/users/follow-requests/cancel", { userId: id });
-                  setFollowRequestPending(false);
-                } else {
-                  const { data } = await api.post("/users/follow", { userId: id });
-                  setFollowRequestPending(data?.status === "pending");
-                }
+                const result = await updateProfileFollow({
+                  profileId: profileAccessId || id,
+                  relationship: { followRequestPending },
+                });
+                if (!result.ok) throw result.cause || new Error(result.message);
+                setFollowRequestPending(result.data.followRequestPending);
               } catch (err) {
                 console.error("Follow request action failed:", err);
               }

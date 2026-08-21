@@ -7,6 +7,13 @@ import path from "path";
 import { uploadToCloudinary } from "../config/cloudinary.js";
 import { sendAdminMessageEmail, sendNewMessageEmail } from "../utils/emailService.js";
 import { asObjectId } from "../utils/requestValue.js";
+import {
+  getMessageWritersLimit,
+  hasAnyFipAccess,
+  hasMessagedWriter,
+  hasReachedMessageWritersLimit,
+} from "../utils/industryAccess.js";
+import { resolveDirectMessagePair } from "../utils/messageAccess.js";
 
 const detectFileType = (mimetype = "") => {
   if (mimetype.startsWith("image/")) return "image";
@@ -98,7 +105,7 @@ export const sendMessage = async (req, res) => {
     const receiverObjectId = asObjectId(receiverId);
     if (!receiverObjectId) return res.status(400).json({ message: "receiverId is not a valid user id." });
 
-    const sender = await User.findById(req.user._id).select("_id role name blockedUsers subscription");
+    const sender = await User.findById(req.user._id).select("_id role name email blockedUsers subscription");
     if (!sender) return res.status(404).json({ message: "Sender not found." });
 
     const receiver = await User.findById(receiverObjectId).select("_id role name email blockedUsers");
@@ -117,47 +124,35 @@ export const sendMessage = async (req, res) => {
     const existingMessageCount = await Message.countDocuments({ chatId });
 
     if (existingMessageCount === 0) {
-      const isInvestor = sender.role === "investor";
-      const isWriter = ["writer", "creator"].includes(sender.role);
-      const isAdmin = sender.role === "admin";
-      const isReceiverInvestor = receiver.role === "investor";
-      const isReceiverWriter = ["writer", "creator"].includes(receiver.role);
-      const isReceiverAdmin = receiver.role === "admin";
+      const pair = resolveDirectMessagePair(sender, receiver);
 
-      const isAdminWriterConversation =
-        (isAdmin && isReceiverWriter) ||
-        (isReceiverAdmin && isWriter);
-
-      if (isAdminWriterConversation) {
+      if (pair.adminWriter) {
         // Admin can initiate direct discussions with writers for workflow coordination.
       } else {
-        if (!((isInvestor && isReceiverWriter) || (isWriter && isReceiverInvestor))) {
-          return res.status(403).json({ message: "Conversations can only be started between writers and investors." });
+        if (!pair.marketplacePair) {
+          return res.status(403).json({ message: "Conversations can only be started between writers and film industry professionals." });
         }
 
-        const investorId = isInvestor ? sender._id : receiverObjectId;
-        const writerId = isWriter ? sender._id : receiverObjectId;
+        const industryId = pair.industryId;
+        const writerId = pair.writerId;
 
-        const hasPurchased = await Script.exists({ creator: writerId, unlockedBy: investorId });
+        const hasPurchased = await Script.exists({ creator: writerId, unlockedBy: industryId });
         if (!hasPurchased) {
-          if (isInvestor) {
+          if (pair.senderIsIndustry) {
             const subscription = sender.subscription || {};
-            const accessTier = String(subscription.accessTier || "").trim().toLowerCase();
-            const accessStatus = String(subscription.accessStatus || "").trim().toLowerCase();
-            
-            if (accessTier === "film_industry_professional" && accessStatus === "active") {
-              const messageWritersLimit = subscription.messageWritersLimit || 10;
-              const messagedWriters = subscription.messagedWriters || [];
-              const writerAlreadyMessaged = messagedWriters.some(c => c.writerId && c.writerId.toString() === writerId.toString());
+            if (hasAnyFipAccess(sender)) {
+              const messageWritersLimit = getMessageWritersLimit(sender);
+              const writerAlreadyMessaged = hasMessagedWriter(sender, writerId);
               
               if (!writerAlreadyMessaged) {
-                if (messagedWriters.length >= messageWritersLimit) {
+                if (hasReachedMessageWritersLimit(sender)) {
                   return res.status(403).json({
                     message: `You have reached your limit of ${messageWritersLimit} direct messages.`,
                     code: "QUOTA_EXCEEDED",
                   });
                 } else {
                   // Consume a quota slot
+                  if (!Array.isArray(subscription.messagedWriters)) subscription.messagedWriters = [];
                   sender.subscription.messagedWriters.push({
                     writerId: writerId,
                     messagedAt: new Date()
@@ -173,7 +168,7 @@ export const sendMessage = async (req, res) => {
             }
           } else {
             return res.status(403).json({
-              message: "You cannot initiate a conversation until an investor purchases your script or messages you first.",
+              message: "You cannot initiate a conversation until an industry professional purchases your script or messages you first.",
               code: "PURCHASE_REQUIRED",
             });
           }
@@ -218,7 +213,8 @@ export const sendMessage = async (req, res) => {
       });
     }
 
-    if (existingMessageCount === 0 && sender.role === "investor" && ["writer", "creator"].includes(receiver.role)) {
+    const newPair = resolveDirectMessagePair(sender, receiver);
+    if (existingMessageCount === 0 && newPair.senderIsIndustry && newPair.receiverIsWriter) {
       sendNewMessageEmail(receiver.email, receiver.name, sender.name, {
         clientBaseUrl: resolveClientOriginFromRequest(req),
       }).catch((err) => {

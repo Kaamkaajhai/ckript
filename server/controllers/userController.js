@@ -10,6 +10,7 @@ import {
   hasActiveFilmIndustryProfessionalAccess,
   isIndustryProfessionalWithPersonalEmail,
   isFilmIndustryProfessionalRole,
+  isWriterRole,
   hasBusinessEmail,
 } from "../utils/industryAccess.js";
 import {
@@ -26,6 +27,12 @@ import { getProfileCompletion } from "../utils/profileCompletion.js";
 import multer from "multer";
 import { uploadToCloudinary, deleteFromCloudinary, buildPrivateDownloadUrl } from "../config/cloudinary.js";
 import { fetchTrustedPdfAsset, getCloudinaryResourceTypeFromUrl } from "../utils/remoteAssetPolicy.js";
+import {
+  buildBusinessEmailProfileDenial,
+  buildPrivateProfileDenial,
+  buildVisitorProfile,
+  VISITOR_PROFILE_SCRIPT_FIELDS,
+} from "../utils/profileProjection.js";
 
 const WRITER_REPRESENTATION_STATUSES = ["unrepresented", "manager", "agent", "manager_and_agent"];
 const BANK_REVIEW_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
@@ -827,19 +834,18 @@ export const getUserProfile = async (req, res) => {
       const isAdminViewer = String(currentUser?.role || "").toLowerCase() === "admin";
 
       if (
-        user?.role === "writer" &&
+        isWriterRole(user) &&
         hasActiveFilmIndustryProfessionalAccess(currentUser)
       ) {
         const plan = currentUser.subscription?.plan || "free";
         if (plan === "free" && !hasBusinessEmail(currentUser.email)) {
-          return res.status(403).json({
-            message: "Viewing writer profiles requires a company email. Upgrade your plan or update your email.",
-            personalEmailFipRestricted: true,
-          });
+          return res.status(403).json(buildBusinessEmailProfileDenial(
+            "Viewing writer profiles requires a company email. Upgrade your plan or update your email."
+          ));
         }
       }
 
-      if (user?.role === "writer" && hasActiveFilmIndustryProfessionalAccess(currentUser)) {
+      if (isWriterRole(user) && hasActiveFilmIndustryProfessionalAccess(currentUser)) {
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         const recentNotif = await Notification.findOne({
           user: targetUserId,
@@ -861,16 +867,15 @@ export const getUserProfile = async (req, res) => {
         const followRequestPending = (user?.followRequests || []).some(
           (entry) => entry?.from?.toString() === req.user._id.toString()
         );
-        return res.status(403).json({
-          message: "This account is private.",
-          privateAccount: true,
+        return res.status(403).json(buildPrivateProfileDenial({
+          userId: targetUserId,
+          followRequestPending,
           blockedByCurrent,
           blockedByProfile,
-          followRequestPending,
-        });
+        }));
       }
 
-      const isWriterProfile = ["writer", "creator"].includes(String(user?.role || "").toLowerCase());
+      const isWriterProfile = isWriterRole(user);
       if (
         isWriterProfile &&
         isIndustryProfessionalWithPersonalEmail(currentUser || req.user) &&
@@ -900,9 +905,13 @@ export const getUserProfile = async (req, res) => {
           isDeleted: { $ne: true },
         };
 
-    const scripts = await Script.find(scriptQuery)
-      .populate("creator", "name profileImage role")
+    let scriptsQuery = Script.find(scriptQuery)
+      .populate("creator", "name profileImage role writerProfile.username")
       .sort({ createdAt: -1 });
+    if (!isOwnProfile) {
+      scriptsQuery = scriptsQuery.select(VISITOR_PROFILE_SCRIPT_FIELDS.join(" "));
+    }
+    const scripts = await scriptsQuery;
 
     const isWriterUser = ["writer", "creator"].includes(user.role);
 
@@ -962,34 +971,10 @@ export const getUserProfile = async (req, res) => {
     }
 
     // Sanitize bank details - only show to own profile
-    const userObj = user.toObject();
+    let userObj = user.toObject();
     userObj.language = normalizeLanguagePreference(userObj.language);
     if (!isOwnProfile) {
-      if (userObj.bankDetails) {
-        delete userObj.bankDetails;
-      }
-      delete userObj.pendingEmail;
-
-      if (userObj.allowIndustryContact === false && ["writer", "creator"].includes(userObj.role)) {
-        delete userObj.email;
-        delete userObj.phone;
-        if (userObj.writerProfile) {
-          delete userObj.writerProfile.links;
-        }
-      }
-
-      if (userObj.writerProfile?.membershipVerification) {
-        const hideProofDetails = (entry) => {
-          if (!entry) return;
-          delete entry.proofUrl;
-          delete entry.proofPublicId;
-          delete entry.proofFileName;
-          delete entry.proofMimeType;
-          delete entry.reviewedBy;
-        };
-        hideProofDetails(userObj.writerProfile.membershipVerification.wga);
-        hideProofDetails(userObj.writerProfile.membershipVerification.swa);
-      }
+      userObj = buildVisitorProfile(userObj);
     } else if (isOwnProfile && userObj.bankDetails && userObj.bankDetails.accountNumber) {
       // Sanitize account number even for own profile (for security)
       userObj.bankDetails.accountNumber = '****' + userObj.bankDetails.accountNumber.slice(-4);
@@ -1006,7 +991,7 @@ export const getUserProfile = async (req, res) => {
     }
     userObj.shareMeta = buildUserShareMeta(req, userObj);
     userObj.canonicalPath = buildUserCanonicalPath(userObj);
-    userObj.profileCompletion = getProfileCompletion(userObj);
+    if (isOwnProfile) userObj.profileCompletion = getProfileCompletion(userObj);
 
     const attachScriptShareMeta = (list = []) => list.map((scriptDoc) => {
       if (!scriptDoc) return scriptDoc;
@@ -1438,9 +1423,6 @@ export const updateUserProfile = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
-const isWriterRole = (role) =>
-  ["writer", "creator"].includes(String(role || "").toLowerCase());
 
 export const followUser = async (req, res) => {
   try {

@@ -1,6 +1,6 @@
 .ckm .ckm-public-profile__page { display: grid; gap: var(--ckm-space-4); padding: var(--ckm-space-4); padding-bottom: calc(var(--ckm-space-8) + env(safe-area-inset-bottom)); }
 .ckm .ckm-public-profile__hero, .ckm .ckm-public-profile__section, .ckm .ckm-public-profile__projects { overflow: hidden; border: 1px solid var(--ckm-line); border-radius: var(--ckm-r-lg); background: var(--ckm-bg); box-shadow: var(--ckm-shadow-card); }
-.ckm .ckm-public-profile__cover { height: 112px; background: linear-gradient(120deg, var(--ckm-ink), #4b342c); }
+.ckm .ckm-public-profile__cover { height: 112px; background: linear-gradient(120deg, var(--ckm-ink), var(--ckm-accent-ink)); }
 .ckm .ckm-public-profile__cover img { width: 100%; height: 100%; object-fit: cover; }
 .ckm .ckm-public-profile__identity { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: var(--ckm-space-3); align-items: end; padding: 0 var(--ckm-space-4); margin-top: -30px; }
 .ckm .ckm-public-profile__avatar { display: grid; width: 76px; height: 76px; place-items: center; overflow: hidden; border: 4px solid var(--ckm-bg); border-radius: var(--ckm-r-lg); background: var(--ckm-bg-soft); color: var(--ckm-text); font: var(--ckm-weight-bold) var(--ckm-text-title) / 1 var(--ckm-display); }

@@ -14,6 +14,7 @@ const ProjectDetailMobile = lazy(() => import("../screens/projects/project-detai
 const ProjectCheckoutMobile = lazy(() => import("../screens/projects/checkout/ProjectCheckoutMobile"));
 const ProjectPublicMobile = lazy(() => import("../screens/projects/public-project/ProjectPublicMobile"));
 const PublicProfileMobile = lazy(() => import("../screens/profiles/public-profile/PublicProfileMobile"));
+const ProfileVisitorMobile = lazy(() => import("../screens/profiles/visitor-profile/ProfileVisitorMobile"));
 const PrimitiveGallery = lazy(() => import("../dev/PrimitiveGallery"));
 const CreateHarness = lazy(() => import("../dev/CreateHarness"));
 const UploadHarness = lazy(() => import("../dev/UploadHarness"));
@@ -124,7 +125,8 @@ export default function MobileRoutes({
         <Route path="/top-script" element={<TopScriptsMobile user={user} />} />
         <Route path="/featured" element={<FeaturedProjectsMobile user={user} />} />
         <Route path="/share/project/:id" element={<ProjectPublicMobile />} />
-        <Route path="/share/profile/:id" element={<PublicProfileMobile />} />
+        <Route path="/share/profile/:id" element={user ? <ProfileVisitorMobile user={user} /> : <PublicProfileMobile />} />
+        <Route path="/profile/:id" element={<ProfileVisitorMobile user={user} />} />
         <Route
           path="/reader/script/:id"
           element={<ProjectDetailMobile user={user} canonicalize={false} backTo="/reader" screenId="reader-project" />}
@@ -142,6 +144,7 @@ export default function MobileRoutes({
         <Route path="/script/:id" element={<ProjectDetailMobile user={user} />} />
         <Route path="/script/:projectHeading/:writerUsername" element={<ProjectDetailMobile user={user} />} />
         <Route path="/:projectHeading/:writerUsername" element={<ProjectDetailMobile user={user} />} />
+        <Route path="/:id" element={<ProfileVisitorMobile user={user} />} />
         {/* Defensive no-op: policy prevents this branch from mounting for an
             unfinished route, and it must never substitute Dashboard. */}
         <Route path="*" element={null} />

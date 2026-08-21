@@ -18,6 +18,23 @@ const desktopDecision = (route, reason, disposition = route?.disposition) => ({
   reason,
 });
 
+const normalizeProfileKey = (value) => String(value || "").trim().toLowerCase();
+
+function isOwnProfileTarget(route, pathname, user) {
+  if (!route?.visitorOnly || !user) return false;
+  const match = matchPath({ path: route.pattern, end: true, caseSensitive: false }, pathname);
+  const target = normalizeProfileKey(match?.params?.id);
+  if (!target) return route.id === "profile";
+  const ownKeys = [
+    user?._id,
+    user?.id,
+    user?.sid,
+    user?.username,
+    user?.writerProfile?.username,
+  ].map(normalizeProfileKey).filter(Boolean);
+  return ownKeys.includes(target);
+}
+
 export function findMobileRoute(pathname = "") {
   const normalizedPath = String(pathname || "/").split(/[?#]/, 1)[0] || "/";
   return MOBILE_ROUTE_DISPOSITIONS.find(({ pattern }) => (
@@ -91,6 +108,10 @@ export function resolveMobileExperience({
     return desktopDecision(route, "authenticated-variant-pending", route.fallbackDisposition);
   }
 
+  if (isOwnProfileTarget(route, pathname, user)) {
+    return desktopDecision(route, "own-profile-variant-pending", route.fallbackDisposition);
+  }
+
   const audience = getAudience(user?.role);
   if (route.audiences?.length && !route.audiences.includes(audience)) {
     return desktopDecision(route, "audience-not-implemented", route.fallbackDisposition);
@@ -99,7 +120,7 @@ export function resolveMobileExperience({
   return {
     experience: MOBILE_EXPERIENCE.MOBILE,
     routeId: route.id,
-    screenId: route.screenId,
+    screenId: user && route.authenticatedScreenId ? route.authenticatedScreenId : route.screenId,
     disposition: route.disposition,
     reason: "implemented-screen",
   };
