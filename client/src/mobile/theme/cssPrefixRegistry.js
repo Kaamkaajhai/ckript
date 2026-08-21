@@ -314,6 +314,13 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     note: "The authenticated visitor profile across id, share and canonical username routes, including relationship, messaging, pitch, block and metered contact actions.",
   },
 
+  "ckm-owner-profile": {
+    kind: PAGE_FAMILY,
+    owner: "screens/profiles/owner-profile/ProfileOwnerMobile.css",
+    family: "profiles",
+    note: "The authenticated account's native identity and professional overview, including the shared profile editor; account-security workflows intentionally fall back to desktop.",
+  },
+
   // --- Project creation (Phase 3) ---------------------------------------
   // The chooser at /new-project. Its own family rather than part of
   // ckm-create-project: it is a different route with a different shell, it

@@ -9,12 +9,16 @@ import {
   toggleProfileBlock,
   updateProfileFollow,
 } from "./authenticatedProfile";
+import { mergeOwnProfileUpdate } from "./profileEditor";
 
 const initialState = {
   requestKey: "",
   status: AUTHENTICATED_PROFILE_STATUS.LOADING,
   profile: null,
   scripts: [],
+  deletedScripts: [],
+  purchasedScripts: [],
+  bookmarkedScripts: [],
   relationship: {},
   failure: null,
 };
@@ -34,6 +38,12 @@ export function useAuthenticatedProfile({ profileKey, viewer, onCanonicalPath, s
 
   const reload = useCallback(() => setAttempt((value) => value + 1), []);
   const clearActionError = useCallback(() => setActionError(""), []);
+  const applyProfileUpdate = useCallback((update) => {
+    setState((current) => ({
+      ...current,
+      profile: mergeOwnProfileUpdate(current.profile || {}, update || {}),
+    }));
+  }, []);
 
   useEffect(() => {
     if (!requestKey) return undefined;
@@ -47,6 +57,9 @@ export function useAuthenticatedProfile({ profileKey, viewer, onCanonicalPath, s
             status: result.access?.status || AUTHENTICATED_PROFILE_STATUS.FAILED,
             profile: null,
             scripts: [],
+            deletedScripts: [],
+            purchasedScripts: [],
+            bookmarkedScripts: [],
             relationship: result.access?.relationship || {},
             failure: result.access || { message: result.message },
           });
@@ -58,6 +71,9 @@ export function useAuthenticatedProfile({ profileKey, viewer, onCanonicalPath, s
           status: AUTHENTICATED_PROFILE_STATUS.READY,
           profile: next.profile,
           scripts: next.scripts,
+          deletedScripts: Array.isArray(next.deletedScripts) ? next.deletedScripts : [],
+          purchasedScripts: Array.isArray(next.purchasedScripts) ? next.purchasedScripts : [],
+          bookmarkedScripts: Array.isArray(next.bookmarkedScripts) ? next.bookmarkedScripts : [],
           relationship: next.relationship,
           failure: null,
         });
@@ -201,10 +217,10 @@ export function useAuthenticatedProfile({ profileKey, viewer, onCanonicalPath, s
   }, [pending.pitch, state.profile?._id]);
 
   if (!normalizedKey) {
-    return { ...initialState, status: AUTHENTICATED_PROFILE_STATUS.NOT_FOUND, failure: { message: "Invalid profile link." }, pending, actionError, contact, contactStats, reload, clearActionError, follow, toggleBlock, sendMessage, revealContact, loadPitchScripts, sendPitch };
+    return { ...initialState, status: AUTHENTICATED_PROFILE_STATUS.NOT_FOUND, failure: { message: "Invalid profile link." }, pending, actionError, contact, contactStats, reload, clearActionError, applyProfileUpdate, follow, toggleBlock, sendMessage, revealContact, loadPitchScripts, sendPitch };
   }
   if (state.requestKey !== requestKey) {
-    return { ...initialState, pending, actionError, contact, contactStats, reload, clearActionError, follow, toggleBlock, sendMessage, revealContact, loadPitchScripts, sendPitch };
+    return { ...initialState, pending, actionError, contact, contactStats, reload, clearActionError, applyProfileUpdate, follow, toggleBlock, sendMessage, revealContact, loadPitchScripts, sendPitch };
   }
-  return { ...state, pending, actionError, contact, contactStats, reload, clearActionError, follow, toggleBlock, sendMessage, revealContact, loadPitchScripts, sendPitch };
+  return { ...state, pending, actionError, contact, contactStats, reload, clearActionError, applyProfileUpdate, follow, toggleBlock, sendMessage, revealContact, loadPitchScripts, sendPitch };
 }

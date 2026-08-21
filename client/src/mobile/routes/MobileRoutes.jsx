@@ -1,6 +1,7 @@
 import { lazy } from "react";
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, useParams } from "react-router-dom";
 import MobileRouteBoundary from "../shell/MobileRouteBoundary";
+import { isOwnProfileKey } from "./mobileRoutePolicy";
 
 const Dashboard = lazy(() => import("../screens/Dashboard"));
 const Holds = lazy(() => import("../screens/Holds"));
@@ -15,6 +16,7 @@ const ProjectCheckoutMobile = lazy(() => import("../screens/projects/checkout/Pr
 const ProjectPublicMobile = lazy(() => import("../screens/projects/public-project/ProjectPublicMobile"));
 const PublicProfileMobile = lazy(() => import("../screens/profiles/public-profile/PublicProfileMobile"));
 const ProfileVisitorMobile = lazy(() => import("../screens/profiles/visitor-profile/ProfileVisitorMobile"));
+const ProfileOwnerMobile = lazy(() => import("../screens/profiles/owner-profile/ProfileOwnerMobile"));
 const PrimitiveGallery = lazy(() => import("../dev/PrimitiveGallery"));
 const CreateHarness = lazy(() => import("../dev/CreateHarness"));
 const UploadHarness = lazy(() => import("../dev/UploadHarness"));
@@ -23,6 +25,13 @@ const TopScriptsHarness = lazy(() => import("../dev/TopScriptsHarness"));
 const FeaturedHarness = lazy(() => import("../dev/FeaturedHarness"));
 const ProjectDetailHarness = lazy(() => import("../dev/ProjectDetailHarness"));
 const CheckoutHarness = lazy(() => import("../dev/CheckoutHarness"));
+
+function AuthenticatedProfileRoute({ user }) {
+  const { id } = useParams();
+  return isOwnProfileKey(id, user)
+    ? <ProfileOwnerMobile user={user} />
+    : <ProfileVisitorMobile user={user} />;
+}
 
 /*
  * MobileRoutes lives inside the app's one existing BrowserRouter. Canonical
@@ -125,8 +134,9 @@ export default function MobileRoutes({
         <Route path="/top-script" element={<TopScriptsMobile user={user} />} />
         <Route path="/featured" element={<FeaturedProjectsMobile user={user} />} />
         <Route path="/share/project/:id" element={<ProjectPublicMobile />} />
-        <Route path="/share/profile/:id" element={user ? <ProfileVisitorMobile user={user} /> : <PublicProfileMobile />} />
-        <Route path="/profile/:id" element={<ProfileVisitorMobile user={user} />} />
+        <Route path="/share/profile/:id" element={user ? <AuthenticatedProfileRoute user={user} /> : <PublicProfileMobile />} />
+        <Route path="/profile" element={<AuthenticatedProfileRoute user={user} />} />
+        <Route path="/profile/:id" element={<AuthenticatedProfileRoute user={user} />} />
         <Route
           path="/reader/script/:id"
           element={<ProjectDetailMobile user={user} canonicalize={false} backTo="/reader" screenId="reader-project" />}
@@ -144,7 +154,7 @@ export default function MobileRoutes({
         <Route path="/script/:id" element={<ProjectDetailMobile user={user} />} />
         <Route path="/script/:projectHeading/:writerUsername" element={<ProjectDetailMobile user={user} />} />
         <Route path="/:projectHeading/:writerUsername" element={<ProjectDetailMobile user={user} />} />
-        <Route path="/:id" element={<ProfileVisitorMobile user={user} />} />
+        <Route path="/:id" element={<AuthenticatedProfileRoute user={user} />} />
         {/* Defensive no-op: policy prevents this branch from mounting for an
             unfinished route, and it must never substitute Dashboard. */}
         <Route path="*" element={null} />

@@ -20,11 +20,10 @@ const desktopDecision = (route, reason, disposition = route?.disposition) => ({
 
 const normalizeProfileKey = (value) => String(value || "").trim().toLowerCase();
 
-function isOwnProfileTarget(route, pathname, user) {
-  if (!route?.visitorOnly || !user) return false;
-  const match = matchPath({ path: route.pattern, end: true, caseSensitive: false }, pathname);
-  const target = normalizeProfileKey(match?.params?.id);
-  if (!target) return route.id === "profile";
+export function isOwnProfileKey(profileKey, user) {
+  if (!user) return false;
+  const target = normalizeProfileKey(profileKey);
+  if (!target) return true;
   const ownKeys = [
     user?._id,
     user?.id,
@@ -33,6 +32,13 @@ function isOwnProfileTarget(route, pathname, user) {
     user?.writerProfile?.username,
   ].map(normalizeProfileKey).filter(Boolean);
   return ownKeys.includes(target);
+}
+
+function isOwnProfileTarget(route, pathname, user) {
+  if (!route?.visitorOnly || !user) return false;
+  const match = matchPath({ path: route.pattern, end: true, caseSensitive: false }, pathname);
+  const target = match?.params?.id;
+  return target || route.id === "profile" ? isOwnProfileKey(target, user) : false;
 }
 
 export function findMobileRoute(pathname = "") {
@@ -52,8 +58,8 @@ export function findMobileRoute(pathname = "") {
  * Whether a route's declared query exclusion applies to the current URL.
  *
  * A route can be implemented for mobile in general and deliberately NOT
- * implemented for one query-defined entry mode. There are no current query
- * exclusions, but the generic policy stays available for future partial ports.
+ * implemented for one query-defined entry mode. The own-profile workspace is
+ * native, while its account-security tab remains an explicit desktop boundary.
  *
  * It lives in the manifest rather than inside the screen because the manifest is
  * the file that answers "what does mobile cover?", and an exception hidden in a
@@ -108,7 +114,8 @@ export function resolveMobileExperience({
     return desktopDecision(route, "authenticated-variant-pending", route.fallbackDisposition);
   }
 
-  if (isOwnProfileTarget(route, pathname, user)) {
+  const ownProfileTarget = isOwnProfileTarget(route, pathname, user);
+  if (ownProfileTarget && !route.ownScreenId) {
     return desktopDecision(route, "own-profile-variant-pending", route.fallbackDisposition);
   }
 
@@ -120,7 +127,9 @@ export function resolveMobileExperience({
   return {
     experience: MOBILE_EXPERIENCE.MOBILE,
     routeId: route.id,
-    screenId: user && route.authenticatedScreenId ? route.authenticatedScreenId : route.screenId,
+    screenId: ownProfileTarget
+      ? route.ownScreenId
+      : user && route.authenticatedScreenId ? route.authenticatedScreenId : route.screenId,
     disposition: route.disposition,
     reason: "implemented-screen",
   };

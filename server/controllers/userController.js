@@ -33,6 +33,7 @@ import {
   buildVisitorProfile,
   VISITOR_PROFILE_SCRIPT_FIELDS,
 } from "../utils/profileProjection.js";
+import { resolveProfileImageUpdate } from "../utils/profileUpdate.js";
 
 const WRITER_REPRESENTATION_STATUSES = ["unrepresented", "manager", "agent", "manager_and_agent"];
 const BANK_REVIEW_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
@@ -1055,7 +1056,7 @@ export const updateUserProfile = async (req, res) => {
     if (skills !== undefined) {
       user.skills = normalizeStringArray(skills, 25);
     }
-    user.profileImage = normalizeString(profileImage) || user.profileImage;
+    user.profileImage = resolveProfileImageUpdate(user.profileImage, profileImage);
 
     if (phone !== undefined) {
       user.phone = normalizeString(phone) || "";

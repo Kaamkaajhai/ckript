@@ -29,6 +29,14 @@ vi.mock("../screens/discovery/FeaturedProjectsMobile", () => ({
   default: () => <main data-testid="mobile-featured">Mobile featured</main>,
 }));
 
+vi.mock("../screens/profiles/owner-profile/ProfileOwnerMobile", () => ({
+  default: () => <main data-testid="mobile-owner-profile">Owner profile</main>,
+}));
+
+vi.mock("../screens/profiles/visitor-profile/ProfileVisitorMobile", () => ({
+  default: () => <main data-testid="mobile-visitor-profile">Visitor profile</main>,
+}));
+
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 let container;
@@ -106,6 +114,19 @@ describe("MobileRoutes", () => {
     const el = await mount("/featured?sort=views&budget=medium");
     expect(el.querySelector('[data-testid="mobile-featured"]')).toBeTruthy();
     expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
+  });
+
+  it("selects the owner and visitor profile presentations from the same route family", async () => {
+    let el = await mount("/profile", { user: { _id: "writer-1", role: "writer" } });
+    expect(el.querySelector('[data-testid="mobile-owner-profile"]')).toBeTruthy();
+
+    act(() => root.unmount());
+    container.remove();
+    root = null;
+    container = null;
+
+    el = await mount("/profile/writer-2", { user: { _id: "writer-1", role: "writer" } });
+    expect(el.querySelector('[data-testid="mobile-visitor-profile"]')).toBeTruthy();
   });
 
   it("renders the stable fixture directly when App.jsx owns the preview route", async () => {

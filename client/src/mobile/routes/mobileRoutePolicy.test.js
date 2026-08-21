@@ -19,7 +19,7 @@ describe("mobileRoutePolicy — experience selection", () => {
     });
   });
 
-  it.each(["/messages", "/profile/writer-1"])(
+  it.each(["/messages"])(
     "keeps the canonical desktop route during migration instead of swallowing %s",
     (pathname) => {
       expect(resolveMobileExperience({
@@ -374,7 +374,7 @@ describe("mobileRoutePolicy — experience selection", () => {
     });
   });
 
-  it("selects the public or authenticated visitor profile without replacing the own variant (D34/D35)", () => {
+  it("selects the public, authenticated visitor, or own profile variant (D34-D36)", () => {
     expect(resolveMobileExperience({
       isMobile: true, authLoading: false, user: null, pathname: "/share/profile/mira",
     })).toMatchObject({ experience: "mobile", routeId: "shared-profile", screenId: "public-profile" });
@@ -385,10 +385,10 @@ describe("mobileRoutePolicy — experience selection", () => {
 
     expect(resolveMobileExperience({
       isMobile: true, authLoading: false, user: writer, pathname: "/share/profile/writer-1",
-    })).toMatchObject({ experience: "desktop", reason: "own-profile-variant-pending" });
+    })).toMatchObject({ experience: "mobile", routeId: "shared-profile", screenId: "profile-owner" });
   });
 
-  it("mounts id and canonical visitor profiles but retains the own workspace", () => {
+  it("mounts visitor and own id/canonical profile forms", () => {
     expect(resolveMobileExperience({
       isMobile: true, authLoading: false, user: writer, pathname: "/profile/other-writer",
     })).toMatchObject({ experience: "mobile", routeId: "profile", screenId: "profile-visitor" });
@@ -397,7 +397,23 @@ describe("mobileRoutePolicy — experience selection", () => {
     })).toMatchObject({ experience: "mobile", routeId: "profile-or-referral-catchall", screenId: "profile-visitor" });
     expect(resolveMobileExperience({
       isMobile: true, authLoading: false, user: writer, pathname: "/profile",
-    })).toMatchObject({ experience: "desktop", reason: "own-profile-variant-pending" });
+    })).toMatchObject({ experience: "mobile", routeId: "profile", screenId: "profile-owner" });
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: { ...writer, writerProfile: { username: "mira_writer" } },
+      pathname: "/mira_writer",
+    })).toMatchObject({ experience: "mobile", routeId: "profile-or-referral-catchall", screenId: "profile-owner" });
+  });
+
+  it("keeps account-security settings on the explicit desktop boundary", () => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: writer,
+      pathname: "/profile",
+      search: "?tab=settings",
+    })).toMatchObject({ experience: "desktop", reason: "account-security-desktop-boundary" });
   });
 
   it("mounts the shared native project surface for a reader without rewriting its route (D32)", () => {

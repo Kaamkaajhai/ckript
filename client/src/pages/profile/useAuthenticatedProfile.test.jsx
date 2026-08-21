@@ -36,7 +36,9 @@ function Probe({ profileKey, onCanonicalPath }) {
     <div data-status={state.status}>
       <span>{state.profile?.name || state.failure?.message || ""}</span>
       <span data-testid="follow-state">{state.relationship.followRequestPending ? "pending" : "idle"}</span>
+      <span data-testid="purchased-count">{state.purchasedScripts.length}</span>
       <button type="button" onClick={state.follow}>Follow</button>
+      <button type="button" onClick={() => state.applyProfileUpdate({ name: "Updated", writerProfile: { genres: ["Comedy"] } })}>Apply update</button>
     </div>
   );
 }
@@ -102,5 +104,26 @@ describe("useAuthenticatedProfile", () => {
       profileId: "writer-1",
       relationship: { followRequestPending: false },
     });
+  });
+
+  it("retains own-profile collections and applies nested update responses", async () => {
+    mocks.get.mockResolvedValueOnce({
+      ok: true,
+      data: {
+        profile: { _id: "writer-1", name: "Mira", writerProfile: { username: "mira", genres: ["Drama"] } },
+        scripts: [],
+        deletedScripts: [{ _id: "deleted-1" }],
+        purchasedScripts: [{ _id: "purchase-1" }],
+        bookmarkedScripts: [{ _id: "saved-1" }],
+        relationship: {},
+        canonicalPath: "/mira",
+      },
+    });
+
+    await act(async () => root.render(<Probe profileKey="writer-1" />));
+    expect(container.querySelector('[data-testid="purchased-count"]').textContent).toBe("1");
+    const apply = [...container.querySelectorAll("button")].find((button) => button.textContent === "Apply update");
+    await act(async () => apply.click());
+    expect(container.textContent).toContain("Updated");
   });
 });
