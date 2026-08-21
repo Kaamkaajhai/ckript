@@ -13,6 +13,7 @@ const FeaturedProjectsMobile = lazy(() => import("../screens/discovery/FeaturedP
 const ProjectDetailMobile = lazy(() => import("../screens/projects/project-detail/ProjectDetailMobile"));
 const ProjectCheckoutMobile = lazy(() => import("../screens/projects/checkout/ProjectCheckoutMobile"));
 const ProjectPublicMobile = lazy(() => import("../screens/projects/public-project/ProjectPublicMobile"));
+const PublicProfileMobile = lazy(() => import("../screens/profiles/public-profile/PublicProfileMobile"));
 const PrimitiveGallery = lazy(() => import("../dev/PrimitiveGallery"));
 const CreateHarness = lazy(() => import("../dev/CreateHarness"));
 const UploadHarness = lazy(() => import("../dev/UploadHarness"));
@@ -123,6 +124,7 @@ export default function MobileRoutes({
         <Route path="/top-script" element={<TopScriptsMobile user={user} />} />
         <Route path="/featured" element={<FeaturedProjectsMobile user={user} />} />
         <Route path="/share/project/:id" element={<ProjectPublicMobile />} />
+        <Route path="/share/profile/:id" element={<PublicProfileMobile />} />
         <Route
           path="/reader/script/:id"
           element={<ProjectDetailMobile user={user} canonicalize={false} backTo="/reader" screenId="reader-project" />}

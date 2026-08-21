@@ -194,7 +194,17 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
   redirect("signup-alias", "/signup"),
   migration("forgot-password", "/forgot-password"),
   migration("accept-invite", "/invite/:token"),
-  migration("shared-profile", "/share/profile/:id"),
+  {
+    id: "shared-profile",
+    pattern: "/share/profile/:id",
+    disposition: MOBILE_ROUTE_DISPOSITION.SHARED_PUBLIC_SCREEN,
+    reason: "Native signed-out public profile over the server's sanitized public projection (plan §11 Phase 5, D34). Authenticated viewers retain the richer profile workspace until that variant is ported.",
+    protection: "public",
+    signedOutOnly: true,
+    screenId: "public-profile",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
   {
     id: "shared-project",
     pattern: "/share/project/:id",

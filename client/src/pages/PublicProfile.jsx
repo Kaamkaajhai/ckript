@@ -1,8 +1,7 @@
-import { useContext, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { useDarkMode } from "../context/DarkModeContext";
-import { AuthContext } from "../context/AuthContext";
-import publicApi from "../services/publicApi";
+import { PUBLIC_PROFILE_STATUS, usePublicProfile } from "./profile/usePublicProfile";
 import { resolveMediaUrl } from "../utils/mediaUrl";
 import { hasActiveFilmIndustryProfessionalAccess } from "../utils/industryAccess";
 import PremiumModelBadge from "../components/PremiumModelBadge";
@@ -44,50 +43,10 @@ const PublicProfile = () => {
   const { id } = useParams();
   const location = useLocation();
   const { isDarkMode: dark } = useDarkMode();
-  const { loading: authLoading } = useContext(AuthContext);
-
-  const [profile, setProfile] = useState(null);
-  const [scripts, setScripts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-
-    if (authLoading) {
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    const fetchPublicProfile = async () => {
-      try {
-        setLoading(true);
-        setError("");
-        const { data } = await publicApi.get(`/users/public/${id}`);
-        if (cancelled) return;
-        setProfile(data?.user || null);
-        setScripts(Array.isArray(data?.scripts) ? data.scripts : []);
-      } catch (err) {
-        if (cancelled) return;
-        const apiMessage = err?.response?.data?.message;
-        setError(apiMessage || "This shared profile is unavailable.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    if (id) {
-      fetchPublicProfile();
-    } else {
-      setLoading(false);
-      setError("Invalid profile link.");
-    }
-
-    return () => {
-      cancelled = true;
-    };
-  }, [authLoading, id]);
+  const publicProfile = usePublicProfile({ id });
+  const { profile, scripts } = publicProfile;
+  const loading = publicProfile.status === PUBLIC_PROFILE_STATUS.LOADING;
+  const error = publicProfile.message;
 
   const loginLink = useMemo(() => {
     const next = `${location.pathname}${location.search || ""}`;

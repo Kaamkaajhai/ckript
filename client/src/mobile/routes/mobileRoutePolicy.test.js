@@ -374,6 +374,16 @@ describe("mobileRoutePolicy — experience selection", () => {
     });
   });
 
+  it("mounts the public profile only for a signed-out visitor (D34)", () => {
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: null, pathname: "/share/profile/mira",
+    })).toMatchObject({ experience: "mobile", routeId: "shared-profile", screenId: "public-profile" });
+
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: writer, pathname: "/share/profile/mira",
+    })).toMatchObject({ experience: "desktop", reason: "authenticated-variant-pending" });
+  });
+
   it("mounts the shared native project surface for a reader without rewriting its route (D32)", () => {
     expect(resolveMobileExperience({
       isMobile: true,

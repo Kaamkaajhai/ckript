@@ -84,6 +84,13 @@ export function resolveMobileExperience({
     return desktopDecision(route, "authentication-required", route.fallbackDisposition);
   }
 
+  // Some canonical share URLs branch by authentication in App.jsx. Their
+  // public mobile presentation must not replace the richer authenticated page
+  // when an account opens the same copied link.
+  if (route.signedOutOnly && user) {
+    return desktopDecision(route, "authenticated-variant-pending", route.fallbackDisposition);
+  }
+
   const audience = getAudience(user?.role);
   if (route.audiences?.length && !route.audiences.includes(audience)) {
     return desktopDecision(route, "audience-not-implemented", route.fallbackDisposition);

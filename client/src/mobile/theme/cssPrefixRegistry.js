@@ -299,6 +299,14 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     note: "The unauthenticated project share at /share/project/:id. It consumes only the server's public projection and never derives signed-in marketplace capabilities.",
   },
 
+  // --- Public profile (Phase 5, D34) -----------------------------------
+  "ckm-public-profile": {
+    kind: PAGE_FAMILY,
+    owner: "screens/profiles/public-profile/PublicProfileMobile.css",
+    family: "profiles",
+    note: "The signed-out public profile at /share/profile/:id: identity, public professional facts, safe links and published-project summaries over the sanitized public endpoint.",
+  },
+
   // --- Project creation (Phase 3) ---------------------------------------
   // The chooser at /new-project. Its own family rather than part of
   // ckm-create-project: it is a different route with a different shell, it
