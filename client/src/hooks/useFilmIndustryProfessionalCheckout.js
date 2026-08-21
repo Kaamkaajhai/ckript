@@ -1,4 +1,5 @@
 import { useCallback, useContext, useState } from "react";
+import { razorpayKeyFromOrder } from "../utils/razorpayKey";
 import { AuthContext } from "../context/AuthContext";
 import { useAuthModal } from "../context/AuthModalContext";
 import { useCurrency } from "../context/CurrencyContext";
@@ -130,7 +131,7 @@ export function useFilmIndustryProfessionalCheckout() {
         );
 
         const options = {
-          key: orderData.key || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_SWgJpCDuk8M4ap",
+          key: razorpayKeyFromOrder(orderData),
           amount: orderData.amount,
           currency: orderData.currency,
           name: "Ckript",

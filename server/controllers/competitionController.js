@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { verifyRazorpaySignature } from "../utils/razorpaySignature.js";
 import Competition from "../models/Competition.js";
 import CompetitionEntry from "../models/CompetitionEntry.js";
 import Script from "../models/Script.js";
@@ -677,13 +678,11 @@ export const verifyRegistrationPayment = async (req, res) => {
       return res.status(400).json({ message: "Missing required payment details" });
     }
 
-    const crypto = await import("crypto");
-    const generated_signature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest("hex");
-
-    if (generated_signature !== razorpay_signature) {
+    if (!verifyRazorpaySignature({
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      signature: razorpay_signature,
+    })) {
       return res.status(400).json({ message: "Payment verification failed: Invalid signature" });
     }
 

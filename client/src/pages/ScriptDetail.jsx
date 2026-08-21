@@ -2,6 +2,7 @@
 // a controller and does not render them. They were one of four drifting copies of a closed schema
 // enum; the surviving copy lives in ./script-detail/scriptDealLabels.js.
 import { useState, useEffect, useContext, useRef } from "react";
+import { razorpayKeyFromOrder } from "../utils/razorpayKey";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { io } from "socket.io-client";
@@ -763,7 +764,7 @@ const ScriptDetail = () => {
       });
 
       const paymentObject = new window.Razorpay({
-        key: orderData.key || orderData.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_SWgJpCDuk8M4ap",
+        key: razorpayKeyFromOrder(orderData),
         amount: orderData.amount,
         currency: orderData.currency,
         name: "ckript",
