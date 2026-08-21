@@ -519,7 +519,17 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     shell: MOBILE_SHELL_MODE.DETAIL,
     fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
   },
-  migration("reader-profile", "/reader/profile/:id?"),
+  {
+    id: "reader-profile",
+    pattern: "/reader/profile/:id?",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native own/visitor reader identity with explicit private collections, public reviews, follow state, and URL-backed paging over one desktop/mobile contract (plan §11 Phase 5, D42).",
+    audiences: [AUDIENCE.READER],
+    protection: "authenticated",
+    screenId: "reader-profile",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
   redirect("reader-featured-alias", "/reader/featured"),
 
   migration("admin", "/admin"),

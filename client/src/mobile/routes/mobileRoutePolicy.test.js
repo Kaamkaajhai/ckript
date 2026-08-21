@@ -432,6 +432,24 @@ describe("mobileRoutePolicy — experience selection", () => {
     });
   });
 
+  it("promotes both own and visitor reader-profile deep links only for the reader audience (D42)", () => {
+    const reader = { id: "reader-1", role: "reader" };
+    for (const pathname of ["/reader/profile", "/reader/profile/reader-2"]) {
+      expect(resolveMobileExperience({
+        isMobile: true,
+        authLoading: false,
+        user: reader,
+        pathname,
+      })).toMatchObject({ experience: "mobile", routeId: "reader-profile", screenId: "reader-profile" });
+    }
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: writer,
+      pathname: "/reader/profile/reader-2",
+    })).toMatchObject({ experience: "desktop", reason: "audience-not-implemented" });
+  });
+
   it("leaves the preview route to its deterministic App.jsx fixture", () => {
     expect(resolveMobileExperience({
       isMobile: true,

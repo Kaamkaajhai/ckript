@@ -20,6 +20,7 @@ const ProfileOwnerMobile = lazy(() => import("../screens/profiles/owner-profile/
 const AccountSettingsMobile = lazy(() => import("../screens/profiles/owner-profile/AccountSettingsMobile"));
 const FollowRequestsMobile = lazy(() => import("../screens/profiles/follow-requests/FollowRequestsMobile"));
 const MessagesMobile = lazy(() => import("../screens/messages/MessagesMobile"));
+const ReaderProfileMobile = lazy(() => import("../screens/reader/reader-profile/ReaderProfileMobile"));
 const PrimitiveGallery = lazy(() => import("../dev/PrimitiveGallery"));
 const CreateHarness = lazy(() => import("../dev/CreateHarness"));
 const UploadHarness = lazy(() => import("../dev/UploadHarness"));
@@ -149,6 +150,8 @@ export default function MobileRoutes({
           path="/reader/script/:id"
           element={<ProjectDetailMobile user={user} canonicalize={false} backTo="/reader" screenId="reader-project" />}
         />
+        <Route path="/reader/profile" element={<ReaderProfileMobile user={user} />} />
+        <Route path="/reader/profile/:id" element={<ReaderProfileMobile user={user} />} />
         {/* Three patterns, one screen. The server resolves the id form and both
             path forms to the same payload, and useProjectDetail rewrites the URL
             to the canonical one after load — so the screen never asks which

@@ -195,6 +195,11 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     owner: "components/media/Media.css",
     note: "MediaSlot (slot, drop target, preview, per-file upload progress), CoverCropDialog's stage and sliders, PreviewDialog's page list.",
   },
+  "ckm-meeting": {
+    kind: SHARED_COMPONENT,
+    owner: "components/meetings/MeetingSheet.css",
+    note: "Shared native meeting and Calendar-connect task used by project detail and message context (D41).",
+  },
 
   "ckm-gallery": {
     kind: PAGE_FAMILY,
@@ -333,6 +338,13 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     owner: "screens/profiles/follow-requests/FollowRequestsMobile.css",
     family: "profiles",
     note: "The native inbound follow-request queue with profile links and shared accept/reject mutations.",
+  },
+
+  "ckm-reader-profile": {
+    kind: PAGE_FAMILY,
+    owner: "screens/reader/reader-profile/ReaderProfileMobile.css",
+    family: "reader",
+    note: "Reader identity, private own collections, public reviews, follow relationship, and URL-backed paging at /reader/profile/:id?.",
   },
 
   "ckm-messages": {
