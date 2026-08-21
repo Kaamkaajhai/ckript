@@ -18,10 +18,23 @@
  *   "failed"     neither worked.
  */
 
-const shareUrlFor = (project) => {
+export const shareUrlFor = (project) => {
   const origin = typeof window !== "undefined" ? window.location.origin : "";
-  if (!project?.href) return origin;
-  return `${origin}${project.href}`;
+  const supplied = String(project?.shareMeta?.url || project?.shareUrl || "").trim();
+  if (supplied) {
+    if (/^https?:\/\//i.test(supplied)) return supplied;
+    return `${origin}${supplied.startsWith("/") ? supplied : `/${supplied}`}`;
+  }
+
+  // A recipient of a Share action may not be signed in. The authenticated
+  // canonical project URL is the right navigation target inside Ckript, but it
+  // is the wrong share target; /share/project/:id is the deliberately public,
+  // visibility-filtered response.
+  const id = String(project?._id || project?.id || "").trim();
+  if (id) return `${origin}/share/project/${encodeURIComponent(id)}`;
+
+  if (project?.href) return `${origin}${project.href}`;
+  return origin;
 };
 
 export async function shareProject(project) {

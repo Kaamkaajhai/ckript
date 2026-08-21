@@ -1,0 +1,278 @@
+/* The buyer's checkout at /script/:id/pay (prefix: ckm-checkout). */
+
+.ckm .ckm-checkout__scroll {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-4);
+  padding: var(--ckm-space-4-5) var(--ckm-space-4-5) var(--ckm-space-7);
+}
+
+/* ── Standing ──────────────────────────────────────────────────────────── */
+
+/*
+ * The first block on the page, and the only one whose tone changes: whether
+ * this payment can happen decides what every number below it means. The tone
+ * tints the left rule only — the words carry the meaning, so the state survives
+ * greyscale, a screen reader and a colour-blind reader (WCAG 1.4.1).
+ */
+.ckm .ckm-checkout__standing {
+  padding-left: var(--ckm-space-3);
+  border-left: 3px solid var(--ckm-line-strong);
+}
+
+.ckm .ckm-checkout__standing[data-standing="payable"],
+.ckm .ckm-checkout__standing[data-standing="free"] {
+  border-left-color: var(--ckm-green);
+}
+
+.ckm .ckm-checkout__standing[data-standing="expired"],
+.ckm .ckm-checkout__standing[data-standing="sold"],
+.ckm .ckm-checkout__standing[data-standing="not-buyer"] {
+  border-left-color: var(--ckm-red);
+}
+
+.ckm .ckm-checkout__standing[data-standing="pending"],
+.ckm .ckm-checkout__standing[data-standing="no-request"] {
+  border-left-color: var(--ckm-gold);
+}
+
+.ckm .ckm-checkout__standing-title {
+  margin: 0;
+  color: var(--ckm-text);
+  font: var(--ckm-weight-semibold) var(--ckm-text-title-sm) / var(--ckm-leading-title-sm) var(--ckm-display);
+}
+
+.ckm .ckm-checkout__standing-note {
+  margin: var(--ckm-space-2) 0 0;
+  color: var(--ckm-text-2);
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+}
+
+.ckm .ckm-checkout__writer {
+  margin: var(--ckm-space-2) 0 0;
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-regular) var(--ckm-text-caption) / var(--ckm-leading-caption) var(--ckm-body);
+}
+
+/* ── Panels ────────────────────────────────────────────────────────────── */
+
+.ckm .ckm-checkout__panel {
+  padding: var(--ckm-space-4);
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-lg);
+  background: var(--ckm-bg-soft);
+}
+
+.ckm .ckm-checkout__panel-title {
+  margin: 0 0 var(--ckm-space-3);
+  color: var(--ckm-text);
+  font: var(--ckm-weight-semibold) var(--ckm-text-section) / var(--ckm-leading-section) var(--ckm-display);
+}
+
+.ckm .ckm-checkout__note {
+  margin: var(--ckm-space-3) 0 0;
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-regular) var(--ckm-text-caption) / var(--ckm-leading-caption) var(--ckm-body);
+}
+
+/*
+ * The 72-hour deadline. It reads as a fact rather than an alarm — it is normal
+ * for it to be there — but it is the one line on the amount panel that changes
+ * with the clock, so it carries its own weight and rule.
+ */
+.ckm .ckm-checkout__deadline {
+  margin: var(--ckm-space-3) 0 0;
+  padding-left: var(--ckm-space-3);
+  border-left: 2px solid var(--ckm-gold);
+  color: var(--ckm-text-2);
+  font: var(--ckm-weight-medium) var(--ckm-text-caption) / var(--ckm-leading-caption) var(--ckm-body);
+}
+
+/* ── The amount ────────────────────────────────────────────────────────── */
+
+.ckm .ckm-checkout__amount {
+  margin: 0;
+}
+
+/*
+ * Label left, money right, and the money never wraps under its label: an amount
+ * that breaks across two lines is the one thing on this screen that must not be
+ * misread. The label wraps instead, which is why the row is aligned to its
+ * first baseline rather than centred.
+ */
+.ckm .ckm-checkout__amount-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ckm-space-3);
+  padding: var(--ckm-space-2) 0;
+}
+
+.ckm .ckm-checkout__amount-row dt {
+  color: var(--ckm-text-2);
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+}
+
+.ckm .ckm-checkout__amount-row dd {
+  margin: 0;
+  flex: none;
+  color: var(--ckm-text);
+  font: var(--ckm-weight-semibold) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+  font-variant-numeric: tabular-nums;
+}
+
+.ckm .ckm-checkout__amount-row[data-tone="total"] {
+  margin-top: var(--ckm-space-2);
+  padding-top: var(--ckm-space-3);
+  border-top: 1px solid var(--ckm-line);
+}
+
+.ckm .ckm-checkout__amount-row[data-tone="total"] dt {
+  color: var(--ckm-text);
+  font-weight: var(--ckm-weight-semibold);
+}
+
+.ckm .ckm-checkout__amount-row[data-tone="total"] dd {
+  font-size: var(--ckm-text-card);
+  font-weight: var(--ckm-weight-bold);
+}
+
+/* ── Rights terms ──────────────────────────────────────────────────────── */
+
+/*
+ * Stacked, not two columns. A rights value ("Writer retains creative approval
+ * rights") is longer than its own label and longer than half of a 320px screen,
+ * so a two-column definition list would hyphenate the term a buyer is agreeing
+ * to. Each term is a label above its value with a hairline between rows.
+ */
+.ckm .ckm-checkout__terms {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.ckm .ckm-checkout__terms > div {
+  padding: var(--ckm-space-3) 0;
+  border-top: 1px solid var(--ckm-line);
+}
+
+.ckm .ckm-checkout__terms > div:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.ckm .ckm-checkout__terms dt {
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-medium) var(--ckm-text-micro) / var(--ckm-leading-micro) var(--ckm-body);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.ckm .ckm-checkout__terms dd {
+  margin: var(--ckm-space-1) 0 0;
+  color: var(--ckm-text);
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+}
+
+.ckm .ckm-checkout__warning {
+  margin: var(--ckm-space-4) 0 0;
+  padding: var(--ckm-space-3);
+  border: 1px solid var(--ckm-red);
+  border-radius: var(--ckm-r-md);
+  background: var(--ckm-red-bg);
+  color: var(--ckm-red-ink);
+  font: var(--ckm-weight-medium) var(--ckm-text-caption) / var(--ckm-leading-caption) var(--ckm-body);
+}
+
+/* ── The documents being accepted ──────────────────────────────────────── */
+
+.ckm .ckm-checkout__document {
+  padding: var(--ckm-space-3) 0;
+  border-top: 1px solid var(--ckm-line);
+}
+
+.ckm .ckm-checkout__document:first-of-type {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.ckm .ckm-checkout__document-title {
+  margin: 0;
+  color: var(--ckm-text);
+  font: var(--ckm-weight-semibold) var(--ckm-text-card) / var(--ckm-leading-card) var(--ckm-body);
+}
+
+/* The writer's own conditions are typed prose and keep their line breaks. */
+.ckm .ckm-checkout__document-body {
+  margin: var(--ckm-space-2) 0 0;
+  color: var(--ckm-text-2);
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+  white-space: pre-wrap;
+}
+
+/* A link, not a button: it opens a document in a new tab, and long-press,
+   open-in-background and "copy link" all have to keep working. It is given the
+   full touch target because it sits in a stack of rows a thumb scrolls past. */
+.ckm .ckm-checkout__document-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--ckm-touch-min);
+  margin-top: var(--ckm-space-1);
+  color: var(--ckm-accent-ink);
+  font: var(--ckm-weight-semibold) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* ── Acceptances ───────────────────────────────────────────────────────── */
+
+.ckm .ckm-checkout__acceptances {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-3);
+}
+
+/* ── Success ───────────────────────────────────────────────────────────── */
+
+.ckm .ckm-checkout__success {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-4);
+}
+
+.ckm .ckm-checkout__success-actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+}
+
+/* ── The docked action ─────────────────────────────────────────────────── */
+
+/*
+ * A shell slot, not a fixed bar (see CHECKOUT_SHELL_SLOTS): it displaces the
+ * page instead of covering the last acceptance checkbox.
+ */
+.ckm .ckm-checkout__footer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+  padding: var(--ckm-space-3) var(--ckm-space-4);
+  padding-bottom: calc(var(--ckm-space-3) + var(--ckm-safe-bottom));
+  border-top: 1px solid var(--ckm-line);
+  background: var(--ckm-bg);
+}
+
+/* The reason a press would be refused, in DOM order before the control. */
+.ckm .ckm-checkout__footer-reason {
+  margin: 0;
+  color: var(--ckm-text-2);
+  font: var(--ckm-weight-regular) var(--ckm-text-caption) / var(--ckm-leading-caption) var(--ckm-body);
+}
+
+/* ── Loading ───────────────────────────────────────────────────────────── */
+
+.ckm .ckm-checkout__loading {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-4);
+}

@@ -1,0 +1,488 @@
+/* Native authenticated project detail (prefix: ckm-project). */
+
+.ckm .ckm-project__scroll {
+  padding: var(--ckm-space-4-5) var(--ckm-space-4-5) var(--ckm-space-8);
+}
+
+/* ── Hero ──────────────────────────────────────────────────────────────── */
+
+.ckm .ckm-project__hero {
+  margin-bottom: var(--ckm-space-5);
+}
+
+.ckm .ckm-project__cover {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: var(--ckm-r-lg);
+  object-fit: cover;
+  background: var(--ckm-bg-soft);
+}
+
+.ckm .ckm-project__cover--empty {
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--ckm-line);
+  color: var(--ckm-muted);
+}
+
+.ckm .ckm-project__cover--empty .material-symbols-outlined {
+  font-size: 40px;
+}
+
+/* The badges and the trailer control share a row and WRAP; at 320px a long
+   status word plus a price plus "Trailer" does not fit on one line, and a
+   horizontal scroller here would hide the status, which is the one thing on
+   this row that changes what the page means. */
+.ckm .ckm-project__hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ckm-space-2);
+  margin-top: var(--ckm-space-3);
+}
+
+.ckm .ckm-project__status-detail {
+  margin: var(--ckm-space-2) 0 0;
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+}
+
+/* ── Recommended action and standing ───────────────────────────────────── */
+
+.ckm .ckm-project__action {
+  margin-bottom: var(--ckm-space-5);
+  padding: var(--ckm-space-4);
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-lg);
+  background: var(--ckm-bg-soft);
+}
+
+.ckm .ckm-project__action-button {
+  width: 100%;
+}
+
+/*
+ * The viewer's standing. It is TEXT, not a coloured pill: the tone tints the
+ * left rule only, and every state says what it is in words, so the meaning
+ * survives both a greyscale screen and a screen reader (WCAG 1.4.1).
+ */
+.ckm .ckm-project__standing {
+  margin: var(--ckm-space-3) 0 0;
+  padding-left: var(--ckm-space-3);
+  border-left: 3px solid var(--ckm-line-strong);
+  color: var(--ckm-text-2);
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+}
+
+.ckm .ckm-project__standing b {
+  color: var(--ckm-text);
+  font-weight: var(--ckm-weight-semibold);
+}
+
+.ckm .ckm-project__standing[data-tone="success"] { border-left-color: var(--ckm-green-ink); }
+.ckm .ckm-project__standing[data-tone="warning"] { border-left-color: var(--ckm-gold-ink); }
+.ckm .ckm-project__standing[data-tone="danger"] { border-left-color: var(--ckm-red-ink); }
+
+.ckm .ckm-project__logline {
+  margin: 0 0 var(--ckm-space-5);
+  color: var(--ckm-text);
+  font: var(--ckm-weight-regular) var(--ckm-text-card) / var(--ckm-leading-card) var(--ckm-display);
+}
+
+/* ── Sections ──────────────────────────────────────────────────────────── */
+
+.ckm .ckm-project__section {
+  margin-bottom: var(--ckm-space-6);
+  padding-top: var(--ckm-space-5);
+  border-top: 1px solid var(--ckm-line);
+}
+
+/* The section is a focus target for the recommended action, but it is not an
+   interactive control — a permanent ring would say otherwise. It rings only
+   when focus arrives, which is exactly when the reader needs to see where they
+   landed. */
+.ckm .ckm-project__section:focus { outline: none; }
+.ckm .ckm-project__section:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--ckm-accent);
+  border-radius: var(--ckm-r-md);
+}
+
+.ckm .ckm-project__section-title {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-2);
+  margin: 0 0 var(--ckm-space-3);
+  color: var(--ckm-text);
+  font: var(--ckm-weight-medium) var(--ckm-text-section) / var(--ckm-leading-section) var(--ckm-display);
+}
+
+.ckm .ckm-project__section-title .material-symbols-outlined {
+  font-size: 20px;
+  color: var(--ckm-text-3);
+}
+
+.ckm .ckm-project__subhead {
+  margin: var(--ckm-space-4) 0 var(--ckm-space-2);
+  color: var(--ckm-text);
+  font: var(--ckm-weight-semibold) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+}
+
+.ckm .ckm-project__prose {
+  margin: 0 0 var(--ckm-space-3);
+  color: var(--ckm-text-2);
+  font: var(--ckm-weight-regular) var(--ckm-text-body) / var(--ckm-leading-body) var(--ckm-body);
+}
+
+/* --ckm-text-3 rather than --ckm-muted: the muted token measures ~3.56:1 and
+   is for graphical objects, a distinction three earlier sessions each had to
+   learn from a contrast sweep. */
+.ckm .ckm-project__muted,
+.ckm .ckm-project__note {
+  margin: 0 0 var(--ckm-space-3);
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+}
+
+/* ── Fact and term lists ───────────────────────────────────────────────── */
+
+/*
+ * Two columns at every width, including 320px: these are short label/value
+ * pairs, and a single column turns six deal terms into a screen and a half of
+ * scrolling between the price and the licence term a buyer is comparing.
+ */
+.ckm .ckm-project__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ckm-space-3) var(--ckm-space-4);
+  margin: 0 0 var(--ckm-space-3);
+  padding: var(--ckm-space-4);
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-lg);
+  background: var(--ckm-bg-soft);
+}
+
+.ckm .ckm-project__facts dt {
+  margin: 0 0 var(--ckm-space-1);
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-medium) var(--ckm-text-micro) / var(--ckm-leading-micro) var(--ckm-body);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ckm .ckm-project__facts dd {
+  margin: 0;
+  color: var(--ckm-text);
+  font: var(--ckm-weight-medium) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+  overflow-wrap: anywhere;
+}
+
+/*
+ * The revealed contact links are the only anchors in a fact list, and they are TARGETS, not words
+ * in a sentence — WCAG 2.5.8's inline exception does not cover them. The sweep measured them at
+ * 113x37 and 134x17, which is a phone number a thumb cannot reliably hit; they become full-width
+ * 44px rows instead. Only the `sold` fixture reaches this state, which is why the state matrix
+ * had to include a viewer whose contact is already revealed.
+ */
+.ckm .ckm-project__facts dd a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  color: var(--ckm-accent-ink);
+}
+
+/* The deal terms run full width: "Writer retains creative approval rights" in
+   a half column at 320px wraps to four lines and stops being readable. */
+.ckm .ckm-project__facts--deal {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ckm .ckm-project__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ckm-space-2);
+  margin: var(--ckm-space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* ── Evidence ──────────────────────────────────────────────────────────── */
+
+.ckm .ckm-project__evidence {
+  display: grid;
+  gap: var(--ckm-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ckm .ckm-project__evidence li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: var(--ckm-space-1) var(--ckm-space-3);
+  padding: var(--ckm-space-3) var(--ckm-space-4);
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-md);
+}
+
+.ckm .ckm-project__evidence-value {
+  grid-row: span 2;
+  color: var(--ckm-text);
+  font: var(--ckm-weight-medium) var(--ckm-text-title-sm) / var(--ckm-leading-title-sm) var(--ckm-display);
+}
+
+.ckm .ckm-project__evidence-label {
+  color: var(--ckm-text);
+  font: var(--ckm-weight-semibold) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+}
+
+.ckm .ckm-project__evidence-note {
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-regular) var(--ckm-text-caption) / var(--ckm-leading-caption) var(--ckm-body);
+}
+
+.ckm .ckm-project__loading {
+  display: grid;
+  gap: var(--ckm-space-4);
+}
+
+/* ── D29: ratings, reviews, requests and writer actions ────────────────── */
+
+/*
+ * The star input.
+ *
+ * The inputs themselves are `.ckm-sr-only` and the LABEL is the target, so the
+ * 44px floor is set on the label rather than on the control. `:focus-within`
+ * is what makes keyboard focus visible at all here — the focused element is
+ * the visually hidden radio, so without this the ring would be drawn around a
+ * 1px box nobody can see.
+ */
+.ckm .ckm-project__stars {
+  margin: 0 0 var(--ckm-space-4);
+  padding: 0;
+  border: 0;
+}
+
+.ckm .ckm-project__stars-legend {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-2);
+  padding: 0;
+  margin-bottom: var(--ckm-space-2);
+  color: var(--ckm-text);
+  font: var(--ckm-weight-medium) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+}
+
+.ckm .ckm-project__stars-row {
+  display: flex;
+  gap: var(--ckm-space-1);
+}
+
+.ckm .ckm-project__star {
+  display: grid;
+  place-items: center;
+  min-width: var(--ckm-touch-target);
+  min-height: var(--ckm-touch-target);
+  border-radius: var(--ckm-r-md);
+  color: var(--ckm-text-3);
+  cursor: pointer;
+}
+
+.ckm .ckm-project__star .material-symbols-outlined {
+  font-size: 30px;
+  font-variation-settings: "FILL" 0;
+}
+
+/* Filled AND heavier, so the chosen score is not carried by colour alone. */
+.ckm .ckm-project__star[data-filled="true"] {
+  color: var(--ckm-accent-ink);
+}
+
+.ckm .ckm-project__star[data-filled="true"] .material-symbols-outlined {
+  font-variation-settings: "FILL" 1;
+}
+
+.ckm .ckm-project__star:focus-within {
+  outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
+  outline-offset: var(--ckm-focus-ring-offset);
+}
+
+.ckm .ckm-project__stars-error {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-1);
+  margin: var(--ckm-space-2) 0 0;
+  color: var(--ckm-red-ink);
+  font: var(--ckm-weight-regular) var(--ckm-text-caption) / var(--ckm-leading-caption) var(--ckm-body);
+}
+
+.ckm .ckm-project__stars-error .material-symbols-outlined {
+  font-size: 16px;
+}
+
+.ckm .ckm-project__star-readout .material-symbols-outlined {
+  font-size: 16px;
+  color: var(--ckm-text-3);
+  font-variation-settings: "FILL" 0;
+}
+
+.ckm .ckm-project__star-readout .material-symbols-outlined[data-filled="true"] {
+  color: var(--ckm-accent-ink);
+  font-variation-settings: "FILL" 1;
+}
+
+.ckm .ckm-project__aggregate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ckm-space-2);
+  margin: 0 0 var(--ckm-space-3);
+  color: var(--ckm-text-2);
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+}
+
+.ckm .ckm-project__reviews {
+  display: grid;
+  gap: var(--ckm-space-3);
+  margin: var(--ckm-space-4) 0 var(--ckm-space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.ckm .ckm-project__reviews li {
+  padding: var(--ckm-space-3) var(--ckm-space-4);
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-md);
+}
+
+.ckm .ckm-project__review-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ckm-space-2);
+  margin: 0 0 var(--ckm-space-1);
+  color: var(--ckm-text);
+  font: var(--ckm-weight-semibold) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+}
+
+.ckm .ckm-project__review-body {
+  margin: 0;
+  color: var(--ckm-text-2);
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+  overflow-wrap: anywhere;
+}
+
+/* ── Purchase requests ─────────────────────────────────────────────────── */
+
+.ckm .ckm-project__requests {
+  display: grid;
+  gap: var(--ckm-space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ckm .ckm-project__request {
+  padding: var(--ckm-space-4);
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-lg);
+  background: var(--ckm-bg-soft);
+}
+
+.ckm .ckm-project__request-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ckm-space-2);
+}
+
+.ckm .ckm-project__request-name {
+  margin: 0;
+  color: var(--ckm-text);
+  font: var(--ckm-weight-semibold) var(--ckm-text-body) / var(--ckm-leading-body) var(--ckm-body);
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-project__request-meta {
+  margin: var(--ckm-space-1) 0 0;
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-regular) var(--ckm-text-caption) / var(--ckm-leading-caption) var(--ckm-body);
+  text-transform: capitalize;
+}
+
+.ckm .ckm-project__request-note {
+  margin: var(--ckm-space-2) 0 0;
+  color: var(--ckm-text-2);
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+  overflow-wrap: anywhere;
+}
+
+/*
+ * The two decisions share a row and each takes half of it. At 320px that is
+ * ~140px per control, which clears the touch floor in both dimensions — and
+ * keeping them side by side is what makes it obvious they are alternatives
+ * rather than a sequence.
+ */
+.ckm .ckm-project__request-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ckm-space-2);
+  margin-top: var(--ckm-space-3);
+}
+
+.ckm .ckm-project__request-actions .ckm-button {
+  width: 100%;
+}
+
+/* ── Writer actions and forms ──────────────────────────────────────────── */
+
+/*
+ * Each writer action is a control ABOVE its own sentence, and the sentence is
+ * present whether or not the control is. That pairing is the screen's rule
+ * made literal: the note is the only thing a viewer without the entitlement
+ * gets, so it can never be styled as an afterthought under a button.
+ */
+.ckm .ckm-project__writer-actions {
+  display: grid;
+  gap: var(--ckm-space-3);
+  margin: var(--ckm-space-4) 0;
+}
+
+.ckm .ckm-project__writer-actions > div > .ckm-button {
+  margin-bottom: var(--ckm-space-2);
+}
+
+.ckm .ckm-project__writer-actions .ckm-project__note {
+  margin: 0;
+}
+
+.ckm .ckm-project__feedback-form,
+.ckm .ckm-project__meeting-form,
+.ckm .ckm-project__meeting-connect {
+  display: grid;
+  gap: var(--ckm-space-3);
+}
+
+/* The form container takes initial focus, so it must not draw a ring of its
+   own — the first control inside it is where the visible focus belongs. */
+.ckm .ckm-project__feedback-form:focus,
+.ckm .ckm-project__meeting-form:focus {
+  outline: none;
+}
+
+.ckm .ckm-project__form-error {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-1);
+  margin: 0;
+  color: var(--ckm-red-ink);
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+}
+
+.ckm .ckm-project__form-error .material-symbols-outlined {
+  font-size: 18px;
+}

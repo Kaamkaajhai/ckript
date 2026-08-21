@@ -1,25 +1,6 @@
-// Helper functions for rights/license labels
-const RIGHTS_TYPE_LABELS = {
-  full_rights_sale: "Full Rights Sale (Ownership Transfer)",
-  exclusive_license: "Exclusive License",
-  custom_negotiation_required: "Custom Negotiation Required",
-};
-const MODIFICATION_LABELS = {
-  buyer_can_modify_freely: "Buyer can modify freely",
-  buyer_must_consult_writer: "Buyer must consult writer",
-  writer_retains_creative_approval_rights: "Writer retains creative approval rights",
-};
-const PAYMENT_LABELS = {
-  one_time_upfront_payment: "One-time upfront payment",
-  lower_upfront_plus_royalty_percent: "Lower upfront + royalty %",
-  revenue_sharing_model: "Revenue sharing model",
-  custom_deal: "Custom deal",
-};
-const NEGOTIATION_LABELS = {
-  fixed_terms_non_negotiable: "Fixed terms (non-negotiable)",
-  open_to_discussion_after_purchase: "Open to discussion after purchase",
-  ckript_not_involved: "Ckript not involved",
-};
+// DEF-28: four rights/licence label maps used to be declared here and read NOWHERE — this file is
+// a controller and does not render them. They were one of four drifting copies of a closed schema
+// enum; the surviving copy lives in ./script-detail/scriptDealLabels.js.
 import { useState, useEffect, useContext, useRef } from "react";
 import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
@@ -40,11 +21,9 @@ import { formatScreenplayLikeText } from "../utils/screenplayText";
 import { addCkriptWatermarkToJsPdf, buildWatermarkedPdfFromPdfBlob } from "../utils/pdfWatermark";
 import { splitScreenplayIntoPages } from "../components/screenplay/pages";
 import ProducerRatingCard from "../components/ProducerRatingCard";
-import { getScriptCanonicalPath } from "../utils/scriptPath";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 import {
   hasBusinessEmail,
-  hasActiveFilmIndustryProfessionalAccess,
   hasAnyFipAccess,
   getRemainingContacts,
   getContactsLimit,
@@ -71,6 +50,8 @@ import {
   getRecommendedAction,
   getViewerCapabilities,
 } from "./script-detail/scriptDetailModel";
+import { PROJECT_DETAIL_STATUS, useProjectDetail } from "./script-detail/useProjectDetail";
+import { useProjectActions } from "./script-detail/useProjectActions";
 
 const BUYER_COMMISSION_RATE = 0.05;
 const SOCKET_ORIGIN = getApiBaseUrl().replace(/\/api\/?$/, "").replace(/\/$/, "");
@@ -187,11 +168,35 @@ const ScriptDetail = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [script, setScript] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
-  const [accessMessage, setAccessMessage] = useState("");
-  const [accessRequiresBusinessEmail, setAccessRequiresBusinessEmail] = useState(false);
+  /*
+   * D28: loading, canonicalization, the blocked/failed split, the bookmark and the similar-project
+   * shelf are the shared data layer now. This page keeps every write it owns; what it stopped
+   * owning is the answer to "which URL do I call, and what does a 403 mean here", because the
+   * native screen has to give the same answer.
+   */
+  const {
+    script,
+    setScript,
+    status: detailStatus,
+    failure: detailFailure,
+    similar: similarScripts,
+    isBookmarked,
+    toggleBookmark: handleToggleBookmark,
+    reload,
+    refresh,
+  } = useProjectDetail({
+    id,
+    projectHeading,
+    writerUsername,
+    user,
+    pathname: location.pathname,
+    onCanonicalPath: (path) => navigate(path, { replace: true }),
+  });
+
+  const loading = detailStatus === PROJECT_DETAIL_STATUS.LOADING;
+  const accessMessage = detailStatus === PROJECT_DETAIL_STATUS.BLOCKED ? (detailFailure?.message || "") : "";
+  const accessRequiresBusinessEmail = Boolean(detailFailure?.requiresBusinessEmail);
+  const loadError = detailStatus === PROJECT_DETAIL_STATUS.ERROR ? (detailFailure?.message || "") : "";
   const [coverError, setCoverError] = useState(false);
   const [trailerError, setTrailerError] = useState(false);
   const [trailerSourceIndex, setTrailerSourceIndex] = useState(0);
@@ -212,36 +217,41 @@ const ScriptDetail = () => {
   const [hasRecordedSynopsisRead, setHasRecordedSynopsisRead] = useState(false);
   const [unlockLoading, setUnlockLoading] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteLoading, setDeleteLoading] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
-  const [requestLoading, setRequestLoading] = useState(false);
-  const [pendingRequests, setPendingRequests] = useState([]); // for creator view on this script
-  const [pendingReqLoading, setPendingReqLoading] = useState(false);
-  const [pendingReqActionId, setPendingReqActionId] = useState(null);
   const [rejectNoteModal, setRejectNoteModal] = useState(null); // { id, investorName }
   const [rejectNoteText, setRejectNoteText] = useState("");
-  const [isBookmarked, setIsBookmarked] = useState(false);
   const [notice, setNotice] = useState(null); // { type: "success" | "error", message: string }
-  const [reviews, setReviews] = useState([]);
-  const [reviewsLoading, setReviewsLoading] = useState(false);
-  const [reviewsPage, setReviewsPage] = useState(1);
-  const [reviewsTotalPages, setReviewsTotalPages] = useState(1);
-  const [reviewsTotal, setReviewsTotal] = useState(0);
-  const [myReview, setMyReview] = useState(null);
   const [reviewRating, setReviewRating] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
-  const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [showWriterInfo, setShowWriterInfo] = useState(false);
-  const [revealedContact, setRevealedContact] = useState(null);
-  const [revealLoading, setRevealLoading] = useState(false);
-  const [revealError, setRevealError] = useState("");
-  const [revealStats, setRevealStats] = useState(null);
   const [showMeetingModal, setShowMeetingModal] = useState(false);
   const [meetingSent, setMeetingSent] = useState(false);
-  const [meetingStats, setMeetingStats] = useState(null);
-  const [similarScripts, setSimilarScripts] = useState([]);
   const viewStartRef = useRef(Date.now());
   const noticeTimerRef = useRef(null);
+
+  const showNotice = (message, type = "success") => {
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    setNotice({ type, message });
+    noticeTimerRef.current = setTimeout(() => setNotice(null), 4500);
+  };
+
+  /*
+   * D29: every WRITE this page makes now lives in `useProjectActions`, next to the load D28 moved
+   * into `useProjectDetail`.
+   *
+   * The handlers below are what is left of them — the parts that are genuinely this page's: which
+   * modal to close, where to navigate, which notice to raise. Nine request bodies, their role
+   * gates, their quota bookkeeping and their refusal messages are shared with the native screen,
+   * because "may this producer still request this project" must have exactly one answer.
+   */
+  const projectActions = useProjectActions({
+    script,
+    user,
+    setUser,
+    refresh,
+    notify: showNotice,
+  });
+
   const browserOrigin = typeof window !== "undefined" ? window.location.origin : "";
   const activeScriptId = script?._id || id;
   const currentUserId = String(user?._id || "");
@@ -253,10 +263,7 @@ const ScriptDetail = () => {
       : null;
   const pendingRequestBaseAmount = Number(myPendingRequest?.amount || script?.price || 0);
   const pendingRequestCheckoutTotal = getBuyerCheckoutTotal(pendingRequestBaseAmount);
-  const pendingRequestBadgeCount = Math.max(
-    Number(script?.pendingRequestsCount || 0),
-    pendingRequests.filter((request) => request?.status === "pending").length
-  );
+  const pendingRequestBadgeCount = projectActions.pendingRequestCount;
   const writerCustomConditions = String(script?.legal?.customInvestorTerms || "").trim();
   const hasWriterCustomConditions = writerCustomConditions.length > 0;
   const canViewWriterCustomConditions = Boolean(!script?.isCreator && script?.canPurchase);
@@ -269,6 +276,8 @@ const ScriptDetail = () => {
 
   const revealStatus = script?.writerContactRevealStatus || null;
   // Use locally revealed contact (after clicking reveal) or the contact from the API response
+  const revealedContact = projectActions.revealedContact;
+  const revealStats = projectActions.revealStats;
   const activeWriterContact = revealedContact || script?.writerContact || {};
   const writerContact = activeWriterContact;
   const contactAlreadyRevealed = Boolean(
@@ -288,6 +297,7 @@ const ScriptDetail = () => {
   const messageWriterBlocked = viewerHasProAccess && !writerAlreadyMessaged && remainingMessageWriters <= 0;
 
   const meetingAlreadyScheduled = hasScheduledMeeting(user, script?.creator?._id);
+  const meetingStats = projectActions.meetingStats;
   const remainingMeetings = meetingStats?.remainingMeetings ?? getRemainingMeetings(user);
   const meetingsLimit = meetingStats?.meetingsLimit ?? getMeetingsLimit(user);
   const meetingsUsed = meetingStats?.meetingsUsed ?? getScheduledMeetingsCount(user);
@@ -382,31 +392,22 @@ const ScriptDetail = () => {
     ? previewPageBlocks.map((page) => page.displayText || page.text).join("\n\n")
     : (previewFormattedText || previewSourceText || previewRawText || "");
   const hasPreviewDownload = Boolean(previewPdfSourceText.trim());
-  const showNotice = (message, type = "success") => {
-    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
-    setNotice({ type, message });
-    noticeTimerRef.current = setTimeout(() => setNotice(null), 4500);
-  };
 
   /* ── Handlers ─────────────────────────────────────────── */
 
   const handleDeleteScript = async () => {
-    if (!activeScriptId) return;
-    try {
-      setDeleteLoading(true);
-      await api.delete(`/scripts/${activeScriptId}`);
-      window.dispatchEvent(new CustomEvent("scriptDeleted", { detail: { id: activeScriptId } }));
-      setShowDeleteModal(false);
-      navigate(
-        getProfileCanonicalPath(user, {
-          viewerId: user?._id,
-          viewerRole: user?.role,
-        })
-      );
-    } catch (err) {
-      console.error("Delete failed:", err);
-      setDeleteLoading(false);
+    const removed = await projectActions.remove();
+    if (!removed) {
+      showNotice(projectActions.deleteError || "Failed to delete this project.", "error");
+      return;
     }
+    setShowDeleteModal(false);
+    navigate(
+      getProfileCanonicalPath(user, {
+        viewerId: user?._id,
+        viewerRole: user?.role,
+      })
+    );
   };
 
   const resolveImage = resolveMediaUrl;
@@ -415,10 +416,12 @@ const ScriptDetail = () => {
   // empty). Editor-authored projects store textContent, not a file — so only point the viewer at the
   // PDF when there really is one; otherwise it renders the structured screenplay pages directly
   // (no failed fetch, no "PDF rendering failed" banner).
-  const uploadedScriptPdfUrl = activeScriptId 
-    ? String(script?.fileUrl || "").trim()
-      ? resolveMediaUrl(`/api/scripts/${activeScriptId}/pdf`)
-      : ""
+  // DEF-25: the existence question is answered by the payload's own boolean now, because a viewer
+  // without full access no longer receives `fileUrl`. The URL this builds is the authenticated
+  // proxy, not the private storage URL, and that has not changed.
+  const hasStoredScriptPdf = Boolean(script?.hasUploadedScriptFile) || Boolean(String(script?.fileUrl || "").trim());
+  const uploadedScriptPdfUrl = activeScriptId && hasStoredScriptPdf
+    ? resolveMediaUrl(`/api/scripts/${activeScriptId}/pdf`)
     : "";
   const handlePrint = async () => {
     const uploadedPdfUrl = resolveMediaUrl(script?.fileUrl || "");
@@ -611,8 +614,9 @@ const ScriptDetail = () => {
     setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
   };
 
+  // The load itself is the hook's; this only clears the per-project view state that must not
+  // survive a navigation to a different project.
   useEffect(() => {
-    fetchScript();
     setCoverError(false);
     setTrailerError(false);
     setHasRecordedSynopsisRead(false);
@@ -640,7 +644,7 @@ const ScriptDetail = () => {
     const maxAttempts = 36; // 3 minutes
     const timer = setInterval(async () => {
       attempts += 1;
-      await fetchScript({ silent: true });
+      await fetchScript();
       if (attempts >= maxAttempts) clearInterval(timer);
     }, 5000);
 
@@ -676,21 +680,6 @@ const ScriptDetail = () => {
   }, []);
 
   useEffect(() => {
-    const favoriteIds = user?.favoriteScripts || [];
-    const hasBookmark = Array.isArray(favoriteIds)
-      ? favoriteIds.some((item) => (typeof item === "string" ? item : item?._id) === activeScriptId)
-      : false;
-    setIsBookmarked(hasBookmark);
-  }, [user?.favoriteScripts, activeScriptId]);
-
-  useEffect(() => {
-    if (script?.isCreator) {
-      fetchPendingRequestsForScript();
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [script?._id, script?.isCreator]);
-
-  useEffect(() => {
     if (!script?._id) return;
     fetchReviews({ page: 1 });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -705,13 +694,13 @@ const ScriptDetail = () => {
 
     const handleCollaboratorRemoved = async (payload = {}) => {
       if (String(payload.scriptId || "") !== String(activeScriptId)) return;
-      await fetchScript({ silent: true });
+      await fetchScript();
       showNotice("Your collaboration access was removed.", "error");
     };
 
     const handleRoleOrMembershipChanged = async (payload = {}) => {
       if (String(payload.scriptId || "") !== String(activeScriptId)) return;
-      await fetchScript({ silent: true });
+      await fetchScript();
     };
 
     socket.on("collaborator_removed", handleCollaboratorRemoved);
@@ -733,54 +722,18 @@ const ScriptDetail = () => {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, script?._id, user?._id]);
 
-  const fetchScript = async ({ silent = false } = {}) => {
-    try {
-      if (!silent) {
-        setLoading(true);
-      }
-      setAccessMessage("");
-      setLoadError("");
-      const hasCanonicalPathParams = Boolean(projectHeading && writerUsername);
-      const endpoint = hasCanonicalPathParams
-        ? `/scripts/path/${encodeURIComponent(projectHeading)}/${encodeURIComponent(writerUsername)}`
-        : `/scripts/${id}`;
-      const { data } = await api.get(endpoint);
-      setScript(data);
-
-      if (data?._id) {
-        api.get(`/scripts/${data._id}/similar`)
-          .then(res => setSimilarScripts(res.data))
-          .catch(err => console.error("Failed to load similar scripts", err));
-      }
-
-      const canonicalPath = getScriptCanonicalPath(data || {});
-      if (canonicalPath && canonicalPath !== location.pathname) {
-        navigate(canonicalPath, { replace: true });
-      }
-    } catch (error) {
-      const status = error?.response?.status;
-      const message = String(error?.response?.data?.message || "").toLowerCase();
-      const isAccessBlocked =
-        status === 403 ||
-        message.includes("company email") ||
-        message.includes("purchase a plan") ||
-        message.includes("login with a company") ||
-        message.includes("business email");
-
-      if (isAccessBlocked) {
-        setScript(null);
-        setAccessMessage(error?.response?.data?.message || "You need a business email or a plan to access this.");
-        setAccessRequiresBusinessEmail(Boolean(error?.response?.data?.requiresBusinessEmail));
-        return;
-      }
-      setScript(null);
-      setLoadError(error?.response?.data?.message || "Unable to load this project right now.");
-    } finally {
-      if (!silent) {
-        setLoading(false);
-      }
-    }
-  };
+  /*
+   * The endpoint choice, the canonicalization and the three-way failure split moved into
+   * `useProjectDetail` so the native mobile screen consumes the same definitions (D28).
+   *
+   * Every remaining call site here wants "the same screen, newer data" — after an approval, a
+   * payment, a collaborator change or an evaluation poll — which is what `refresh` is. The old
+   * `{ silent }` flag chose between that and blanking the page to a skeleton; nothing wanted the
+   * blank, and the two call sites that passed no flag were refreshing a project the viewer was
+   * already reading. The retry control uses `reload`, which is the one place a fresh LOADING state
+   * is correct.
+   */
+  const fetchScript = refresh;
 
   const handleHold = async () => {
     setShowHoldModal(true);
@@ -847,7 +800,7 @@ const ScriptDetail = () => {
               };
             });
 
-            await fetchScript({ silent: true });
+            await fetchScript();
             setShowTrailerPaymentModal(false);
             alert(data?.message || "AI trailer request received! Your trailer is now queued for admin approval.");
           } catch (err) {
@@ -917,7 +870,7 @@ const ScriptDetail = () => {
         });
       }
 
-      await fetchScript({ silent: true });
+      await fetchScript();
       if (data?.message) {
         alert(data.message);
       } else {
@@ -1018,258 +971,54 @@ const ScriptDetail = () => {
   };
 
   const handleRevealContact = async () => {
-    const writerId = String(script?.creator?._id || "");
-    if (!writerId || revealLoading) return;
-    setRevealError("");
-    setRevealLoading(true);
-    try {
-      const { data } = await api.post(`/payment/reveal-contact/${writerId}`);
-      setRevealedContact(data.contact);
-      setRevealStats({
-        contactsUsed: data.contactsUsed,
-        contactsLimit: data.contactsLimit,
-        remainingContacts: data.remainingContacts,
-      });
-      setShowWriterInfo(true);
-      if (data.contactsUsed !== undefined && user) {
-        setUser((prev) => {
-          if (!prev) return prev;
-          const updatedSubscription = {
-            ...(prev.subscription || {}),
-            revealedContacts: [
-              ...(Array.isArray(prev.subscription?.revealedContacts) ? prev.subscription.revealedContacts : []),
-              { writerId, revealedAt: new Date().toISOString() },
-            ],
-          };
-          return { ...prev, subscription: updatedSubscription };
-        });
-      }
-    } catch (err) {
-      const msg = err?.response?.data?.message || "Failed to reveal contact.";
-      setRevealError(msg);
-    } finally {
-      setRevealLoading(false);
-    }
+    const revealed = await projectActions.revealContact();
+    if (revealed) setShowWriterInfo(true);
   };
 
   const handleMessageWriter = async () => {
-    const writerId = String(script?.creator?._id || "");
-    if (!writerId) return;
-
-    if (!script?.isUnlocked && !writerAlreadyMessaged) {
-      try {
-        const { data } = await api.post(`/payment/message-writer/${writerId}`);
-        if (data.messagesUsed !== undefined && user) {
-          setUser((prev) => {
-            if (!prev) return prev;
-            const updatedSubscription = {
-              ...(prev.subscription || {}),
-              messagedWriters: [
-                ...(Array.isArray(prev.subscription?.messagedWriters) ? prev.subscription.messagedWriters : []),
-                { writerId, messagedAt: new Date().toISOString() },
-              ],
-            };
-            return { ...prev, subscription: updatedSubscription };
-          });
-        }
-      } catch (err) {
-        setRevealError(err?.response?.data?.message || "Failed to initiate message.");
-        return;
-      }
-    }
-
-    navigate(`/messages?recipientId=${writerId}&recipientName=${encodeURIComponent(script?.creator?.name || "Writer")}`);
+    // The hook spends a message slot only when this is the first conversation with this writer,
+    // and answers with "" when the slot could not be spent — so an over-quota viewer is never
+    // dropped into a thread they were not entitled to open.
+    const path = await projectActions.messageWriter();
+    if (path) navigate(path);
   };
 
-  const handleToggleBookmark = async () => {
-    if (!user?._id || !script?._id || script?.creator?._id === user?._id) return;
-    try {
-      const { data } = await api.post(`/scripts/${script._id}/favorite`);
-      const nextFavorited = Boolean(data?.favorited);
-      setIsBookmarked(nextFavorited);
-
-      setUser((prev) => {
-        if (!prev) return prev;
-        const currentIds = Array.isArray(prev.favoriteScripts)
-          ? prev.favoriteScripts.map((item) => (typeof item === "string" ? item : item?._id)).filter(Boolean)
-          : [];
-        const updatedIds = nextFavorited
-          ? Array.from(new Set([...currentIds, script._id]))
-          : currentIds.filter((item) => item !== script._id);
-        const updatedUser = { ...prev, favoriteScripts: updatedIds };
-        localStorage.setItem("user", JSON.stringify(updatedUser));
-        return updatedUser;
-      });
-
-      window.dispatchEvent(new CustomEvent("bookmarkUpdated", {
-        detail: { scriptId: script._id, bookmarked: nextFavorited },
-      }));
-    } catch {
-      // silent fail for bookmark toggle
-    }
-  };
+  // handleToggleBookmark now lives in useProjectDetail, so the mobile screen writes the account,
+  // the cache and the `bookmarkUpdated` event exactly the way this page always has.
 
   const handleRequestPurchase = async (note = "") => {
-    setRequestLoading(true);
-    try {
-      await api.post("/scripts/purchase-request", {
-        scriptId: script._id,
-        note: String(note || "").trim() || "I reviewed the project and would like to request purchase access.",
-      });
-      setShowRequestModal(false);
-      await fetchScript();
-      showNotice("Purchase request sent to the writer.", "success");
-      return true;
-    } catch (err) {
-      showNotice(err.response?.data?.message || "Failed to submit purchase request", "error");
-      return false;
-    } finally {
-      setRequestLoading(false);
-    }
+    const sent = await projectActions.submitPurchaseRequest(note);
+    if (sent) setShowRequestModal(false);
+    return sent;
   };
 
-  const fetchPendingRequestsForScript = async () => {
-    if (!script?.isCreator) return;
-    setPendingReqLoading(true);
-    try {
-      const { data } = await api.get("/scripts/purchase-requests/mine");
-      const currentScriptId = String(script?._id || "");
-      const requestsForScript = (Array.isArray(data) ? data : [])
-        .filter((r) => {
-          const requestScriptId = String(r?.script?._id || r?.script || "");
-          return requestScriptId === currentScriptId;
-        })
-        .sort((a, b) => new Date(b?.createdAt || 0) - new Date(a?.createdAt || 0));
 
-      setPendingRequests(requestsForScript);
-    } catch {
-      // silent
-    } finally {
-      setPendingReqLoading(false);
-    }
-  };
 
-  useEffect(() => {
-    if (!script?.isCreator || !script?._id) return;
-
-    const intervalId = setInterval(() => {
-      fetchPendingRequestsForScript();
-    }, 15000);
-
-    return () => clearInterval(intervalId);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [script?._id, script?.isCreator]);
-
-  const fetchReviews = async ({ page = 1 } = {}) => {
-    if (!script?._id) return;
-    setReviewsLoading(true);
-    try {
-      const { data } = await api.get(`/reviews/${script._id}?page=${page}&limit=8`);
-      setReviews(Array.isArray(data?.reviews) ? data.reviews : []);
-      setReviewsPage(Number(data?.page || page));
-      setReviewsTotalPages(Number(data?.totalPages || 1));
-      setReviewsTotal(Number(data?.total || 0));
-      setMyReview(data?.myReview || null);
-    } catch {
-      setReviews([]);
-      setReviewsPage(1);
-      setReviewsTotalPages(1);
-      setReviewsTotal(0);
-      setMyReview(null);
-    } finally {
-      setReviewsLoading(false);
-    }
-  };
+  const fetchReviews = projectActions.loadReviews;
 
   const handleSubmitReview = async (e) => {
     e.preventDefault();
     if (!canSubmitReview) return;
-
-    const trimmedComment = String(reviewComment || "").trim();
-    if (!reviewRating) {
-      showNotice("Please select a rating before submitting.", "error");
-      return;
-    }
-    if (trimmedComment.length < 5) {
-      showNotice("Please write at least 5 characters for your review.", "error");
-      return;
-    }
-
-    setReviewSubmitting(true);
-    try {
-      await api.post("/reviews", {
-        script: script._id,
-        rating: reviewRating,
-        comment: trimmedComment,
-      });
-
+    const submitted = await projectActions.submitReview({ rating: reviewRating, comment: reviewComment });
+    // The draft is cleared only on success. A review the server refused — too short, already
+    // reviewed, not a reader — is still the words the user wrote, and clearing them makes the
+    // refusal unrecoverable.
+    if (submitted) {
       setReviewRating(0);
       setReviewComment("");
-
-      await Promise.all([
-        fetchScript({ silent: true }),
-        fetchReviews({ page: 1 }),
-      ]);
-
-      showNotice("Review submitted successfully.", "success");
-    } catch (err) {
-      showNotice(err?.response?.data?.message || "Failed to submit review.", "error");
-    } finally {
-      setReviewSubmitting(false);
     }
   };
 
-  const handleApproveRequest = async (reqId, { quiet = false } = {}) => {
-    setPendingReqActionId(reqId);
-    try {
-      await api.put(`/scripts/purchase-request/${reqId}/approve`);
-      if (!quiet) showNotice("Request approved. Buyer was notified to complete payment.", "success");
-      await fetchScript();
-      await fetchPendingRequestsForScript();
-      return true;
-    } catch (err) {
-      const message = err?.response?.data?.message || "Failed to approve request";
-      if (!quiet) showNotice(message, "error");
-      if (err?.response?.status === 409) {
-        await fetchScript({ silent: true });
-        await fetchPendingRequestsForScript();
-      }
-      return false;
-    } finally {
-      setPendingReqActionId(null);
-    }
-  };
+  const handleApproveRequest = projectActions.approveRequest;
 
-  const handleRejectRequest = async (requestId, note = "") => {
-    if (!requestId) return false;
-    setPendingReqActionId(requestId);
-    try {
-      await api.put(`/scripts/purchase-request/${requestId}/reject`, { note: String(note || "").trim() });
-      await fetchScript();
-      await fetchPendingRequestsForScript();
-      showNotice("Purchase request declined.", "success");
-      return true;
-    } catch (err) {
-      showNotice(err.response?.data?.message || "Failed to reject request", "error");
-      return false;
-    } finally {
-      setPendingReqActionId(null);
-    }
-  };
+  const handleRejectRequest = projectActions.rejectRequest;
 
   const handleRejectRequestSubmit = async () => {
     if (!rejectNoteModal) return;
-    setPendingReqActionId(rejectNoteModal.id);
-    try {
-      await api.put(`/scripts/purchase-request/${rejectNoteModal.id}/reject`, { note: rejectNoteText });
+    const declined = await projectActions.rejectRequest(rejectNoteModal.id, rejectNoteText);
+    if (declined) {
       setRejectNoteModal(null);
       setRejectNoteText("");
-      await fetchScript();
-      await fetchPendingRequestsForScript();
-    } catch (err) {
-      alert(err.response?.data?.message || "Failed to reject request");
-    } finally {
-      setPendingReqActionId(null);
     }
   };
 
@@ -1445,7 +1194,7 @@ const ScriptDetail = () => {
         <h2 className={`text-lg font-bold mb-1 ${t.title}`}>{loadError ? "Unable to load project" : "Script not found"}</h2>
         {loadError && <p className={`max-w-md mx-auto mt-2 mb-5 text-sm ${t.muted}`}>{loadError}</p>}
         <div className="flex items-center justify-center gap-3">
-          {loadError && <button type="button" onClick={() => fetchScript()} className={`px-4 py-2 rounded-xl text-sm font-semibold border ${t.btnPrim}`}>Retry</button>}
+          {loadError && <button type="button" onClick={() => reload()} className={`px-4 py-2 rounded-xl text-sm font-semibold border ${t.btnPrim}`}>Retry</button>}
           <Link to="/search" className={`hover:underline text-sm font-semibold ${isDarkMode ? "text-blue-300" : "text-[#1e3a5f]"}`}>Browse scripts</Link>
         </div>
       </div>
@@ -1518,9 +1267,10 @@ const ScriptDetail = () => {
   const scriptRawContent = (typeof script?.fountainContent === "string" && script.fountainContent.trim())
     ? script.fountainContent
     : (typeof script?.textContent === "string" ? script.textContent : "");
-  const uploadedScriptUrl = resolveImage(script?.fileUrl || "");
   const hasScriptTextContent = Boolean(scriptRawContent.trim());
-  const hasUploadedScriptPdf = Boolean(uploadedScriptUrl);
+  // DEF-25: "is there a PDF" no longer depends on holding its private URL. The viewer this feeds
+  // is pointed at the authenticated proxy either way.
+  const hasUploadedScriptPdf = hasStoredScriptPdf;
   const normalizedScriptHtml = scriptRawContent.trimStart();
   const hasHtmlScriptContent = normalizedScriptHtml.startsWith("<");
   const formattedPlainScriptText = hasHtmlScriptContent ? "" : formatScreenplayLikeText(scriptRawContent);
@@ -1680,7 +1430,7 @@ const ScriptDetail = () => {
     setMeetingSent(true);
     setTimeout(() => setMeetingSent(false), 3000);
     if (payload?.remainingMeetings !== undefined) {
-      setMeetingStats({
+      projectActions.setMeetingStats({
         meetingsUsed: payload.meetingsUsed,
         meetingsLimit: payload.meetingsLimit,
         remainingMeetings: payload.remainingMeetings,
@@ -1737,28 +1487,28 @@ const ScriptDetail = () => {
           handleDownloadPreview,
           handleDownload,
           handlePrint,
-          reviews,
-          reviewsLoading,
-          reviewsPage,
-          reviewsTotalPages,
-          reviewsTotal,
-          myReview,
+          reviews: projectActions.reviews,
+          reviewsLoading: projectActions.reviewsLoading,
+          reviewsPage: projectActions.reviewsPage,
+          reviewsTotalPages: projectActions.reviewsTotalPages,
+          reviewsTotal: projectActions.reviewsTotal,
+          myReview: projectActions.myReview,
           canSubmitReview,
           reviewRating,
           setReviewRating,
           reviewComment,
           setReviewComment,
-          reviewSubmitting,
+          reviewSubmitting: projectActions.reviewSubmitting,
           handleSubmitReview,
           fetchReviews,
           onProducerAggregate: (aggregate) => setScript((current) => current ? { ...current, producerRating: aggregate } : current),
-          pendingRequests,
-          pendingReqLoading,
-          pendingReqActionId,
+          pendingRequests: projectActions.requests,
+          pendingReqLoading: projectActions.requestsLoading,
+          pendingReqActionId: projectActions.decidingId,
           pendingRequestBadgeCount,
           handleApproveRequest,
           handleRejectRequest,
-          requestLoading,
+          requestLoading: projectActions.requestPending,
           handleRequestPurchase,
           writerCustomConditions,
           writerContact,
@@ -1768,8 +1518,8 @@ const ScriptDetail = () => {
           contactRevealBlocked,
           contactsUsed,
           contactsLimit,
-          revealLoading,
-          revealError,
+          revealLoading: projectActions.revealPending,
+          revealError: projectActions.revealError,
           handleRevealContact,
           messageWriterBlocked,
           messageWritersUsed,
@@ -1784,7 +1534,7 @@ const ScriptDetail = () => {
           handleMeetingScheduled,
           showDeleteModal,
           setShowDeleteModal,
-          deleteLoading,
+          deleteLoading: projectActions.deletePending,
           handleDeleteScript,
           handleInvoicePdfAction,
           trailerDurationChoice,

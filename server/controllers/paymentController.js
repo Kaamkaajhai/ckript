@@ -14,6 +14,7 @@ import {
   getMessagedWritersCount,
   getMessageWritersLimit,
   getRemainingMessageWriters,
+  isWriterRole,
 } from "../utils/industryAccess.js";
 
 import crypto from "crypto";
@@ -428,7 +429,25 @@ export const revealWriterContact = async (req, res) => {
       .lean();
     if (!writer) return res.status(404).json({ message: "Writer not found" });
 
-    if (writer.allowIndustryContact === false && ["writer", "creator"].includes(writer.role)) {
+    /*
+     * DEF-29: this endpoint reveals a WRITER's contact details, and until now it would reveal
+     * anyone's.
+     *
+     * The id comes from the URL, and nothing checked what kind of account it pointed at — so any
+     * account with FIP access could POST an arbitrary user id and read that person's email and
+     * phone: another producer, an admin, a reader. Every real caller passes a writer
+     * (`script.creator._id`, a writer profile, a deal's writer), so narrowing this refuses only
+     * the calls the product never makes.
+     *
+     * The opt-out check below was already writer-shaped and depended on the same role list, which
+     * is what made the gap visible: a non-writer could not opt out of a disclosure the product
+     * says is about writers.
+     */
+    if (!isWriterRole(writer.role)) {
+      return res.status(404).json({ message: "Writer not found" });
+    }
+
+    if (writer.allowIndustryContact === false) {
       return res.status(403).json({
         message: "This writer has opted out of sharing contact details with industry professionals.",
         optedOut: true
@@ -486,7 +505,12 @@ export const revealWriterContact = async (req, res) => {
 export const consumeMessageWriterSlot = async (req, res) => {
   try {
     const { writerId } = req.params;
-    if (!writerId) return res.status(400).json({ message: "writerId is required" });
+    // DEF-30: an id that is not an ObjectId reached `new mongoose.Types.ObjectId(writerId)` below
+    // and threw, so a malformed URL answered 500 — a server error for what is a bad request. Its
+    // sibling `revealWriterContact` has always validated here.
+    if (!writerId || !mongoose.Types.ObjectId.isValid(writerId)) {
+      return res.status(400).json({ message: "Invalid writer ID" });
+    }
 
     const user = await User.findById(req.user._id).select("subscription role isPremium").lean();
     if (!user) return res.status(404).json({ message: "User not found" });

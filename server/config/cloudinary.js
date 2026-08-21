@@ -92,6 +92,50 @@ export const uploadToCloudinary = async (buffer, options = {}) => {
   return uploadToCloudinaryRemote(buffer, options);
 };
 
+/*
+ * Send one already-bounded part of a manual Cloudinary chunked upload.
+ *
+ * `upload_stream` still signs the request server-side, but the two protocol
+ * headers make separate HTTP requests belong to one upstream upload. Callers
+ * persist the acknowledged ranges; this helper deliberately owns no session
+ * state and never receives the whole file.
+ */
+export const uploadChunkToCloudinary = async (buffer, options = {}) => {
+  if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
+    throw new Error("uploadChunkToCloudinary expects a non-empty file buffer");
+  }
+  if (!options.uploadId || typeof options.uploadId !== "string") {
+    throw new Error("uploadChunkToCloudinary expects an uploadId");
+  }
+  if (![options.start, options.end, options.total].every(Number.isSafeInteger)) {
+    throw new Error("uploadChunkToCloudinary expects integer byte bounds");
+  }
+  if (options.start < 0 || options.end < options.start || options.total <= options.end) {
+    throw new Error("uploadChunkToCloudinary received an invalid byte range");
+  }
+  if (!ensureCloudinaryConfigured()) {
+    throw new Error("Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET.");
+  }
+
+  const uploadOptions = {
+    folder: options.folder || "scriptbridge/misc",
+    resource_type: options.resource_type || "auto",
+    public_id: options.public_id,
+    filename: options.filename || "file",
+    overwrite: false,
+    x_unique_upload_id: options.uploadId,
+    content_range: `bytes ${options.start}-${options.end}/${options.total}`,
+  };
+
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(uploadOptions, (error, result) => {
+      if (error) return reject(error);
+      return resolve(result);
+    });
+    stream.end(buffer);
+  });
+};
+
 export const deleteFromCloudinary = async (publicId, options = {}) => {
   if (!publicId || typeof publicId !== "string") {
     throw new Error("deleteFromCloudinary expects a publicId string");

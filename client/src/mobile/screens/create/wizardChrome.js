@@ -92,8 +92,10 @@ export function describeWizardFooter({
   ownershipConfirmed = false,
   hasPublishAccess = true,
   exiting = false,
+  mediaRecovery = null,
   mediaRecoveryPending = false,
   mediaUploadActive = false,
+  mediaUploadPreflight = false,
 } = {}) {
   const isLast = step >= WIZARD_LAST_STEP;
 
@@ -105,14 +107,14 @@ export function describeWizardFooter({
     disabled: exiting,
   };
 
-  if (mediaRecoveryPending) {
+  if (mediaUploadPreflight) {
     return {
       back,
       next: {
-        id: "retry-media",
-        label: loading ? "Retrying…" : "Retry the media upload",
-        kind: "publish",
-        disabled: loading,
+        id: "start-media",
+        label: "Start uploads",
+        kind: "start-media",
+        disabled: false,
         blockedReason: "",
       },
     };
@@ -126,6 +128,25 @@ export function describeWizardFooter({
         label: "Uploading media…",
         kind: "publish",
         disabled: true,
+        blockedReason: "",
+      },
+    };
+  }
+
+  if (mediaRecovery || mediaRecoveryPending) {
+    const cancelledOnly = Boolean(
+      mediaRecovery?.cancelledTypes?.length > 0
+      && !mediaRecovery?.failedTypes?.length
+    );
+    return {
+      back,
+      next: {
+        id: "retry-media",
+        label: loading
+          ? "Continuing…"
+          : cancelledOnly ? "Retry cancelled uploads" : "Continue media upload",
+        kind: "publish",
+        disabled: loading,
         blockedReason: "",
       },
     };

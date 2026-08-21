@@ -11,6 +11,7 @@ import InlineMessage from "../../components/feedback/InlineMessage";
 import ActionSheet from "../../components/overlays/ActionSheet";
 import Dialog from "../../components/overlays/Dialog";
 import MobileShell from "../../shell/MobileShell";
+import useCompetitionEditorPanel from "./CompetitionEditorPanel";
 import EditorDock from "./EditorDock";
 import CommentsSheet from "./overlays/CommentsSheet";
 import ExitFlow from "./overlays/ExitFlow";
@@ -91,6 +92,7 @@ export default function Editor() {
   const [reportsOpen, setReportsOpen] = useState(false);
   const [versionsOpen, setVersionsOpen] = useState(false);
   const overflowRef = useRef(null);
+  const competitionEditor = useCompetitionEditorPanel();
 
   /* The same derivation the desktop focus mode uses, for the same reason: cards
      must key off the identity the LOCKS key off, or a card's lock badge and the
@@ -257,6 +259,8 @@ export default function Editor() {
           {error}
         </InlineMessage>
       )}
+
+      {competitionEditor.panel}
     </>
   );
 
@@ -433,6 +437,8 @@ export default function Editor() {
               suppresses: that one has no dialog role, no focus trap and a
               footer that puts "Remove title page" next to "Save changes". */}
           <TitlePageDialog />
+
+          {competitionEditor.overlays}
         </>
       )}
     >

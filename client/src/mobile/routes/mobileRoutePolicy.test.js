@@ -19,7 +19,7 @@ describe("mobileRoutePolicy — experience selection", () => {
     });
   });
 
-  it.each(["/search", "/messages", "/profile/writer-1", "/script/project-1"])(
+  it.each(["/messages", "/profile/writer-1"])(
     "keeps the canonical desktop route during migration instead of swallowing %s",
     (pathname) => {
       expect(resolveMobileExperience({
@@ -33,6 +33,94 @@ describe("mobileRoutePolicy — experience selection", () => {
       });
     },
   );
+
+  /*
+   * The checkout was one of those migration fallbacks until D30 promoted it. It is asserted
+   * separately from the detail forms because its pattern sits ABOVE them in the manifest on
+   * purpose: `/script/:projectHeading/:writerUsername` matches `/script/project-1/pay` too, and
+   * `findMobileRoute` returns the first match.
+   */
+  it.each([writer, producer])("mounts the native checkout for authenticated $role users", (user) => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user,
+      pathname: "/script/project-1/pay",
+    })).toMatchObject({
+      experience: "mobile",
+      routeId: "project-payment",
+      screenId: "project-checkout",
+    });
+  });
+
+  it.each([writer, creator, producer])("mounts native search for authenticated $role users", (user) => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user,
+      pathname: "/search",
+      search: "?q=night&type=projects",
+    })).toMatchObject({
+      experience: "mobile",
+      routeId: "search",
+      screenId: "search",
+    });
+  });
+
+  it("keeps signed-out search on the authenticated desktop branch", () => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: null,
+      pathname: "/search",
+    })).toMatchObject({ experience: "desktop", reason: "authentication-required" });
+  });
+
+  it.each([writer, creator, producer])("mounts native top scripts for authenticated $role users", (user) => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user,
+      pathname: "/top-script",
+      search: "?sort=featured&genre=Drama",
+    })).toMatchObject({
+      experience: "mobile",
+      routeId: "top-script",
+      screenId: "top-scripts",
+    });
+  });
+
+  it("keeps signed-out top scripts on the authenticated desktop branch", () => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: null,
+      pathname: "/top-script",
+    })).toMatchObject({ experience: "desktop", reason: "authentication-required" });
+  });
+
+  it.each([writer, creator, producer])("mounts native featured for authenticated $role users", (user) => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user,
+      pathname: "/featured",
+      search: "?sort=views&genre=Drama&budget=medium",
+    })).toMatchObject({
+      experience: "mobile",
+      routeId: "featured",
+      screenId: "featured",
+    });
+  });
+
+  it("keeps signed-out featured on the authenticated desktop branch", () => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: null,
+      pathname: "/featured",
+    })).toMatchObject({ experience: "desktop", reason: "authentication-required" });
+  });
 
   it("does not hand the writer dashboard to an industry audience", () => {
     expect(resolveMobileExperience({
@@ -189,14 +277,8 @@ describe("mobileRoutePolicy — experience selection", () => {
       });
     });
 
-    /*
-     * `?ctx=competition` replaces the whole publish wizard with a deadline bar
-     * and a one-way Submit, and neither is ported. Without the exclusion a
-     * competition writer would get the mobile editor and NO way to submit their
-     * entry — worse than the desktop page, not merely different from it.
-     */
     it.each(["/create-project", "/create-project/abc123"])(
-      "hands competition mode back to desktop at %s",
+      "mounts the native competition editor at %s",
       (pathname) => {
         expect(resolveMobileExperience({
           isMobile: true,
@@ -205,9 +287,9 @@ describe("mobileRoutePolicy — experience selection", () => {
           pathname,
           search: "?ctx=competition",
         })).toMatchObject({
-          experience: "desktop",
-          disposition: "desktop-migration-fallback",
-          reason: "competition-mode-not-ported",
+          experience: "mobile",
+          screenId: "create-project",
+          reason: "implemented-screen",
         });
       },
     );
@@ -234,6 +316,47 @@ describe("mobileRoutePolicy — experience selection", () => {
       expect(resolveMobileExperience({
         isMobile: true, authLoading: false, user: null, pathname: "/create-project",
       })).toMatchObject({ experience: "desktop", reason: "authentication-required" });
+    });
+  });
+
+  describe("project detail — three route forms, one screen (D28)", () => {
+    it.each([
+      ["/script/project-1", "project-detail-id"],
+      ["/script/the-monsoon-archive/mira", "project-detail-canonical"],
+      ["/the-monsoon-archive/mira", "canonical-project-catchall"],
+    ])("mounts the native project screen at %s", (pathname, routeId) => {
+      expect(resolveMobileExperience({
+        isMobile: true, authLoading: false, user: producer, pathname,
+      })).toMatchObject({ experience: "mobile", routeId, screenId: "project-detail" });
+    });
+
+    /*
+     * The load-bearing one. `/:projectHeading/:writerUsername` matches ANY two segments, so
+     * promoting it could have swallowed every unported two-segment route in the product. It does
+     * not, because the manifest is ordered and `findMobileRoute` returns the first match — the
+     * same guarantee App.jsx relies on by declaring its catch-alls last.
+     */
+    it.each([
+      "/script/project-1/pay",
+      "/admin/scripts/project-1",
+      "/reader/script/project-1",
+      "/create-project/draft-1",
+    ])("does not let the two-segment catch-all swallow %s", (pathname) => {
+      const decision = resolveMobileExperience({
+        isMobile: true, authLoading: false, user: producer, pathname,
+      });
+      expect(decision.routeId).not.toBe("canonical-project-catchall");
+      expect(decision.screenId).not.toBe("project-detail");
+    });
+
+    it("keeps a signed-out visitor and an unported audience on the desktop page", () => {
+      expect(resolveMobileExperience({
+        isMobile: true, authLoading: false, user: null, pathname: "/script/project-1",
+      })).toMatchObject({ experience: "desktop", reason: "authentication-required" });
+
+      expect(resolveMobileExperience({
+        isMobile: true, authLoading: false, user: { id: "r1", role: "reader" }, pathname: "/script/project-1",
+      })).toMatchObject({ experience: "desktop", reason: "audience-not-implemented" });
     });
   });
 

@@ -1,24 +1,35 @@
 import express from "express";
 import User from "../models/User.js";
-import Post from "../models/Post.js";
 import Script from "../models/Script.js";
 import authMiddleware from "../middleware/authMiddleware.js";
+import {
+  SEARCH_SCRIPT_RESULT_PROJECT,
+  SEARCH_USER_RESULT_PROJECT,
+  getScriptSearchSort,
+  parseSearchQuery,
+  unpackSearchFacet,
+} from "../utils/searchQuery.js";
 
 const router = express.Router();
-
-const escapeRegExp = (value = "") => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 // @route   GET /api/search
 // @desc    Search for users, posts, or scripts with optional role filter
 // @access  Private
 router.get("/", authMiddleware, async (req, res) => {
   try {
-    const { q, type = "all", role, genre, contentType, budget, premium } = req.query;
-    const qValue = (q || "").trim();
-    let searchRegex = null;
-    if (qValue) {
-      searchRegex = new RegExp(escapeRegExp(qValue), "i");
-    }
+    const {
+      regex: searchRegex,
+      type,
+      role,
+      genre,
+      contentType,
+      budget,
+      premium,
+      sort,
+      page,
+      limit,
+    } = parseSearchQuery(req.query);
+    const skip = (page - 1) * limit;
 
     const currentUser = await User.findById(req.user._id).select("blockedUsers").lean();
     const usersWhoBlockedCurrent = await User.find({ blockedUsers: req.user._id }).select("_id").lean();
@@ -27,7 +38,13 @@ router.get("/", authMiddleware, async (req, res) => {
       ...usersWhoBlockedCurrent.map((u) => u._id),
     ];
 
-    let results = { users: [], scripts: [] };
+    const results = { users: [], scripts: [] };
+    const pagination = {
+      page,
+      limit,
+      users: { total: 0, hasMore: false },
+      scripts: { total: 0, hasMore: false },
+    };
 
     // Search users (optionally filter by role)
     if (type === "all" || type === "users" || type === "writers" || type === "investors") {
@@ -57,29 +74,23 @@ router.get("/", authMiddleware, async (req, res) => {
         ];
       }
 
-      const userDocs = await User.aggregate([
+      const userRows = await User.aggregate([
+        { $match: userMatch },
         {
-          $match: userMatch
+          $facet: {
+            items: [
+              { $sort: { name: 1, _id: 1 } },
+              { $skip: skip },
+              { $limit: limit },
+              { $project: SEARCH_USER_RESULT_PROJECT },
+            ],
+            meta: [{ $count: "total" }],
+          },
         },
-        { $limit: 30 },
-        { 
-          $project: { 
-            sid: 1, name: 1, email: 1, role: 1, bio: 1, skills: 1, profileImage: 1, 
-            followers: 1, following: 1, "writerProfile.genres": 1, 
-            "writerProfile.wgaMember": 1, "writerProfile.sgaMember": 1, 
-            "writerProfile.representationStatus": 1 
-          } 
-        }
       ]);
-
-      // Add computed counts
-      results.users = userDocs.map((u) => {
-        return ({
-          ...u,
-          followerCount: u.followers?.length || 0,
-          followingCount: u.following?.length || 0,
-        });
-      });
+      const userPage = unpackSearchFacet(userRows, { page, limit });
+      results.users = userPage.items;
+      pagination.users = { total: userPage.total, hasMore: userPage.hasMore };
     }
 
     // Search scripts/projects
@@ -109,34 +120,50 @@ router.get("/", authMiddleware, async (req, res) => {
         ];
       }
 
-      const scriptDocs = await Script.aggregate([
+      const scriptRows = await Script.aggregate([
+        { $match: scriptMatch },
         {
-          $match: scriptMatch
+          $addFields: {
+            unlockCount: { $size: { $ifNull: ["$unlockedBy", []] } },
+            viewCount: { $ifNull: ["$views", 0] },
+          },
         },
-        { $limit: 30 },
         {
-          $lookup: {
-            from: "users",
-            localField: "creator",
-            foreignField: "_id",
-            as: "creator",
-            pipeline: [{ $project: { name: 1, profileImage: 1, role: 1 } }]
-          }
+          $facet: {
+            items: [
+              { $sort: getScriptSearchSort(sort) },
+              { $skip: skip },
+              { $limit: limit },
+              { $project: SEARCH_SCRIPT_RESULT_PROJECT },
+              {
+                $lookup: {
+                  from: "users",
+                  localField: "creator",
+                  foreignField: "_id",
+                  as: "creator",
+                  pipeline: [{
+                    $project: {
+                      name: 1,
+                      username: 1,
+                      profileImage: 1,
+                      role: 1,
+                      "writerProfile.username": 1,
+                    },
+                  }],
+                },
+              },
+              { $unwind: { path: "$creator", preserveNullAndEmptyArrays: true } },
+            ],
+            meta: [{ $count: "total" }],
+          },
         },
-        { $unwind: { path: "$creator", preserveNullAndEmptyArrays: true } }
       ]);
-
-      // Add computed counts
-      results.scripts = scriptDocs.map((s) => {
-        return ({
-          ...s,
-          unlockCount: s.unlockedBy?.length || 0,
-          viewCount: s.views || 0,
-        });
-      });
+      const scriptPage = unpackSearchFacet(scriptRows, { page, limit });
+      results.scripts = scriptPage.items;
+      pagination.scripts = { total: scriptPage.total, hasMore: scriptPage.hasMore };
     }
 
-    res.json(results);
+    res.json({ ...results, pagination });
   } catch (error) {
     console.error("Search error:", error);
     res.status(500).json({ message: "Server error" });
@@ -146,13 +173,13 @@ router.get("/", authMiddleware, async (req, res) => {
 // GET /api/search/suggestions?q=
 router.get("/suggestions", authMiddleware, async (req, res) => {
   try {
-    const { q = "" } = req.query;
-    if (!q.trim() || q.trim().length < 2) return res.json({ scripts: [], users: [] });
+    const { q, regex } = parseSearchQuery(req.query);
+    if (q.length < 2 || !regex) return res.json({ scripts: [], users: [] });
 
     const [scripts, users] = await Promise.all([
       Script.aggregate([
         {
-          $match: { title: new RegExp(escapeRegExp(q.trim()), "i") }
+            $match: { title: regex }
         },
         { $sort: { readsCount: -1 } },
         { $limit: 5 },
@@ -174,7 +201,7 @@ router.get("/suggestions", authMiddleware, async (req, res) => {
         {
           $match: { 
             role: { $in: ["writer", "investor"] },
-            name: new RegExp(escapeRegExp(q.trim()), "i")
+            name: regex
           } 
         },
         { $limit: 3 },

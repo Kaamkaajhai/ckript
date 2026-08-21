@@ -17,6 +17,18 @@ vi.mock("../screens/Holds", () => ({
   default: () => <main data-testid="mobile-holds">Mobile holds</main>,
 }));
 
+vi.mock("../screens/discovery/SearchMobile", () => ({
+  default: () => <main data-testid="mobile-search">Mobile search</main>,
+}));
+
+vi.mock("../screens/discovery/TopScriptsMobile", () => ({
+  default: () => <main data-testid="mobile-top-scripts">Mobile top scripts</main>,
+}));
+
+vi.mock("../screens/discovery/FeaturedProjectsMobile", () => ({
+  default: () => <main data-testid="mobile-featured">Mobile featured</main>,
+}));
+
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 let container;
@@ -75,6 +87,24 @@ describe("MobileRoutes", () => {
   it("renders the holds screen at /offer-holds — and not the dashboard", async () => {
     const el = await mount("/offer-holds", { user: { role: "producer" } });
     expect(el.querySelector('[data-testid="mobile-holds"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
+  });
+
+  it("renders native search at the canonical /search URL", async () => {
+    const el = await mount("/search?q=night");
+    expect(el.querySelector('[data-testid="mobile-search"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
+  });
+
+  it("renders native rankings at the canonical /top-script URL", async () => {
+    const el = await mount("/top-script?sort=trending");
+    expect(el.querySelector('[data-testid="mobile-top-scripts"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
+  });
+
+  it("renders native featured at the canonical /featured URL", async () => {
+    const el = await mount("/featured?sort=views&budget=medium");
+    expect(el.querySelector('[data-testid="mobile-featured"]')).toBeTruthy();
     expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
   });
 
