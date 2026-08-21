@@ -3,6 +3,7 @@ import {
   buildMessageChatId,
   getMessagePreview,
   getMessagingError,
+  getMessageThreadContext,
   loadConversationMessages,
   loadMessageConversations,
   markConversationRead,
@@ -25,6 +26,26 @@ describe("shared messaging contract", () => {
     expect(getMessagePreview({ fileType: "image", fileUrl: "/image.jpg" })).toBe("📷 Image");
     expect(getMessagePreview({ fileType: "video", fileUrl: "/clip.mp4" })).toBe("🎬 Trailer Video");
     expect(getMessagePreview({ fileType: "document", fileUrl: "/draft.pdf" })).toBe("📎 File");
+  });
+
+  it("derives one shared thread context with newest project first", () => {
+    const deleted = { _id: "gone", deleted: true, fileUrl: "/gone.pdf", script: { _id: "s0", title: "Gone" } };
+    const context = getMessageThreadContext([
+      { _id: "m1", script: { _id: "s1", title: "First Draft" } },
+      { _id: "m2", fileUrl: "/notes.pdf", fileName: "Notes" },
+      { _id: "m3", sender: { role: "admin" }, fileType: "video", fileUrl: "/trailer.mp4" },
+      { _id: "m4", script: { _id: "s2", title: "Next Project" } },
+      { _id: "m5", script: "s1" },
+      deleted,
+    ]);
+
+    expect(context.primaryProject).toEqual({ id: "s1", title: "First Draft" });
+    expect(context.linkedProjects).toEqual([
+      { id: "s1", title: "First Draft" },
+      { id: "s2", title: "Next Project" },
+    ]);
+    expect(context.sharedFiles.map((message) => message._id)).toEqual(["m2", "m3"]);
+    expect(context.adminTrailer?._id).toBe("m3");
   });
 
   it("normalizes list envelopes and encodes chat ids", async () => {

@@ -62,6 +62,18 @@
 .ckm .ckm-messages__upload progress { width: 100%; accent-color: var(--ckm-accent-ink); }
 .ckm .ckm-messages__upload-ready { margin: 0; color: var(--ckm-green-ink); font-size: var(--ckm-text-caption); font-weight: var(--ckm-weight-semibold); }
 
+.ckm .ckm-messages__context { display: grid; gap: var(--ckm-space-5); }
+.ckm .ckm-messages__context section { display: grid; gap: var(--ckm-space-2); }
+.ckm .ckm-messages__context h3,
+.ckm .ckm-messages__context p { margin: 0; }
+.ckm .ckm-messages__context h3 { color: var(--ckm-text); font: var(--ckm-weight-semibold) var(--ckm-text-body)/var(--ckm-leading-body) var(--ckm-display); }
+.ckm .ckm-messages__context p { color: var(--ckm-text-3); font-size: var(--ckm-text-support); line-height: var(--ckm-leading-support); }
+.ckm .ckm-messages__context section > a { color: var(--ckm-accent-ink); font-size: var(--ckm-text-support); font-weight: var(--ckm-weight-semibold); }
+.ckm .ckm-messages__context-files { display: grid; gap: var(--ckm-space-2); margin: 0; padding: 0; list-style: none; }
+.ckm .ckm-messages__context-files a { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: var(--ckm-space-2); padding: var(--ckm-space-2) var(--ckm-space-3); border: 1px solid var(--ckm-line); border-radius: var(--ckm-r-sm); color: var(--ckm-text); text-decoration: none; }
+.ckm .ckm-messages__context-files span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ckm .ckm-messages__context-files small { flex: none; color: var(--ckm-text-3); }
+
 @media (prefers-reduced-motion: no-preference) {
   .ckm .ckm-messages__row { transition: transform var(--ckm-duration-press) var(--ckm-ease); }
 }

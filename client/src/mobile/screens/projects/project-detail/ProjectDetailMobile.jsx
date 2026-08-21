@@ -74,8 +74,9 @@ import Sheet from "../../../components/overlays/Sheet";
 import MobileShell from "../../../shell/MobileShell";
 import { MOBILE_SHELL_MODE } from "../../../shell/mobileShellModes";
 import { shareProject } from "../../../data/shareProject";
+import MeetingSheet from "../../../components/meetings/MeetingSheet";
+import { emptyMeetingDraft } from "../../../components/meetings/meetingModel";
 import FeedbackSheet from "./components/FeedbackSheet";
-import MeetingSheet from "./components/MeetingSheet";
 import ProjectReaderDialog from "./components/ProjectReaderDialog";
 import ProjectSection from "./components/ProjectSection";
 import PurchaseRequestList from "./components/PurchaseRequestList";
@@ -96,7 +97,6 @@ import {
   describePurchaseAction,
   describeReaderAccess,
   describeTransactionStanding,
-  emptyMeetingDraft,
   formatMoney,
   getSection,
   resolveRecommendedAction,

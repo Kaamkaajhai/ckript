@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { resolveMediaUrl } from "../../../utils/mediaUrl";
 import PageHeader from "../../components/app-bars/PageHeader";
 import Button from "../../components/buttons/Button";
+import IconButton from "../../components/buttons/IconButton";
 import EmptyState from "../../components/EmptyState";
 import InlineMessage from "../../components/feedback/InlineMessage";
 import SkeletonGroup, { SkeletonShape } from "../../components/feedback/Skeletons";
@@ -10,6 +11,8 @@ import TextField from "../../components/forms/TextField";
 import FilePicker from "../../components/forms/FilePicker";
 import NavBar from "../../components/navigation/NavBar";
 import ConfirmDialog from "../../components/overlays/ConfirmDialog";
+import MeetingSheet from "../../components/meetings/MeetingSheet";
+import { emptyMeetingDraft } from "../../components/meetings/meetingModel";
 import MobileShell from "../../shell/MobileShell";
 import { MOBILE_SHELL_MODE } from "../../shell/mobileShellModes";
 import useKeyboardInset from "../../hooks/useKeyboardInset";
@@ -24,8 +27,18 @@ import {
 import useMessagesMobile, { MESSAGE_LOAD_STATUS } from "./useMessagesMobile";
 import {
   MESSAGE_ATTACHMENT_ACCEPT,
+  getMessageThreadContext,
   QUICK_MESSAGE_REACTIONS,
 } from "../../../features/messages-operator/messageContract";
+import {
+  requestCalendarConnectUrl,
+  scheduleMeeting,
+} from "../../../pages/script-detail/projectActions";
+import {
+  hasActiveFilmIndustryProfessionalAccess,
+  isWriterRole,
+} from "../../../utils/industryAccess";
+import MessageContextSheet from "./MessageContextSheet";
 import "./MessagesMobile.css";
 
 const Avatar = ({ member, small = false }) => {
@@ -47,11 +60,48 @@ export default function MessagesMobile({ user }) {
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState("");
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [contextOpen, setContextOpen] = useState(false);
+  const [meetingOpen, setMeetingOpen] = useState(false);
+  const [meetingDraft, setMeetingDraft] = useState(emptyMeetingDraft());
+  const [meetingPending, setMeetingPending] = useState(false);
+  const [calendarConnecting, setCalendarConnecting] = useState(false);
+  const [calendarError, setCalendarError] = useState("");
+  const [calendarConnected, setCalendarConnected] = useState(false);
   const endRef = useRef(null);
+  const restoredCalendarRef = useRef("");
   const visibleConversations = useMemo(
     () => buildConversationList(state.conversations, query),
     [query, state.conversations],
   );
+  const threadContext = useMemo(() => getMessageThreadContext(state.messages), [state.messages]);
+  const meetingProject = threadContext.primaryProject;
+  const canScheduleMeeting = Boolean(
+    hasActiveFilmIndustryProfessionalAccess(user)
+    && isWriterRole(state.activeChat?.user)
+    && meetingProject?.id,
+  );
+
+  useEffect(() => {
+    const status = new URLSearchParams(window.location.search).get("calendar") || "";
+    if (!status || restoredCalendarRef.current === status || !state.activeChat?.chatId) return;
+    let live = true;
+    Promise.resolve().then(() => {
+      if (!live) return;
+      try {
+        const saved = JSON.parse(sessionStorage.getItem("ckript:message-meeting-draft") || "null");
+        if (saved?.chatId !== state.activeChat.chatId || saved?.projectId !== meetingProject?.id) return;
+        restoredCalendarRef.current = status;
+        setMeetingDraft({ ...saved.draft, needsCalendar: status !== "connected" });
+        setCalendarError(status === "connected" ? "" : "Google Calendar did not connect. Please try again.");
+        setCalendarConnected(status === "connected");
+        setMeetingOpen(true);
+        if (status === "connected") sessionStorage.removeItem("ckript:message-meeting-draft");
+      } catch {
+        sessionStorage.removeItem("ckript:message-meeting-draft");
+      }
+    });
+    return () => { live = false; };
+  }, [meetingProject?.id, state.activeChat?.chatId]);
 
   useEffect(() => {
     if (state.activeChat?.chatId) endRef.current?.scrollIntoView({ block: "end" });
@@ -75,12 +125,64 @@ export default function MessagesMobile({ user }) {
 
   if (state.activeChat) {
     const member = state.activeChat.user;
+    const openMeeting = () => {
+      setContextOpen(false);
+      setCalendarError("");
+      setMeetingDraft({
+        ...emptyMeetingDraft(meetingProject?.title || ""),
+        needsCalendar: !(calendarConnected || user?.googleCalendar?.connected),
+      });
+      setMeetingOpen(true);
+    };
+
+    const submitMeeting = async (draft) => {
+      setMeetingPending(true);
+      const result = await scheduleMeeting({
+        ...draft,
+        writerId: member?._id,
+        scriptId: meetingProject?.id,
+      });
+      setMeetingPending(false);
+      return result;
+    };
+
+    const connectCalendar = async () => {
+      setCalendarConnecting(true);
+      setCalendarError("");
+      try {
+        sessionStorage.setItem("ckript:message-meeting-draft", JSON.stringify({
+          chatId: state.activeChat.chatId,
+          projectId: meetingProject?.id,
+          draft: meetingDraft,
+        }));
+      } catch {
+        // Storage can be unavailable in private webviews; the redirect still remains usable.
+      }
+      const result = await requestCalendarConnectUrl({
+        returnTo: `${window.location.pathname}${window.location.search}`,
+      });
+      if (!result.ok) {
+        setCalendarConnecting(false);
+        setCalendarError(result.message);
+        return;
+      }
+      window.location.href = result.data.url;
+    };
+
     const header = (
       <PageHeader
         title={member?.name || "Conversation"}
         subtitle={member?.role ? String(member.role).replace(/_/g, " ") : "Direct message"}
         onBack={state.closeConversation}
         backLabel="Back to messages"
+        actions={(
+          <IconButton
+            icon="info"
+            label="Conversation details"
+            variant="soft"
+            onClick={() => setContextOpen(true)}
+          />
+        )}
       />
     );
     return (
@@ -115,7 +217,7 @@ export default function MessagesMobile({ user }) {
                   icon="forum"
                   title="Start the conversation"
                   titleAs="h2"
-                  body="Write a clear first message or attach a file. Meeting scheduling remains in the desktop workspace."
+                  body="Write a clear first message or attach a file. Linked project details and meeting requests are available above."
                 />
               ) : state.messages.map((message, index) => {
                 const mine = messageSenderId(message) === String(user?._id || "");
@@ -255,6 +357,27 @@ export default function MessagesMobile({ user }) {
             error={state.actionError}
             onCancel={() => setDeleteTarget(null)}
             onConfirm={confirmDelete}
+          />
+          <MessageContextSheet
+            open={contextOpen}
+            member={member}
+            context={threadContext}
+            canSchedule={canScheduleMeeting}
+            onSchedule={openMeeting}
+            onClose={() => setContextOpen(false)}
+          />
+          <MeetingSheet
+            open={meetingOpen}
+            writerName={member?.name || "the writer"}
+            projectTitle={meetingProject?.title || ""}
+            draft={meetingDraft}
+            onDraftChange={setMeetingDraft}
+            pending={meetingPending}
+            connecting={calendarConnecting}
+            connectionError={calendarError}
+            onSubmit={submitMeeting}
+            onConnect={connectCalendar}
+            onClose={() => setMeetingOpen(false)}
           />
         </section>
       </MobileShell>

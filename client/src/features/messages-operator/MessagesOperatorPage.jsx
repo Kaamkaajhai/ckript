@@ -4,12 +4,14 @@ import { io } from "socket.io-client";
 import api from "../../services/api";
 import { AuthContext } from "../../context/AuthContext";
 import { isSocketSupported } from "../../utils/apiOrigin";
+import { hasActiveFilmIndustryProfessionalAccess, isWriterRole } from "../../utils/industryAccess";
 import MessagesSkeleton from "../../components/skeleton/MessagesSkeleton";
 import MeetingModal from "../../components/MeetingModal";
 import {
   buildMessageChatId,
   deleteOwnMessage,
   getMessagePreview,
+  getMessageThreadContext,
   getMessagingError,
   loadConversationMessages,
   loadMessageConversations,
@@ -184,6 +186,7 @@ const MessagesOperatorPage = () => {
 
   const isWriter = user && ["writer", "creator"].includes(user.role);
   const isInvestor = user && user.role === "investor";
+  const hasMeetingAccess = hasActiveFilmIndustryProfessionalAccess(user);
 
   const scrollMessagesToBottom = (behavior = "smooth") => {
     messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
@@ -627,23 +630,14 @@ const MessagesOperatorPage = () => {
     if (activeChat?.user?._id) navigate(`/profile/${activeChat.user._id}`);
   };
 
-  /* ── derived deal context from the real thread ──────────── */
-  const scriptFromThread = useMemo(
-    () => messages.find((m) => m.script && (m.script._id || typeof m.script === "string"))?.script || null,
-    [messages]
-  );
-  const sharedFiles = useMemo(
-    () => messages.filter((m) => m.fileUrl && !m.deleted),
-    [messages]
-  );
-  const adminTrailer = useMemo(
-    () => messages.find((m) => (m.sender?.role === "admin") && m.fileType === "video" && m.fileUrl),
-    [messages]
-  );
+  /* ── derived deal context from the shared thread contract ─ */
+  const threadContext = useMemo(() => getMessageThreadContext(messages), [messages]);
+  const { primaryProject, sharedFiles, adminTrailer } = threadContext;
 
   const otherIsInvestor = activeChat?.user?.role === "investor";
-  const scriptId = scriptFromThread?._id || (typeof scriptFromThread === "string" ? scriptFromThread : null);
-  const scriptTitle = scriptFromThread?.title || "";
+  const scriptId = primaryProject?.id || null;
+  const scriptTitle = primaryProject?.title || "";
+  const canScheduleMeeting = hasMeetingAccess && isWriterRole(activeChat?.user) && Boolean(scriptId);
 
   /* ── filtered + sorted conversation list ────────────────── */
   const visibleConvs = useMemo(() => {
@@ -949,7 +943,7 @@ const MessagesOperatorPage = () => {
                   </div>
                 </div>
                 <div className="mo-toolacts">
-                  {isInvestor && scriptId && (
+                  {canScheduleMeeting && (
                     <button className="mo-tbtn" onClick={() => setShowMeeting(true)}>
                       <Calendar size={13} /> Meeting
                     </button>
@@ -1172,7 +1166,7 @@ const MessagesOperatorPage = () => {
       </div>
 
       {/* meeting modal (investor → writer scheduling) */}
-      {isInvestor && (
+      {canScheduleMeeting && (
         <MeetingModal
           isOpen={showMeeting}
           onClose={() => setShowMeeting(false)}

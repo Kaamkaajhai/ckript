@@ -66,11 +66,11 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-async function render() {
+async function render(user = { _id: "writer-1", role: "writer", name: "Mira"}) {
   await act(async () => {
     root.render(
       <MemoryRouter initialEntries={["/messages"]}>
-        <div className="ckm"><MessagesMobile user={{ _id: "writer-1", role: "writer", name: "Mira" }} /></div>
+        <div className="ckm"><MessagesMobile user={user} /></div>
       </MemoryRouter>,
     );
     await Promise.resolve();
@@ -155,6 +155,44 @@ describe("native messages", () => {
     const retry = [...container.querySelectorAll("button")].find((button) => button.textContent.includes("Retry upload"));
     act(() => retry.click());
     expect(mocks.state.retryAttachment).toHaveBeenCalledTimes(1);
+  });
+
+  it("opens shared project context and offers an authorized meeting request", async () => {
+    mocks.state = ready({
+      activeChat: { chatId: "producer-1_writer-1", user: { _id: "writer-1", name: "Mira", role: "creator" } },
+      messages: [{
+        _id: "m1",
+        sender: "producer-1",
+        receiver: "writer-1",
+        text: "Let's discuss this.",
+        script: { _id: "script-1", title: "The Long Road" },
+        createdAt: "2026-08-21T10:00:00Z",
+      }],
+    });
+    await render({
+      _id: "producer-1",
+      role: "producer",
+      name: "Dev",
+      googleCalendar: { connected: true },
+      subscription: { accessTier: "film_industry_professional", accessStatus: "active" },
+    });
+
+    const details = container.querySelector('[aria-label="Conversation details"]');
+    await act(async () => {
+      details.click();
+      await Promise.resolve();
+    });
+    expect(document.body.textContent).toContain("The Long Road");
+    expect(document.body.textContent).toContain("No trailer has been shared yet");
+
+    const meeting = [...document.body.querySelectorAll("button")]
+      .find((button) => button.textContent.includes("Request a meeting"));
+    await act(async () => {
+      meeting.click();
+      await Promise.resolve();
+    });
+    expect(document.body.textContent).toContain("With Mira about The Long Road");
+    expect(document.body.querySelector('input[value="Ckript meeting: The Long Road"]')).toBeTruthy();
   });
 
   it("renders durable empty and failed inbox states", async () => {

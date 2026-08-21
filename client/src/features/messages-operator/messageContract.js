@@ -56,6 +56,42 @@ export function getMessagePreview(message = {}) {
   return "";
 }
 
+/**
+ * The deal context is a property of the conversation, not of either renderer.
+ * Keep it here so the desktop rail and native sheet agree about linked projects,
+ * files, and the admin trailer even when a thread contains deleted messages.
+ */
+export function getMessageThreadContext(messages = []) {
+  const visible = (Array.isArray(messages) ? messages : []).filter((message) => !message?.deleted);
+  const linkedProjects = [];
+  const projectIndex = new Map();
+
+  // Newest context is primary, but retain every distinct project discussed in a long-running chat.
+  [...visible].reverse().forEach((message) => {
+    const script = message?.script;
+    const id = clean(script?._id || (typeof script === "string" ? script : ""));
+    if (!id) return;
+    const title = clean(script?.title);
+    const existing = projectIndex.get(id);
+    if (existing) {
+      if (!existing.title && title) existing.title = title;
+      return;
+    }
+    const project = { id, title };
+    projectIndex.set(id, project);
+    linkedProjects.push(project);
+  });
+
+  return {
+    primaryProject: linkedProjects[0] || null,
+    linkedProjects,
+    sharedFiles: visible.filter((message) => Boolean(message?.fileUrl)),
+    adminTrailer: [...visible].reverse().find((message) => (
+      message?.sender?.role === "admin" && message?.fileType === "video" && message?.fileUrl
+    )) || null,
+  };
+}
+
 export function getMessagingError(error, fallback = "Messaging is unavailable right now.") {
   const code = error?.response?.data?.code;
   if (code === "PURCHASE_REQUIRED") {
