@@ -6,7 +6,11 @@ import {
   loadConversationMessages,
   loadMessageConversations,
   markConversationRead,
+  deleteOwnMessage,
   sendConversationMessage,
+  toggleMessageReaction,
+  uploadConversationAttachment,
+  validateMessageAttachment,
 } from "./messageContract";
 
 describe("shared messaging contract", () => {
@@ -50,5 +54,35 @@ describe("shared messaging contract", () => {
     expect(getMessagingError({ response: { data: { code: "PURCHASE_REQUIRED" } } })).toContain("Purchase");
     expect(getMessagingError({ response: { data: { code: "USER_BLOCKED" } } })).toContain("blocked");
     expect(getMessagingError({ response: { data: { message: "Try later" } } })).toBe("Try later");
+  });
+
+  it("validates and uploads an attachment for one intended recipient with normalized progress", async () => {
+    const file = new File(["draft"], "draft.txt", { type: "text/plain" });
+    const client = { post: vi.fn().mockResolvedValue({ data: { fileUrl: "https://files.test/draft.txt", fileGrant: "grant" } }) };
+    const progress = vi.fn();
+
+    await expect(uploadConversationAttachment({ file, receiverId: " writer-2 ", onProgress: progress }, client))
+      .resolves.toMatchObject({ fileGrant: "grant" });
+    const [path, body, config] = client.post.mock.calls[0];
+    expect(path).toBe("/messages/upload?receiverId=writer-2");
+    expect(body.get("file")).toBe(file);
+    config.onUploadProgress({ loaded: 5, total: 8 });
+    expect(progress).toHaveBeenLastCalledWith(63);
+    expect(validateMessageAttachment({ size: 250 * 1024 * 1024 + 1 })).toContain("250MB");
+    expect(validateMessageAttachment({ name: "unsafe.svg", type: "image/svg+xml", size: 12 })).toContain("Unsupported");
+    expect(validateMessageAttachment({ name: "malware.exe", type: "application/x-msdownload", size: 12 })).toContain("Unsupported");
+  });
+
+  it("shares reaction and own-message deletion operations", async () => {
+    const client = {
+      patch: vi.fn().mockResolvedValue({ data: [{ emoji: "👍", userId: "u1" }] }),
+      delete: vi.fn().mockResolvedValue({ data: { success: true, messageId: "m/1" } }),
+    };
+    await expect(toggleMessageReaction("m/1", "👍", client)).resolves.toHaveLength(1);
+    await expect(deleteOwnMessage("m/1", client)).resolves.toMatchObject({ success: true });
+    expect(client.patch).toHaveBeenCalledWith("/messages/m%2F1/reaction", { emoji: "👍" });
+    expect(client.delete).toHaveBeenCalledWith("/messages/m%2F1");
+    await expect(toggleMessageReaction("m1", "not-an-emoji", client)).rejects.toThrow("Unsupported");
+    await expect(deleteOwnMessage("", client)).rejects.toThrow("messageId");
   });
 });

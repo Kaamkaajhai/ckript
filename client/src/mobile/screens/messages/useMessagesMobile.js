@@ -3,12 +3,16 @@ import { useSearchParams } from "react-router-dom";
 import { io } from "socket.io-client";
 import {
   buildMessageChatId,
+  deleteOwnMessage,
   getMessagePreview,
   getMessagingError,
   loadConversationMessages,
   loadMessageConversations,
   markConversationRead,
   sendConversationMessage,
+  toggleMessageReaction,
+  uploadConversationAttachment,
+  validateMessageAttachment,
 } from "../../../features/messages-operator/messageContract";
 import { getApiOrigin, isSocketSupported } from "../../../utils/apiOrigin";
 import { appendUniqueMessage, mergeIncomingMessage } from "./messagesModel";
@@ -37,10 +41,15 @@ export default function useMessagesMobile(user) {
   const [error, setError] = useState("");
   const [sendError, setSendError] = useState("");
   const [sending, setSending] = useState(false);
+  const [attachmentUpload, setAttachmentUpload] = useState(null);
+  const [actionError, setActionError] = useState("");
+  const [reactionPending, setReactionPending] = useState("");
+  const [deletionPending, setDeletionPending] = useState("");
   const activeChatRef = useRef(null);
   const conversationsRef = useRef([]);
   const socketRef = useRef(null);
   const threadRequestRef = useRef(0);
+  const attachmentRequestRef = useRef(0);
 
   useEffect(() => { activeChatRef.current = activeChat; }, [activeChat]);
   useEffect(() => { conversationsRef.current = conversations; }, [conversations]);
@@ -157,22 +166,74 @@ export default function useMessagesMobile(user) {
   }, [conversations, loadThread, queryKey, searchParams, status, user?._id]);
 
   const openConversation = useCallback((conversation) => {
+    attachmentRequestRef.current += 1;
+    setAttachmentUpload(null);
+    setActionError("");
     setSearchParams({ thread: conversation.chatId });
   }, [setSearchParams]);
 
   const closeConversation = useCallback(() => {
     threadRequestRef.current += 1;
+    attachmentRequestRef.current += 1;
     activeChatRef.current = null;
     setActiveChat(null);
     setMessages([]);
     setSendError("");
+    setActionError("");
+    setAttachmentUpload(null);
     setSearchParams({});
   }, [setSearchParams]);
 
-  const send = useCallback(async (body) => {
-    const text = String(body || "").trim();
+  const performAttachmentUpload = useCallback(async (file) => {
     const conversation = activeChatRef.current;
-    if (!text || !conversation?.user?._id || sending) return { ok: false };
+    if (!conversation?.user?._id) return { ok: false };
+    const validationError = validateMessageAttachment(file);
+    if (validationError) {
+      setAttachmentUpload({ file, status: "failed", progress: 0, error: validationError, uploaded: null });
+      return { ok: false, error: validationError };
+    }
+
+    const requestId = ++attachmentRequestRef.current;
+    setSendError("");
+    setAttachmentUpload({ file, status: "uploading", progress: 0, error: "", uploaded: null });
+    try {
+      const uploaded = await uploadConversationAttachment({
+        file,
+        receiverId: conversation.user._id,
+        onProgress: (progress) => {
+          if (requestId === attachmentRequestRef.current) {
+            setAttachmentUpload((current) => current?.file === file ? { ...current, progress } : current);
+          }
+        },
+      });
+      if (requestId !== attachmentRequestRef.current) return { ok: false };
+      setAttachmentUpload({ file, status: "ready", progress: 100, error: "", uploaded });
+      return { ok: true, uploaded };
+    } catch (requestError) {
+      if (requestId !== attachmentRequestRef.current) return { ok: false };
+      const message = getMessagingError(requestError, "Could not upload this attachment.");
+      setAttachmentUpload({ file, status: "failed", progress: 0, error: message, uploaded: null });
+      return { ok: false, error: message };
+    }
+  }, []);
+
+  const chooseAttachment = useCallback((file) => performAttachmentUpload(file), [performAttachmentUpload]);
+
+  const retryAttachment = useCallback(() => {
+    if (!attachmentUpload?.file) return Promise.resolve({ ok: false });
+    return performAttachmentUpload(attachmentUpload.file);
+  }, [attachmentUpload?.file, performAttachmentUpload]);
+
+  const removeAttachment = useCallback(() => {
+    attachmentRequestRef.current += 1;
+    setAttachmentUpload(null);
+  }, []);
+
+  const send = useCallback(async (body) => {
+    const text = String(typeof body === "string" ? body : body?.text || "").trim();
+    const conversation = activeChatRef.current;
+    const attachment = attachmentUpload?.status === "ready" ? attachmentUpload.uploaded : null;
+    if ((!text && !attachment?.fileUrl) || !conversation?.user?._id || sending) return { ok: false };
 
     setSending(true);
     setSendError("");
@@ -183,6 +244,10 @@ export default function useMessagesMobile(user) {
       sender: { _id: user._id, name: user.name, role: user.role, profileImage: user.profileImage },
       receiver: conversation.user._id,
       text,
+      fileUrl: attachment?.fileUrl,
+      fileType: attachment?.fileType,
+      fileName: attachment?.fileName,
+      fileSize: attachment?.fileSize,
       createdAt: new Date().toISOString(),
       read: false,
       pending: true,
@@ -190,7 +255,17 @@ export default function useMessagesMobile(user) {
     setMessages((current) => [...current, optimistic]);
 
     try {
-      const saved = await sendConversationMessage({ receiverId: conversation.user._id, text });
+      const saved = await sendConversationMessage({
+        receiverId: conversation.user._id,
+        text,
+        ...(attachment ? {
+          fileUrl: attachment.fileUrl,
+          fileGrant: attachment.fileGrant,
+          fileType: attachment.fileType,
+          fileName: attachment.fileName,
+          fileSize: attachment.fileSize,
+        } : {}),
+      });
       setMessages((current) => current
         .filter((message) => message._id !== saved._id)
         .map((message) => message._id === temporaryId ? saved : message));
@@ -204,6 +279,7 @@ export default function useMessagesMobile(user) {
       activeChatRef.current = promoted;
       setActiveChat(promoted);
       setConversations((current) => [promoted, ...current.filter((item) => item.chatId !== promoted.chatId)]);
+      setAttachmentUpload(null);
       setSending(false);
       return { ok: true, message: saved };
     } catch (requestError) {
@@ -213,7 +289,43 @@ export default function useMessagesMobile(user) {
       setSending(false);
       return { ok: false, error: message };
     }
-  }, [sending, user]);
+  }, [attachmentUpload, sending, user]);
+
+  const reactToMessage = useCallback(async (messageId, emoji) => {
+    const pendingKey = `${messageId}:${emoji}`;
+    setReactionPending(pendingKey);
+    setActionError("");
+    try {
+      const reactions = await toggleMessageReaction(messageId, emoji);
+      setMessages((current) => current.map((message) => (
+        message._id === messageId ? { ...message, reactions } : message
+      )));
+      return { ok: true };
+    } catch (requestError) {
+      const message = getMessagingError(requestError, "Could not update the reaction.");
+      setActionError(message);
+      return { ok: false, error: message };
+    } finally {
+      setReactionPending("");
+    }
+  }, []);
+
+  const removeMessage = useCallback(async (messageId) => {
+    setDeletionPending(messageId);
+    setActionError("");
+    try {
+      await deleteOwnMessage(messageId);
+      setMessages((current) => current.filter((message) => message._id !== messageId));
+      reload({ silent: true });
+      return { ok: true };
+    } catch (requestError) {
+      const message = getMessagingError(requestError, "Could not delete this message.");
+      setActionError(message);
+      return { ok: false, error: message };
+    } finally {
+      setDeletionPending("");
+    }
+  }, [reload]);
 
   useEffect(() => {
     if (!user?._id || !isSocketSupported()) return undefined;
@@ -234,6 +346,12 @@ export default function useMessagesMobile(user) {
     });
     client.on("message-deleted", ({ messageId }) => {
       setMessages((items) => items.filter((message) => message._id !== messageId));
+      reload({ silent: true });
+    });
+    client.on("message-reaction", ({ messageId, reactions }) => {
+      setMessages((items) => items.map((message) => (
+        message._id === messageId ? { ...message, reactions: Array.isArray(reactions) ? reactions : [] } : message
+      )));
     });
     return () => {
       client.close();
@@ -270,11 +388,20 @@ export default function useMessagesMobile(user) {
     error,
     sendError,
     sending,
+    attachmentUpload,
+    actionError,
+    reactionPending,
+    deletionPending,
     reload,
     refresh,
     openConversation,
     closeConversation,
     retryThread: () => activeChatRef.current && loadThread(activeChatRef.current),
+    chooseAttachment,
+    retryAttachment,
+    removeAttachment,
+    reactToMessage,
+    removeMessage,
     send,
-  }), [activeChat, closeConversation, conversations, error, loadThread, messages, openConversation, refresh, reload, send, sendError, sending, status, threadStatus]);
+  }), [actionError, activeChat, attachmentUpload, chooseAttachment, closeConversation, conversations, deletionPending, error, loadThread, messages, openConversation, reactionPending, reactToMessage, refresh, reload, removeAttachment, removeMessage, retryAttachment, send, sendError, sending, status, threadStatus]);
 }

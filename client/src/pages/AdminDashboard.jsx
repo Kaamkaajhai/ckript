@@ -1273,7 +1273,10 @@ const AdminDashboard = () => {
         try {
             const formData = new FormData();
             formData.append("file", file);
-            const { data } = await adminApi.post("/messages/upload", formData);
+            const { data } = await adminApi.post(
+                `/messages/upload?receiverId=${encodeURIComponent(activeMessageUser._id)}`,
+                formData
+            );
             setMessageAttachment(data || null);
         } catch (err) {
             console.error("Admin attachment upload error:", err);
@@ -1291,6 +1294,7 @@ const AdminDashboard = () => {
         const attachmentPayload = messageAttachment
             ? {
                 fileUrl: messageAttachment.fileUrl,
+                fileGrant: messageAttachment.fileGrant,
                 fileType: messageAttachment.fileType,
                 fileName: messageAttachment.fileName,
                 fileSize: messageAttachment.fileSize,

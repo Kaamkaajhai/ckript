@@ -3,6 +3,7 @@ import {
   appendUniqueMessage,
   buildConversationList,
   formatMessageDay,
+  groupMessageReactions,
   mergeIncomingMessage,
   shouldShowDay,
 } from "./messagesModel";
@@ -39,5 +40,16 @@ describe("native messaging view model", () => {
     expect(shouldShowDay([first, second], 0)).toBe(true);
     expect(shouldShowDay([first, second], 1)).toBe(true);
     expect(formatMessageDay("2026-08-20T10:00:00Z", new Date("2026-08-21T12:00:00Z"))).toBe("Yesterday");
+  });
+
+  it("groups reaction counts and identifies the viewer's reactions", () => {
+    expect(groupMessageReactions([
+      { emoji: "👍", userId: "u1" },
+      { emoji: "👍", userId: { _id: "u2" } },
+      { emoji: "❤️", userId: "u3" },
+    ], "u2")).toEqual([
+      { emoji: "👍", count: 2, mine: true },
+      { emoji: "❤️", count: 1, mine: false },
+    ]);
   });
 });

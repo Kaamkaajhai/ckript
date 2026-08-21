@@ -56,6 +56,19 @@ export function appendUniqueMessage(messages, message) {
   return [...messages, message];
 }
 
+export function groupMessageReactions(reactions = [], viewerId = "") {
+  const grouped = new Map();
+  (Array.isArray(reactions) ? reactions : []).forEach((reaction) => {
+    const emoji = clean(reaction?.emoji);
+    if (!emoji) return;
+    const current = grouped.get(emoji) || { emoji, count: 0, mine: false };
+    current.count += 1;
+    current.mine ||= clean(reaction?.userId?._id || reaction?.userId) === clean(viewerId);
+    grouped.set(emoji, current);
+  });
+  return [...grouped.values()];
+}
+
 export function formatConversationStamp(value, now = new Date()) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";

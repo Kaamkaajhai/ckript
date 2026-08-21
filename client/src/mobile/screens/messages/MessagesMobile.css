@@ -35,12 +35,32 @@
 .ckm .ckm-messages__bubble.is-mine footer { color: var(--ckm-muted-3); }
 .ckm .ckm-messages__image { display: block; width: min(240px, 100%); max-height: 260px; margin-bottom: var(--ckm-space-2); border-radius: var(--ckm-r-sm); object-fit: cover; }
 .ckm .ckm-messages__attachment { display: block; margin-bottom: var(--ckm-space-2); color: inherit; font-weight: var(--ckm-weight-semibold); overflow-wrap: anywhere; }
+.ckm .ckm-messages__message-actions { display: flex; max-width: 84%; flex-wrap: wrap; gap: var(--ckm-space-1); align-items: center; margin: var(--ckm-space-1) auto 0 0; }
+.ckm .ckm-messages__message-actions.is-mine { justify-content: flex-end; margin-right: 0; margin-left: auto; }
+.ckm .ckm-messages__reaction,
+.ckm .ckm-messages__react-menu > summary,
+.ckm .ckm-messages__delete { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; padding: var(--ckm-space-2); border: 1px solid var(--ckm-line-strong); border-radius: 999px; background: var(--ckm-bg); color: var(--ckm-text-2); font: var(--ckm-weight-semibold) var(--ckm-text-caption)/1 var(--ckm-body); cursor: pointer; }
+.ckm .ckm-messages__reaction.is-mine { border-color: var(--ckm-accent-ink); background: var(--ckm-accent-soft); color: var(--ckm-accent-ink); }
+.ckm .ckm-messages__delete { color: var(--ckm-danger); }
+.ckm .ckm-messages__react-menu { position: relative; }
+.ckm .ckm-messages__react-menu > summary { list-style: none; }
+.ckm .ckm-messages__react-menu > summary::-webkit-details-marker { display: none; }
+.ckm .ckm-messages__react-options { position: absolute; right: 0; bottom: calc(100% + var(--ckm-space-1)); z-index: var(--ckm-z-menu); display: grid; grid-template-columns: repeat(3, 44px); gap: var(--ckm-space-1); padding: var(--ckm-space-2); border: 1px solid var(--ckm-line-strong); border-radius: var(--ckm-r-md); background: var(--ckm-bg); box-shadow: var(--ckm-shadow-pop); }
+.ckm .ckm-messages__react-options button { width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; font-size: 20px; cursor: pointer; }
+.ckm .ckm-messages__reaction:focus-visible,
+.ckm .ckm-messages__react-menu > summary:focus-visible,
+.ckm .ckm-messages__react-options button:focus-visible,
+.ckm .ckm-messages__delete:focus-visible { outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring); outline-offset: var(--ckm-focus-ring-offset); }
 .ckm .ckm-messages__composer { position: sticky; bottom: 0; z-index: var(--ckm-z-sticky); display: grid; gap: var(--ckm-space-2); margin-top: auto; padding: var(--ckm-space-3) var(--ckm-space-4) calc(var(--ckm-space-3) + var(--ckm-safe-bottom)); border-top: 1px solid var(--ckm-line-strong); background: var(--ckm-bg); box-shadow: 0 -4px 14px -10px rgba(28, 26, 23, .3); }
 .ckm .ckm-messages__composer > label { font-size: var(--ckm-text-caption); font-weight: var(--ckm-weight-semibold); color: var(--ckm-text-2); }
 .ckm .ckm-messages__composer-row { display: flex; align-items: flex-end; gap: var(--ckm-space-2); }
 .ckm .ckm-messages__composer textarea { flex: 1; min-width: 0; min-height: 52px; max-height: 132px; resize: vertical; padding: var(--ckm-space-3); border: 1px solid var(--ckm-control-border); border-radius: var(--ckm-r-md); background: var(--ckm-bg); color: var(--ckm-text); font: var(--ckm-weight-regular) var(--ckm-text-body)/var(--ckm-leading-body) var(--ckm-body); }
 .ckm .ckm-messages__composer textarea:focus-visible { outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring); outline-offset: var(--ckm-focus-ring-offset); }
 .ckm .ckm-messages__composer .ckm-button { min-width: 96px; }
+.ckm .ckm-messages__composer .ckm-file-picker__list { max-height: 72px; overflow-y: auto; }
+.ckm .ckm-messages__upload { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--ckm-space-2); align-items: center; color: var(--ckm-text-2); font-size: var(--ckm-text-caption); }
+.ckm .ckm-messages__upload progress { width: 100%; accent-color: var(--ckm-accent-ink); }
+.ckm .ckm-messages__upload-ready { margin: 0; color: var(--ckm-green-ink); font-size: var(--ckm-text-caption); font-weight: var(--ckm-weight-semibold); }
 
 @media (prefers-reduced-motion: no-preference) {
   .ckm .ckm-messages__row { transition: transform var(--ckm-duration-press) var(--ckm-ease); }

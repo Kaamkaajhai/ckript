@@ -8,11 +8,16 @@ import MessagesSkeleton from "../../components/skeleton/MessagesSkeleton";
 import MeetingModal from "../../components/MeetingModal";
 import {
   buildMessageChatId,
+  deleteOwnMessage,
   getMessagePreview,
   getMessagingError,
   loadConversationMessages,
   loadMessageConversations,
+  MAX_MESSAGE_ATTACHMENT_BYTES,
+  QUICK_MESSAGE_REACTIONS,
   sendConversationMessage,
+  toggleMessageReaction,
+  uploadConversationAttachment,
 } from "./messageContract";
 import {
   MessageCircle, ChevronLeft, Send, Lock, Search, X, Check, CheckCheck, Smile,
@@ -58,9 +63,7 @@ const formatFileSize = (bytes = 0) => {
 const initialsOf = (name = "") =>
   name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("") || "?";
 
-const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 const REACTION_HIDE_DELAY_MS = 900;
-const MAX_ATTACHMENT_SIZE_BYTES = 250 * 1024 * 1024;
 const FILTERS = [
   ["all", "All"],
   ["unread", "Unread"],
@@ -282,6 +285,14 @@ const MessagesOperatorPage = () => {
       );
     });
 
+    sock.on("message-reaction", ({ messageId, reactions }) => {
+      setMessages((prev) => prev.map((message) => (
+        message._id === messageId
+          ? { ...message, reactions: Array.isArray(reactions) ? reactions : [] }
+          : message
+      )));
+    });
+
     return () => sock.close();
   }, [user?._id]);
 
@@ -489,6 +500,7 @@ const MessagesOperatorPage = () => {
     const attachmentPayload = attachment
       ? {
           fileUrl: attachment.fileUrl,
+          fileGrant: attachment.fileGrant,
           fileType: attachment.fileType,
           fileName: attachment.fileName,
           fileSize: attachment.fileSize,
@@ -512,17 +524,15 @@ const MessagesOperatorPage = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     setSendError("");
-    if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+    if (file.size > MAX_MESSAGE_ATTACHMENT_BYTES) {
       setSendError("Attachment is too large. Maximum size is 250MB.");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
     setUploadingAttachment(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const { data } = await api.post("/messages/upload", formData);
-      setAttachment(data);
+      const uploaded = await uploadConversationAttachment({ file, receiverId: activeChat.user._id });
+      setAttachment(uploaded);
     } catch (err) {
       setSendError(err.response?.data?.message || "Failed to upload attachment.");
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -564,7 +574,7 @@ const MessagesOperatorPage = () => {
   const handleReaction = async (messageId, emoji) => {
     scheduleReactionHide(1100);
     try {
-      const { data: reactions } = await api.patch(`/messages/${messageId}/reaction`, { emoji });
+      const reactions = await toggleMessageReaction(messageId, emoji);
       setMessages((prev) => prev.map((m) => (m._id === messageId ? { ...m, reactions } : m)));
     } catch { /* silent */ }
   };
@@ -572,11 +582,10 @@ const MessagesOperatorPage = () => {
   const handleDelete = async (messageId) => {
     setDeleteModal(null);
     try {
-      await api.delete(`/messages/${messageId}`);
+      await deleteOwnMessage(messageId);
       setMessages((prev) =>
         prev.map((m) => (m._id === messageId ? { ...m, deleted: true, text: "" } : m))
       );
-      socket?.emit("message-deleted", { chatId: activeChat.chatId, messageId });
     } catch { /* silent */ }
   };
 
@@ -711,7 +720,7 @@ const MessagesOperatorPage = () => {
             {/* emoji picker */}
             {emojiPicker === msg._id && (
               <div className="mo-picker" onMouseEnter={clearReactionHideTimer} onMouseLeave={() => scheduleReactionHide()}>
-                {QUICK_EMOJIS.map((em) => (
+                {QUICK_MESSAGE_REACTIONS.map((em) => (
                   <button key={em} onClick={() => handleReaction(msg._id, em)}>{em}</button>
                 ))}
               </div>

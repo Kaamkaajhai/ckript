@@ -27,11 +27,20 @@ const ready = (overrides = {}) => ({
   error: "",
   sendError: "",
   sending: false,
+  attachmentUpload: null,
+  actionError: "",
+  reactionPending: "",
+  deletionPending: "",
   reload: vi.fn(),
   refresh: vi.fn(),
   openConversation: vi.fn(),
   closeConversation: vi.fn(),
   retryThread: vi.fn(),
+  chooseAttachment: vi.fn(),
+  retryAttachment: vi.fn(),
+  removeAttachment: vi.fn(),
+  reactToMessage: vi.fn().mockResolvedValue({ ok: true }),
+  removeMessage: vi.fn().mockResolvedValue({ ok: true }),
   send: vi.fn().mockResolvedValue({ ok: true }),
   ...overrides,
 });
@@ -102,7 +111,50 @@ describe("native messages", () => {
       form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
       await Promise.resolve();
     });
-    expect(mocks.state.send).toHaveBeenCalledWith("Sounds good");
+    expect(mocks.state.send).toHaveBeenCalledWith({ text: "Sounds good" });
+  });
+
+  it("offers touch reactions and confirms deletion of an own message", async () => {
+    mocks.state = ready({
+      activeChat: { chatId: "investor-1_writer-1", user: { _id: "investor-1", name: "Dev Shah" } },
+      messages: [{
+        _id: "m1",
+        sender: "writer-1",
+        receiver: "investor-1",
+        text: "New draft",
+        reactions: [{ emoji: "👍", userId: "writer-1" }],
+        createdAt: "2026-08-21T10:00:00Z",
+      }],
+    });
+    await render();
+    expect(container.querySelector('[aria-pressed="true"]')?.textContent).toContain("1");
+    const quickReaction = container.querySelector('[aria-label="React with ❤️"]');
+    act(() => quickReaction.click());
+    expect(mocks.state.reactToMessage).toHaveBeenCalledWith("m1", "❤️");
+
+    const deleteButton = [...container.querySelectorAll("button")].find((button) => button.textContent === "Delete");
+    act(() => deleteButton.click());
+    expect(document.body.textContent).toContain("This removes the message for both people");
+    const confirm = [...document.body.querySelectorAll("button")].find((button) => button.textContent === "Delete message");
+    await act(async () => {
+      confirm.click();
+      await Promise.resolve();
+    });
+    expect(mocks.state.removeMessage).toHaveBeenCalledWith("m1");
+  });
+
+  it("shows attachment progress and a retry path", async () => {
+    const file = new File(["draft"], "draft.txt", { type: "text/plain" });
+    mocks.state = ready({
+      activeChat: { chatId: "investor-1_writer-1", user: { _id: "investor-1", name: "Dev Shah" } },
+      attachmentUpload: { file, status: "failed", progress: 0, error: "Network interrupted" },
+    });
+    await render();
+    expect(container.textContent).toContain("draft.txt");
+    expect(container.textContent).toContain("Network interrupted");
+    const retry = [...container.querySelectorAll("button")].find((button) => button.textContent.includes("Retry upload"));
+    act(() => retry.click());
+    expect(mocks.state.retryAttachment).toHaveBeenCalledTimes(1);
   });
 
   it("renders durable empty and failed inbox states", async () => {

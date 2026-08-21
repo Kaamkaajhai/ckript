@@ -7,7 +7,9 @@ import EmptyState from "../../components/EmptyState";
 import InlineMessage from "../../components/feedback/InlineMessage";
 import SkeletonGroup, { SkeletonShape } from "../../components/feedback/Skeletons";
 import TextField from "../../components/forms/TextField";
+import FilePicker from "../../components/forms/FilePicker";
 import NavBar from "../../components/navigation/NavBar";
+import ConfirmDialog from "../../components/overlays/ConfirmDialog";
 import MobileShell from "../../shell/MobileShell";
 import { MOBILE_SHELL_MODE } from "../../shell/mobileShellModes";
 import useKeyboardInset from "../../hooks/useKeyboardInset";
@@ -15,10 +17,15 @@ import {
   buildConversationList,
   formatConversationStamp,
   formatMessageDay,
+  groupMessageReactions,
   messageSenderId,
   shouldShowDay,
 } from "./messagesModel";
 import useMessagesMobile, { MESSAGE_LOAD_STATUS } from "./useMessagesMobile";
+import {
+  MESSAGE_ATTACHMENT_ACCEPT,
+  QUICK_MESSAGE_REACTIONS,
+} from "../../../features/messages-operator/messageContract";
 import "./MessagesMobile.css";
 
 const Avatar = ({ member, small = false }) => {
@@ -39,6 +46,7 @@ export default function MessagesMobile({ user }) {
   const keyboardInset = useKeyboardInset();
   const [query, setQuery] = useState("");
   const [draft, setDraft] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const endRef = useRef(null);
   const visibleConversations = useMemo(
     () => buildConversationList(state.conversations, query),
@@ -52,10 +60,17 @@ export default function MessagesMobile({ user }) {
   const submit = async (event) => {
     event.preventDefault();
     const message = draft.trim();
-    if (!message || state.sending) return;
+    const hasAttachment = state.attachmentUpload?.status === "ready";
+    if ((!message && !hasAttachment) || state.sending) return;
     setDraft("");
-    const result = await state.send(message);
+    const result = await state.send({ text: message });
     if (!result.ok) setDraft(message);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget?._id) return;
+    const result = await state.removeMessage(deleteTarget._id);
+    if (result.ok) setDeleteTarget(null);
   };
 
   if (state.activeChat) {
@@ -100,10 +115,11 @@ export default function MessagesMobile({ user }) {
                   icon="forum"
                   title="Start the conversation"
                   titleAs="h2"
-                  body="Write a clear first message. You can share files and schedule meetings from the desktop workspace."
+                  body="Write a clear first message or attach a file. Meeting scheduling remains in the desktop workspace."
                 />
               ) : state.messages.map((message, index) => {
                 const mine = messageSenderId(message) === String(user?._id || "");
+                const reactions = groupMessageReactions(message.reactions, user?._id);
                 return (
                   <div key={message._id || index}>
                     {shouldShowDay(state.messages, index) ? (
@@ -127,6 +143,46 @@ export default function MessagesMobile({ user }) {
                         {mine ? <span>{message.pending ? "Sending" : message.read ? "Read" : "Sent"}</span> : null}
                       </footer>
                     </article>
+                    {!message.pending ? (
+                      <div className={`ckm-messages__message-actions${mine ? " is-mine" : ""}`}>
+                        {reactions.map((reaction) => (
+                          <button
+                            type="button"
+                            key={reaction.emoji}
+                            className={`ckm-messages__reaction${reaction.mine ? " is-mine" : ""}`}
+                            aria-pressed={reaction.mine}
+                            disabled={state.reactionPending === `${message._id}:${reaction.emoji}`}
+                            onClick={() => state.reactToMessage(message._id, reaction.emoji)}
+                          >
+                            <span aria-hidden="true">{reaction.emoji}</span> {reaction.count}
+                          </button>
+                        ))}
+                        <details className="ckm-messages__react-menu">
+                          <summary aria-label="React to message">React</summary>
+                          <span className="ckm-messages__react-options">
+                            {QUICK_MESSAGE_REACTIONS.map((emoji) => (
+                              <button
+                                type="button"
+                                key={emoji}
+                                aria-label={`React with ${emoji}`}
+                                disabled={Boolean(state.reactionPending)}
+                                onClick={(event) => {
+                                  state.reactToMessage(message._id, emoji);
+                                  event.currentTarget.closest("details")?.removeAttribute("open");
+                                }}
+                              >
+                                {emoji}
+                              </button>
+                            ))}
+                          </span>
+                        </details>
+                        {mine ? (
+                          <button type="button" className="ckm-messages__delete" onClick={() => setDeleteTarget(message)}>
+                            Delete
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                 );
               })}
@@ -141,6 +197,28 @@ export default function MessagesMobile({ user }) {
           >
             {state.sendError && state.threadStatus !== MESSAGE_LOAD_STATUS.FAILED ? (
               <InlineMessage>{state.sendError}</InlineMessage>
+            ) : null}
+            {state.actionError ? <InlineMessage>{state.actionError}</InlineMessage> : null}
+            <FilePicker
+              label="Attachment"
+              hint="Images, video, audio, PDF, Office, text, CSV or ZIP · up to 250MB"
+              accept={MESSAGE_ATTACHMENT_ACCEPT}
+              files={state.attachmentUpload?.file ? [state.attachmentUpload.file] : []}
+              error={state.attachmentUpload?.error || ""}
+              disabled={state.attachmentUpload?.status === "uploading" || state.sending}
+              buttonLabel="Attach file"
+              onSelect={([file]) => file && state.chooseAttachment(file)}
+              onRemove={state.removeAttachment}
+            />
+            {state.attachmentUpload?.status === "uploading" ? (
+              <div className="ckm-messages__upload" role="status">
+                <progress value={state.attachmentUpload.progress} max="100" />
+                <span>Uploading {state.attachmentUpload.progress}%</span>
+              </div>
+            ) : state.attachmentUpload?.status === "failed" ? (
+              <Button type="button" variant="secondary" icon="refresh" onClick={state.retryAttachment}>Retry upload</Button>
+            ) : state.attachmentUpload?.status === "ready" ? (
+              <p className="ckm-messages__upload-ready" role="status">Attachment ready to send</p>
             ) : null}
             <label htmlFor="ckm-message-draft">Message</label>
             <div className="ckm-messages__composer-row">
@@ -157,13 +235,27 @@ export default function MessagesMobile({ user }) {
                 icon="send"
                 pending={state.sending}
                 pendingLabel="Sending"
-                disabled={!draft.trim()}
+                disabled={
+                  (!draft.trim() && state.attachmentUpload?.status !== "ready")
+                  || state.attachmentUpload?.status === "uploading"
+                }
                 aria-label="Send message"
               >
                 Send
               </Button>
             </div>
           </form>
+          <ConfirmDialog
+            open={Boolean(deleteTarget)}
+            title="Delete this message?"
+            message="This removes the message for both people and cannot be undone."
+            confirmLabel="Delete message"
+            destructive
+            pending={state.deletionPending === deleteTarget?._id}
+            error={state.actionError}
+            onCancel={() => setDeleteTarget(null)}
+            onConfirm={confirmDelete}
+          />
         </section>
       </MobileShell>
     );
