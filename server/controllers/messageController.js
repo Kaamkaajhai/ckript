@@ -226,6 +226,10 @@ export const sendMessage = async (req, res) => {
       { path: "sender", select: "name profileImage role" },
       { path: "script", select: "title" },
     ]);
+    // Broadcast only the document that Mongo accepted. The previous socket
+    // relay trusted a participant-supplied payload, which let either side put
+    // messages in the live thread that did not exist in the database.
+    req.app?.get?.("io")?.to(chatId).emit("receive-message", populated);
     res.status(201).json(populated);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -305,40 +309,47 @@ export const getConversations = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    // Fast indexed BSON dump
-    // Fix massive performance bottleneck: Mongoose $or query with a sort causes slow in-memory sorts.
-    // Instead, query sender and receiver separately utilizing their explicit indexes, then merge.
-    const [sentMsgs, receivedMsgs] = await Promise.all([
-      Message.find({ sender: userId, deleted: { $ne: true } })
-        .sort({ createdAt: -1 })
-        .limit(50)
-        .populate("sender", "name profileImage role")
-        .populate("receiver", "name profileImage role")
-        .lean(),
-      Message.find({ receiver: userId, deleted: { $ne: true } })
-        .sort({ createdAt: -1 })
-        .limit(50)
-        .populate("sender", "name profileImage role")
-        .populate("receiver", "name profileImage role")
-        .lean()
+    // Group in Mongo before limiting. Limiting raw messages lets one busy thread
+    // crowd every older conversation out of the inbox and cannot produce honest
+    // per-thread unread counts. The participant indexes bound the match; the
+    // group returns only the newest message and unread total for each chat.
+    const threads = await Message.aggregate([
+      {
+        $match: {
+          $or: [{ sender: userId }, { receiver: userId }],
+          deleted: { $ne: true },
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: "$chatId",
+          latest: { $first: "$$ROOT" },
+          unreadCount: {
+            $sum: {
+              $cond: [
+                { $and: [{ $eq: ["$receiver", userId] }, { $eq: ["$read", false] }] },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
+      { $sort: { "latest.createdAt": -1 } },
+      { $limit: 50 },
     ]);
 
-    // Merge, sort descending, and cap at 50
-    const msgs = [...sentMsgs, ...receivedMsgs]
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, 50);
+    await Message.populate(threads, [
+      { path: "latest.sender", select: "name profileImage role" },
+      { path: "latest.receiver", select: "name profileImage role" },
+    ]);
 
-    const seen = new Set();
-    const conversations = [];
-
-    for (const msg of msgs) {
-      if (seen.has(msg.chatId)) continue;
-      seen.add(msg.chatId);
-
-      const otherUser =
-        msg.sender._id.toString() === userId.toString() ? msg.receiver : msg.sender;
-
-      conversations.push({
+    const conversations = threads.flatMap(({ latest: msg, unreadCount }) => {
+      if (!msg?.sender || !msg?.receiver) return [];
+      const senderId = msg.sender._id || msg.sender;
+      const otherUser = senderId.toString() === userId.toString() ? msg.receiver : msg.sender;
+      return [{
         chatId: msg.chatId,
         user: otherUser,
         lastMessage:
@@ -349,9 +360,9 @@ export const getConversations = async (req, res) => {
               ? "🎬 Trailer Video"
               : "📎 File"),
         timestamp: msg.createdAt,
-        unreadCount: 0, // Dropped dynamic mathematical calc. Offload to Redis in a production architecture!
-      });
-    }
+        unreadCount: Number(unreadCount) || 0,
+      }];
+    });
 
     res.json(conversations);
   } catch (error) {
@@ -364,11 +375,13 @@ export const checkCanMessage = async (req, res) => {
   try {
     const user = req.user;
     const { targetId } = req.params;
+    const targetObjectId = asObjectId(targetId);
+    if (!targetObjectId) return res.status(400).json({ message: "targetId is not a valid user id." });
 
     const currentUser = await User.findById(user._id).select("_id role blockedUsers");
     if (!currentUser) return res.status(404).json({ message: "User not found." });
 
-    const targetUser = await User.findById(targetId).select("_id role blockedUsers");
+    const targetUser = await User.findById(targetObjectId).select("_id role blockedUsers");
     if (!targetUser) return res.status(404).json({ message: "User not found." });
 
     const blockedByCurrent = hasBlockedUser(currentUser.blockedUsers, targetUser._id);
@@ -444,8 +457,16 @@ export const toggleReaction = async (req, res) => {
 
     if (!emoji) return res.status(400).json({ message: "Emoji is required." });
 
-    const message = await Message.findById(messageId);
+    const messageObjectId = asObjectId(messageId);
+    if (!messageObjectId) return res.status(400).json({ message: "messageId is not a valid message id." });
+
+    const message = await Message.findById(messageObjectId);
     if (!message) return res.status(404).json({ message: "Message not found." });
+
+    const participantIds = [message.sender, message.receiver].map((id) => id?.toString());
+    if (!participantIds.includes(userId.toString())) {
+      return res.status(403).json({ message: "Access denied." });
+    }
 
     const existingIdx = message.reactions.findIndex(
       (r) => r.userId.toString() === userId.toString() && r.emoji === emoji

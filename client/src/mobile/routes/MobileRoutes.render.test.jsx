@@ -41,6 +41,10 @@ vi.mock("../screens/profiles/follow-requests/FollowRequestsMobile", () => ({
   default: () => <main data-testid="mobile-follow-requests">Follow requests</main>,
 }));
 
+vi.mock("../screens/messages/MessagesMobile", () => ({
+  default: () => <main data-testid="mobile-messages">Messages</main>,
+}));
+
 vi.mock("../screens/profiles/visitor-profile/ProfileVisitorMobile", () => ({
   default: () => <main data-testid="mobile-visitor-profile">Visitor profile</main>,
 }));
@@ -88,9 +92,10 @@ describe("MobileRoutes", () => {
     expect(el.querySelector('[data-testid="mobile-dashboard"]').dataset.preview).toBe("false");
   });
 
-  it("does not silently turn an unmatched URL into the dashboard", async () => {
+  it("renders the native messages screen instead of silently falling back to the dashboard", async () => {
     const el = await mount("/messages");
     expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
+    expect(el.querySelector('[data-testid="mobile-messages"]')).toBeTruthy();
   });
 
   it("renders the same dashboard at /ai-tools, because desktop does", async () => {

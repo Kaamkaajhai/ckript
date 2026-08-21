@@ -7,6 +7,14 @@ import { isSocketSupported } from "../../utils/apiOrigin";
 import MessagesSkeleton from "../../components/skeleton/MessagesSkeleton";
 import MeetingModal from "../../components/MeetingModal";
 import {
+  buildMessageChatId,
+  getMessagePreview,
+  getMessagingError,
+  loadConversationMessages,
+  loadMessageConversations,
+  sendConversationMessage,
+} from "./messageContract";
+import {
   MessageCircle, ChevronLeft, Send, Lock, Search, X, Check, CheckCheck, Smile,
   Trash2, Video, FileText, Paperclip, Loader2, Download, ShieldCheck, ArrowRight,
   ChevronDown, ArrowUpDown, CheckSquare, Info, MoreVertical, User, Slash,
@@ -17,11 +25,6 @@ import "./MessagesOperatorPage.css";
 const API_ORIGIN = (import.meta.env.VITE_API_URL || "http://localhost:5002").replace(/\/api\/?$/, "").replace(/\/$/, "");
 
 /* ── helpers ──────────────────────────────────────────────────── */
-const buildChatId = (a, b) => {
-  const sorted = [a.toString(), b.toString()].sort();
-  return `${sorted[0]}_${sorted[1]}`;
-};
-
 const formatTime = (date) =>
   new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -36,16 +39,6 @@ const formatDay = (date) => {
 };
 
 const isSameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
-
-const getMessagePreview = (msg) =>
-  msg?.text ||
-  (msg?.fileType === "video"
-    ? "🎬 Trailer Video"
-    : msg?.fileType === "image"
-      ? "📷 Image"
-      : msg?.fileUrl
-        ? "📎 File"
-        : "");
 
 const resolveMediaUrl = (url) => {
   if (!url) return "";
@@ -310,8 +303,7 @@ const MessagesOperatorPage = () => {
     if (!chatId) return;
     if (!silent) setMessagesLoading(true);
     try {
-      const { data } = await api.get(`/messages/${chatId}`);
-      const next = Array.isArray(data) ? data : [];
+      const next = await loadConversationMessages(chatId);
       setMessages((prev) => {
         const sameLength = prev.length === next.length;
         const sameFirst = prev[0]?._id === next[0]?._id;
@@ -329,8 +321,7 @@ const MessagesOperatorPage = () => {
   const loadConversations = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
     try {
-      const { data } = await api.get("/messages/conversations");
-      const next = Array.isArray(data) ? data : [];
+      const next = await loadMessageConversations();
       setConversations(next);
       const activeId = activeChatRef.current?.chatId;
       if (activeId) {
@@ -372,7 +363,7 @@ const MessagesOperatorPage = () => {
     const recipientRole = searchParams.get("recipientRole") || (isInvestor ? "writer" : "investor");
     if (!recipientId || !(isInvestor || isWriter)) return;
 
-    const chatId = buildChatId(user._id, recipientId);
+    const chatId = buildMessageChatId(user._id, recipientId);
     const existing = conversations.find((c) => c.chatId === chatId);
     if (existing) { handleSelectChat(existing); return; }
 
@@ -457,13 +448,17 @@ const MessagesOperatorPage = () => {
     const sentText = textToSend;
 
     try {
-      const { data: saved } = await api.post("/messages/send", {
+      const saved = await sendConversationMessage({
         receiverId: activeChat.user._id,
         text: sentText || "",
         ...extraPayload,
       });
-      setMessages((prev) => prev.map((m) => (m._id === tempId ? saved : m)));
-      socket?.emit("send-message", { ...saved, chatId: activeChat.chatId });
+      // The server broadcasts the persisted document. It may reach this tab
+      // before the POST resolves, so remove that echo before replacing the
+      // optimistic row rather than rendering the saved message twice.
+      setMessages((prev) => prev
+        .filter((m) => m._id !== saved._id)
+        .map((m) => (m._id === tempId ? saved : m)));
 
       if (activeChat.isPending) {
         const promoted = { ...activeChat, lastMessage: getMessagePreview(saved), isPending: false };
@@ -481,12 +476,7 @@ const MessagesOperatorPage = () => {
       return true;
     } catch (err) {
       setMessages((prev) => prev.filter((m) => m._id !== tempId));
-      const code = err.response?.data?.code;
-      setSendError(
-        code === "PURCHASE_REQUIRED"
-          ? "Purchase a project from this writer first to unlock messaging."
-          : err.response?.data?.message || "Failed to send message."
-      );
+      setSendError(getMessagingError(err, "Failed to send message."));
       return false;
     }
   };

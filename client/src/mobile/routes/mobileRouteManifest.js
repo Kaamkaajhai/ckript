@@ -427,7 +427,16 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     shell: MOBILE_SHELL_MODE.DETAIL,
     fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
   },
-  migration("messages", "/messages"),
+  {
+    id: "messages",
+    pattern: "/messages",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native inbox and URL-backed text thread over the shared messaging contract (plan §11 Phase 5, D39).",
+    protection: "authenticated",
+    screenId: "messages",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
   {
     id: "profile",
     pattern: "/profile/:id?",

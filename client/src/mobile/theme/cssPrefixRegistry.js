@@ -335,6 +335,13 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     note: "The native inbound follow-request queue with profile links and shared accept/reject mutations.",
   },
 
+  "ckm-messages": {
+    kind: PAGE_FAMILY,
+    owner: "screens/messages/MessagesMobile.css",
+    family: "messages",
+    note: "The native conversation inbox, text thread, attachment display and keyboard-aware composer.",
+  },
+
   // --- Project creation (Phase 3) ---------------------------------------
   // The chooser at /new-project. Its own family rather than part of
   // ckm-create-project: it is a different route with a different shell, it

@@ -19,21 +19,6 @@ describe("mobileRoutePolicy — experience selection", () => {
     });
   });
 
-  it.each(["/messages"])(
-    "keeps the canonical desktop route during migration instead of swallowing %s",
-    (pathname) => {
-      expect(resolveMobileExperience({
-        isMobile: true,
-        authLoading: false,
-        user: writer,
-        pathname,
-      })).toMatchObject({
-        experience: "desktop",
-        disposition: "desktop-migration-fallback",
-      });
-    },
-  );
-
   /*
    * The checkout was one of those migration fallbacks until D30 promoted it. It is asserted
    * separately from the detail forms because its pattern sits ABOVE them in the manifest on
@@ -423,6 +408,15 @@ describe("mobileRoutePolicy — experience selection", () => {
       user: writer,
       pathname: "/follow-requests",
     })).toMatchObject({ experience: "mobile", routeId: "follow-requests", screenId: "follow-requests" });
+  });
+
+  it("mounts the canonical messages route through the native inbox", () => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: writer,
+      pathname: "/messages",
+    })).toMatchObject({ experience: "mobile", routeId: "messages", screenId: "messages" });
   });
 
   it("mounts the shared native project surface for a reader without rewriting its route (D32)", () => {
