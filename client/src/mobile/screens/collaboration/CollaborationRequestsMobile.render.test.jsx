@@ -8,8 +8,11 @@ import CollaborationRequestsMobile from "./CollaborationRequestsMobile";
 
 const mocks = vi.hoisted(() => ({
   state: null,
+  invites: null,
+  activity: null,
   refresh: vi.fn(),
   respond: vi.fn(),
+  acceptInvite: vi.fn(),
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
 
@@ -17,7 +20,10 @@ vi.mock("socket.io-client", () => ({ io: () => ({ on: vi.fn(), disconnect: vi.fn
 vi.mock("../../../components/collab/collaborationRequests", async (importOriginal) => ({
   ...(await importOriginal()),
   useCollabRequestPage: () => mocks.state,
+  useCollabInvitePage: () => mocks.invites,
+  useCollabActivityPage: () => mocks.activity,
   respondToCollabRequest: (...args) => mocks.respond(...args),
+  acceptCollabInvite: (...args) => mocks.acceptInvite(...args),
 }));
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -43,6 +49,9 @@ beforeEach(() => {
     status: "pending",
   }]);
   mocks.respond.mockResolvedValue({ message: "Request accepted", request: { status: "accepted" } });
+  mocks.invites = { status: "idle", invitations: [], pagination: { page: 1, pages: 1 }, error: "", refresh: mocks.refresh };
+  mocks.activity = { status: "idle", activity: [], pagination: { page: 1, pages: 1 }, error: "", refresh: mocks.refresh };
+  mocks.acceptInvite.mockResolvedValue({ message: "Invitation accepted", script: { id: "s1", title: "Night Train" } });
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
@@ -114,5 +123,50 @@ describe("native collaboration requests", () => {
     ); });
     expect(container.textContent).toContain("Could not load requests");
     expect(container.textContent).toContain("Offline");
+  });
+
+  it("accepts a current invitation in-app and keeps a workspace action visible", async () => {
+    mocks.invites = {
+      status: "ready",
+      invitations: [{ id: "i1", scriptId: "s1", scriptTitle: "Night Train", token: "token-1", role: "editor", accessLevel: "content_only", expired: false, invitedBy: { name: "Mira" } }],
+      pagination: { page: 1, pages: 1 },
+      error: "",
+      refresh: mocks.refresh,
+    };
+    await render("/collaborations?tab=invites");
+    expect(container.textContent).toContain("From Mira");
+    const accept = [...container.querySelectorAll("button")].find((button) => button.textContent === "Accept invitation");
+    await act(async () => { accept.click(); await Promise.resolve(); });
+    expect(mocks.acceptInvite).toHaveBeenCalledWith("token-1");
+    expect(container.textContent).toContain("Invitation accepted");
+    expect(container.querySelector('a[href="/create-project/s1"]')).toBeTruthy();
+  });
+
+  it("states expired invitations without presenting a dead acceptance control", async () => {
+    mocks.invites = {
+      status: "ready",
+      invitations: [{ id: "i2", scriptTitle: "Old Draft", token: "old", role: "viewer", accessLevel: "content_only", expired: true }],
+      pagination: { page: 1, pages: 1 },
+      error: "",
+      refresh: mocks.refresh,
+    };
+    await render("/collaborations?tab=invites");
+    expect(container.textContent).toContain("This link is no longer valid");
+    expect([...container.querySelectorAll("button")].some((button) => button.textContent === "Accept invitation")).toBe(false);
+  });
+
+  it("renders paged activity with project context and workspace navigation", async () => {
+    mocks.activity = {
+      status: "ready",
+      activity: [{ id: "a1", scriptId: "s/2", scriptTitle: "Second Draft", action: "invite_accepted", actor: { name: "Asha" }, createdAt: new Date().toISOString() }],
+      pagination: { page: 1, pages: 2, hasNext: true, hasPrevious: false },
+      error: "",
+      refresh: mocks.refresh,
+    };
+    await render("/collaborations?tab=activity");
+    expect(container.textContent).toContain("Asha invite accepted");
+    expect(container.textContent).toContain("Second Draft");
+    expect(container.querySelector('a[href="/create-project/s%2F2"]')).toBeTruthy();
+    expect(container.textContent).toContain("Page 1 of 2");
   });
 });

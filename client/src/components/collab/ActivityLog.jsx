@@ -1,17 +1,10 @@
 import { useEffect, useState } from "react";
-import { getCollabErrorMessage, listCollabActivity } from "./collaborationRequests";
-
-const describeAction = (entry) => String(entry?.action || "updated the project").replace(/_/g, " ");
-
-const timeAgo = (value) => {
-  const timestamp = new Date(value).getTime();
-  if (!Number.isFinite(timestamp)) return "Recently";
-  const delta = Math.max(1, Math.floor((Date.now() - timestamp) / 1000));
-  if (delta < 60) return `${delta}s ago`;
-  if (delta < 3600) return `${Math.floor(delta / 60)}m ago`;
-  if (delta < 86400) return `${Math.floor(delta / 3600)}h ago`;
-  return `${Math.floor(delta / 86400)}d ago`;
-};
+import {
+  describeCollabActivity,
+  formatCollabTimeAgo,
+  getCollabErrorMessage,
+  listCollabActivity,
+} from "./collaborationRequests";
 
 export default function ActivityLog({ scriptId }) {
   const [page, setPage] = useState(1);
@@ -41,13 +34,13 @@ export default function ActivityLog({ scriptId }) {
       {view.status === "error" ? <p className="mt-4 text-sm text-red-700" role="alert">{view.error}</p> : null}
       <div className="mt-4 space-y-3">
         {view.activity.map((entry) => (
-          <div key={entry._id} className="flex items-start gap-3 rounded-2xl border border-gray-100 px-4 py-3">
+          <div key={entry.id} className="flex items-start gap-3 rounded-2xl border border-gray-100 px-4 py-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1e3a5f] text-sm font-bold text-white">
               {entry.actor?.name?.charAt(0)?.toUpperCase() || "U"}
             </div>
             <div>
-              <p className="font-medium text-gray-900">{entry.actor?.name || "Unknown user"} {describeAction(entry)}</p>
-              <p className="text-xs uppercase tracking-wide text-gray-500">{timeAgo(entry.createdAt)}</p>
+              <p className="font-medium text-gray-900">{entry.actor?.name || "Unknown user"} {describeCollabActivity(entry)}</p>
+              <p className="text-xs uppercase tracking-wide text-gray-500">{formatCollabTimeAgo(entry.createdAt)}</p>
             </div>
           </div>
         ))}

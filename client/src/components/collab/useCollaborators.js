@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import api from "../../services/api";
+import { refreshCollabInvite, sendCollabInvite } from "./collaborationRequests";
 
 /*
  * The collaborator list, its four server calls, and its loading/error state —
@@ -17,6 +18,15 @@ export const getCollaboratorUserId = (entry) => String(
   || entry?.user
   || entry?.userId?._id
   || entry?.userId
+  || ""
+);
+
+// The embedded collaborator row is the only identity shared by account-backed and email-only
+// invitations. Owner actions use it first; user/email fallbacks keep older server payloads working.
+export const getCollaboratorIdentity = (entry) => String(
+  entry?._id
+  || getCollaboratorUserId(entry)
+  || entry?.invitedEmail
   || ""
 );
 
@@ -69,7 +79,7 @@ export default function useCollaborators(scriptId, currentUserId) {
 
   const updateRole = useCallback(async (userId, role, accessLevel) => {
     try {
-      await api.patch(`/collab/${scriptId}/collaborators/${userId}/role`, { role, accessLevel });
+      await api.patch(`/collab/${encodeURIComponent(scriptId)}/collaborators/${encodeURIComponent(userId)}/role`, { role, accessLevel });
       await load();
       return true;
     } catch (err) {
@@ -80,7 +90,7 @@ export default function useCollaborators(scriptId, currentUserId) {
 
   const remove = useCallback(async (userId) => {
     try {
-      await api.delete(`/collab/${scriptId}/collaborators/${userId}`);
+      await api.delete(`/collab/${encodeURIComponent(scriptId)}/collaborators/${encodeURIComponent(userId)}`);
       await load();
       return true;
     } catch (err) {
@@ -89,10 +99,22 @@ export default function useCollaborators(scriptId, currentUserId) {
     }
   }, [scriptId, load]);
 
+  const resend = useCallback(async (identity) => {
+    try {
+      setError("");
+      await refreshCollabInvite(scriptId, identity);
+      await load();
+      return true;
+    } catch (err) {
+      setError(err.response?.data?.error || "Failed to refresh the invitation");
+      return false;
+    }
+  }, [scriptId, load]);
+
   const invite = useCallback(async (form) => {
     try {
       setError("");
-      await api.post(`/collab/${scriptId}/invite`, form);
+      await sendCollabInvite(scriptId, form);
       await load();
       return true;
     } catch (err) {
@@ -122,6 +144,7 @@ export default function useCollaborators(scriptId, currentUserId) {
     reload: load,
     updateRole,
     remove,
+    resend,
     invite,
   };
 }

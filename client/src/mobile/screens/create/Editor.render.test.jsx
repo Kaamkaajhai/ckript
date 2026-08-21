@@ -826,7 +826,14 @@ describe("Editor — People (D18)", () => {
     // The consequence is stated, not implied by a red button.
     expect(dialogText()).toMatch(/loses access to this script immediately/i);
     await act(async () => { click(control("Confirm remove")); });
-    expect(collabApi.delete).toHaveBeenCalledWith("/collab/s1/collaborators/u2");
+    expect(collabApi.delete).toHaveBeenCalledWith("/collab/s1/collaborators/e1");
+  });
+
+  it("refreshes an email-only invitation by its embedded row identity", async () => {
+    await openPeople();
+    await act(async () => { click(control("Send new link")); await Promise.resolve(); await Promise.resolve(); });
+    expect(collabApi.post).toHaveBeenCalledWith("/collab/s1/collaborators/e2/resend-invite", { message: "" });
+    expect(dialogText()).toContain("valid for another 72 hours");
   });
 
   it("offers no management at all to a collaborator who is not the owner", async () => {

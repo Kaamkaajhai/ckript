@@ -57,6 +57,7 @@ export default function PeopleDialog({
   const [role, setRole] = useState("editor");
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState("");
+  const [refreshingInvite, setRefreshingInvite] = useState("");
 
   const presence = buildPresenceRows(people, { myUserId });
   const active = buildAccessRows(collab.active, { isOwner: collab.isOwner, myUserId });
@@ -85,6 +86,16 @@ export default function PeopleDialog({
     collab.remove(row.key);
   };
 
+  const refreshInvite = async (row) => {
+    setRefreshingInvite(row.key);
+    try {
+      const ok = await collab.resend(row.key);
+      if (ok) setSent(`Invitation refreshed for ${row.name}. It is valid for another 72 hours.`);
+    } finally {
+      setRefreshingInvite("");
+    }
+  };
+
   const renderRow = (row) => (
     <li key={row.key} className={`ckm-editor__person${row.pending ? " is-pending" : ""}`}>
       <div className="ckm-editor__person-head">
@@ -96,7 +107,7 @@ export default function PeopleDialog({
       </div>
 
       <p className="ckm-editor__person-access">
-        {row.pending ? "Invited — not accepted yet" : row.accessLabel}
+        {row.pending ? (row.inviteExpired ? "Invitation expired — refresh it to send a new link" : "Invited — not accepted yet") : row.accessLabel}
       </p>
 
       {row.canManage && (
@@ -110,6 +121,17 @@ export default function PeopleDialog({
               options={accessChoices(row)}
               onChange={(event) => collab.updateRole(row.key, row.role, event.target.value)}
             />
+          )}
+          {row.pending && (
+            <Button
+              size="sm"
+              variant="secondary"
+              pending={refreshingInvite === row.key}
+              disabled={Boolean(refreshingInvite && refreshingInvite !== row.key)}
+              onClick={() => refreshInvite(row)}
+            >
+              {row.inviteExpired ? "Refresh expired invite" : "Send new link"}
+            </Button>
           )}
           <Button
             size="sm"

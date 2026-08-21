@@ -5,7 +5,9 @@ import { checkPermission } from "../middleware/checkPermission.js";
 import {
   acceptInvite,
   getActivityLog,
+  getCollabActivityInbox,
   getCollaborators,
+  getCollabInvitesInbox,
   getCollabRequestsInbox,
   getMyCollabRequest,
   getOutgoingCollabRequests,
@@ -42,8 +44,12 @@ const requestLimiter = rateLimit({
 
 router.get("/requests/inbox", protect, getCollabRequestsInbox);
 router.get("/requests/outgoing", protect, getOutgoingCollabRequests);
+router.get("/invites/inbox", protect, getCollabInvitesInbox);
+router.get("/activity", protect, getCollabActivityInbox);
 
 router.post("/:scriptId/invite", protect, checkPermission("manage"), inviteLimiter, inviteCollaborator);
+router.post("/invite/:token/accept", protect, acceptInvite);
+// Compatibility for invitation links opened by clients released before D44.
 router.get("/invite/:token", protect, acceptInvite);
 
 router.post("/:scriptId/request", protect, requestLimiter, requestCollab);
@@ -54,7 +60,7 @@ router.get("/:scriptId/requests", protect, checkPermission("manage"), getScriptR
 router.get("/:scriptId/collaborators", protect, checkPermission("read"), getCollaborators);
 router.patch("/:scriptId/collaborators/:userId/role", protect, checkPermission("manage"), updateCollaboratorRole);
 router.delete("/:scriptId/collaborators/:userId", protect, checkPermission("manage"), removeCollaborator);
-router.post("/:scriptId/collaborators/:userId/resend-invite", protect, checkPermission("manage"), resendInvite);
+router.post("/:scriptId/collaborators/:userId/resend-invite", protect, checkPermission("manage"), inviteLimiter, resendInvite);
 router.patch("/:scriptId/visibility", protect, checkPermission("manage"), updateVisibility);
 
 router.post("/:scriptId/publish", protect, checkPermission("publish"), publishScript);

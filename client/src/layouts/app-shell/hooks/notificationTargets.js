@@ -87,7 +87,9 @@ export const getNotificationTarget = (notification, viewer) => {
   if (FIXED_TYPES[type]) return FIXED_TYPES[type];
 
   if (type === "collab_invite" && notification?.actionToken) {
-    return `/invite/${encodeURIComponent(notification.actionToken)}`;
+    // The recipient inbox owns expiry and durable accept failures. Email links keep the direct
+    // token route, while an authenticated in-app action stays inside the native collaboration UI.
+    return "/collaborations?tab=invites";
   }
 
   // An owner's incoming request needs a decision, which lives in the canonical request queue.

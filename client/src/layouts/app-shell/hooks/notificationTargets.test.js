@@ -79,9 +79,9 @@ describe("getNotificationTarget", () => {
     expect(getNotificationActionLabel({ type: "collab_request" })).toBe("Review");
   });
 
-  it("makes an in-app collaboration invite actionable when its recipient token is present", () => {
+  it("opens token-backed in-app invitations in the recipient queue", () => {
     expect(getNotificationTarget({ type: "collab_invite", actionToken: "invite/token", script }, viewer))
-      .toBe("/invite/invite%2Ftoken");
+      .toBe("/collaborations?tab=invites");
   });
 
   it.each(["follow", "profile_view", "like", "comment"])(

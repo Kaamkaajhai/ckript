@@ -150,7 +150,7 @@ const mapRequestForResponse = (request, script = null) => ({
 const CONTENT_ONLY_SECTION_FIELDS = new Set(["textContent", "fullContent"]);
 const FULL_ACCESS_SECTION_FIELDS = new Set(["textContent", "fullContent", "description", "synopsis", "logline"]);
 
-const mapCollaboratorForResponse = (collaborator) => ({
+const mapCollaboratorForResponse = (collaborator, { includeInvitedEmail = false } = {}) => ({
   _id: collaborator?._id,
   role: collaborator?.role,
   accessLevel: collaborator?.accessLevel || COLLAB_ACCESS_LEVELS.FULL_ACCESS,
@@ -158,7 +158,10 @@ const mapCollaboratorForResponse = (collaborator) => ({
   status: collaborator?.status,
   joinedAt: collaborator?.joinedAt,
   isActive: collaborator?.isActive,
+  invitedAt: collaborator?.invitedAt || collaborator?._id?.getTimestamp?.() || null,
   inviteExpiresAt: collaborator?.inviteExpiresAt,
+  inviteExpired: collaborator?.status === "pending" && isInviteExpired(collaborator?.inviteExpiresAt),
+  ...(includeInvitedEmail && collaborator?.invitedEmail ? { invitedEmail: collaborator.invitedEmail } : {}),
   user: collaborator?.userId && typeof collaborator.userId === "object"
     ? {
       _id: collaborator.userId._id,
@@ -230,6 +233,7 @@ const createCollaboratorEntry = ({
   role,
   accessLevel = COLLAB_ACCESS_LEVELS.FULL_ACCESS,
   invitedBy,
+  invitedAt = new Date(),
   status = "pending",
   inviteToken = null,
   inviteExpiresAt = null,
@@ -240,6 +244,7 @@ const createCollaboratorEntry = ({
   role,
   accessLevel,
   invitedBy,
+  invitedAt,
   inviteToken,
   inviteExpiresAt,
   status,
@@ -257,32 +262,38 @@ const getCollaboratorRank = (entry) => {
 };
 
 const getCanonicalCollaboratorEntries = (entries = []) => {
-  const bestByUserId = new Map();
+  const bestByIdentity = new Map();
 
   (Array.isArray(entries) ? entries : []).forEach((entry) => {
-    const userId = normalizeObjectId(entry?.userId);
-    if (!userId) return;
+    const identity = normalizeObjectId(entry?.userId) || String(entry?.invitedEmail || "").trim().toLowerCase();
+    if (!identity) return;
 
-    const current = bestByUserId.get(userId);
+    const current = bestByIdentity.get(identity);
     if (!current || getCollaboratorRank(entry) >= getCollaboratorRank(current)) {
-      bestByUserId.set(userId, entry);
+      bestByIdentity.set(identity, entry);
     }
   });
 
-  return [...bestByUserId.values()];
+  return [...bestByIdentity.values()];
 };
 
-const findCurrentCollaboratorEntry = (script, userId) => {
+const collaboratorMatchesIdentity = (entry, identity) => {
+  const target = String(identity || "").trim().toLowerCase();
+  if (!target) return false;
+  return [entry?._id, entry?.userId?._id, entry?.userId, entry?.invitedEmail]
+    .some((value) => String(value || "").trim().toLowerCase() === target);
+};
+
+const findCurrentCollaboratorEntry = (script, identity) => {
   const collaboratorEntries = Array.isArray(script?.collaborators) ? script.collaborators : [];
-  const targetUserId = normalizeObjectId(userId);
 
   return collaboratorEntries.find(
     (entry) =>
-      normalizeObjectId(entry?.userId) === targetUserId
+      collaboratorMatchesIdentity(entry, identity)
       && entry?.isActive === true
       && ["pending", "accepted"].includes(entry?.status)
   ) || collaboratorEntries.find(
-    (entry) => normalizeObjectId(entry?.userId) === targetUserId
+    (entry) => collaboratorMatchesIdentity(entry, identity)
   ) || null;
 };
 
@@ -314,10 +325,9 @@ export const inviteCollaborator = async (req, res) => {
       return res.status(400).json({ error: "You cannot invite yourself" });
     }
 
-    const industryRoles = ["investor", "producer", "director", "actor", "industry", "professional"];
-    if (invitedUser && industryRoles.includes(invitedUser.role)) {
-      return res.status(403).json({ 
-        error: "🎬 This account belongs to a Film Industry Professional. You can only invite fellow writers to collaborate on scripts." 
+    if (invitedUser && !isWriterRole(invitedUser)) {
+      return res.status(403).json({
+        error: "Only writer accounts can be invited to collaborate on scripts.",
       });
     }
 
@@ -393,7 +403,7 @@ export const inviteCollaborator = async (req, res) => {
 
     return res.status(200).json({
       message: emailUnavailable
-        ? "Invite created successfully. Email delivery is unavailable, but the collaborator can still accept from their account."
+        ? "Invite saved. Email delivery is unavailable, but the recipient can accept after signing in or creating a writer account with this email."
         : "Invite sent successfully",
       emailSent: emailResult?.success === true,
     });
@@ -410,24 +420,30 @@ export const resendInvite = async (req, res) => {
       return res.status(404).json({ error: "Script not found" });
     }
 
-    const collaborator = (script.collaborators || []).find(
-      (entry) =>
-        normalizeObjectId(entry.userId) === normalizeObjectId(req.params.userId)
-        && entry.isActive === true
-        && entry.status === "pending"
-    );
+    const collaborator = findCurrentCollaboratorEntry(script, req.params.userId);
 
-    if (!collaborator) {
+    if (!collaborator || collaborator.isActive !== true || collaborator.status !== "pending") {
       return res.status(404).json({ error: "Pending invite not found" });
     }
 
-    const invitedUser = await User.findById(collaborator.userId).select("_id name email");
-    if (!invitedUser) {
-      return res.status(404).json({ error: "Invited user not found" });
+    const invitedUser = collaborator.userId
+      ? await User.findById(collaborator.userId).select("_id name email role")
+      : await User.findOne({ email: String(collaborator.invitedEmail || "").trim().toLowerCase() })
+        .select("_id name email role");
+    if (invitedUser && !isWriterRole(invitedUser)) {
+      return res.status(403).json({ error: "The invitation recipient no longer has a writer account." });
+    }
+    const invitedEmail = String(invitedUser?.email || collaborator.invitedEmail || "").trim().toLowerCase();
+    if (!invitedEmail) {
+      return res.status(409).json({ error: "Invitation has no recipient email" });
     }
 
     const inviteToken = generateInviteToken();
     const inviteExpiresAt = getInviteExpiryDate();
+    if (invitedUser && !collaborator.userId) {
+      collaborator.userId = invitedUser._id;
+      collaborator.invitedEmail = undefined;
+    }
     collaborator.inviteToken = inviteToken;
     collaborator.inviteExpiresAt = inviteExpiresAt;
     await script.save();
@@ -435,8 +451,8 @@ export const resendInvite = async (req, res) => {
     let emailResult = { success: false, skipped: true };
     try {
       emailResult = await sendInviteEmail({
-        to: invitedUser.email,
-        recipientName: invitedUser.name,
+        to: invitedEmail,
+        recipientName: invitedUser?.name || invitedEmail.split("@")[0],
         scriptTitle: script.title,
         token: inviteToken,
         role: collaborator.role,
@@ -447,25 +463,34 @@ export const resendInvite = async (req, res) => {
     }
 
     await createAuditEntry(script._id, req.user._id, "invite_resent", {
-      invitedUserId: invitedUser._id,
+      invitedUserId: invitedUser?._id || null,
+      invitedEmail: invitedUser ? null : invitedEmail,
       role: collaborator.role,
       emailSent: emailResult?.success === true,
       emailSkipped: emailResult?.skipped === true,
     });
 
-    await createNotification({
-      userId: invitedUser._id,
-      type: "collab_invite",
-      from: req.user._id,
-      script: script._id,
-      message: `Your collaboration invitation for ${script.title} was refreshed.`,
-      actionToken: inviteToken,
-    });
+    if (invitedUser) {
+      await Notification.deleteMany({ user: invitedUser._id, type: "collab_invite", script: script._id });
+      await createNotification({
+        userId: invitedUser._id,
+        type: "collab_invite",
+        from: req.user._id,
+        script: script._id,
+        message: `Your collaboration invitation for ${script.title} was refreshed.`,
+        actionToken: inviteToken,
+      });
+      emitNotification(req, invitedUser._id, "collab_invite", {
+        scriptId: script._id,
+        role: collaborator.role,
+        token: inviteToken,
+      });
+    }
 
     return res.status(200).json({
       message: emailResult?.success === true
         ? "Invite resent successfully"
-        : "Invite refreshed successfully. Email delivery is unavailable, but the collaborator can still accept from their account.",
+        : "Invite refreshed. Email delivery is unavailable, but the recipient can accept after signing in or creating a writer account with this email.",
       emailSent: emailResult?.success === true,
     });
   } catch (error) {
@@ -476,6 +501,10 @@ export const resendInvite = async (req, res) => {
 
 export const acceptInvite = async (req, res) => {
   try {
+    if (!isWriterRole(req.user)) {
+      return res.status(403).json({ error: "Only writer accounts can accept script collaboration invitations." });
+    }
+
     const token = String(req.params.token || "").trim();
     if (!token) {
       return res.status(400).json({ error: "Invite token is required" });
@@ -512,7 +541,7 @@ export const acceptInvite = async (req, res) => {
         return res.status(403).json({ error: "Wrong account" });
       }
     } else if (collaborator.invitedEmail) {
-      if (req.user.email.toLowerCase() !== collaborator.invitedEmail.toLowerCase()) {
+      if (String(req.user.email || "").trim().toLowerCase() !== collaborator.invitedEmail.toLowerCase()) {
         return res.status(403).json({ error: "Wrong account" });
       }
       collaborator.userId = req.user._id;
@@ -874,10 +903,13 @@ export const getCollaborators = async (req, res) => {
       return res.status(404).json({ error: "Script not found" });
     }
 
+    const ownerId = getOwnerId(script);
+    const includeInvitedEmail = normalizeObjectId(ownerId) === normalizeObjectId(req.user?._id);
     return res.status(200).json({
-      ownerId: getOwnerId(script),
+      ownerId,
       collabVisibility: script.collabVisibility,
-      collaborators: getCanonicalCollaboratorEntries(script.collaborators || []).map(mapCollaboratorForResponse),
+      collaborators: getCanonicalCollaboratorEntries(script.collaborators || [])
+        .map((entry) => mapCollaboratorForResponse(entry, { includeInvitedEmail })),
     });
   } catch (error) {
     console.error("getCollaborators failed:", error.message);
@@ -910,7 +942,7 @@ export const updateCollaboratorRole = async (req, res) => {
         _id: script._id,
         collaborators: {
           $elemMatch: {
-            userId: collaborator.userId,
+            _id: collaborator._id,
             isActive: true,
             status: { $in: ["pending", "accepted"] },
           },
@@ -925,7 +957,7 @@ export const updateCollaboratorRole = async (req, res) => {
       {
         arrayFilters: [
           {
-            "entry.userId": collaborator.userId,
+            "entry._id": collaborator._id,
             "entry.isActive": true,
             "entry.status": { $in: ["pending", "accepted"] },
           },
@@ -935,22 +967,24 @@ export const updateCollaboratorRole = async (req, res) => {
 
     const updatedScript = await Script.findById(script._id)
       .populate("collaborators.userId", "name email profileImage");
-    const updatedCollaborator = findCurrentCollaboratorEntry(updatedScript, collaborator.userId) || collaborator;
+    const updatedCollaborator = findCurrentCollaboratorEntry(updatedScript, collaborator._id) || collaborator;
 
     try {
-      await createNotification({
-        userId: collaborator.userId,
-        type: "collab_update",
-        from: req.user._id,
-        script: script._id,
-        message: `Your collaboration access on ${script.title} is now ${accessLevel === COLLAB_ACCESS_LEVELS.CONTENT_ONLY ? "content only" : "full access"}.`,
-      });
+      if (collaborator.userId) {
+        await createNotification({
+          userId: collaborator.userId,
+          type: "collab_update",
+          from: req.user._id,
+          script: script._id,
+          message: `Your collaboration access on ${script.title} is now ${accessLevel === COLLAB_ACCESS_LEVELS.CONTENT_ONLY ? "content only" : "full access"}.`,
+        });
 
-      emitNotification(req, collaborator.userId, "collab_role_changed", {
-        scriptId: script._id,
-        role,
-        accessLevel,
-      });
+        emitNotification(req, collaborator.userId, "collab_role_changed", {
+          scriptId: script._id,
+          role,
+          accessLevel,
+        });
+      }
 
       emitCollabMembershipChanged(req, {
         scriptId: script._id,
@@ -971,7 +1005,7 @@ export const updateCollaboratorRole = async (req, res) => {
 
     return res.status(200).json({
       message: "Collaborator access updated successfully",
-      collaborator: mapCollaboratorForResponse(updatedCollaborator),
+      collaborator: mapCollaboratorForResponse(updatedCollaborator, { includeInvitedEmail: true }),
     });
   } catch (error) {
     console.error("updateCollaboratorRole failed:", error.message);
@@ -1009,7 +1043,7 @@ export const removeCollaborator = async (req, res) => {
         _id: script._id,
         collaborators: {
           $elemMatch: {
-            userId: collaborator.userId,
+            _id: collaborator._id,
           },
         },
       },
@@ -1024,7 +1058,7 @@ export const removeCollaborator = async (req, res) => {
       {
         arrayFilters: [
           {
-            "entry.userId": collaborator.userId,
+            "entry._id": collaborator._id,
             "entry.isActive": true,
             "entry.status": { $in: ["pending", "accepted"] },
           },
@@ -1032,7 +1066,7 @@ export const removeCollaborator = async (req, res) => {
       },
     );
 
-    emitScriptEvent(req, script._id, "collaborator_removed", { userId: normalizeObjectId(req.params.userId) });
+    emitScriptEvent(req, script._id, "collaborator_removed", { userId: normalizeObjectId(collaborator.userId) });
     emitNotification(req, collaborator.userId, "collaborator_removed", { scriptId: script._id });
     emitCollabMembershipChanged(req, {
       scriptId: script._id,
@@ -1042,13 +1076,15 @@ export const removeCollaborator = async (req, res) => {
       role: collaborator.role,
     });
 
-    await createNotification({
-      userId: collaborator.userId,
-      type: "collab_update",
-      from: req.user._id,
-      script: script._id,
-      message: `Your collaboration access to ${script.title} was removed.`,
-    });
+    if (collaborator.userId) {
+      await createNotification({
+        userId: collaborator.userId,
+        type: "collab_update",
+        from: req.user._id,
+        script: script._id,
+        message: `Your collaboration access to ${script.title} was removed.`,
+      });
+    }
 
     await createAuditEntry(script._id, req.user._id, "collaborator_removed", {
       targetUserId: collaborator.userId,
@@ -1172,6 +1208,24 @@ export const publishScript = async (req, res) => {
   }
 };
 
+const mapActivityForResponse = (entry, scriptTitle = "") => ({
+  _id: entry._id,
+  scriptId: normalizeObjectId(entry.scriptId),
+  scriptTitle: scriptTitle || entry.scriptId?.title || "Untitled Script",
+  action: entry.action,
+  actor: entry.actorId ? {
+    _id: entry.actorId._id,
+    name: entry.actorId.name || "Unknown user",
+    profileImage: entry.actorId.profileImage || "",
+  } : null,
+  // Audit metadata can contain invited email addresses and internal merge details. Every activity
+  // surface exposes only the vocabulary its timeline actually renders.
+  metadata: {
+    role: entry.metadata?.role || entry.metadata?.assignedRole || entry.metadata?.requestedRole || null,
+  },
+  createdAt: entry.createdAt,
+});
+
 export const getActivityLog = async (req, res) => {
   try {
     const { page, limit, skip } = getPaging(req.query);
@@ -1187,26 +1241,112 @@ export const getActivityLog = async (req, res) => {
     ]);
 
     return res.status(200).json({
-      activity: entries.map((entry) => ({
-        _id: entry._id,
-        action: entry.action,
-        actor: entry.actorId ? {
-          _id: entry.actorId._id,
-          name: entry.actorId.name || "Unknown user",
-          profileImage: entry.actorId.profileImage || "",
-        } : null,
-        // Audit metadata can contain invited email addresses and internal merge details. The
-        // read-permission endpoint exposes only the vocabulary its timeline actually renders.
-        metadata: {
-          role: entry.metadata?.role || entry.metadata?.assignedRole || entry.metadata?.requestedRole || null,
-        },
-        createdAt: entry.createdAt,
-      })),
+      activity: entries.map((entry) => mapActivityForResponse(entry)),
       pagination: getPagination({ page, limit, total }),
     });
   } catch (error) {
     console.error("getActivityLog failed:", error.message);
     return res.status(500).json({ error: "Failed to load activity log" });
+  }
+};
+
+export const getCollabInvitesInbox = async (req, res) => {
+  try {
+    if (!isWriterRole(req.user)) {
+      return res.status(403).json({ error: "Only writer accounts have a collaboration invitation inbox." });
+    }
+
+    const { page, limit, skip } = getPaging(req.query);
+    const userId = req.user._id;
+    const email = String(req.user.email || "").trim().toLowerCase();
+    const recipientMatch = [
+      { collaborators: { $elemMatch: { userId, isActive: true, status: "pending" } } },
+      ...(email ? [{ collaborators: { $elemMatch: { invitedEmail: email, isActive: true, status: "pending" } } }] : []),
+    ];
+    const scripts = await Script.find({ $or: recipientMatch })
+      .select("title creator collaborators")
+      .populate("creator", "name profileImage")
+      .populate("collaborators.invitedBy", "name profileImage")
+      .lean();
+
+    const invitations = scripts.flatMap((script) => (script.collaborators || [])
+      .filter((entry) => entry.isActive === true && entry.status === "pending")
+      .filter((entry) => (
+        normalizeObjectId(entry.userId) === normalizeObjectId(userId)
+        || (email && String(entry.invitedEmail || "").trim().toLowerCase() === email)
+      ))
+      .map((entry) => ({
+        _id: entry._id,
+        scriptId: normalizeObjectId(script._id),
+        scriptTitle: script.title || "Untitled Script",
+        owner: script.creator ? {
+          _id: script.creator._id,
+          name: script.creator.name || "Writer",
+          profileImage: script.creator.profileImage || "",
+        } : null,
+        invitedBy: entry.invitedBy ? {
+          _id: entry.invitedBy._id,
+          name: entry.invitedBy.name || "Writer",
+          profileImage: entry.invitedBy.profileImage || "",
+        } : null,
+        role: entry.role,
+        accessLevel: entry.accessLevel || COLLAB_ACCESS_LEVELS.FULL_ACCESS,
+        invitedAt: entry.invitedAt || entry._id?.getTimestamp?.() || null,
+        expiresAt: entry.inviteExpiresAt || null,
+        expired: isInviteExpired(entry.inviteExpiresAt),
+        token: entry.inviteToken || null,
+      })));
+
+    invitations.sort((left, right) => (
+      new Date(right.invitedAt || 0).getTime() - new Date(left.invitedAt || 0).getTime()
+    ));
+    const total = invitations.length;
+    return res.status(200).json({
+      invitations: invitations.slice(skip, skip + limit),
+      pagination: getPagination({ page, limit, total }),
+    });
+  } catch (error) {
+    console.error("getCollabInvitesInbox failed:", error.message);
+    return res.status(500).json({ error: "Failed to load collaboration invitations" });
+  }
+};
+
+export const getCollabActivityInbox = async (req, res) => {
+  try {
+    if (!isWriterRole(req.user)) {
+      return res.status(403).json({ error: "Only writer accounts have collaboration activity." });
+    }
+
+    const { page, limit, skip } = getPaging(req.query);
+    const scripts = await Script.find({
+      $or: [
+        { creator: req.user._id },
+        { collaborators: { $elemMatch: { userId: req.user._id, isActive: true, status: "accepted" } } },
+      ],
+    }).select("_id title").lean();
+    const scriptIds = scripts.map((script) => script._id);
+    const titles = new Map(scripts.map((script) => [normalizeObjectId(script._id), script.title]));
+    const filter = { scriptId: { $in: scriptIds } };
+    const [entries, total] = await Promise.all([
+      AuditLog.find(filter)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate("actorId", "name profileImage")
+        .lean(),
+      AuditLog.countDocuments(filter),
+    ]);
+
+    return res.status(200).json({
+      activity: entries.map((entry) => mapActivityForResponse(
+        entry,
+        titles.get(normalizeObjectId(entry.scriptId)),
+      )),
+      pagination: getPagination({ page, limit, total }),
+    });
+  } catch (error) {
+    console.error("getCollabActivityInbox failed:", error.message);
+    return res.status(500).json({ error: "Failed to load collaboration activity" });
   }
 };
 

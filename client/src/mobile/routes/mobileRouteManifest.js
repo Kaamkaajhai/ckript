@@ -258,7 +258,7 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     id: "collaborations",
     pattern: "/collaborations",
     disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
-    reason: "Native incoming/sent collaboration-request queue over the shared paged decision contract (plan §11 Phase 5, D43).",
+    reason: "Native request, invitation, and cross-project activity queues over shared paged collaboration contracts (plan §11 Phase 5, D43-D44).",
     audiences: [AUDIENCE.WRITER],
     protection: "authenticated",
     screenId: "collaborations",
