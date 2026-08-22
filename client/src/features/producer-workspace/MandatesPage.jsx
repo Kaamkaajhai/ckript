@@ -1,174 +1,57 @@
-import { useState, useEffect } from "react";
+import { useContext, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../../services/api";
 import { FileText, CheckCircle, Save, RefreshCw, RotateCcw } from "lucide-react";
 import { useDarkMode } from "../../context/DarkModeContext";
-
-const getDefaultMandates = () => ({
-  formats: [],
-  genres: [],
-  excludeGenres: [],
-  specificHooks: [],
-});
-
-const FORMAT_OPTIONS = [
-  { value: "feature", label: "Feature Film" },
-  { value: "movie", label: "Movie" },
-  { value: "tv_1hour", label: "TV Pilot (1-Hour)" },
-  { value: "tv_halfhour", label: "TV Pilot (Half-Hour)" },
-  { value: "limited_series", label: "Limited Series" },
-  { value: "tv_serial", label: "TV Serial" },
-  { value: "short", label: "Short Film" },
-  { value: "web_series", label: "Web Series" },
-  { value: "documentary", label: "Documentary" },
-  { value: "anime", label: "Anime" },
-  { value: "cartoon", label: "Cartoon" },
-  { value: "drama_school", label: "Drama School" },
-  { value: "micro_drama", label: "Micro Drama" },
-  { value: "songs", label: "Songs" },
-  { value: "standup_comedy", label: "Standup Comedy" },
-  { value: "dialogues", label: "Dialogues" },
-  { value: "poet", label: "Poet" },
-  { value: "other", label: "Other" },
-];
-
-const FORMAT_LABEL_BY_VALUE = Object.fromEntries(FORMAT_OPTIONS.map((opt) => [opt.value, opt.label]));
-
-const normalizeMandateFormat = (value = "") => {
-  const raw = String(value || "").toLowerCase().trim();
-  if (!raw) return "";
-
-  const aliases = {
-    feature_film: "feature",
-    "feature film": "feature",
-    "tv pilot": "tv_1hour",
-    "tv series": "tv_serial",
-    "short film": "short",
-    "web series": "web_series",
-    "limited series": "limited_series",
-    "drama school": "drama_school",
-    "standup comedy": "standup_comedy",
-  };
-
-  if (aliases[raw]) return aliases[raw];
-  if (raw.includes("tv pilot") && (raw.includes("30") || raw.includes("half"))) return "tv_halfhour";
-  if (raw.includes("tv pilot") || raw.includes("tv 1-hour")) return "tv_1hour";
-  if (raw.includes("standup") || raw.includes("stand-up")) return "standup_comedy";
-  if (raw.includes("dialogue")) return "dialogues";
-  if (raw.includes("poet") || raw.includes("poetry")) return "poet";
-
-  return raw.replace(/[\s-]+/g, "_");
-};
+import { AuthContext } from "../../context/AuthContext";
+import { isFilmIndustryProfessionalRole } from "../../utils/industryAccess";
+import useMandates from "./useMandates";
+import { FORMAT_OPTIONS, MANDATE_GENRES, MANDATE_HOOKS, MANDATES_STATUS } from "./mandatesData";
 
 const MandatesPage = () => {
   const navigate = useNavigate();
   const { isDarkMode: dark } = useDarkMode();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const { user } = useContext(AuthContext) || {};
+  const authorized = isFilmIndustryProfessionalRole(user);
+  const mandatesState = useMandates({ enabled: authorized });
   const [message, setMessage] = useState("");
-  const [mandates, setMandates] = useState(getDefaultMandates);
-
-  const genres = [
-    "Action", "Adventure", "Animation", "Biography", "Comedy", "Crime",
-    "Documentary", "Drama", "Family", "Fantasy", "Film Noir", "History",
-    "Horror", "Music", "Musical", "Mystery", "Romance", "Sci-Fi",
-    "Short", "Sport", "Superhero", "Thriller", "War", "Western"
-  ];
-  const hooks = [
-    "Diverse Voices",
-    "Female Lead",
-    "LGBTQ+ Themes",
-    "True Story",
-    "Book Adaptation",
-    "International Setting",
-    "Period Piece",
-    "Franchise Potential"
-  ];
-
-  useEffect(() => {
-    fetchMandates();
-  }, []);
-
-  const fetchMandates = async () => {
-    try {
-      const { data } = await api.get("/users/me");
-      if (data.industryProfile?.mandates) {
-        const normalizedFormats = Array.isArray(data.industryProfile.mandates.formats)
-          ? [...new Set(data.industryProfile.mandates.formats
-            .map(normalizeMandateFormat)
-            .filter((fmt) => FORMAT_LABEL_BY_VALUE[fmt]))]
-          : [];
-
-        setMandates({
-          ...getDefaultMandates(),
-          ...data.industryProfile.mandates,
-          formats: normalizedFormats,
-        });
-      }
-      setLoading(false);
-    } catch (error) {
-      console.error("Error fetching mandates:", error);
-      setLoading(false);
-    }
-  };
+  const { mandates } = mandatesState;
+  const loading = mandatesState.status === MANDATES_STATUS.IDLE || mandatesState.status === MANDATES_STATUS.LOADING;
+  const saving = mandatesState.status === MANDATES_STATUS.SAVING;
 
   const handleSave = async (e) => {
     e.preventDefault();
-    setSaving(true);
     setMessage("");
 
     try {
-      const { budgetTiers, ...safeMandates } = mandates;
-      await api.put("/onboarding/mandates", { mandates: safeMandates });
+      await mandatesState.save();
       navigate("/home", { replace: true });
     } catch (error) {
       console.error("Error saving mandates:", error);
-      setMessage("Error saving mandates. Please try again.");
-    } finally {
-      setSaving(false);
     }
   };
 
   const handleResetMandates = () => {
-    setMandates(getDefaultMandates());
+    mandatesState.reset();
     setMessage("Mandates reset. Click Save Mandates to apply changes.");
   };
 
-  const toggleFormat = (formatValue) => {
-    setMandates(prev => ({
-      ...prev,
-      formats: prev.formats.includes(formatValue)
-        ? prev.formats.filter(f => f !== formatValue)
-        : [...prev.formats, formatValue]
-    }));
-  };
+  const toggleFormat = (value) => mandatesState.toggle("formats", value);
+  const toggleGenre = (value) => mandatesState.toggle("genres", value);
+  const toggleExcludeGenre = (value) => mandatesState.toggle("excludeGenres", value);
+  const toggleHook = (value) => mandatesState.toggle("specificHooks", value);
 
-  const toggleGenre = (genre) => {
-    setMandates(prev => ({
-      ...prev,
-      genres: prev.genres.includes(genre)
-        ? prev.genres.filter(g => g !== genre)
-        : [...prev.genres, genre]
-    }));
-  };
-
-  const toggleExcludeGenre = (genre) => {
-    setMandates(prev => ({
-      ...prev,
-      excludeGenres: prev.excludeGenres.includes(genre)
-        ? prev.excludeGenres.filter(g => g !== genre)
-        : [...prev.excludeGenres, genre]
-    }));
-  };
-
-  const toggleHook = (hook) => {
-    setMandates(prev => ({
-      ...prev,
-      specificHooks: prev.specificHooks.includes(hook)
-        ? prev.specificHooks.filter(h => h !== hook)
-        : [...prev.specificHooks, hook]
-    }));
-  };
+  if (!authorized) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center px-4 ${dark ? '' : 'bg-gradient-to-br from-[#f0f4f8] to-[#e8eff5]'}`}>
+        <div className={`max-w-lg rounded-2xl p-8 text-center ${dark ? 'bg-[#101e30]' : 'bg-white shadow-lg'}`}>
+          <FileText className="w-8 h-8 mx-auto mb-3 text-[#0f2544]" />
+          <h1 className={`text-2xl font-extrabold ${dark ? 'text-gray-100' : 'text-[#0a1628]'}`}>Mandates are not available for this account</h1>
+          <p className={`mt-3 ${dark ? 'text-gray-400' : 'text-gray-600'}`}>This workspace is reserved for film industry professional roles.</p>
+          <button type="button" onClick={() => navigate("/home", { replace: true })} className="mt-5 px-5 py-3 rounded-lg bg-[#0f2544] !text-white font-bold">Return home</button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -176,6 +59,17 @@ const MandatesPage = () => {
         <div className="text-center">
           <RefreshCw className={`w-8 h-8 animate-spin mx-auto mb-3 ${dark ? 'text-blue-400' : 'text-[#0f2544]'}`} />
           <p className={dark ? 'text-gray-400' : 'text-gray-600'}>Loading your mandates...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (mandatesState.status === MANDATES_STATUS.FAILED) {
+    return (
+      <div className={`min-h-screen flex items-center justify-center ${dark ? '' : 'bg-gradient-to-br from-[#f0f4f8] to-[#e8eff5]'}`}>
+        <div className="text-center">
+          <p className={dark ? 'text-gray-300' : 'text-gray-700'}>Your mandates could not be loaded.</p>
+          <button type="button" onClick={mandatesState.retry} className="mt-4 px-5 py-3 rounded-lg bg-[#0f2544] !text-white font-bold">Try again</button>
         </div>
       </div>
     );
@@ -193,10 +87,10 @@ const MandatesPage = () => {
             </div>
           </div>
 
-          {message && (
-            <div className={`mb-6 p-4 rounded-lg ${message.includes("Error") ? "bg-red-50 text-red-700" : "bg-[#111111]/[0.06] text-[#111111]"} flex items-center gap-2`}>
+          {(message || mandatesState.saveFailure) && (
+            <div className={`mb-6 p-4 rounded-lg ${mandatesState.saveFailure ? "bg-red-50 text-red-700" : "bg-[#111111]/[0.06] text-[#111111]"} flex items-center gap-2`}>
               <CheckCircle className="w-5 h-5" />
-              <p className="font-medium">{message}</p>
+              <p className="font-medium">{mandatesState.saveFailure ? "Error saving mandates. Please try again." : message}</p>
             </div>
           )}
 
@@ -230,7 +124,7 @@ const MandatesPage = () => {
                 Genres I'm Looking For
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {genres.map((genre) => (
+                {MANDATE_GENRES.map((genre) => (
                   <button
                     key={genre}
                     type="button"
@@ -253,7 +147,7 @@ const MandatesPage = () => {
                 Genres to Exclude
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {genres.map((genre) => (
+                {MANDATE_GENRES.map((genre) => (
                   <button
                     key={genre}
                     type="button"
@@ -276,7 +170,7 @@ const MandatesPage = () => {
                 Specific Hooks & Preferences
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {hooks.map((hook) => (
+                {MANDATE_HOOKS.map((hook) => (
                   <button
                     key={hook}
                     type="button"

@@ -288,6 +288,12 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     family: "industry",
     note: "URL-filtered writer roster and compact comparison cards at /writers.",
   },
+  "ckm-mandates": {
+    kind: PAGE_FAMILY,
+    owner: "screens/industry/MandatesMobile.css",
+    family: "industry",
+    note: "Professional-only format, genre, exclusion, and story-signal brief editor at /mandates.",
+  },
   "ckm-trailer": {
     kind: SHARED_COMPONENT,
     owner: "components/media/TrailerDialog.css",

@@ -124,6 +124,11 @@ export function resolveMobileExperience({
     return desktopDecision(route, "audience-not-implemented", route.fallbackDisposition);
   }
 
+  const role = String(user?.role || "").trim().toLowerCase();
+  if (route.roles?.length && !route.roles.includes(role)) {
+    return desktopDecision(route, "role-not-implemented", route.fallbackDisposition);
+  }
+
   return {
     experience: MOBILE_EXPERIENCE.MOBILE,
     routeId: route.id,

@@ -6,9 +6,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AuthContext } from "../../../context/AuthContext";
 import { INDUSTRY_HOME_STATUS, normalizeIndustryFeed } from "../../../features/investor-desk/industryHome";
 import { INDUSTRY_DASHBOARD_STATUS } from "../../../features/producer-workspace/industryDashboard";
+import { MANDATES_STATUS } from "../../../features/producer-workspace/mandatesData";
 import IndustryDashboardMobile from "./IndustryDashboardMobile";
 import IndustryHomeMobile from "./IndustryHomeMobile";
 import WriterRosterMobile from "./WriterRosterMobile";
+import MandatesMobile from "./MandatesMobile";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const producer = { _id: "u1", name: "Naina Kapoor", role: "producer", favoriteScripts: [] };
@@ -91,5 +93,24 @@ describe("native industry workspace", () => {
     expect(el.textContent).toContain("Maya Rao");
     expect(el.textContent).toContain("Mandate overlap");
     expect(el.querySelector('a[href="/profile/w1"]')).toBeTruthy();
+  });
+
+  it("renders mandate draft, failure recovery, and save status without losing selections", async () => {
+    const state = {
+      status: MANDATES_STATUS.READY,
+      mandates: { formats: ["feature"], genres: ["Drama"], excludeGenres: [], specificHooks: ["True Story"] },
+      dirty: true,
+      saved: false,
+      saveFailure: new Error("offline"),
+      toggle: vi.fn(), reset: vi.fn(), retry: vi.fn(), save: vi.fn().mockResolvedValue(undefined),
+    };
+    const el = await mount(<MandatesMobile user={producer} previewState={state} />, "/mandates");
+    expect(el.querySelectorAll("h1")).toHaveLength(1);
+    expect(el.textContent).toContain("Your changes were not saved");
+    expect(el.textContent).toContain("Unsaved changes");
+    expect(el.querySelector('input[type="checkbox"]:checked')).toBeTruthy();
+    const save = Array.from(el.querySelectorAll("button")).find((button) => button.textContent.includes("Save mandate"));
+    await act(async () => save.click());
+    expect(state.save).toHaveBeenCalledOnce();
   });
 });

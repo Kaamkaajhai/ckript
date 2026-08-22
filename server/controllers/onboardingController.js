@@ -18,6 +18,8 @@ import {
   isOTPExpired,
   verifyHashedOTP,
 } from "../utils/otpHelper.js";
+import { isFilmIndustryProfessionalRole } from "../utils/industryAccess.js";
+import { normalizeMandatesInput } from "../utils/mandates.js";
 
 const normalizeString = (value) =>
   value === undefined || value === null ? "" : String(value).trim();
@@ -975,7 +977,11 @@ export const updateMandates = async (req, res) => {
   try {
     const { mandates } = req.body;
 
-    if (!mandates) {
+    if (!isFilmIndustryProfessionalRole(req.user)) {
+      return res.status(403).json({ success: false, message: "Mandates are available to film industry professionals only" });
+    }
+
+    if (!mandates || typeof mandates !== "object" || Array.isArray(mandates)) {
       return res.status(400).json({ success: false, message: "Mandates data is required" });
     }
 
@@ -988,12 +994,7 @@ export const updateMandates = async (req, res) => {
       user.industryProfile = {};
     }
 
-    user.industryProfile.mandates = {
-      formats: normalizeFormatArray(mandates.formats),
-      genres: mandates.genres || [],
-      excludeGenres: mandates.excludeGenres || [],
-      specificHooks: mandates.specificHooks || [],
-    };
+    user.industryProfile.mandates = normalizeMandatesInput(mandates);
 
     await user.save();
 

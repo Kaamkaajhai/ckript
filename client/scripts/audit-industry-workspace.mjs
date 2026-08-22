@@ -12,6 +12,16 @@ const states = [
   { query: "view=dashboard&state=ready&role=actor", root: ".ckm-industry-dashboard", marker: "Discovery-only account" },
   { query: "view=dashboard&state=loading", root: ".ckm-industry-dashboard", marker: "Loading industry dashboard" },
   { query: "view=dashboard&state=error", root: ".ckm-industry-dashboard", marker: "account service is unavailable" },
+  { query: "view=writers&state=ready", root: ".ckm-writers", marker: "Maya Rao" },
+  { query: "view=writers&state=loading", root: ".ckm-writers", marker: "Loading writers" },
+  { query: "view=writers&state=empty", root: ".ckm-writers", marker: "No writers in the roster yet" },
+  { query: "view=writers&state=error", root: ".ckm-writers", marker: "writer roster is unavailable" },
+  { query: "view=writers&state=degraded", root: ".ckm-writers", marker: "Mandate matching is unavailable" },
+  { query: "view=mandates&state=ready", root: ".ckm-mandates", marker: "Feature Film" },
+  { query: "view=mandates&state=loading", root: ".ckm-mandates", marker: "Loading your mandate" },
+  { query: "view=mandates&state=error", root: ".ckm-mandates", marker: "Your mandate is unavailable" },
+  { query: "view=mandates&state=save-error", root: ".ckm-mandates", marker: "Your changes were not saved" },
+  { query: "view=mandates&state=saved", root: ".ckm-mandates", marker: "Mandate saved" },
 ];
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

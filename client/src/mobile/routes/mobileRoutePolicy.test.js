@@ -136,6 +136,18 @@ describe("mobileRoutePolicy — experience selection", () => {
     })).toMatchObject({ experience: "desktop", reason: "audience-not-implemented" });
   });
 
+  it("mounts mandates only for exact film-professional roles", () => {
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: producer, pathname: "/mandates",
+    })).toMatchObject({ experience: "mobile", routeId: "mandates", screenId: "mandates" });
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: { id: "actor-1", role: "actor" }, pathname: "/mandates",
+    })).toMatchObject({ experience: "desktop", reason: "role-not-implemented" });
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: writer, pathname: "/mandates",
+    })).toMatchObject({ experience: "desktop", reason: "audience-not-implemented" });
+  });
+
   it("mounts native industry home only for the industry audience", () => {
     expect(resolveMobileExperience({
       isMobile: true, authLoading: false, user: producer, pathname: "/home",

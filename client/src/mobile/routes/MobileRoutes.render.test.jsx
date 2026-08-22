@@ -77,6 +77,10 @@ vi.mock("../screens/industry/WriterRosterMobile", () => ({
   default: () => <main data-testid="mobile-writers">Writers</main>,
 }));
 
+vi.mock("../screens/industry/MandatesMobile", () => ({
+  default: () => <main data-testid="mobile-mandates">Mandates</main>,
+}));
+
 vi.mock("../dev/ChallengeHubHarness", () => ({
   default: () => <main data-testid="mobile-challenge-harness">Challenge harness</main>,
 }));
@@ -167,6 +171,12 @@ describe("MobileRoutes", () => {
   it("renders the native writer roster at its canonical URL", async () => {
     const el = await mount("/writers", { user: { role: "producer" } });
     expect(el.querySelector('[data-testid="mobile-writers"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
+  });
+
+  it("renders the native mandate editor at its canonical URL", async () => {
+    const el = await mount("/mandates", { user: { role: "producer" } });
+    expect(el.querySelector('[data-testid="mobile-mandates"]')).toBeTruthy();
     expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
   });
 

@@ -95,6 +95,7 @@ export default function WriterRosterMobile({ user, previewData = null, previewSt
           <span>Search writers</span>
           <input
             type="search"
+            aria-label="Search writers"
             value={queryInput}
             onChange={(event) => setQueryInput(event.target.value)}
             placeholder="Name"
@@ -117,6 +118,7 @@ export default function WriterRosterMobile({ user, previewData = null, previewSt
               <label key={genre}>
                 <input
                   type="checkbox"
+                  aria-label={`Genre: ${genre}`}
                   checked={url.facets.genres.includes(genre)}
                   onChange={() => updateFacets({ genres: toggleValue(url.facets.genres, genre) })}
                 />
@@ -129,6 +131,7 @@ export default function WriterRosterMobile({ user, previewData = null, previewSt
           <label className="ckm-writers__mandate-filter">
             <input
               type="checkbox"
+              aria-label="Matches my mandate"
               checked={url.facets.mandate}
               onChange={() => updateFacets({ mandate: !url.facets.mandate })}
             />

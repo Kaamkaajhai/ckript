@@ -1,8 +1,12 @@
 import { useSearchParams } from "react-router-dom";
 import { INDUSTRY_HOME_STATUS, normalizeIndustryFeed } from "../../features/investor-desk/industryHome";
 import { INDUSTRY_DASHBOARD_STATUS } from "../../features/producer-workspace/industryDashboard";
+import { MANDATES_STATUS } from "../../features/producer-workspace/mandatesData";
+import { WRITER_ROSTER_STATUS } from "../../features/producer-workspace/writerRosterData";
 import IndustryDashboardMobile from "../screens/industry/IndustryDashboardMobile";
 import IndustryHomeMobile from "../screens/industry/IndustryHomeMobile";
+import MandatesMobile from "../screens/industry/MandatesMobile";
+import WriterRosterMobile from "../screens/industry/WriterRosterMobile";
 
 const project = (id, title, genre = "Drama") => ({
   _id: id,
@@ -40,6 +44,12 @@ const dashData = {
   syncedAt: new Date("2026-08-22T10:00:00Z"),
 };
 const retry = () => {};
+const writer = {
+  _id: "writer-1", name: "Maya Rao", bio: "Drama and mystery writer",
+  writerProfile: { genres: ["Drama", "Mystery"], wgaMember: true },
+  scriptCount: 4, totalViews: 12400, avgScore: 86, followerCount: 820,
+};
+const mandate = { formats: ["feature"], genres: ["Drama"], excludeGenres: ["Horror"], specificHooks: ["True Story"] };
 
 export default function IndustryWorkspaceHarness({ user }) {
   const [params] = useSearchParams();
@@ -55,6 +65,32 @@ export default function IndustryWorkspaceHarness({ user }) {
         ? { status: INDUSTRY_DASHBOARD_STATUS.FAILED, data: null, failure: { message: "The account service is unavailable." }, retry }
         : { status: INDUSTRY_DASHBOARD_STATUS.READY, data: state === "partial" ? { ...dashData, failures: { wallet: "Wallet unavailable" } } : dashData, retry };
     return <IndustryDashboardMobile user={fixtureUser} previewState={previewState} />;
+  }
+
+  if (view === "writers") {
+    const previewState = state === "loading"
+      ? { status: WRITER_ROSTER_STATUS.LOADING, data: null, retry }
+      : state === "error"
+        ? { status: WRITER_ROSTER_STATUS.FAILED, data: null, failure: { message: "The writer roster is unavailable." }, retry }
+        : { status: WRITER_ROSTER_STATUS.READY, data: {
+          writers: state === "empty" ? [] : [writer],
+          mandateSource: { industryProfile: { mandates: mandate } },
+          mandateUnavailable: state === "degraded",
+        }, retry };
+    return <WriterRosterMobile user={fixtureUser} previewState={previewState} />;
+  }
+
+  if (view === "mandates") {
+    const previewState = {
+      status: state === "loading" ? MANDATES_STATUS.LOADING : state === "error" ? MANDATES_STATUS.FAILED : MANDATES_STATUS.READY,
+      mandates: mandate,
+      dirty: state === "save-error",
+      saved: state === "saved",
+      failure: state === "error" ? new Error("The mandate service is unavailable.") : null,
+      saveFailure: state === "save-error" ? new Error("The mandate could not be saved.") : null,
+      toggle: () => {}, reset: () => {}, retry, save: async () => {},
+    };
+    return <MandatesMobile user={fixtureUser} previewState={previewState} />;
   }
 
   const previewState = state === "loading"
