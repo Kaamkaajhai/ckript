@@ -53,12 +53,20 @@ vi.mock("../screens/challenges/ChallengeDetailMobile", () => ({
   default: () => <main data-testid="mobile-challenge-detail">Challenge detail</main>,
 }));
 
+vi.mock("../screens/challenges/ChallengeRegisterMobile", () => ({
+  default: () => <main data-testid="mobile-challenge-register">Challenge register</main>,
+}));
+
 vi.mock("../dev/ChallengeHubHarness", () => ({
   default: () => <main data-testid="mobile-challenge-harness">Challenge harness</main>,
 }));
 
 vi.mock("../dev/ChallengeDetailHarness", () => ({
   default: () => <main data-testid="mobile-challenge-detail-harness">Challenge detail harness</main>,
+}));
+
+vi.mock("../dev/ChallengeRegisterHarness", () => ({
+  default: () => <main data-testid="mobile-challenge-register-harness">Challenge register harness</main>,
 }));
 
 vi.mock("../screens/profiles/visitor-profile/ProfileVisitorMobile", () => ({
@@ -126,6 +134,11 @@ describe("MobileRoutes", () => {
     expect(el.querySelector('[data-testid="mobile-challenge-hub"]')).toBeNull();
   });
 
+  it("renders exact-slug registration through the native flow", async () => {
+    const el = await mount("/challenge/register?c=forty-eight-hours");
+    expect(el.querySelector('[data-testid="mobile-challenge-register"]')).toBeTruthy();
+  });
+
   it("renders the deterministic challenge fixture when App.jsx owns its dev route", async () => {
     const el = await mount("/__mobile-challenges?tab=mine", { devScreen: "challenges" });
     expect(el.querySelector('[data-testid="mobile-challenge-harness"]')).toBeTruthy();
@@ -134,6 +147,11 @@ describe("MobileRoutes", () => {
   it("renders the deterministic challenge-detail fixture when App.jsx owns its dev route", async () => {
     const el = await mount("/__mobile-challenge-detail?state=results", { devScreen: "challenge-detail" });
     expect(el.querySelector('[data-testid="mobile-challenge-detail-harness"]')).toBeTruthy();
+  });
+
+  it("renders the deterministic challenge-registration fixture when App.jsx owns its dev route", async () => {
+    const el = await mount("/__mobile-challenge-register?state=external", { devScreen: "challenge-register" });
+    expect(el.querySelector('[data-testid="mobile-challenge-register-harness"]')).toBeTruthy();
   });
 
   it("renders the same dashboard at /ai-tools, because desktop does", async () => {

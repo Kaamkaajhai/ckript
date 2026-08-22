@@ -386,6 +386,29 @@ describe("mobileRoutePolicy — experience selection", () => {
     }
   });
 
+  it("mounts native challenge registration for every authenticated role and keeps signed-out visitors behind auth", () => {
+    for (const user of [writer, { id: "p1", role: "producer" }]) {
+      expect(resolveMobileExperience({
+        isMobile: true,
+        authLoading: false,
+        user,
+        pathname: "/challenge/register",
+        search: "?c=forty-eight-hours",
+      })).toMatchObject({
+        experience: "mobile",
+        routeId: "challenge-register",
+        screenId: "challenge-register",
+      });
+    }
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: null,
+      pathname: "/challenge/register",
+      search: "?c=forty-eight-hours",
+    })).toMatchObject({ experience: "desktop", reason: "authentication-required" });
+  });
+
   it("mounts the public project screen without an account (D31)", () => {
     expect(resolveMobileExperience({
       isMobile: true,

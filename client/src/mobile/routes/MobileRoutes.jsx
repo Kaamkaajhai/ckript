@@ -24,6 +24,7 @@ const MessagesMobile = lazy(() => import("../screens/messages/MessagesMobile"));
 const ReaderProfileMobile = lazy(() => import("../screens/reader/reader-profile/ReaderProfileMobile"));
 const ChallengeHubMobile = lazy(() => import("../screens/challenges/ChallengeHubMobile"));
 const ChallengeDetailMobile = lazy(() => import("../screens/challenges/ChallengeDetailMobile"));
+const ChallengeRegisterMobile = lazy(() => import("../screens/challenges/ChallengeRegisterMobile"));
 const PrimitiveGallery = lazy(() => import("../dev/PrimitiveGallery"));
 const CreateHarness = lazy(() => import("../dev/CreateHarness"));
 const UploadHarness = lazy(() => import("../dev/UploadHarness"));
@@ -34,6 +35,7 @@ const ProjectDetailHarness = lazy(() => import("../dev/ProjectDetailHarness"));
 const CheckoutHarness = lazy(() => import("../dev/CheckoutHarness"));
 const ChallengeHubHarness = lazy(() => import("../dev/ChallengeHubHarness"));
 const ChallengeDetailHarness = lazy(() => import("../dev/ChallengeDetailHarness"));
+const ChallengeRegisterHarness = lazy(() => import("../dev/ChallengeRegisterHarness"));
 
 function AuthenticatedProfileRoute({ user }) {
   const { id } = useParams();
@@ -128,6 +130,10 @@ export default function MobileRoutes({
     return <MobileRouteBoundary><ChallengeDetailHarness /></MobileRouteBoundary>;
   }
 
+  if (devScreen === "challenge-register") {
+    return <MobileRouteBoundary><ChallengeRegisterHarness /></MobileRouteBoundary>;
+  }
+
   if (preview) {
     return <MobileRouteBoundary>{dashboard}</MobileRouteBoundary>;
   }
@@ -158,6 +164,7 @@ export default function MobileRoutes({
         <Route path="/messages" element={<MessagesMobile user={user} />} />
         <Route path="/challenge" element={<ChallengeHubMobile user={user} />} />
         <Route path="/challenge/c/:slug" element={<ChallengeDetailMobile user={user} />} />
+        <Route path="/challenge/register" element={<ChallengeRegisterMobile user={user} />} />
         <Route path="/share/project/:id" element={<ProjectPublicMobile />} />
         <Route path="/share/profile/:id" element={user ? <AuthenticatedProfileRoute user={user} /> : <PublicProfileMobile />} />
         <Route path="/profile" element={<AuthenticatedProfileRoute user={user} />} />

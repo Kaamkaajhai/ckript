@@ -381,6 +381,12 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     family: "challenges",
     note: "The public/authenticated canonical challenge record, phase, rules, prizes, judges, partners, and owner-safe registration state (D48).",
   },
+  "ckm-challenge-register": {
+    kind: PAGE_FAMILY,
+    owner: "screens/challenges/ChallengeRegisterMobile.css",
+    family: "challenges",
+    note: "The authenticated free, Razorpay, recovery, external-claim, and receipt flow at /challenge/register (D49).",
+  },
 
   // --- Project creation (Phase 3) ---------------------------------------
   // The chooser at /new-project. Its own family rather than part of

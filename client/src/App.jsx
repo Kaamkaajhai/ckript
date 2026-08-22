@@ -764,6 +764,21 @@ function App() {
                   }
                 />
               )}
+              {import.meta.env.DEV && (
+                /* Phase 6 challenge-registration harness (D49). The live flow
+                   crosses Razorpay and a manual external-provider review queue;
+                   this fixture keeps every local standing deterministic. */
+                <Route
+                  path="/__mobile-challenge-register"
+                  element={
+                    <AuthContext.Provider value={{ user: { _id: "preview-writer", name: "Aditi Rao", role: "writer", email: "aditi@example.com", token: "preview", favoriteScripts: [] }, loading: false, logout: () => {}, setUser: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="challenge-register" />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
+              )}
               <Route path="/:id" element={<SingleSegmentProfileOrReferralRoute />} />
             </Routes>
             </RootExperience>
