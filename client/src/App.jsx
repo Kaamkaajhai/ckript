@@ -792,6 +792,18 @@ function App() {
                     </AuthContext.Provider>
                   }
                 />
+                {/* Phase 6 Hall-of-Fame harness (D51). The live archive is
+                   paged and dynamic; this fixture keeps record states stable. */}
+                <Route
+                  path="/__mobile-hall-of-fame"
+                  element={
+                    <AuthContext.Provider value={{ user: { _id: "preview-writer", name: "Aditi Rao", role: "writer", token: "preview", favoriteScripts: [] }, loading: false, logout: () => {}, setUser: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="hall-of-fame" />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
                 </>
               )}
               <Route path="/:id" element={<SingleSegmentProfileOrReferralRoute />} />

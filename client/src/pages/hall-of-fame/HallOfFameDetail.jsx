@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Trophy, Award, Sparkles, ArrowLeft, ExternalLink, X, User } from "lucide-react";
-import publicApi from "../../services/publicApi";
 import { Section, Card, Stat, Avatar } from "../../components/competition/ui";
 import { rewardLabel, yearSuffix } from "../../components/competition/labels";
 import useDynamicSeo from "../../components/competition/useDynamicSeo";
 import externalUrl from "../../utils/externalUrl";
+import { HALL_OF_FAME_STATUS, hallOfFameProfilePath } from "./hallOfFame";
+import { useHallOfFameDetail } from "./useHallOfFame";
 import "../challenge/challenge.css";
 
 /**
@@ -23,11 +24,7 @@ import "../challenge/challenge.css";
 // same field), and only the featured-script writers below carry `_id`. Reading `_id` alone sent every
 // winner without a username to /share/profile/undefined — a dead link on the one page that exists to
 // point at the people.
-const profilePath = (person) => (person?.username
-  ? `/${person.username}`
-  : `/share/profile/${person?.userId || person?._id}`);
-
-const WinnerBlock = ({ person, label, icon: Icon, accent, prominent = false }) => {
+const WinnerBlock = ({ person, label, icon, prominent = false }) => {
   if (!person) return null;
   return (
     <Card>
@@ -42,7 +39,7 @@ const WinnerBlock = ({ person, label, icon: Icon, accent, prominent = false }) =
           borderBottom: "1px solid var(--ckc-rule)",
         }}
       >
-        <Icon className="h-4 w-4" style={{ color: accent }} aria-hidden="true" />
+        {icon}
         {person.specialTitle || label}
       </p>
 
@@ -85,7 +82,7 @@ const WinnerBlock = ({ person, label, icon: Icon, accent, prominent = false }) =
             </div>
           ) : null}
 
-          <Link to={profilePath(person)} className="ckc-link mt-4 inline-flex items-center gap-1.5" style={{ fontSize: 14 }}>
+          <Link to={hallOfFameProfilePath(person)} className="ckc-link mt-4 inline-flex items-center gap-1.5" style={{ fontSize: 14 }}>
             View writer profile <ExternalLink className="h-3.5 w-3.5" aria-hidden="true" />
           </Link>
         </div>
@@ -96,31 +93,12 @@ const WinnerBlock = ({ person, label, icon: Icon, accent, prominent = false }) =
 
 const HallOfFameDetail = () => {
   const { slug } = useParams();
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
   const [selectedJudge, setSelectedJudge] = useState(null);
   const [selectedSponsor, setSelectedSponsor] = useState(null);
-
-  useEffect(() => {
-    let alive = true;
-    // Wrapped rather than called straight in the effect body: a synchronous setState there triggers
-    // a cascading render, and this effect re-runs whenever the slug changes.
-    const load = async () => {
-      setLoading(true);
-      setNotFound(false);
-      try {
-        const { data: payload } = await publicApi.get(`/competitions/hall-of-fame/${slug}`);
-        if (alive) setData(payload);
-      } catch {
-        if (alive) setNotFound(true);
-      } finally {
-        if (alive) setLoading(false);
-      }
-    };
-    load();
-    return () => { alive = false; };
-  }, [slug]);
+  const record = useHallOfFameDetail({ slug });
+  const data = record.data;
+  const loading = record.status === HALL_OF_FAME_STATUS.LOADING;
+  const notFound = record.status === HALL_OF_FAME_STATUS.NOT_FOUND;
 
   // Per-page metadata so search engines can discover competition history over time. Set at runtime
   // because the slug is dynamic — the build-time prerender only covers the static /hall-of-fame index.
@@ -136,6 +114,20 @@ const HallOfFameDetail = () => {
     return (
       <div className="ckc" style={{ minHeight: "100vh" }}>
         <p className="ckc-meta mx-auto max-w-5xl px-4 py-20 text-center">Loading…</p>
+      </div>
+    );
+  }
+
+  if (record.status === HALL_OF_FAME_STATUS.FAILED) {
+    return (
+      <div className="ckc" style={{ minHeight: "100vh" }}>
+        <div className="mx-auto max-w-3xl px-4 py-20">
+          <Card className="text-center">
+            <h1 className="ckc-title ckc-h2">The record could not be loaded</h1>
+            <p style={{ marginTop: 10, lineHeight: 1.6, color: "var(--ckc-muted)" }}>{record.failure?.message}</p>
+            <button type="button" className="ckc-btn mt-6" onClick={record.retry}>Try again</button>
+          </Card>
+        </div>
       </div>
     );
   }
@@ -202,8 +194,8 @@ const HallOfFameDetail = () => {
             <hr className="ckc-rule" style={{ marginTop: 40 }} />
             <Section title="Winners">
               <div className="ckc-stack">
-                <WinnerBlock person={results.winner} label="Winner" icon={Trophy} accent="var(--ckc-accent)" prominent />
-                <WinnerBlock person={results.runnerUp} label="Runner-Up" icon={Award} accent="var(--ckc-faint)" />
+                <WinnerBlock person={results.winner} label="Winner" icon={<Trophy className="h-4 w-4" style={{ color: "var(--ckc-accent)" }} aria-hidden="true" />} prominent />
+                <WinnerBlock person={results.runnerUp} label="Runner-Up" icon={<Award className="h-4 w-4" style={{ color: "var(--ckc-faint)" }} aria-hidden="true" />} />
               </div>
             </Section>
           </>
@@ -215,7 +207,7 @@ const HallOfFameDetail = () => {
             <Section title="Special awards">
               <div className="grid gap-5 sm:grid-cols-2">
                 {results.special.map((person, i) => (
-                  <WinnerBlock key={i} person={person} label="Special award" icon={Sparkles} accent="var(--ckc-faint)" />
+                  <WinnerBlock key={i} person={person} label="Special award" icon={<Sparkles className="h-4 w-4" style={{ color: "var(--ckc-faint)" }} aria-hidden="true" />} />
                 ))}
               </div>
             </Section>
@@ -244,14 +236,22 @@ const HallOfFameDetail = () => {
                         <Link to={`/share/project/${script._id}`} className="ckc-link" style={{ fontSize: 14 }}>
                           Read script
                         </Link>
-                        <Link to={profilePath(script.writer)} style={{ fontSize: 14, fontWeight: 500, color: "var(--ckc-muted)" }}>
-                          View writer
-                        </Link>
+                        {hallOfFameProfilePath(script.writer) ? (
+                          <Link to={hallOfFameProfilePath(script.writer)} style={{ fontSize: 14, fontWeight: 500, color: "var(--ckc-muted)" }}>
+                            View writer
+                          </Link>
+                        ) : null}
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
+              {record.featuredFailure ? <p className="ckc-meta mt-4">{record.featuredFailure.message}</p> : null}
+              {data.featuredScriptsPageInfo?.hasMore ? (
+                <button type="button" className="ckc-btn mt-6" disabled={record.featuredPending} onClick={record.loadMoreFeatured}>
+                  {record.featuredPending ? "Loading…" : "Load more featured scripts"}
+                </button>
+              ) : null}
             </Section>
           </>
         ) : null}

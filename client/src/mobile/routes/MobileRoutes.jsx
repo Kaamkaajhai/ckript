@@ -26,6 +26,7 @@ const ChallengeHubMobile = lazy(() => import("../screens/challenges/ChallengeHub
 const ChallengeDetailMobile = lazy(() => import("../screens/challenges/ChallengeDetailMobile"));
 const ChallengeRegisterMobile = lazy(() => import("../screens/challenges/ChallengeRegisterMobile"));
 const ChallengeDashboardMobile = lazy(() => import("../screens/challenges/ChallengeDashboardMobile"));
+const HallOfFameMobile = lazy(() => import("../screens/challenges/HallOfFameMobile"));
 const PrimitiveGallery = lazy(() => import("../dev/PrimitiveGallery"));
 const CreateHarness = lazy(() => import("../dev/CreateHarness"));
 const UploadHarness = lazy(() => import("../dev/UploadHarness"));
@@ -38,6 +39,7 @@ const ChallengeHubHarness = lazy(() => import("../dev/ChallengeHubHarness"));
 const ChallengeDetailHarness = lazy(() => import("../dev/ChallengeDetailHarness"));
 const ChallengeRegisterHarness = lazy(() => import("../dev/ChallengeRegisterHarness"));
 const ChallengeDashboardHarness = lazy(() => import("../dev/ChallengeDashboardHarness"));
+const HallOfFameHarness = lazy(() => import("../dev/HallOfFameHarness"));
 
 function AuthenticatedProfileRoute({ user }) {
   const { id } = useParams();
@@ -140,6 +142,10 @@ export default function MobileRoutes({
     return <MobileRouteBoundary><ChallengeDashboardHarness /></MobileRouteBoundary>;
   }
 
+  if (devScreen === "hall-of-fame") {
+    return <MobileRouteBoundary><HallOfFameHarness /></MobileRouteBoundary>;
+  }
+
   if (preview) {
     return <MobileRouteBoundary>{dashboard}</MobileRouteBoundary>;
   }
@@ -172,6 +178,8 @@ export default function MobileRoutes({
         <Route path="/challenge/c/:slug" element={<ChallengeDetailMobile user={user} />} />
         <Route path="/challenge/register" element={<ChallengeRegisterMobile user={user} />} />
         <Route path="/challenge/dashboard" element={<ChallengeDashboardMobile user={user} />} />
+        <Route path="/hall-of-fame" element={<HallOfFameMobile user={user} />} />
+        <Route path="/hall-of-fame/:slug" element={<HallOfFameMobile user={user} />} />
         <Route path="/share/project/:id" element={<ProjectPublicMobile />} />
         <Route path="/share/profile/:id" element={user ? <AuthenticatedProfileRoute user={user} /> : <PublicProfileMobile />} />
         <Route path="/profile" element={<AuthenticatedProfileRoute user={user} />} />

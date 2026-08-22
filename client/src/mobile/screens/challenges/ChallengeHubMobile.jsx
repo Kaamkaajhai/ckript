@@ -137,6 +137,7 @@ export default function ChallengeHubMobile({ user: suppliedUser = undefined, pre
               <div className="ckm-challenge-hub__honour-roll">
                 {publicData.honourRoll.map((group) => <HallOfFameGroupMobile key={group.competition._id} group={group} />)}
               </div>
+              <Button to="/hall-of-fame" variant="secondary" fullWidth>Browse the complete Hall of Fame</Button>
             </>
           ) : <StatePanel icon="emoji_events" title="No results yet" body="Winners and special-award recipients will be recorded here permanently." />}
         </TabPanel>

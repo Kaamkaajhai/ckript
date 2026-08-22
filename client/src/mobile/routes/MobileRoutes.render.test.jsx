@@ -61,6 +61,10 @@ vi.mock("../screens/challenges/ChallengeDashboardMobile", () => ({
   default: () => <main data-testid="mobile-challenge-dashboard">Challenge dashboard</main>,
 }));
 
+vi.mock("../screens/challenges/HallOfFameMobile", () => ({
+  default: () => <main data-testid="mobile-hall-of-fame">Hall of Fame</main>,
+}));
+
 vi.mock("../dev/ChallengeHubHarness", () => ({
   default: () => <main data-testid="mobile-challenge-harness">Challenge harness</main>,
 }));
@@ -75,6 +79,10 @@ vi.mock("../dev/ChallengeRegisterHarness", () => ({
 
 vi.mock("../dev/ChallengeDashboardHarness", () => ({
   default: () => <main data-testid="mobile-challenge-dashboard-harness">Challenge dashboard harness</main>,
+}));
+
+vi.mock("../dev/HallOfFameHarness", () => ({
+  default: () => <main data-testid="mobile-hall-of-fame-harness">Hall of Fame harness</main>,
 }));
 
 vi.mock("../screens/profiles/visitor-profile/ProfileVisitorMobile", () => ({
@@ -153,6 +161,17 @@ describe("MobileRoutes", () => {
     expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
   });
 
+  it("renders both canonical Hall of Fame routes through the native record screen", async () => {
+    let el = await mount("/hall-of-fame?year=2026");
+    expect(el.querySelector('[data-testid="mobile-hall-of-fame"]')).toBeTruthy();
+    act(() => root.unmount());
+    container.remove();
+    root = null;
+    container = null;
+    el = await mount("/hall-of-fame/the-final-draft");
+    expect(el.querySelector('[data-testid="mobile-hall-of-fame"]')).toBeTruthy();
+  });
+
   it("renders the deterministic challenge fixture when App.jsx owns its dev route", async () => {
     const el = await mount("/__mobile-challenges?tab=mine", { devScreen: "challenges" });
     expect(el.querySelector('[data-testid="mobile-challenge-harness"]')).toBeTruthy();
@@ -171,6 +190,11 @@ describe("MobileRoutes", () => {
   it("renders the deterministic participant-dashboard fixture when App.jsx owns its dev route", async () => {
     const el = await mount("/__mobile-challenge-dashboard?state=results", { devScreen: "challenge-dashboard" });
     expect(el.querySelector('[data-testid="mobile-challenge-dashboard-harness"]')).toBeTruthy();
+  });
+
+  it("renders the deterministic Hall of Fame fixture when App.jsx owns its dev route", async () => {
+    const el = await mount("/__mobile-hall-of-fame?state=detail", { devScreen: "hall-of-fame" });
+    expect(el.querySelector('[data-testid="mobile-hall-of-fame-harness"]')).toBeTruthy();
   });
 
   it("renders the same dashboard at /ai-tools, because desktop does", async () => {

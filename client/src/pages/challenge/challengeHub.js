@@ -67,6 +67,7 @@ export function normalizeChallengeHubPublic(listPayload = {}, archivePayload = {
     laureateCount: honourRoll.reduce((total, group) => total + group.people.length, 0),
     serverNow: listPayload?.serverNow || null,
     years: items(archivePayload?.years),
+    archivePageInfo: archivePayload?.pageInfo || null,
   };
 }
 
@@ -81,7 +82,9 @@ export async function loadChallengeHubPublic({ signal } = {}) {
   try {
     const [listed, completed] = await Promise.all([
       publicApi.get("/competitions/list", { signal }),
-      publicApi.get("/competitions/completed", { signal }),
+      // The hub is a preview, not the archive. Keep it compact and send visitors to the paged
+      // Hall of Fame for the full permanent record.
+      publicApi.get("/competitions/completed", { signal, params: { limit: 6 } }),
     ]);
     return {
       ok: true,

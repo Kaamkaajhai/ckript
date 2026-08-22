@@ -40,6 +40,13 @@ import {
   parseCompetitionCommunityPaging,
 } from "../utils/competitionCommunityPaging.js";
 import {
+  HALL_OF_FAME_DETAIL_FIELDS,
+  HALL_OF_FAME_LIST_FIELDS,
+  hallOfFamePageInfo,
+  parseHallOfFameFeaturedPaging,
+  parseHallOfFamePaging,
+} from "../utils/competitionHallOfFamePaging.js";
+import {
   COMPETITION_REGISTRATION_MODE,
   competitionRegistrationCharge,
   competitionRegistrationMode,
@@ -317,9 +324,34 @@ export const listCompetitions = async (req, res) => {
 // GET /api/competitions/completed  (public) — the Hall of Fame index
 export const getCompletedCompetitions = async (req, res) => {
   try {
-    const competitions = await Competition.find(HALL_OF_FAME_FILTER)
-      .sort({ resultsDeclaredAt: -1 })
-      .lean();
+    const paging = parseHallOfFamePaging(req.query);
+    const filter = { ...HALL_OF_FAME_FILTER };
+    if (paging.competition) filter.name = paging.competition;
+    if (paging.year) {
+      filter.$expr = {
+        $eq: [
+          { $year: { $ifNull: ["$dates.startsAt", "$resultsDeclaredAt"] } },
+          paging.year,
+        ],
+      };
+    }
+
+    const [competitions, total, yearRows, competitionNames] = await Promise.all([
+      Competition.find(filter)
+        .select(HALL_OF_FAME_LIST_FIELDS)
+        .sort({ resultsDeclaredAt: -1, _id: -1 })
+        .skip((paging.page - 1) * paging.limit)
+        .limit(paging.limit)
+        .lean(),
+      Competition.countDocuments(filter),
+      Competition.aggregate([
+        { $match: HALL_OF_FAME_FILTER },
+        { $project: { year: { $year: { $ifNull: ["$dates.startsAt", "$resultsDeclaredAt"] } } } },
+        { $group: { _id: "$year" } },
+        { $sort: { _id: -1 } },
+      ]),
+      Competition.distinct("name", HALL_OF_FAME_FILTER),
+    ]);
 
     const items = await Promise.all(competitions.map(async (competition) => {
       const [results, stats] = await Promise.all([
@@ -348,7 +380,9 @@ export const getCompletedCompetitions = async (req, res) => {
 
     return res.json({
       items,
-      years: [...new Set(items.map((i) => i.year))].sort((a, b) => b - a),
+      years: yearRows.map((row) => row._id).filter(Boolean),
+      competitions: competitionNames.filter(Boolean).sort((a, b) => a.localeCompare(b)),
+      pageInfo: hallOfFamePageInfo({ ...paging, total }),
     });
   } catch (error) {
     console.error("[competition] completed list failed:", error?.message || error);
@@ -360,8 +394,11 @@ export const getCompletedCompetitions = async (req, res) => {
 export const getHallOfFameEntry = async (req, res) => {
   try {
     const slug = String(req.params.slug || "").trim().toLowerCase();
-    const competition = await Competition.findOne({ ...HALL_OF_FAME_FILTER, slug }).lean();
+    const competition = await Competition.findOne({ ...HALL_OF_FAME_FILTER, slug })
+      .select(HALL_OF_FAME_DETAIL_FIELDS)
+      .lean();
     if (!competition) return res.status(404).json({ message: "Competition not found." });
+    const featuredPaging = parseHallOfFameFeaturedPaging(req.query);
 
     const [results, stats] = await Promise.all([
       buildPublicResults(competition._id),
@@ -370,15 +407,22 @@ export const getHallOfFameEntry = async (req, res) => {
 
     // Scripts from this competition that the writer has since chosen to publish. Empty until then —
     // winning entries are NOT auto-published, so this section simply stays hidden.
-    const featuredScripts = await Script.find({
+    const featuredFilter = {
       competitionId: competition._id,
       isFeatured: true,
       status: { $in: ["published", "approved"] },
       isDeleted: { $ne: true },
-    })
+    };
+    const [featuredScripts, featuredTotal] = await Promise.all([
+      Script.find(featuredFilter)
       .select("title coverImage genre primaryGenre logline creator")
       .populate("creator", "name profileImage writerProfile.username")
-      .lean();
+      .sort({ _id: -1 })
+      .skip((featuredPaging.page - 1) * featuredPaging.limit)
+      .limit(featuredPaging.limit)
+      .lean(),
+      Script.countDocuments(featuredFilter),
+    ]);
 
     return res.json({
       competition: {
@@ -411,6 +455,7 @@ export const getHallOfFameEntry = async (req, res) => {
           profileImage: script.creator?.profileImage || "",
         },
       })),
+      featuredScriptsPageInfo: hallOfFamePageInfo({ ...featuredPaging, total: featuredTotal }),
     });
   } catch (error) {
     console.error("[competition] hall of fame entry failed:", error?.message || error);

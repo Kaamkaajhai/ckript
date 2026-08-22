@@ -393,6 +393,12 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     family: "challenges",
     note: "The authenticated participant status, studio, community, achievements, results, and certificate workspace at /challenge/dashboard (D50).",
   },
+  "ckm-hall": {
+    kind: PAGE_FAMILY,
+    owner: "screens/challenges/HallOfFameMobile.css",
+    family: "challenges",
+    note: "The bounded public Hall of Fame archive and permanent competition record at /hall-of-fame/:slug (D51).",
+  },
 
   // --- Project creation (Phase 3) ---------------------------------------
   // The chooser at /new-project. Its own family rather than part of

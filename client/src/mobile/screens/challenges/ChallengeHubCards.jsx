@@ -193,7 +193,7 @@ export function HallOfFameGroupMobile({ group }) {
           <h2 id={`honour-${competition._id}`}>{competition.name || "Challenge"}</h2>
           {competition.totalParticipants ? <span>{competition.totalParticipants} entrants · {competition.countriesRepresented || 0} countries</span> : null}
         </div>
-        <Link to={`/challenge/c/${encodeURIComponent(competition.slug || "")}`}>Challenge details</Link>
+        <Link to={`/hall-of-fame/${encodeURIComponent(competition.slug || "")}`}>Permanent record</Link>
       </header>
       <div className="ckm-challenge-hub__laureates">
         {(group.people || []).map(({ person, award }, index) => <LaureateCardMobile key={`${award}-${person?.userId || index}`} person={person} award={award} />)}
