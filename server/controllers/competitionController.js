@@ -419,8 +419,11 @@ export const getActiveCompetition = async (req, res) => {
 
     const now = new Date();
     const phase = getCompetitionPhase(competition, now);
+    // The detail hero states participation as a fact. The previous raw document has no such field,
+    // so both desktop and native silently rendered zero even with real entrants in the collection.
+    const stats = await buildCompetitionStats(competition._id);
     const payload = {
-      competition: publicCompetition(competition, phase),
+      competition: { ...publicCompetition(competition, phase), ...stats },
       phase,
       timeline: buildTimeline(competition, null, now),
       // Lets the client correct for a skewed device clock so countdowns are honest.
@@ -827,20 +830,28 @@ export const getMyEntry = async (req, res) => {
     const competition = await loadCompetitionById(req.params.id);
     if (!competition) return res.status(404).json({ message: "Competition not found." });
 
-    const entry = await CompetitionEntry.findOne({ competitionId: competition._id, userId: req.user._id });
+    // Challenge detail needs only registration state and the Event ID. Dashboard/editor callers
+    // retain the complete owner record, but `?view=summary` must not make a public-detail visit pull
+    // screenplay bodies, registration answers, payment references, or AI evaluation into memory.
+    const summaryView = req.query.view === "summary";
+    const entryQuery = CompetitionEntry.findOne({ competitionId: competition._id, userId: req.user._id });
+    if (summaryView) entryQuery.select(COMPETITION_ENTRY_SUMMARY_FIELDS);
+    const entry = await entryQuery;
     if (!entry) return res.status(404).json({ message: "You are not registered for this competition." });
 
     const now = new Date();
     const phase = getCompetitionPhase(competition, now);
     const payload = {
       competition: publicCompetition(competition, phase),
-      entry,
+      entry: summaryView ? competitionEntrySummary(entry) : entry,
       phase,
       timeline: buildTimeline(competition, entry, now),
-      referrals: await getReferralProgress(req.user._id, competition),
-      referralCode: await ensureReferralCode(req.user),
       serverNow: now.toISOString(),
     };
+    if (!summaryView) {
+      payload.referrals = await getReferralProgress(req.user._id, competition);
+      payload.referralCode = await ensureReferralCode(req.user);
+    }
     if (phase === "results") payload.results = await buildPublicResults(competition._id);
     return res.json(payload);
   } catch (error) {

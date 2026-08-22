@@ -749,6 +749,21 @@ function App() {
                   }
                 />
               )}
+              {import.meta.env.DEV && (
+                /* Phase 6 challenge-detail harness (D48). Keeps every phase,
+                   owner-summary state, direct-link result and failure surface
+                   deterministic for narrow-width browser sweeps. */
+                <Route
+                  path="/__mobile-challenge-detail"
+                  element={
+                    <AuthContext.Provider value={{ user: { _id: "preview-writer", name: "Mira Sen", role: "writer", token: "preview", favoriteScripts: [] }, loading: false, logout: () => {}, setUser: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="challenge-detail" />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
+              )}
               <Route path="/:id" element={<SingleSegmentProfileOrReferralRoute />} />
             </Routes>
             </RootExperience>

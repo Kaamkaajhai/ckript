@@ -371,6 +371,21 @@ describe("mobileRoutePolicy — experience selection", () => {
     });
   });
 
+  it("mounts canonical challenge detail for public and authenticated phone viewers", () => {
+    for (const user of [null, writer, { id: "p1", role: "producer" }]) {
+      expect(resolveMobileExperience({
+        isMobile: true,
+        authLoading: false,
+        user,
+        pathname: "/challenge/c/forty-eight-hours",
+      })).toMatchObject({
+        experience: "mobile",
+        routeId: "challenge-detail",
+        screenId: "challenge-detail",
+      });
+    }
+  });
+
   it("mounts the public project screen without an account (D31)", () => {
     expect(resolveMobileExperience({
       isMobile: true,
