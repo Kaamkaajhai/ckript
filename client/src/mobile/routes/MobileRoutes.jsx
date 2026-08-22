@@ -30,6 +30,7 @@ const ChallengeDashboardMobile = lazy(() => import("../screens/challenges/Challe
 const HallOfFameMobile = lazy(() => import("../screens/challenges/HallOfFameMobile"));
 const IndustryHomeMobile = lazy(() => import("../screens/industry/IndustryHomeMobile"));
 const IndustryDashboardMobile = lazy(() => import("../screens/industry/IndustryDashboardMobile"));
+const WriterRosterMobile = lazy(() => import("../screens/industry/WriterRosterMobile"));
 const PrimitiveGallery = lazy(() => import("../dev/PrimitiveGallery"));
 const CreateHarness = lazy(() => import("../dev/CreateHarness"));
 const UploadHarness = lazy(() => import("../dev/UploadHarness"));
@@ -166,6 +167,7 @@ export default function MobileRoutes({
       <Routes>
         <Route path="/dashboard" element={dashboard} />
         <Route path="/home" element={<IndustryHomeMobile user={user} />} />
+        <Route path="/writers" element={<WriterRosterMobile user={user} />} />
         {/* /ai-tools is the dashboard, because on desktop it is literally the
             same element (App.jsx mounts <DashboardRoute /> at both). Without
             this line a mobile writer got the desktop dashboard at one alias and

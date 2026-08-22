@@ -120,6 +120,22 @@ describe("mobileRoutePolicy — experience selection", () => {
     });
   });
 
+  it("mounts the native writer roster for industry audiences only", () => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: producer,
+      pathname: "/writers",
+    })).toMatchObject({ experience: "mobile", routeId: "writers", screenId: "writers" });
+
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: writer,
+      pathname: "/writers",
+    })).toMatchObject({ experience: "desktop", reason: "audience-not-implemented" });
+  });
+
   it("mounts native industry home only for the industry audience", () => {
     expect(resolveMobileExperience({
       isMobile: true, authLoading: false, user: producer, pathname: "/home",

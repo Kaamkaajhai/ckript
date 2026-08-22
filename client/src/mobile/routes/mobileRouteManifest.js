@@ -628,7 +628,17 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
   },
   migration("mandates", "/mandates"),
-  migration("writers", "/writers"),
+  {
+    id: "writers",
+    pattern: "/writers",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native industry writer discovery over the shared bounded, projection-safe roster contract (plan §11 Phase 7, D53).",
+    audiences: [AUDIENCE.INDUSTRY],
+    protection: "authenticated",
+    screenId: "writers",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
 
   migration("reader-home", "/reader"),
   migration("reader-search", "/reader/search"),

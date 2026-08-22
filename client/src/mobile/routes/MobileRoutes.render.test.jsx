@@ -73,6 +73,10 @@ vi.mock("../screens/industry/IndustryDashboardMobile", () => ({
   default: () => <main data-testid="mobile-industry-dashboard">Industry dashboard</main>,
 }));
 
+vi.mock("../screens/industry/WriterRosterMobile", () => ({
+  default: () => <main data-testid="mobile-writers">Writers</main>,
+}));
+
 vi.mock("../dev/ChallengeHubHarness", () => ({
   default: () => <main data-testid="mobile-challenge-harness">Challenge harness</main>,
 }));
@@ -157,6 +161,12 @@ describe("MobileRoutes", () => {
 
     el = await mount("/dashboard", { user: { role: "producer" } });
     expect(el.querySelector('[data-testid="mobile-industry-dashboard"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
+  });
+
+  it("renders the native writer roster at its canonical URL", async () => {
+    const el = await mount("/writers", { user: { role: "producer" } });
+    expect(el.querySelector('[data-testid="mobile-writers"]')).toBeTruthy();
     expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
   });
 

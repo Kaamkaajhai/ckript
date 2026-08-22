@@ -8,6 +8,7 @@ import { INDUSTRY_HOME_STATUS, normalizeIndustryFeed } from "../../../features/i
 import { INDUSTRY_DASHBOARD_STATUS } from "../../../features/producer-workspace/industryDashboard";
 import IndustryDashboardMobile from "./IndustryDashboardMobile";
 import IndustryHomeMobile from "./IndustryHomeMobile";
+import WriterRosterMobile from "./WriterRosterMobile";
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const producer = { _id: "u1", name: "Naina Kapoor", role: "producer", favoriteScripts: [] };
@@ -67,5 +68,28 @@ describe("native industry workspace", () => {
     const el = await mount(<IndustryDashboardMobile user={producer} previewState={partial} />, "/dashboard");
     expect(el.textContent).toContain("Some account data did not load");
     expect(el.textContent).toContain("Scripts read");
+  });
+
+  it("renders the native writer register from canonical URL filters", async () => {
+    const writer = {
+      _id: "w1",
+      name: "Maya Rao",
+      bio: "Drama writer",
+      writerProfile: { genres: ["Drama"], wgaMember: true },
+      scriptCount: 2,
+      totalViews: 1250,
+      avgScore: 81,
+      followerCount: 34,
+    };
+    const state = {
+      status: "ready",
+      data: { writers: [writer], mandateSource: { industryProfile: { mandates: { genres: ["Drama"] } } } },
+      retry,
+    };
+    const el = await mount(<WriterRosterMobile user={producer} previewState={state} />, "/writers?genre=Drama&mandate=1");
+    expect(el.querySelectorAll("h1")).toHaveLength(1);
+    expect(el.textContent).toContain("Maya Rao");
+    expect(el.textContent).toContain("Mandate overlap");
+    expect(el.querySelector('a[href="/profile/w1"]')).toBeTruthy();
   });
 });

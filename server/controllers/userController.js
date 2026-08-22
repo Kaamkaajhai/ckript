@@ -40,6 +40,11 @@ import {
   profileCollectionMeta,
   projectProfileActivityPost,
 } from "../utils/profileCollections.js";
+import {
+  WRITER_ROSTER_PUBLIC_FIELDS,
+  WRITER_ROSTER_SOURCE_FIELDS,
+  escapeWriterRosterSearch,
+} from "../utils/writerRosterProjection.js";
 
 const WRITER_REPRESENTATION_STATUSES = ["unrepresented", "manager", "agent", "manager_and_agent"];
 const BANK_REVIEW_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
@@ -527,7 +532,7 @@ export const getWriters = async (req, res) => {
 
     // Name search (case-insensitive)
     if (search && search.trim()) {
-      matchStage.name = { $regex: search.trim(), $options: "i" };
+      matchStage.name = { $regex: escapeWriterRosterSearch(search.trim()), $options: "i" };
     }
 
     // Genre filter early (before lookup) when writerProfile.genres exists on the user doc
@@ -537,16 +542,9 @@ export const getWriters = async (req, res) => {
 
     const pipeline = [
       { $match: matchStage },
-      // Strip sensitive / heavy fields before the lookup so less data travels
-      {
-        $project: {
-          password: 0,
-          emailVerificationToken: 0,
-          emailVerificationExpires: 0,
-          resetPasswordToken: 0,
-          resetPasswordExpires: 0,
-        },
-      },
+      // Positive projection: private account/session/contact fields never enter
+      // the roster pipeline or response.
+      { $project: WRITER_ROSTER_SOURCE_FIELDS },
       // Pipeline-form lookup: only pull the three fields we actually need from each script
       {
         $lookup: {
@@ -623,6 +621,8 @@ export const getWriters = async (req, res) => {
       });
       pipeline.push({ $sort: { reputation: -1 } });
     }
+
+    pipeline.push({ $project: WRITER_ROSTER_PUBLIC_FIELDS });
 
     // Cap results – 100 writers is more than enough for the browse page
     pipeline.push({ $limit: 100 });
