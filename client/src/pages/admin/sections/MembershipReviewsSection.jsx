@@ -107,13 +107,13 @@ const MembershipReviewsSection = () => {
                                                         <td className="px-5 py-3.5">
                                                             <div className="flex flex-col gap-1">
                                                                 {pendingRows.map((item) => (
-                                                                    item.proofUrl ? (
+                                                                    item.hasProof ? (
                                                                         <a
                                                                             key={`${review._id}-${item.type}-proof`}
-                                                                            href={item.proofUrl}
+                                                                            href={`#${item.type}-proof`}
                                                                             target="_blank"
                                                                             rel="noopener noreferrer"
-                                                                            onClick={(event) => handleOpenMembershipProof(event, review._id, item.type, item.proofUrl)}
+                                                                            onClick={(event) => handleOpenMembershipProof(event, review._id, item.type)}
                                                                             className="text-xs font-bold text-[#a83a4d] hover:text-[#e79aa6]"
                                                                         >
                                                                             {item.label} proof

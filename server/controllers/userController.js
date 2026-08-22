@@ -31,6 +31,7 @@ import {
   buildBusinessEmailProfileDenial,
   buildPrivateProfileDenial,
   buildVisitorProfile,
+  redactMembershipProofSecrets,
   redactOwnerProfileSecrets,
   VISITOR_PROFILE_SCRIPT_FIELDS,
 } from "../utils/profileProjection.js";
@@ -638,8 +639,17 @@ export const getCurrentUser = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const userObj = user.toObject();
+    const userObj = redactOwnerProfileSecrets(user.toObject());
     userObj.language = normalizeLanguagePreference(userObj.language);
+    if (userObj.bankDetails?.accountNumber) {
+      userObj.bankDetails.accountNumber = maskAccountNumber(userObj.bankDetails.accountNumber);
+    }
+    userObj.bankDetailsReview = sanitizeBankReviewForResponse(userObj.bankDetailsReview);
+    userObj.bankDetailsSecurity = {
+      invalidAttempts: Number(userObj.bankDetailsSecurity?.invalidAttempts || 0),
+      isLocked: Boolean(userObj.bankDetailsSecurity?.isLocked),
+      lockedAt: userObj.bankDetailsSecurity?.lockedAt,
+    };
     userObj.profileCompletion = getProfileCompletion(userObj);
 
     res.json(userObj);
@@ -984,6 +994,12 @@ export const getUserProfile = async (req, res) => {
         // Sanitize account number even for own profile (for security)
         userObj.bankDetails.accountNumber = '****' + userObj.bankDetails.accountNumber.slice(-4);
       }
+      userObj.bankDetailsReview = sanitizeBankReviewForResponse(userObj.bankDetailsReview);
+      userObj.bankDetailsSecurity = {
+        invalidAttempts: Number(userObj.bankDetailsSecurity?.invalidAttempts || 0),
+        isLocked: Boolean(userObj.bankDetailsSecurity?.isLocked),
+        lockedAt: userObj.bankDetailsSecurity?.lockedAt,
+      };
     }
 
     userObj.blockedByCurrent = blockedByCurrent;
@@ -1258,6 +1274,12 @@ export const updateUserProfile = async (req, res) => {
 
     // Bank details
     if (bankDetails) {
+      // Writer payout credentials have their own review, masking, and lock
+      // boundary. Keeping a second writer mutation here previously let the
+      // profile editor and payout screen drift independently.
+      if (["writer", "creator"].includes(user.role)) {
+        return res.status(400).json({ message: "Submit writer payout details through the payout account endpoint" });
+      }
       const security = ensureBankDetailsSecurity(user);
       if (security.isLocked) {
         return res.status(403).json({ message: BANK_DETAILS_BLOCKED_MESSAGE });
@@ -1412,7 +1434,7 @@ export const updateUserProfile = async (req, res) => {
       bio: user.bio,
       skills: user.skills,
       profileImage: user.profileImage,
-      writerProfile: user.writerProfile,
+      writerProfile: redactMembershipProofSecrets(user.writerProfile?.toObject ? user.writerProfile.toObject() : user.writerProfile),
       industryProfile: user.industryProfile,
       preferences: user.preferences,
       notificationPrefs: user.notificationPrefs,

@@ -1,7 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion as Motion, AnimatePresence } from "framer-motion";
-import api from "../services/api";
 import { AlertCircle, Building2, Linkedin, IndianRupee, Film, TrendingUp, User, CreditCard, Briefcase, Globe, Target, Heart, BadgeCheck, Sparkles, Clapperboard, Link as LinkIcon } from "lucide-react";
 import { useDarkMode } from "../context/DarkModeContext";
 import { isFilmIndustryProfessionalRole } from "../utils/industryAccess";
@@ -17,10 +16,14 @@ import {
   saveOwnProfilePayload,
   uploadOwnProfileImage,
 } from "../pages/profile/profileEditor";
+import {
+  buildPayoutSubmission,
+  loadMembershipProofAccessUrl,
+  submitMembershipProof,
+  submitPayoutDetails,
+  validateMembershipProof,
+} from "../pages/profile/accountCredentials";
 
-const ACCOUNT_NUMBER_REGEX = /^\d{8,20}$/;
-const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
-const GENERIC_ROUTING_REGEX = /^[A-Z0-9-]{4,20}$/;
 const INDIA_COUNTRY_NAME = "India";
 
 const EMPTY_MEMBERSHIP_REVIEW = {
@@ -230,28 +233,18 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
     }
   };
 
-  const handleOpenMembershipProof = async (event, membershipType, fallbackUrl) => {
+  const handleOpenMembershipProof = async (event, membershipType) => {
     event.preventDefault();
     const normalizedType = String(membershipType || "").toLowerCase();
     if (!["wga", "swa"].includes(normalizedType)) return;
 
     try {
-      const { data } = await api.get("/onboarding/writer-membership-proof/access-url", {
-        params: { membershipType: normalizedType },
-      });
-      const accessUrl = data?.url || fallbackUrl;
-      if (accessUrl) {
-        window.open(accessUrl, "_blank", "noopener,noreferrer");
-      } else {
-        setError("Proof link unavailable");
-      }
+      const result = await loadMembershipProofAccessUrl(normalizedType);
+      if (!result.ok) throw result.cause || new Error(result.message);
+      window.open(result.data.url, "_blank", "noopener,noreferrer");
     } catch (err) {
       console.error(err);
-      if (fallbackUrl) {
-        window.open(fallbackUrl, "_blank", "noopener,noreferrer");
-        return;
-      }
-      setError(err?.response?.data?.message || "Failed to open proof");
+      setError(err?.response?.data?.message || err.message || "Failed to open proof");
     }
   };
 
@@ -321,14 +314,14 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
           wgaMember &&
           wgaStatus !== "approved" &&
           !membershipProofFiles.wga &&
-          !membershipVerification?.wga?.proofUrl
+          !membershipVerification?.wga?.proofFileName
         );
 
         const needsSwaProof = Boolean(
           sgaMember &&
           swaStatus !== "approved" &&
           !membershipProofFiles.swa &&
-          !membershipVerification?.swa?.proofUrl
+          !membershipVerification?.swa?.proofFileName
         );
 
         if (needsWgaProof || needsSwaProof) {
@@ -451,77 +444,45 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
         normalizedBankDetails.currency !== initialBankSnapshot.currency ||
         Boolean(normalizedBankDetails.accountNumber);
 
-      if (hasBankChanges) {
-        if (!normalizedBankDetails.accountHolderName || !normalizedBankDetails.bankName) {
-          setError("Account holder name and bank name are required for bank details.");
-          setLoading(false);
-          return;
-        }
-
-        if (!normalizedBankDetails.accountNumber && !maskedAccountNumber) {
-          setError("Account number is required for bank details.");
-          setLoading(false);
-          return;
-        }
-
-        if (normalizedBankDetails.accountNumber && !ACCOUNT_NUMBER_REGEX.test(normalizedBankDetails.accountNumber)) {
-          setError("Account number must be 8-20 digits.");
-          setLoading(false);
-          return;
-        }
-
-        if (!normalizedBankDetails.routingNumber) {
-          setError("Routing / IFSC number is required for bank details.");
-          setLoading(false);
-          return;
-        }
-
-        if (normalizedBankDetails.country === "IN") {
-          if (!IFSC_REGEX.test(normalizedBankDetails.routingNumber)) {
-            setError("Please enter a valid IFSC code (example: HDFC0001234).");
-            setLoading(false);
-            return;
-          }
-        } else if (!GENERIC_ROUTING_REGEX.test(normalizedBankDetails.routingNumber)) {
-          setError("Routing number must be 4-20 letters, numbers, or hyphen.");
-          setLoading(false);
-          return;
-        }
-
-        // Keep existing account number if the user did not provide a new one.
-        if (!normalizedBankDetails.accountNumber && maskedAccountNumber) {
-          delete normalizedBankDetails.accountNumber;
-        }
-
-        payload.bankDetails = normalizedBankDetails;
+      const payoutSubmission = hasBankChanges ? buildPayoutSubmission(normalizedBankDetails) : null;
+      if (payoutSubmission && !payoutSubmission.ok) {
+        setError(Object.values(payoutSubmission.fieldErrors || {})[0] || payoutSubmission.message);
+        setLoading(false);
+        return;
       }
 
       const result = await saveOwnProfilePayload(payload);
       if (!result.ok) throw result.cause || new Error(result.message);
       let latestData = result.data;
 
-      const uploadMembershipProof = async (membershipType, file) => {
-        const formData = new FormData();
-        formData.append("membershipType", membershipType);
-        formData.append("proof", file);
-        const proofResponse = await api.post("/onboarding/writer-membership-proof", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+      if (payoutSubmission?.ok) {
+        const payoutResult = await submitPayoutDetails(payoutSubmission.data);
+        if (!payoutResult.ok) throw payoutResult.cause || new Error(payoutResult.message);
+        latestData = {
+          ...latestData,
+          bankDetails: payoutResult.data.approved,
+          bankDetailsReview: payoutResult.data.review,
+        };
+      }
 
-        if (proofResponse?.data?.user?.writerProfile) {
+      const uploadMembershipProof = async (membershipType, file) => {
+        const proofResponse = await submitMembershipProof({ membershipType, file });
+        if (!proofResponse.ok) throw proofResponse.cause || new Error(proofResponse.message);
+
+        if (proofResponse.data) {
           latestData = {
             ...latestData,
-            writerProfile: proofResponse.data.user.writerProfile,
+            writerProfile: proofResponse.data,
           };
           setMembershipVerification((prev) => ({
             ...prev,
             wga: {
               ...EMPTY_MEMBERSHIP_REVIEW,
-              ...(proofResponse.data.user.writerProfile?.membershipVerification?.wga || prev.wga),
+              ...(proofResponse.data?.membershipVerification?.wga || prev.wga),
             },
             swa: {
               ...EMPTY_MEMBERSHIP_REVIEW,
-              ...(proofResponse.data.user.writerProfile?.membershipVerification?.swa || prev.swa),
+              ...(proofResponse.data?.membershipVerification?.swa || prev.swa),
             },
           }));
         }
@@ -955,6 +916,14 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                       accept=".pdf,.jpg,.jpeg,.png,.webp"
                       onChange={(e) => {
                         const file = e.target.files?.[0] || null;
+                        const validation = validateMembershipProof(file);
+                        if (!validation.ok) {
+                          setError(validation.message);
+                          e.target.value = "";
+                          setMembershipProofFiles((prev) => ({ ...prev, wga: null }));
+                          return;
+                        }
+                        setError("");
                         setMembershipProofFiles((prev) => ({ ...prev, wga: file }));
                       }}
                       className="block w-full text-xs"
@@ -962,12 +931,12 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                     {membershipProofFiles.wga && (
                       <p className="text-xs text-emerald-500 font-semibold">Selected: {membershipProofFiles.wga.name}</p>
                     )}
-                    {!membershipProofFiles.wga && membershipVerification?.wga?.proofUrl && (
+                    {!membershipProofFiles.wga && membershipVerification?.wga?.proofFileName && (
                       <a
-                        href={membershipVerification.wga.proofUrl}
+                        href="#wga-proof"
                         target="_blank"
                         rel="noopener noreferrer"
-                        onClick={(event) => handleOpenMembershipProof(event, "wga", membershipVerification.wga.proofUrl)}
+                        onClick={(event) => handleOpenMembershipProof(event, "wga")}
                         className="text-xs font-semibold text-blue-500 hover:underline"
                       >
                         View latest uploaded proof
@@ -1006,6 +975,14 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                       accept=".pdf,.jpg,.jpeg,.png,.webp"
                       onChange={(e) => {
                         const file = e.target.files?.[0] || null;
+                        const validation = validateMembershipProof(file);
+                        if (!validation.ok) {
+                          setError(validation.message);
+                          e.target.value = "";
+                          setMembershipProofFiles((prev) => ({ ...prev, swa: null }));
+                          return;
+                        }
+                        setError("");
                         setMembershipProofFiles((prev) => ({ ...prev, swa: file }));
                       }}
                       className="block w-full text-xs"
@@ -1013,12 +990,12 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                     {membershipProofFiles.swa && (
                       <p className="text-xs text-emerald-500 font-semibold">Selected: {membershipProofFiles.swa.name}</p>
                     )}
-                    {!membershipProofFiles.swa && membershipVerification?.swa?.proofUrl && (
+                    {!membershipProofFiles.swa && membershipVerification?.swa?.proofFileName && (
                       <a
-                        href={membershipVerification.swa.proofUrl}
+                        href="#swa-proof"
                         target="_blank"
                         rel="noopener noreferrer"
-                        onClick={(event) => handleOpenMembershipProof(event, "swa", membershipVerification.swa.proofUrl)}
+                        onClick={(event) => handleOpenMembershipProof(event, "swa")}
                         className="text-xs font-semibold text-blue-500 hover:underline"
                       >
                         View latest uploaded proof
@@ -1464,7 +1441,7 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
                 </svg>
                 <p className={`text-xs ${dark ? 'text-blue-300' : 'text-blue-700'}`}>
-                  All bank details are encrypted and stored securely. This information is used only for payment processing.
+                  Account numbers are masked after submission. Payout changes require administrator review before they become active.
                 </p>
               </div>
             </Motion.div>

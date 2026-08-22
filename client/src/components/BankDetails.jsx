@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useCallback, useState, useEffect } from "react";
+import { motion as Motion, AnimatePresence } from "framer-motion";
 import { 
   Building2, 
   CreditCard, 
@@ -14,11 +14,7 @@ import {
   Globe2,
   Info
 } from "lucide-react";
-import api from "../services/api";
-
-const ACCOUNT_NUMBER_REGEX = /^\d{8,20}$/;
-const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
-const GENERIC_ROUTING_REGEX = /^[A-Z0-9-]{4,20}$/;
+import { buildPayoutSubmission, loadPayoutDetails, submitPayoutDetails } from "../pages/profile/accountCredentials";
 
 const BankDetails = ({ dark }) => {
   const [bankDetails, setBankDetails] = useState(null);
@@ -43,7 +39,7 @@ const BankDetails = ({ dark }) => {
     currency: "INR"
   });
 
-  const applyBankDetailsToForm = (details = {}) => {
+  const applyBankDetailsToForm = useCallback((details = {}) => {
     setFormData((prev) => ({
       ...prev,
       accountHolderName: details.accountHolderName || "",
@@ -56,92 +52,57 @@ const BankDetails = ({ dark }) => {
       country: details.country || "IN",
       currency: details.currency || "INR",
     }));
-  };
-
-  useEffect(() => {
-    fetchBankDetails();
   }, []);
 
-  const fetchBankDetails = async () => {
-    try {
-      setLoading(true);
-      setError("");
-      const { data } = await api.get("/transactions/bank-details");
-      const review = data.bankDetailsReview || { status: "not_submitted" };
-      setBankDetailsReview(review);
-      setBankDetailsSecurity(data.bankDetailsSecurity || { invalidAttempts: 0, isLocked: false });
-      if (data.bankDetails) {
-        setBankDetails(data.bankDetails);
-        applyBankDetailsToForm(data.bankDetails);
-      } else if (review?.requestedDetails) {
-        applyBankDetailsToForm(review.requestedDetails);
-      }
-
-      if (!data.bankDetails && review?.status === "not_submitted") {
-        setIsEditing(true);
-      } else {
-        setIsEditing(false);
-      }
-    } catch (err) {
-      setError(err.response?.data?.message || "Failed to load bank details");
+  const applyLoadedPayout = useCallback((result) => {
+    if (!result.ok) {
+      setError(result.message || "Failed to load bank details");
       setIsEditing(true);
-    } finally {
       setLoading(false);
+      return;
     }
-  };
+
+    const data = result.data;
+    const review = data.review || { status: "not_submitted" };
+    setBankDetails(data.approved);
+    setBankDetailsReview(review);
+    setBankDetailsSecurity(data.security || { invalidAttempts: 0, isLocked: false });
+    if (data.approved) applyBankDetailsToForm(data.approved);
+    else if (review?.requestedDetails) applyBankDetailsToForm(review.requestedDetails);
+    setIsEditing(!data.approved && review?.status === "not_submitted");
+    setLoading(false);
+  }, [applyBankDetailsToForm]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadPayoutDetails().then((result) => {
+      if (!cancelled) applyLoadedPayout(result);
+    });
+    return () => { cancelled = true; };
+  }, [applyLoadedPayout]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     setSuccess("");
+    const validation = buildPayoutSubmission(formData);
+    if (!validation.ok) {
+      setError(Object.values(validation.fieldErrors || {})[0] || validation.message);
+      return;
+    }
     setSaving(true);
 
-    const normalizedAccountNumber = String(formData.accountNumber || "").replace(/\s+/g, "");
-    const normalizedRoutingNumber = String(formData.routingNumber || "").replace(/\s+/g, "").toUpperCase();
-    const normalizedCountry = String(formData.country || "IN").trim().toUpperCase();
-
-    if (!ACCOUNT_NUMBER_REGEX.test(normalizedAccountNumber)) {
-      setError("Account number must be 8-20 digits");
-      setSaving(false);
-      return;
-    }
-
-    if (!normalizedRoutingNumber) {
-      setError("Routing / IFSC number is required");
-      setSaving(false);
-      return;
-    }
-
-    if (normalizedCountry === "IN") {
-      if (!IFSC_REGEX.test(normalizedRoutingNumber)) {
-        setError("Please enter a valid IFSC code (example: HDFC0001234)");
-        setSaving(false);
-        return;
-      }
-    } else if (!GENERIC_ROUTING_REGEX.test(normalizedRoutingNumber)) {
-      setError("Routing number must be 4-20 letters, numbers, or hyphen");
-      setSaving(false);
-      return;
-    }
-
-    const payload = {
-      ...formData,
-      accountNumber: normalizedAccountNumber,
-      routingNumber: normalizedRoutingNumber,
-      country: normalizedCountry,
-      currency: String(formData.currency || "INR").trim().toUpperCase(),
-    };
-
     try {
-      const { data } = await api.put("/transactions/bank-details", payload);
-      setBankDetails(data.bankDetails);
-      setBankDetailsReview(data.bankDetailsReview || { status: "pending" });
-      setBankDetailsSecurity(data.bankDetailsSecurity || { invalidAttempts: 0, isLocked: false });
-      setSuccess(data.message || "Bank details submitted for review");
+      const result = await submitPayoutDetails(validation.data);
+      if (!result.ok) throw result.cause || new Error(result.message);
+      setBankDetails(result.data.approved);
+      setBankDetailsReview(result.data.review || { status: "pending" });
+      setBankDetailsSecurity(result.data.security || { invalidAttempts: 0, isLocked: false });
+      setSuccess(result.message || "Bank details submitted for review");
       setIsEditing(false);
       setTimeout(() => setSuccess(""), 3000);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to save bank details");
+      setError(err.response?.data?.message || err.message || "Failed to save bank details");
     } finally {
       setSaving(false);
     }
@@ -189,7 +150,7 @@ const BankDetails = ({ dark }) => {
   }
 
   return (
-    <motion.div
+    <Motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       className={`rounded-2xl border overflow-hidden ${
@@ -249,7 +210,7 @@ const BankDetails = ({ dark }) => {
       {/* Alert Messages */}
       <AnimatePresence>
         {error && (
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
@@ -259,11 +220,11 @@ const BankDetails = ({ dark }) => {
           >
             <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
             <p className={`text-sm ${dark ? "text-red-400" : "text-red-700"}`}>{error}</p>
-          </motion.div>
+          </Motion.div>
         )}
         
         {success && (
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
@@ -273,7 +234,7 @@ const BankDetails = ({ dark }) => {
           >
             <CheckCircle2 className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
             <p className={`text-sm ${dark ? "text-green-400" : "text-green-700"}`}>{success}</p>
-          </motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
 
@@ -289,7 +250,7 @@ const BankDetails = ({ dark }) => {
             Your information is secure
           </p>
           <p className={`text-xs mt-1 ${dark ? "text-blue-400/70" : "text-blue-700/70"}`}>
-            All bank details are encrypted and stored securely. We never share this information with third parties.
+            Account numbers are masked in your account. Payout changes require administrator review before they become active.
           </p>
           <p className={`text-xs mt-1 ${dark ? "text-blue-300/70" : "text-blue-700/70"}`}>
             Invalid attempts: {Number(bankDetailsSecurity?.invalidAttempts || 0)} / 5
@@ -652,7 +613,7 @@ const BankDetails = ({ dark }) => {
           </div>
         )}
       </div>
-    </motion.div>
+    </Motion.div>
   );
 };
 

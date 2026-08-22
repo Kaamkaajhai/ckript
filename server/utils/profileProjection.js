@@ -31,6 +31,26 @@ const membershipStatus = (entry) => (entry ? {
   reviewedAt: entry.reviewedAt,
 } : undefined);
 
+const ownerMembershipStatus = (entry) => (entry ? {
+  requested: Boolean(entry.requested),
+  status: text(entry.status) || "not_submitted",
+  proofFileName: text(entry.proofFileName),
+  proofMimeType: text(entry.proofMimeType),
+  submittedAt: entry.submittedAt,
+  reviewedAt: entry.reviewedAt,
+  adminNote: text(entry.adminNote),
+} : undefined);
+
+export function redactMembershipProofSecrets(writerProfile = {}) {
+  return {
+    ...writerProfile,
+    membershipVerification: {
+      wga: ownerMembershipStatus(writerProfile.membershipVerification?.wga),
+      swa: ownerMembershipStatus(writerProfile.membershipVerification?.swa),
+    },
+  };
+}
+
 const publicWriterProfile = (writer = {}) => {
   const diversity = writer.demographicPrivacy === "searchable" ? {
     gender: text(writer.diversity?.gender),
@@ -169,6 +189,9 @@ export function redactOwnerProfileSecrets(user = {}) {
       connected: Boolean(projected.googleCalendar.connected),
       calendarEmail: text(projected.googleCalendar.calendarEmail),
     };
+  }
+  if (projected.writerProfile) {
+    projected.writerProfile = redactMembershipProofSecrets(projected.writerProfile);
   }
   return projected;
 }

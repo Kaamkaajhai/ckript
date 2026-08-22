@@ -39,6 +39,7 @@ import SegmentedControl from "../../../components/tabs/SegmentedControl";
 import MobileShell from "../../../shell/MobileShell";
 import { MOBILE_SHELL_MODE } from "../../../shell/mobileShellModes";
 import { buildAccountSettingsView } from "./accountSettingsModel";
+import { MembershipCredentialSettings, PayoutCredentialSettings } from "./AccountCredentialsMobile";
 import "./AccountSettingsMobile.css";
 
 const EMPTY_EMAIL = { newEmail: "", password: "" };
@@ -262,6 +263,10 @@ export default function AccountSettingsMobile({ user }) {
         <Switch label="Private account" description="Only approved followers can see your profile" checked={Boolean(profile.isPrivate)} disabled={Boolean(busy)} onChange={(isPrivate) => updateSetting("privacy", { isPrivate }, "Privacy updated")} />
         {view.writer ? <Switch label="Allow industry contact" description="Verified professionals may request your contact details" checked={profile.allowIndustryContact !== false} disabled={Boolean(busy)} onChange={(allowIndustryContact) => updateSetting("contact", { allowIndustryContact }, "Contact preference updated")} /> : null}
       </Section>
+
+      {view.writer ? <Section title="Payout account" description="Masked account details used for withdrawals. Every change is reviewed before it becomes active."><PayoutCredentialSettings onSuccess={(message) => toast.success(message)} /></Section> : null}
+
+      {view.writer ? <Section title="Guild membership" description="Submit WGA and SWA credentials separately. Proof files remain private to you and authorized reviewers."><MembershipCredentialSettings writerProfile={profile.writerProfile} onUpdate={(writerProfile) => syncProfile({ writerProfile })} onSuccess={(message) => toast.success(message)} /></Section> : null}
 
       <Section title="Email" description={view.pendingEmail ? `Current: ${view.email} · Pending: ${view.pendingEmail}` : view.email}>
         <InlineMessage tone={view.emailVerified ? "success" : "warning"}>{view.emailVerified ? "Your email is verified." : `Verification is required for ${view.pendingEmail || view.email}.`}</InlineMessage>

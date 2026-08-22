@@ -89,6 +89,7 @@ describe("own profile projection", () => {
       accountDeletion: { archivedProfile: { email: "archived@example.com" } },
       subscription: { plan: "pro", checkoutReference: "order-secret", paymentId: "pay-secret" },
       googleCalendar: { connected: true, calendarEmail: "calendar@example.com", accessToken: "oauth-secret", scopes: ["scope-secret"] },
+      writerProfile: { username: "owner", membershipVerification: { wga: { status: "pending", proofUrl: "proof-secret", proofPublicId: "public-id-secret", proofFileName: "card.pdf", proofMimeType: "application/pdf", reviewedBy: "reviewer-secret" } } },
     });
 
     assert.equal(projected.email, "owner@example.com");
@@ -96,9 +97,18 @@ describe("own profile projection", () => {
     assert.equal(projected.isPrivate, true);
     assert.equal(projected.subscription.plan, "pro");
     assert.deepEqual(projected.googleCalendar, { connected: true, calendarEmail: "calendar@example.com" });
+    assert.deepEqual(projected.writerProfile.membershipVerification.wga, {
+      requested: false,
+      status: "pending",
+      proofFileName: "card.pdf",
+      proofMimeType: "application/pdf",
+      submittedAt: undefined,
+      reviewedAt: undefined,
+      adminNote: "",
+    });
 
     const serialized = JSON.stringify(projected);
-    for (const secret of ["hash", "provider-id", "session-secret", "acct-secret", "cus-secret", "archived@example.com", "order-secret", "pay-secret", "oauth-secret", "scope-secret"]) {
+    for (const secret of ["hash", "provider-id", "session-secret", "acct-secret", "cus-secret", "archived@example.com", "order-secret", "pay-secret", "oauth-secret", "scope-secret", "proof-secret", "public-id-secret", "reviewer-secret"]) {
       assert.equal(serialized.includes(secret), false, `leaked ${secret}`);
     }
   });

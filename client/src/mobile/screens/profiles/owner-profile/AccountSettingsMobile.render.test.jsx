@@ -27,6 +27,10 @@ const mocks = vi.hoisted(() => ({
   logout: vi.fn(),
   setUser: vi.fn(),
   setCurrency: vi.fn(),
+  loadPayout: vi.fn(),
+  submitPayout: vi.fn(),
+  submitProof: vi.fn(),
+  loadProofUrl: vi.fn(),
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
 
@@ -46,6 +50,13 @@ vi.mock("../../../../pages/profile/accountSecurity", async (importOriginal) => (
   loadGoogleCalendarStatus: mocks.calendarStatus,
   startGoogleCalendarConnection: mocks.calendarConnect,
   disconnectGoogleCalendar: mocks.calendarDisconnect,
+}));
+vi.mock("../../../../pages/profile/accountCredentials", async (importOriginal) => ({
+  ...(await importOriginal()),
+  loadPayoutDetails: mocks.loadPayout,
+  submitPayoutDetails: mocks.submitPayout,
+  submitMembershipProof: mocks.submitProof,
+  loadMembershipProofAccessUrl: mocks.loadProofUrl,
 }));
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -83,6 +94,22 @@ beforeEach(() => {
   mocks.revokeSession.mockResolvedValue({ ok: true, data: { message: "removed" } });
   mocks.deleteAccount.mockResolvedValue({ ok: true, data: { message: "deleted" } });
   mocks.calendarStatus.mockResolvedValue({ ok: true, data: { connected: false } });
+  mocks.loadPayout.mockResolvedValue({ ok: true, data: {
+    approved: { accountHolderName: "Mira Rao", bankName: "HDFC", accountNumber: "****1234", routingNumber: "HDFC0001234", accountType: "savings", country: "IN", currency: "INR" },
+    review: { status: "approved", adminNote: "", requestedDetails: null },
+    security: { invalidAttempts: 0, isLocked: false },
+    display: { accountHolderName: "Mira Rao", bankName: "HDFC", accountNumber: "****1234", routingNumber: "HDFC0001234", accountType: "savings", country: "IN", currency: "INR" },
+    draft: { accountHolderName: "Mira Rao", bankName: "HDFC", accountNumber: "", routingNumber: "HDFC0001234", accountType: "savings", swiftCode: "", iban: "", country: "IN", currency: "INR" },
+  } });
+  mocks.submitPayout.mockResolvedValue({ ok: true, message: "Payout queued", data: {
+    approved: null,
+    review: { status: "pending", requestedDetails: { accountHolderName: "Mira Rao", bankName: "HDFC", accountNumber: "****5678", routingNumber: "HDFC0001234", accountType: "savings", country: "IN", currency: "INR" } },
+    security: { invalidAttempts: 0, isLocked: false },
+    display: { accountHolderName: "Mira Rao", bankName: "HDFC", accountNumber: "****5678", routingNumber: "HDFC0001234", accountType: "savings", country: "IN", currency: "INR" },
+    draft: { accountHolderName: "Mira Rao", bankName: "HDFC", accountNumber: "", routingNumber: "HDFC0001234", accountType: "savings", swiftCode: "", iban: "", country: "IN", currency: "INR" },
+  } });
+  mocks.submitProof.mockResolvedValue({ ok: true, message: "WGA submitted", data: { membershipVerification: { wga: { requested: true, status: "pending", proofFileName: "card.pdf" } } } });
+  mocks.loadProofUrl.mockResolvedValue({ ok: true, data: { url: "https://asset.test/signed-proof" } });
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
@@ -122,9 +149,11 @@ describe("AccountSettingsMobile", () => {
   it("renders the complete writer settings workspace and loaded sessions", async () => {
     await render();
     expect(container.querySelectorAll("h1")).toHaveLength(1);
-    for (const label of ["Account", "Email", "Password", "Notifications", "Devices & sessions", "Localization", "Blocked users", "Deleted projects (1)", "Danger zone"]) {
+    for (const label of ["Account", "Payout account", "Guild membership", "Email", "Password", "Notifications", "Devices & sessions", "Localization", "Blocked users", "Deleted projects (1)", "Danger zone"]) {
       expect(container.textContent).toContain(label);
     }
+    expect(container.textContent).toContain("****1234");
+    expect(container.textContent).toContain("Writers Guild of America");
     expect(container.textContent).toContain("Safari on iOS");
     expect(container.textContent).toContain("Chrome on Windows");
     expect(container.textContent).not.toContain("Google Calendar");
@@ -157,6 +186,57 @@ describe("AccountSettingsMobile", () => {
     await act(async () => section.querySelector('button[type="submit"]').click());
     expect(mocks.changePassword).toHaveBeenCalledWith({ currentPassword: "oldpass", newPassword: "newpass", confirmPassword: "newpass" });
     expect(mocks.toast.success).toHaveBeenCalledWith("Password changed");
+  });
+
+  it("requires the full account number and submits payout changes through the shared contract", async () => {
+    await render();
+    const section = [...container.querySelectorAll("section")].find((node) => node.querySelector("h2")?.textContent === "Payout account");
+    await act(async () => [...section.querySelectorAll("button")].find((button) => button.textContent === "Change payout account").click());
+    const accountLabel = [...section.querySelectorAll("label")].find((label) => label.textContent.includes("Full account number"));
+    await input(document.getElementById(accountLabel.htmlFor), "12345678");
+    await act(async () => [...section.querySelectorAll("button")].find((button) => button.textContent === "Submit for review").click());
+    expect(mocks.submitPayout).toHaveBeenCalledWith(expect.objectContaining({ accountNumber: "12345678", currency: "INR" }));
+    expect(container.textContent).toContain("Under review");
+  });
+
+  it("separates the active payout account from a replacement under review", async () => {
+    mocks.loadPayout.mockResolvedValueOnce({ ok: true, data: {
+      approved: { accountHolderName: "Mira Rao", bankName: "HDFC", accountNumber: "****1111", routingNumber: "HDFC0001111", accountType: "savings", country: "IN", currency: "INR" },
+      review: { status: "pending", adminNote: "", requestedDetails: { accountHolderName: "Mira Rao", bankName: "ICICI", accountNumber: "****2222", routingNumber: "ICIC0002222", accountType: "checking", country: "IN", currency: "INR" } },
+      security: { invalidAttempts: 0, isLocked: false },
+      display: { accountHolderName: "Mira Rao", bankName: "ICICI", accountNumber: "****2222", routingNumber: "ICIC0002222", accountType: "checking", country: "IN", currency: "INR" },
+      draft: { accountHolderName: "Mira Rao", bankName: "ICICI", accountNumber: "", routingNumber: "ICIC0002222", accountType: "checking", swiftCode: "", iban: "", country: "IN", currency: "INR" },
+    } });
+    await render();
+    const section = [...container.querySelectorAll("section")].find((node) => node.querySelector("h2")?.textContent === "Payout account");
+    expect(section.textContent).toContain("Active payout account");
+    expect(section.textContent).toContain("****1111");
+    expect(section.textContent).toContain("Replacement under review");
+    expect(section.textContent).toContain("****2222");
+    expect(section.textContent).toContain("active account remains unchanged");
+  });
+
+  it("uploads a selected guild proof and syncs the sanitized writer profile", async () => {
+    mocks.state = { ...readyState(), profile: { ...readyState().profile, writerProfile: { username: "mira", membershipVerification: { wga: { requested: true, status: "rejected", proofFileName: "old.pdf", adminNote: "Use a current card" } } } } };
+    await render();
+    const guild = [...container.querySelectorAll("article")].find((node) => node.textContent.includes("Writers Guild of America"));
+    const picker = guild.querySelector('input[type="file"]');
+    const file = new File(["proof"], "card.pdf", { type: "application/pdf" });
+    Object.defineProperty(picker, "files", { configurable: true, value: [file] });
+    await act(async () => picker.dispatchEvent(new Event("change", { bubbles: true })));
+    await act(async () => [...guild.querySelectorAll("button")].find((button) => button.textContent === "Resubmit proof").click());
+    expect(mocks.submitProof).toHaveBeenCalledWith(expect.objectContaining({ membershipType: "wga", file }));
+    expect(mocks.state.applyProfileUpdate).toHaveBeenCalledWith(expect.objectContaining({ writerProfile: expect.any(Object) }));
+  });
+
+  it("reveals an approved proof only after loading an authorized access URL", async () => {
+    mocks.state = { ...readyState(), profile: { ...readyState().profile, writerProfile: { username: "mira", membershipVerification: { wga: { requested: true, status: "approved", proofFileName: "card.pdf" } } } } };
+    await render();
+    const guild = [...container.querySelectorAll("article")].find((node) => node.textContent.includes("Writers Guild of America"));
+    expect(guild.querySelector('a[href="https://asset.test/signed-proof"]')).toBeNull();
+    await act(async () => [...guild.querySelectorAll("button")].find((button) => button.textContent === "Get secure link").click());
+    expect(mocks.loadProofUrl).toHaveBeenCalledWith("wga");
+    expect(guild.querySelector('a[href="https://asset.test/signed-proof"]')).toBeTruthy();
   });
 
   it("confirms remote-session removal before revoking it", async () => {
