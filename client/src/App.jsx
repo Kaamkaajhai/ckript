@@ -733,6 +733,22 @@ function App() {
                   }
                 />
               )}
+              {import.meta.env.DEV && (
+                /* Phase 6 challenge-hub harness (D47). The live route spans two
+                   public endpoints, an owner-only endpoint and the wall clock;
+                   this fixture makes all four tabs and public/member chrome
+                   deterministic for narrow-width accessibility sweeps. */
+                <Route
+                  path="/__mobile-challenges"
+                  element={
+                    <AuthContext.Provider value={{ user: { _id: "preview-writer", name: "Mira Sen", role: "writer", token: "preview", favoriteScripts: [] }, loading: false, logout: () => {}, setUser: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="challenges" />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
+              )}
               <Route path="/:id" element={<SingleSegmentProfileOrReferralRoute />} />
             </Routes>
             </RootExperience>

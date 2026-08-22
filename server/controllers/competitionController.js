@@ -24,6 +24,10 @@ import {
   buildTimeline,
   canSubmitNow,
 } from "../utils/competitionPhase.js";
+import {
+  COMPETITION_ENTRY_SUMMARY_FIELDS,
+  competitionEntrySummary,
+} from "../utils/competitionEntrySummary.js";
 
 // ── Shared helpers ──────────────────────────────────────────────────────────
 
@@ -1152,6 +1156,7 @@ export const getMyCompetitionReferrals = async (req, res) => {
 export const getMyCompetitions = async (req, res) => {
   try {
     const entries = await CompetitionEntry.find({ userId: req.user._id })
+      .select(COMPETITION_ENTRY_SUMMARY_FIELDS)
       .populate("competitionId", "name slug theme.title dates resultsDeclaredAt lifecycle")
       .sort({ createdAt: -1 })
       .lean();
@@ -1162,7 +1167,7 @@ export const getMyCompetitions = async (req, res) => {
       .map((entry) => {
         const phase = getCompetitionPhase(entry.competitionId, now);
         return {
-          entry,
+          entry: competitionEntrySummary(entry),
           // Through publicCompetition like every other read path. `theme.title` is populated for the
           // record card, and returning the competition raw would have handed a registrant the theme
           // the moment they signed up — the seal has to hold on THIS door too, not just the

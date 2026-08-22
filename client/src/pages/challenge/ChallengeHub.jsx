@@ -1,8 +1,6 @@
-import { useContext, useEffect, useState } from "react";
+import { useContext } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Trophy, Clock, History, User } from "lucide-react";
-import publicApi from "../../services/publicApi";
-import api from "../../services/api";
 import { AuthContext } from "../../context/AuthContext";
 import { useAuthModal } from "../../context/AuthModalContext";
 import CompetitionCard from "../../components/competition/CompetitionCard";
@@ -11,6 +9,11 @@ import EntryCard from "../../components/competition/EntryCard";
 import { Card } from "../../components/competition/ui";
 import "./challenge.css";
 import { yearSuffix } from "../../components/competition/labels";
+import {
+  CHALLENGE_HUB_STATUS,
+  writeChallengeHubTab,
+} from "./challengeHub";
+import useChallengeHub from "./useChallengeHub";
 
 /**
  * The Challenge hub — everything competition-related in one place.
@@ -54,91 +57,26 @@ const ChallengeHub = () => {
   const [params, setParams] = useSearchParams();
   const { user } = useContext(AuthContext) || {};
   const { openAuthModal } = useAuthModal();
+  const hub = useChallengeHub({ user });
 
   const requested = params.get("tab");
   const tab = TABS.some((t) => t.key === requested) ? requested : "live";
 
-  const [list, setList] = useState({ live: [], upcoming: [], past: [], serverNow: null });
-  const [archive, setArchive] = useState([]);
-  const [mine, setMine] = useState([]);
-  const [mineServerNow, setMineServerNow] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      setLoading(true);
-      try {
-        // publicApi, not api: the authenticated instance hard-redirects to sign-in when a stored
-        // session has expired, which would bounce a visitor off a public page.
-        const [listed, completed] = await Promise.all([
-          publicApi.get("/competitions/list"),
-          publicApi.get("/competitions/completed"),
-        ]);
-        if (cancelled) return;
-        setList(listed.data || { live: [], upcoming: [], past: [] });
-        setArchive(completed.data?.items || []);
-        setError("");
-      } catch {
-        if (!cancelled) setError("Could not load competitions. Please try again.");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, []);
-
-  useEffect(() => {
-    if (!user) { setMine([]); return undefined; }
-    let cancelled = false;
-    api.get("/competitions/mine")
-      .then(({ data }) => {
-        if (cancelled) return;
-        setMine(data?.items || []);
-        setMineServerNow(data?.serverNow || null);
-      })
-      .catch(() => { if (!cancelled) setMine([]); });
-    return () => { cancelled = true; };
-  }, [user]);
-
   const select = (key) => {
     // `replace` so flicking between tabs does not bury the page the visitor arrived from under a
     // stack of history entries.
-    setParams(key === "live" ? {} : { tab: key }, { replace: true });
+    setParams(writeChallengeHubTab(params, key), { replace: true });
   };
 
-  // Anything a writer can still act on, soonest first, with announced ones after the open ones.
-  const liveItems = [...(list.live || []), ...(list.upcoming || [])];
-
-  // /list is deliberately cheap and carries no results — it exists to answer "what is on". So a
-  // finished competition would render as "Results archived." with blank counts even though its
-  // winner is sitting in the archive response we already fetched. Merge the two by id rather than
-  // adding the per-competition aggregation to /list, which would cost a full stats pass per row on
-  // every hub load.
-  const archiveById = new Map(archive.map((a) => [String(a._id), a]));
-  const pastItems = (list.past || []).map((item) => ({ ...item, ...(archiveById.get(String(item._id)) || {}) }));
-
-  // The Hall of Fame is organised BY CHALLENGE, and within each challenge it is about the writers.
-  // Each competition contributes a section — just enough of its own detail to say which event this
-  // was — under which every award sits: winner, runner-up, and each category award.
-  const honourRoll = archive
-    .map((c) => {
-      const from = (person, award) => (person ? [{ person, award }] : []);
-      return {
-        competition: c,
-        people: [
-          ...from(c.winner, "winner"),
-          ...from(c.runnerUp, "runner_up"),
-          ...(c.special || []).flatMap((p) => from(p, "special")),
-        ],
-      };
-    })
-    .filter((group) => group.people.length);
-
-  const laureateCount = honourRoll.reduce((n, g) => n + g.people.length, 0);
+  const publicData = hub.public.data || {};
+  const mineData = hub.mine.data || {};
+  const liveItems = publicData.live || [];
+  const pastItems = publicData.past || [];
+  const honourRoll = publicData.honourRoll || [];
+  const laureateCount = publicData.laureateCount || 0;
+  const mine = mineData.items || [];
+  const publicLoading = hub.public.status === CHALLENGE_HUB_STATUS.LOADING;
+  const publicError = hub.public.status === CHALLENGE_HUB_STATUS.FAILED;
 
   return (
     <div className="ckc" style={{ minHeight: "100vh", paddingBottom: 96 }}>
@@ -170,13 +108,18 @@ const ChallengeHub = () => {
         </nav>
 
         <div style={{ marginTop: 36 }}>
-          {error ? <Empty>{error}</Empty> : null}
+          {tab !== "mine" && publicError ? (
+            <div className="ckc-card ckc-card-pad" style={{ textAlign: "center", padding: "52px 24px" }}>
+              <p className="ckc-lede" style={{ margin: "0 auto" }}>{hub.public.failure?.message}</p>
+              <button type="button" className="ckc-btn" style={{ marginTop: 20 }} onClick={hub.retryPublic}>Try again</button>
+            </div>
+          ) : null}
 
-          {!error && loading ? (
+          {tab !== "mine" && !publicError && publicLoading ? (
             <p className="ckc-meta" style={{ padding: "56px 0", textAlign: "center" }}>Loading…</p>
           ) : null}
 
-          {!error && !loading && tab === "live" ? (
+          {!publicError && !publicLoading && tab === "live" ? (
             liveItems.length ? (
               <Grid>
                 {liveItems.map((item) => (
@@ -184,7 +127,7 @@ const ChallengeHub = () => {
                     key={item._id}
                     item={item}
                     variant={item.phase === "announced" ? "upcoming" : "live"}
-                    serverNow={list.serverNow}
+                    serverNow={publicData.serverNow}
                   />
                 ))}
               </Grid>
@@ -193,7 +136,7 @@ const ChallengeHub = () => {
             )
           ) : null}
 
-          {!error && !loading && tab === "past" ? (
+          {!publicError && !publicLoading && tab === "past" ? (
             pastItems.length ? (
               <>
                 <p className="ckc-meta" style={{ marginBottom: 24 }}>
@@ -215,7 +158,7 @@ const ChallengeHub = () => {
             )
           ) : null}
 
-          {!error && !loading && tab === "hall-of-fame" ? (
+          {!publicError && !publicLoading && tab === "hall-of-fame" ? (
             honourRoll.length ? (
               <>
                 <p className="ckc-meta" style={{ marginBottom: 32 }}>
@@ -264,7 +207,7 @@ const ChallengeHub = () => {
             )
           ) : null}
 
-          {!error && !loading && tab === "mine" ? (
+          {tab === "mine" ? (
             !user ? (
               <div className="ckc-card ckc-card-pad" style={{ textAlign: "center", padding: "52px 24px" }}>
                 <p className="ckc-lede" style={{ margin: "0 auto" }}>
@@ -279,10 +222,17 @@ const ChallengeHub = () => {
                   Sign in
                 </button>
               </div>
+            ) : hub.mine.status === CHALLENGE_HUB_STATUS.LOADING ? (
+              <p className="ckc-meta" style={{ padding: "56px 0", textAlign: "center" }}>Loading your challenges…</p>
+            ) : hub.mine.status === CHALLENGE_HUB_STATUS.FAILED ? (
+              <div className="ckc-card ckc-card-pad" style={{ textAlign: "center", padding: "52px 24px" }}>
+                <p className="ckc-lede" style={{ margin: "0 auto" }}>{hub.mine.failure?.message}</p>
+                <button type="button" className="ckc-btn" style={{ marginTop: 20 }} onClick={hub.retryMine}>Try again</button>
+              </div>
             ) : mine.length ? (
               <div className="ckc-stack">
                 {mine.map((item) => (
-                  <EntryCard key={item.entry?._id || item.competition?._id} item={item} serverNow={mineServerNow} />
+                  <EntryCard key={item.entry?._id || item.competition?._id} item={item} serverNow={mineData.serverNow} />
                 ))}
               </div>
             ) : (

@@ -368,6 +368,14 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     note: "The native conversation inbox, text thread, attachment display and keyboard-aware composer.",
   },
 
+  // --- Challenges and Hall of Fame (Phase 6) ---------------------------
+  "ckm-challenge-hub": {
+    kind: PAGE_FAMILY,
+    owner: "screens/challenges/ChallengeHubMobile.css",
+    family: "challenges",
+    note: "The public/authenticated four-section challenge index at /challenge: live, previous, Hall of Fame, and the owner's entry history (D47).",
+  },
+
   // --- Project creation (Phase 3) ---------------------------------------
   // The chooser at /new-project. Its own family rather than part of
   // ckm-create-project: it is a different route with a different shell, it

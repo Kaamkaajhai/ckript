@@ -345,6 +345,32 @@ describe("mobileRoutePolicy — experience selection", () => {
     });
   });
 
+  it("mounts the native challenge hub for public and authenticated phone viewers", () => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: null,
+      pathname: "/challenge",
+      search: "?tab=hall-of-fame",
+    })).toMatchObject({
+      experience: "mobile",
+      routeId: "challenge-hub",
+      screenId: "challenge-hub-public",
+    });
+
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: writer,
+      pathname: "/challenge",
+      search: "?tab=mine",
+    })).toMatchObject({
+      experience: "mobile",
+      routeId: "challenge-hub",
+      screenId: "challenge-hub",
+    });
+  });
+
   it("mounts the public project screen without an account (D31)", () => {
     expect(resolveMobileExperience({
       isMobile: true,

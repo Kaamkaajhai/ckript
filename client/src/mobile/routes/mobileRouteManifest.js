@@ -141,6 +141,14 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     shell: MOBILE_SHELL_MODE.FLOW,
   },
   {
+    id: "mobile-challenge-hub-harness",
+    pattern: "/__mobile-challenges",
+    disposition: MOBILE_ROUTE_DISPOSITION.DEV_ONLY,
+    reason: "Development-only deterministic four-tab fixture for the native public/authenticated Challenge hub (plan §11 Phase 6, D47).",
+    screenId: "challenge-hub-harness",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+  },
+  {
     id: "writer-dashboard",
     pattern: "/dashboard",
     disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
@@ -217,7 +225,17 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     shell: MOBILE_SHELL_MODE.PUBLIC,
   },
 
-  migration("challenge-hub", "/challenge"),
+  {
+    id: "challenge-hub",
+    pattern: "/challenge",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native public/authenticated four-section challenge index over one shared desktop/mobile loader and an owner-safe My Challenges summary (plan §11 Phase 6, D47).",
+    protection: "public",
+    screenId: "challenge-hub-public",
+    authenticatedScreenId: "challenge-hub",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
   migration("challenge-detail", "/challenge/c/:slug"),
   migration("challenge-register", "/challenge/register"),
   migration("challenge-dashboard", "/challenge/dashboard"),
