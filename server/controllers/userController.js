@@ -8,7 +8,6 @@ import { sendOTPEmail } from "../utils/emailService.js";
 import {
   INDUSTRY_BUSINESS_EMAIL_REQUIRED_MESSAGE,
   hasActiveFilmIndustryProfessionalAccess,
-  isIndustryProfessionalWithPersonalEmail,
   isFilmIndustryProfessionalRole,
   isWriterRole,
   hasBusinessEmail,
@@ -28,8 +27,6 @@ import multer from "multer";
 import { uploadToCloudinary, deleteFromCloudinary, buildPrivateDownloadUrl } from "../config/cloudinary.js";
 import { fetchTrustedPdfAsset, getCloudinaryResourceTypeFromUrl } from "../utils/remoteAssetPolicy.js";
 import {
-  buildBusinessEmailProfileDenial,
-  buildPrivateProfileDenial,
   buildVisitorProfile,
   redactMembershipProofSecrets,
   redactOwnerProfileSecrets,
@@ -37,6 +34,12 @@ import {
 } from "../utils/profileProjection.js";
 import { resolveProfileImageUpdate } from "../utils/profileUpdate.js";
 import { retainCurrentSession } from "../utils/accountSecurity.js";
+import { evaluateAuthenticatedProfileAccess } from "../utils/profileAccess.js";
+import {
+  normalizeProfileCollectionQuery,
+  profileCollectionMeta,
+  projectProfileActivityPost,
+} from "../utils/profileCollections.js";
 
 const WRITER_REPRESENTATION_STATUSES = ["unrepresented", "manager", "agent", "manager_and_agent"];
 const BANK_REVIEW_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
@@ -820,43 +823,15 @@ export const getUserProfile = async (req, res) => {
 
     if (!isOwnProfile) {
       const currentUser = await User.findById(req.user._id).select("blockedUsers role email name subscription");
-      blockedByCurrent = currentUser?.blockedUsers?.some((uid) => uid.toString() === targetUserId) || false;
-      blockedByProfile = user?.blockedUsers?.some((uid) => {
-        const blockedId = uid?._id?.toString?.() || uid?.toString?.();
-        return blockedId === req.user._id.toString();
-      }) || false;
-
-      if (blockedByProfile) {
-        return res.status(403).json({
-          message: "This user has blocked you.",
-          blocked: true,
-          blockedByCurrent,
-          blockedByProfile,
-        });
-      }
-
-      if (user?.isDeactivated && String(currentUser?.role || "").toLowerCase() !== "admin") {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      const viewerId = req.user?._id?.toString();
-      const isFollower = (user?.followers || []).some((follower) => {
-        const followerId = follower?._id?.toString?.() || follower?.toString?.();
-        return followerId === viewerId;
+      const access = evaluateAuthenticatedProfileAccess({
+        profile: user,
+        viewer: currentUser || req.user,
+        viewerId: req.user?._id,
+        own: false,
       });
-      const isAdminViewer = String(currentUser?.role || "").toLowerCase() === "admin";
-
-      if (
-        isWriterRole(user) &&
-        hasActiveFilmIndustryProfessionalAccess(currentUser)
-      ) {
-        const plan = currentUser.subscription?.plan || "free";
-        if (plan === "free" && !hasBusinessEmail(currentUser.email)) {
-          return res.status(403).json(buildBusinessEmailProfileDenial(
-            "Viewing writer profiles requires a company email. Upgrade your plan or update your email."
-          ));
-        }
-      }
+      blockedByCurrent = access.blockedByCurrent;
+      blockedByProfile = access.blockedByProfile;
+      if (!access.allowed) return res.status(access.status).json(access.body);
 
       if (isWriterRole(user) && hasActiveFilmIndustryProfessionalAccess(currentUser)) {
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -876,38 +851,11 @@ export const getUserProfile = async (req, res) => {
         }
       }
 
-      if (user?.isPrivate && !isFollower && !isAdminViewer) {
-        const followRequestPending = (user?.followRequests || []).some(
-          (entry) => entry?.from?.toString() === req.user._id.toString()
-        );
-        return res.status(403).json(buildPrivateProfileDenial({
-          userId: targetUserId,
-          followRequestPending,
-          blockedByCurrent,
-          blockedByProfile,
-        }));
-      }
-
-      const isWriterProfile = isWriterRole(user);
-      if (
-        isWriterProfile &&
-        isIndustryProfessionalWithPersonalEmail(currentUser || req.user) &&
-        !hasActiveFilmIndustryProfessionalAccess(currentUser || req.user)
-      ) {
-        return res.status(403).json({
-            message: "To view scripts and writer profiles, sign up with a business email. To access writer contact details, purchase a Film Industry Professional plan.",
-            requiresBusinessEmail: true,
-          });
-      }
-      if (isWriterProfile) {
+      if (isWriterRole(user)) {
         await User.updateOne({ _id: user._id }, { $inc: { profileViews: 1 } });
         user.profileViews = Number(user.profileViews || 0) + 1;
       }
     }
-
-    const posts = await Post.find({ user: user._id })
-      .populate("user", "name profileImage role")
-      .sort({ createdAt: -1 });
 
     const scriptQuery = isOwnProfile
       ? { creator: user._id, isDeleted: { $ne: true } }
@@ -971,18 +919,6 @@ export const getUserProfile = async (req, res) => {
         .sort({ createdAt: -1 });
     }
 
-    let bookmarkedScripts = [];
-    if (isOwnProfile && Array.isArray(user.favoriteScripts) && user.favoriteScripts.length > 0) {
-      bookmarkedScripts = await Script.find({
-        _id: { $in: user.favoriteScripts },
-        status: "published",
-        isSold: { $ne: true },
-        isDeleted: { $ne: true },
-      })
-        .populate("creator", "name profileImage role")
-        .sort({ updatedAt: -1 });
-    }
-
     // Sanitize bank details - only show to own profile
     let userObj = user.toObject();
     userObj.language = normalizeLanguagePreference(userObj.language);
@@ -1014,6 +950,12 @@ export const getUserProfile = async (req, res) => {
     userObj.shareMeta = buildUserShareMeta(req, userObj);
     userObj.canonicalPath = buildUserCanonicalPath(userObj);
     if (isOwnProfile) userObj.profileCompletion = getProfileCompletion(userObj);
+    delete userObj.favoriteScripts;
+    delete userObj.scriptsRead;
+    if (userObj.industryProfile) {
+      userObj.industryProfile = { ...userObj.industryProfile };
+      delete userObj.industryProfile.savedScripts;
+    }
 
     const attachScriptShareMeta = (list = []) => list.map((scriptDoc) => {
       if (!scriptDoc) return scriptDoc;
@@ -1036,14 +978,119 @@ export const getUserProfile = async (req, res) => {
 
     res.json({
       user: userObj,
-      posts,
       scripts: attachScriptShareMeta(scripts),
       deletedScripts: attachScriptShareMeta(deletedScripts),
       purchasedScripts: attachScriptShareMeta(purchasedScripts),
-      bookmarkedScripts: attachScriptShareMeta(bookmarkedScripts),
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+const escapeRegex = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export const getProfileCollections = async (req, res) => {
+  try {
+    const profileKey = normalizeProfileLookupKey(req.params.id);
+    const profileLookupQuery = buildUserProfileLookupQuery(profileKey);
+    if (!profileLookupQuery) return res.status(400).json({ message: "Invalid profile id" });
+
+    const profile = await User.findOne(profileLookupQuery)
+      .select("_id name role writerProfile.username isPrivate isDeactivated followers followRequests blockedUsers favoriteScripts")
+      .lean();
+    if (!profile || String(profile.role || "").toLowerCase() === "reader") {
+      return res.status(404).json({ message: "General profile collections not found" });
+    }
+
+    const viewerId = req.user?._id;
+    const own = String(viewerId || "") === String(profile._id || "");
+    const viewer = own
+      ? profile
+      : await User.findById(viewerId).select("_id role email subscription blockedUsers").lean();
+    const access = evaluateAuthenticatedProfileAccess({ profile, viewer, viewerId, own });
+    if (!access.allowed) return res.status(access.status).json(access.body);
+
+    const query = normalizeProfileCollectionQuery(req.query);
+    if (query.section === "saved" && !own) {
+      return res.status(403).json({
+        message: "Saved projects are private to the profile owner.",
+        privateCollection: true,
+      });
+    }
+
+    const savedIds = own && Array.isArray(profile.favoriteScripts) ? profile.favoriteScripts : [];
+    const publicSavedFilter = {
+      _id: { $in: savedIds },
+      status: "published",
+      isSold: { $ne: true },
+      isDeleted: { $ne: true },
+    };
+    const savedFilter = query.query ? {
+      ...publicSavedFilter,
+      $or: ["title", "logline", "synopsis", "genre", "primaryGenre"].map((field) => ({
+        [field]: { $regex: escapeRegex(query.query), $options: "i" },
+      })),
+    } : publicSavedFilter;
+    const [activityTotal, savedTotal] = await Promise.all([
+      Post.countDocuments({ user: profile._id }),
+      own ? Script.countDocuments(publicSavedFilter) : Promise.resolve(null),
+    ]);
+
+    let items = [];
+    let total = activityTotal;
+    if (query.section === "activity") {
+      const posts = await Post.aggregate([
+        { $match: { user: profile._id } },
+        { $sort: { createdAt: -1, _id: 1 } },
+        { $skip: (query.page - 1) * query.limit },
+        { $limit: query.limit },
+        {
+          $project: {
+            content: 1,
+            image: 1,
+            video: 1,
+            createdAt: 1,
+            updatedAt: 1,
+            likesCount: { $size: { $ifNull: ["$likes", []] } },
+            commentsCount: { $size: { $ifNull: ["$comments", []] } },
+            savesCount: { $size: { $ifNull: ["$saves", []] } },
+          },
+        },
+      ]);
+      items = posts.map(projectProfileActivityPost);
+    } else {
+      total = query.query ? await Script.countDocuments(savedFilter) : savedTotal;
+      const savedSort = query.sort === "views"
+        ? { views: -1, _id: 1 }
+        : query.sort === "title"
+          ? { title: 1, _id: 1 }
+          : { updatedAt: -1, _id: 1 };
+      const scripts = await Script.find(savedFilter)
+        .select(VISITOR_PROFILE_SCRIPT_FIELDS.join(" "))
+        .populate("creator", "name profileImage role writerProfile.username")
+        .sort(savedSort)
+        .skip((query.page - 1) * query.limit)
+        .limit(query.limit)
+        .lean();
+      items = scripts.map((script) => {
+        const writerUsername = String(script?.creator?.writerProfile?.username || "").trim();
+        return {
+          ...script,
+          writerUsername,
+          canonicalPath: buildScriptCanonicalPath({ ...script, writerUsername }),
+          shareMeta: buildScriptShareMeta(req, script),
+        };
+      });
+    }
+
+    return res.json({
+      profileId: profile._id,
+      own,
+      counts: { activity: activityTotal, saved: own ? savedTotal : null },
+      items,
+      pagination: profileCollectionMeta({ ...query, total, own }),
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to load profile collections" });
   }
 };
 

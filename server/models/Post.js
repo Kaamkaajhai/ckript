@@ -10,6 +10,7 @@ const postSchema = new mongoose.Schema({
   saves: [{ type: mongoose.Schema.Types.ObjectId, ref: "User" }],
 }, { timestamps: true });
 
-postSchema.index({ user: 1 });
+// Serves the bounded profile activity feed and still covers user-only counts.
+postSchema.index({ user: 1, createdAt: -1, _id: 1 });
 
 export default mongoose.model("Post", postSchema);

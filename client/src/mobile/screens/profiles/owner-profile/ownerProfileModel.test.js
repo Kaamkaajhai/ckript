@@ -20,6 +20,7 @@ describe("owner profile view", () => {
       scripts: [{ _id: "s1", title: "One" }],
       bookmarkedScripts: [{ _id: "b1" }, { _id: "b2" }],
       purchasedScripts: [{ _id: "p1" }],
+      collectionCounts: { bookmarks: 7 },
     });
 
     expect(view).toMatchObject({
@@ -30,7 +31,7 @@ describe("owner profile view", () => {
     });
     expect(Object.fromEntries(view.stats.map(({ key, value }) => [key, value]))).toEqual({
       projects: 1,
-      saved: 2,
+      saved: 7,
       purchases: 1,
       views: 12,
     });

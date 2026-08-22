@@ -10,11 +10,16 @@ import ProfileVisitorMobile from "./ProfileVisitorMobile";
 
 const mocks = vi.hoisted(() => ({
   state: null,
+  collection: null,
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
 
 vi.mock("../../../../pages/profile/useAuthenticatedProfile", () => ({
   useAuthenticatedProfile: () => mocks.state,
+}));
+
+vi.mock("../../../../pages/profile/useProfileCollections", () => ({
+  useProfileCollections: () => mocks.collection,
 }));
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
@@ -60,6 +65,16 @@ let root;
 
 beforeEach(() => {
   mocks.state = readyState();
+  mocks.collection = {
+    status: "ready",
+    data: {
+      items: [{ _id: "post-1", content: "Public update", counts: { likes: 1, comments: 0, saves: 0 } }],
+      counts: { activity: 1, bookmarks: null },
+      pagination: { page: 1, total: 1, totalPages: 1, hasPrevious: false, hasNext: false },
+    },
+    failure: null,
+    reload: vi.fn(),
+  };
   container = document.createElement("div");
   document.body.appendChild(container);
   root = createRoot(container);
@@ -101,6 +116,8 @@ describe("ProfileVisitorMobile", () => {
     expect(container.querySelector('a[href="/share/project/project%2F1"]')).toBeTruthy();
     expect(container.textContent).not.toContain("must-not-render@example.com");
     expect(container.textContent).not.toContain("+91 00000 00000");
+    expect(container.textContent).toContain("Public update");
+    expect(container.querySelector('input[value="bookmarks"]')).toBeNull();
 
     const follow = [...container.querySelectorAll("button")].find((button) => button.textContent === "Follow");
     await act(async () => follow.click());

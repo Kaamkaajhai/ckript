@@ -11,6 +11,7 @@ export function buildOwnerProfileView({
   scripts = [],
   purchasedScripts = [],
   bookmarkedScripts = [],
+  collectionCounts = {},
 } = {}) {
   const followers = Array.isArray(profile.followers) ? profile.followers : [];
   const following = Array.isArray(profile.following) ? profile.following : [];
@@ -45,7 +46,9 @@ export function buildOwnerProfileView({
     links,
     stats: [
       { key: "projects", label: "Published", value: base.projects.length },
-      { key: "saved", label: "Saved", value: Math.max(count(profile.favoriteScripts?.length), bookmarkedScripts.length) },
+      { key: "saved", label: "Saved", value: collectionCounts.bookmarks == null
+        ? Math.max(count(profile.favoriteScripts?.length), bookmarkedScripts.length)
+        : count(collectionCounts.bookmarks) },
       { key: "purchases", label: "Purchased", value: purchasedScripts.length },
       ...(Number.isFinite(Number(profile.profileViews))
         ? [{ key: "views", label: "Profile views", value: count(profile.profileViews) }]

@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext, useRef, useCallback } from "react";
+import { useDeferredValue, useEffect, useState, useContext, useRef, useCallback } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { motion as Motion } from "framer-motion";
 import api from "../services/api";
@@ -31,6 +31,7 @@ import WriterModelBadge from "../components/WriterModelBadge";
 import {
   ProfilePcPage,
   ProfilePcSkeleton,
+  ProfileWorkspaceActivity,
   ProfileWorkspaceBookmarks,
   ProfileWorkspaceMeetings,
   ProfileWorkspaceCredentials,
@@ -62,6 +63,12 @@ import {
   updateAccountSettings,
   verifyAccountEmail,
 } from "./profile/accountSecurity";
+import {
+  PROFILE_COLLECTION_STATUS,
+  readProfileCollectionLocation,
+  writeProfileCollectionLocation,
+} from "./profile/profileCollections";
+import { useProfileCollections } from "./profile/useProfileCollections";
 
 /* â”€â”€ Helper components â”€â”€ */
 
@@ -99,6 +106,26 @@ const SectionCard = ({ title, icon, badge, dark, noBox, children }) => (
     {children}
   </div>
 );
+
+const resolveProfileTab = ({ search = "", profile, viewer, scripts = [], purchasedScripts = [] } = {}) => {
+  const requested = new URLSearchParams(search).get("tab");
+  if (!profile) return requested || "projects";
+  const role = String(profile.role || "").toLowerCase();
+  const writer = ["writer", "creator"].includes(role);
+  const own = isSameProfile(viewer, profile);
+  const allowed = new Set([
+    "about",
+    "activity",
+    ...(role !== "investor" ? ["projects"] : []),
+    ...(writer ? ["credentials"] : []),
+    ...(writer && Array.isArray(profile.badges) && profile.badges.length ? ["achievements"] : []),
+    ...(own ? ["bookmarks", "meetings", "settings"] : []),
+    ...(own && purchasedScripts.length ? ["purchases"] : []),
+    ...(own && profile.featureFlags?.financialAnalytics ? ["performance"] : []),
+  ]);
+  if (allowed.has(requested)) return requested;
+  return role === "investor" || writer ? "about" : scripts.length ? "projects" : "about";
+};
 
 const InfoRow = ({ label, value, dark }) => (
   <div className="flex items-start justify-between gap-3 max-[640px]:flex-col max-[640px]:items-start">
@@ -240,13 +267,14 @@ const Profile = () => {
   const [deletedScripts, setDeletedScripts] = useState([]);
   const [purchasedScripts, setPurchasedScripts] = useState([]);
   const [bookmarkedScripts, setBookmarkedScripts] = useState([]);
+  const [savedQuery, setSavedQuery] = useState("");
+  const [savedSort, setSavedSort] = useState("recent");
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowsMe, setIsFollowsMe] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [followRequestPending, setFollowRequestPending] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [activeTab, setActiveTab] = useState("projects");
   const [showMessageRequestModal, setShowMessageRequestModal] = useState(false);
   const [messageRequestText, setMessageRequestText] = useState("");
   const [sendingRequest, setSendingRequest] = useState(false);
@@ -297,8 +325,27 @@ const Profile = () => {
   if (!profileRequestRef.current) {
     profileRequestRef.current = createLatestProfileRequestCoordinator();
   }
+  const profileSearchRef = useRef(location.search);
+  profileSearchRef.current = location.search;
   const bookmarkRefreshTimerRef = useRef(null);
-  const tabInitializedForProfileRef = useRef(null);
+  const ownLoadedProfile = isSameProfile(currentUser, profile);
+  const activeTab = resolveProfileTab({ search: location.search, profile, viewer: currentUser, scripts, purchasedScripts });
+  const collectionLocation = readProfileCollectionLocation(location.search, { own: ownLoadedProfile });
+  const urlTab = new URLSearchParams(location.search).get("tab");
+  const collectionSection = activeTab === "bookmarks" ? "bookmarks" : "activity";
+  const collectionPage = urlTab === activeTab && ["activity", "bookmarks"].includes(activeTab)
+    ? collectionLocation.page
+    : 1;
+  const deferredSavedQuery = useDeferredValue(savedQuery);
+  const profileCollections = useProfileCollections({
+    profileId: profile?._id,
+    section: collectionSection,
+    page: collectionPage,
+    query: collectionSection === "bookmarks" ? deferredSavedQuery : "",
+    sort: collectionSection === "bookmarks" ? savedSort : "recent",
+    enabled: Boolean(profile?._id),
+  });
+  const reloadProfileCollections = profileCollections.reload;
 
   const fetchProfile = useCallback(async ({ silent = false } = {}) => {
     const profileId = id || currentUser?._id;
@@ -330,7 +377,7 @@ const Profile = () => {
       if (!profileRequestRef.current.isCurrent(requestId)) return;
       const canonicalProfilePath = result.data.canonicalPath;
       if (canonicalProfilePath && canonicalProfilePath !== location.pathname) {
-        navigate(canonicalProfilePath, { replace: true });
+        navigate(`${canonicalProfilePath}${profileSearchRef.current}`, { replace: true });
       }
       setProfileAccessMessage("");
       setProfileAccessId("");
@@ -348,28 +395,6 @@ const Profile = () => {
       setIsFollowsMe(following.some((f) => (f?._id || f) === currentUser?._id));
       setFollowRequestPending(Boolean(data.user?.followRequestPending));
 
-      const tabInitializationKey = `${data.user._id}:${location.search}`;
-      if (tabInitializedForProfileRef.current !== tabInitializationKey) {
-        const role = String(data.user.role || "").toLowerCase();
-        const isInvestorProfile = role === "investor";
-        const nextScripts = (data.scripts || []).filter((s) => s.status !== "draft" && !s.isDeleted);
-        // A valid, role-permitted ?tab= deep-link wins over the computed default.
-        const urlTab = new URLSearchParams(location.search).get("tab");
-        const isWriterProfile = role === "writer" || role === "creator";
-        const ownsProfile = Boolean(currentUser?._id && String(currentUser._id) === String(data.user?._id));
-        const allowedTabs = new Set([
-          "about",
-          ...(role !== "investor" ? ["projects"] : []),
-          ...(isWriterProfile ? ["credentials"] : []),
-          ...(isWriterProfile && Array.isArray(data.user?.badges) && data.user.badges.length > 0 ? ["achievements"] : []),
-          ...(ownsProfile ? ["bookmarks", "meetings", "settings"] : []),
-          ...(ownsProfile && (data.purchasedScripts || []).length > 0 ? ["purchases"] : []),
-          ...(ownsProfile && data.user?.featureFlags?.financialAnalytics ? ["performance"] : []),
-        ]);
-        const requestedTab = allowedTabs.has(urlTab) ? urlTab : null;
-        setActiveTab(requestedTab || (isInvestorProfile || isWriterProfile ? "about" : (nextScripts.length > 0 ? "projects" : "about")));
-        tabInitializedForProfileRef.current = tabInitializationKey;
-      }
     } catch (error) {
       if (controller.signal.aborted || error?.code === "ERR_CANCELED") return;
       if (!profileRequestRef.current.isCurrent(requestId)) return;
@@ -405,7 +430,7 @@ const Profile = () => {
         if (!silent) setLoading(false);
       }
     }
-  }, [id, currentUser?._id, currentUser?.role, location.pathname, location.search, navigate]);
+  }, [id, currentUser?._id, currentUser?.role, location.pathname, navigate]);
 
   useEffect(() => {
     fetchProfile();
@@ -426,7 +451,7 @@ const Profile = () => {
         clearTimeout(bookmarkRefreshTimerRef.current);
       }
       bookmarkRefreshTimerRef.current = setTimeout(() => {
-        fetchProfile({ silent: true });
+        reloadProfileCollections();
       }, 250);
     };
 
@@ -437,7 +462,7 @@ const Profile = () => {
         clearTimeout(bookmarkRefreshTimerRef.current);
       }
     };
-  }, [id, currentUser?._id, currentUser?.writerProfile?.username, fetchProfile]);
+  }, [id, currentUser?._id, currentUser?.writerProfile?.username, reloadProfileCollections]);
 
 
   const handleDeleteScript = async (scriptId) => {
@@ -632,7 +657,36 @@ const Profile = () => {
     navigate(getProfilePath(userRef));
   };
 
-  const isOwnProfile = isSameProfile(currentUser, profile);
+  const isOwnProfile = ownLoadedProfile;
+
+  const selectProfileTab = useCallback((tab, page = 1) => {
+    let params = new URLSearchParams(location.search);
+    if (["activity", "bookmarks"].includes(tab)) {
+      params = writeProfileCollectionLocation(params, { section: tab, page });
+    } else {
+      params.set("tab", tab);
+      params.delete("page");
+    }
+    const search = params.toString();
+    const target = `${location.pathname}${search ? `?${search}` : ""}`;
+    if (target !== `${location.pathname}${location.search}`) navigate(target);
+  }, [location.pathname, location.search, navigate]);
+
+  const removeSavedProject = useCallback(async (projectId) => {
+    const result = await profileCollections.removeSaved(projectId);
+    if (!result.ok) return;
+    setBookmarkedScripts((previous) => previous.filter((script) => String(script?._id) !== String(projectId)));
+    setUser((current) => {
+      if (!current) return current;
+      const favoriteScripts = (Array.isArray(current.favoriteScripts) ? current.favoriteScripts : [])
+        .filter((entry) => String(entry?._id || entry) !== String(projectId));
+      const next = { ...current, favoriteScripts };
+      try { localStorage.setItem("user", JSON.stringify(next)); } catch { /* memory state remains authoritative */ }
+      return next;
+    });
+    window.dispatchEvent(new CustomEvent("bookmarkUpdated", { detail: { scriptId: projectId, bookmarked: false } }));
+    if (result.pageBecameEmpty) selectProfileTab("bookmarks", collectionPage - 1);
+  }, [collectionPage, profileCollections, selectProfileTab, setUser]);
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -1086,6 +1140,7 @@ const Profile = () => {
       label: "Profile",
       tabs: [
         { key: "about", label: "Overview", icon: "article" },
+        { key: "activity", label: "Activity", icon: "dynamic_feed", count: profileCollections.data?.counts?.activity },
         ...(isWriterUser ? [{ key: "projects", label: "Projects", icon: "movie", count: scripts.length }] : []),
         ...(isWriterUser ? [{ key: "credentials", label: "Guilds & skills", icon: "workspace_premium" }] : []),
         ...(isWriterUser && Array.isArray(profile.badges) && profile.badges.length > 0
@@ -1097,7 +1152,7 @@ const Profile = () => {
       label: "Work",
       tabs: [
         { key: "meetings", label: "Meetings", icon: "calendar_month", count: meetings.filter((meeting) => meeting?.status === "pending").length || undefined },
-        { key: "bookmarks", label: "Saved", icon: "bookmark", count: profile.favoriteScripts?.length || bookmarkedScripts.length },
+        { key: "bookmarks", label: "Saved", icon: "bookmark", count: profileCollections.data?.counts?.bookmarks ?? bookmarkedScripts.length },
         ...(purchasedScripts.length > 0 ? [{ key: "purchases", label: "Purchases", icon: "receipt_long", count: purchasedScripts.length }] : []),
       ],
     }] : []),
@@ -1432,7 +1487,7 @@ const Profile = () => {
                 type="button"
                 role="tab"
                 aria-selected={activeTab === tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => selectProfileTab(tab.key)}
                 className="profile-workspace-tab"
               >
                 <span className="material-symbols-outlined profile-workspace-tab__icon" aria-hidden="true">{tab.icon}</span>
@@ -1443,17 +1498,31 @@ const Profile = () => {
           </div>
         )) : [
           { key: "about", label: "About" },
+          { key: "activity", label: "Activity", count: profileCollections.data?.counts?.activity },
           ...(profile.role !== "investor" ? [{ key: "projects", label: "Projects", count: scripts.length }] : []),
-          ...(isOwnProfile ? [{ key: "bookmarks", label: "Bookmarks", count: profile.favoriteScripts?.length || bookmarkedScripts.length }] : []),
+          ...(isOwnProfile ? [{ key: "bookmarks", label: "Bookmarks", count: profileCollections.data?.counts?.bookmarks ?? bookmarkedScripts.length }] : []),
           ...(isOwnProfile && purchasedScripts.length > 0 ? [{ key: "purchases", label: "Purchases", count: purchasedScripts.length }] : []),
           ...(isOwnProfile ? [{ key: "meetings", label: "Meetings" }, { key: "settings", label: "Settings" }] : []),
         ].map((tab) => (
-          <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} className={`px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-200 border shrink-0 ${activeTab === tab.key ? dark ? "bg-[#1c2b42] text-white border-[#314765]" : "bg-[#1e3a5f] text-white border-[#1e3a5f]" : dark ? "bg-[#121d2f] text-white/75 border-white/[0.12]" : "bg-white text-gray-600 border-gray-200"}`}>
+          <button key={tab.key} type="button" onClick={() => selectProfileTab(tab.key)} className={`px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-200 border shrink-0 ${activeTab === tab.key ? dark ? "bg-[#1c2b42] text-white border-[#314765]" : "bg-[#1e3a5f] text-white border-[#1e3a5f]" : dark ? "bg-[#121d2f] text-white/75 border-white/[0.12]" : "bg-white text-gray-600 border-gray-200"}`}>
             {tab.label}{tab.count !== undefined && <span className="ml-1.5 text-[11px]">{tab.count}</span>}
           </button>
         ))}
         </div>
       </div>
+
+      {activeTab === "activity" && (
+        <Motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className={usesWorkspaceProfile ? "profile-workspace-panel" : ""}>
+          <ProfileWorkspaceActivity
+            posts={profileCollections.data?.items || []}
+            loading={profileCollections.status === PROFILE_COLLECTION_STATUS.LOADING}
+            error={profileCollections.status === PROFILE_COLLECTION_STATUS.FAILED ? profileCollections.failure?.message : ""}
+            onRetry={profileCollections.reload}
+            pagination={profileCollections.data?.pagination}
+            onPageChange={(page) => selectProfileTab("activity", page)}
+          />
+        </Motion.div>
+      )}
 
       {/* ──────── MEETINGS TAB ──────── */}
       {activeTab === "meetings" && isOwnProfile && (
@@ -1677,11 +1746,26 @@ const Profile = () => {
         >
           {usesWorkspaceProfile ? (
             <ProfileWorkspaceBookmarks
-              scripts={bookmarkedScripts}
+              scripts={profileCollections.data?.items || []}
               navigate={navigate}
-              onRemoved={(scriptId) => setBookmarkedScripts((previous) => previous.filter((script) => script._id !== scriptId))}
+              query={savedQuery}
+              sort={savedSort}
+              loading={profileCollections.status === PROFILE_COLLECTION_STATUS.LOADING}
+              error={profileCollections.status === PROFILE_COLLECTION_STATUS.FAILED ? profileCollections.failure?.message : ""}
+              removingId={profileCollections.removingId}
+              removeError={profileCollections.actionError}
+              pagination={profileCollections.data ? { ...profileCollections.data.pagination, savedTotal: profileCollections.data.counts.bookmarks } : null}
+              onQueryChange={(value) => { setSavedQuery(value); selectProfileTab("bookmarks", 1); }}
+              onSortChange={(value) => { setSavedSort(value); selectProfileTab("bookmarks", 1); }}
+              onPageChange={(page) => selectProfileTab("bookmarks", page)}
+              onRetry={profileCollections.reload}
+              onRemove={removeSavedProject}
             />
-          ) : bookmarkedScripts.length === 0 ? (
+          ) : profileCollections.status === PROFILE_COLLECTION_STATUS.LOADING ? (
+            <div className="py-20 text-center" role="status">Loading saved projects…</div>
+          ) : profileCollections.status === PROFILE_COLLECTION_STATUS.FAILED ? (
+            <div className="py-20 text-center" role="alert"><p>{profileCollections.failure?.message}</p><button type="button" onClick={profileCollections.reload}>Try again</button></div>
+          ) : (profileCollections.data?.items || []).length === 0 ? (
             <div className={`py-20 text-center transition-colors`}>
               <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 ${t.emptyBg}`}>
                 <svg className={`w-6 h-6 ${t.emptyIcon}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -1693,7 +1777,7 @@ const Profile = () => {
             </div>
           ) : (
             <div className={`grid grid-cols-1 min-[460px]:grid-cols-2 ${isWriterUser ? "lg:grid-cols-3" : ""} gap-4`}>
-              {bookmarkedScripts.map((script, idx) => (
+              {(profileCollections.data?.items || []).map((script, idx) => (
                 <Motion.div
                   key={script._id}
                   initial={{ opacity: 0, y: 8 }}
@@ -1706,6 +1790,7 @@ const Profile = () => {
               ))}
             </div>
           )}
+          {!usesWorkspaceProfile && profileCollections.data?.pagination?.totalPages > 1 ? <nav className="profile-workspace-activity__pagination" aria-label="Bookmark pages"><button type="button" disabled={!profileCollections.data.pagination.hasPrevious} onClick={() => selectProfileTab("bookmarks", collectionPage - 1)}>Previous</button><span>Page {collectionPage} of {profileCollections.data.pagination.totalPages}</span><button type="button" disabled={!profileCollections.data.pagination.hasNext} onClick={() => selectProfileTab("bookmarks", collectionPage + 1)}>Next</button></nav> : null}
         </Motion.div>
       )}
 
@@ -1744,7 +1829,7 @@ const Profile = () => {
             scripts={scripts}
             isOwnProfile={isOwnProfile}
             navigate={navigate}
-            onViewAll={() => setActiveTab("projects")}
+            onViewAll={() => selectProfileTab("projects")}
             renderDelete={(script) => (
               <DeleteProjectButton
                 dark={dark}

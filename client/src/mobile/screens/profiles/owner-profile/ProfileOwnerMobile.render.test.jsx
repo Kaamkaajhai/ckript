@@ -10,6 +10,7 @@ import ProfileOwnerMobile from "./ProfileOwnerMobile";
 
 const mocks = vi.hoisted(() => ({
   state: null,
+  collection: null,
   save: vi.fn(),
   upload: vi.fn(),
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
@@ -17,6 +18,10 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("../../../../pages/profile/useAuthenticatedProfile", () => ({
   useAuthenticatedProfile: () => mocks.state,
+}));
+
+vi.mock("../../../../pages/profile/useProfileCollections", () => ({
+  useProfileCollections: () => mocks.collection,
 }));
 
 vi.mock("../../../../pages/profile/profileEditor", async (importOriginal) => ({
@@ -54,6 +59,19 @@ let root;
 
 beforeEach(() => {
   mocks.state = readyState();
+  mocks.collection = {
+    status: "ready",
+    data: {
+      items: [{ _id: "post-1", content: "Production update", counts: { likes: 2, comments: 1, saves: 0 } }],
+      counts: { activity: 1, bookmarks: 3 },
+      pagination: { page: 1, total: 1, totalPages: 1, hasPrevious: false, hasNext: false },
+    },
+    failure: null,
+    removingId: "",
+    actionError: "",
+    reload: vi.fn(),
+    removeSaved: vi.fn(),
+  };
   mocks.save.mockResolvedValue({ ok: true, data: { name: "Mira Sen", profileCompletion: { percentage: 73 } } });
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -92,6 +110,9 @@ describe("ProfileOwnerMobile", () => {
     expect(container.querySelector('a[href="/profile?tab=settings"]')).toBeTruthy();
     expect(container.querySelector('a[href="/follow-requests"]')?.textContent).toContain("2");
     expect(container.querySelector('a[href="/script/project-1"]')).toBeTruthy();
+    expect(container.textContent).toContain("Production update");
+    expect(container.querySelectorAll('input[name="profile-collection"]')).toHaveLength(2);
+    expect(container.textContent).toContain("Saved");
   });
 
   it("opens the native editor and saves through the shared mutation", async () => {

@@ -1,5 +1,5 @@
 import { useCallback, useContext, useMemo, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AuthContext } from "../../../../context/AuthContext";
 import { AUTHENTICATED_PROFILE_STATUS } from "../../../../pages/profile/authenticatedProfile";
 import {
@@ -8,6 +8,11 @@ import {
   uploadOwnProfileImage,
 } from "../../../../pages/profile/profileEditor";
 import { useAuthenticatedProfile } from "../../../../pages/profile/useAuthenticatedProfile";
+import {
+  readProfileCollectionLocation,
+  writeProfileCollectionLocation,
+} from "../../../../pages/profile/profileCollections";
+import { useProfileCollections } from "../../../../pages/profile/useProfileCollections";
 import { resolveMediaUrl } from "../../../../utils/mediaUrl";
 import PageHeader from "../../../components/app-bars/PageHeader";
 import Badge from "../../../components/badges/Badge";
@@ -20,6 +25,7 @@ import MobileShell from "../../../shell/MobileShell";
 import { MOBILE_SHELL_MODE } from "../../../shell/mobileShellModes";
 import OwnerProfileEditor from "./OwnerProfileEditor";
 import { buildOwnerProfileView } from "./ownerProfileModel";
+import ProfileCollectionsMobile from "../profile-collections/ProfileCollectionsMobile";
 import "./ProfileOwnerMobile.css";
 
 const ChipList = ({ label, values }) => values?.length ? (
@@ -33,6 +39,7 @@ export default function ProfileOwnerMobile({ user }) {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { setUser } = useContext(AuthContext);
   const toast = useToast();
   const [editorOpen, setEditorOpen] = useState(false);
@@ -42,15 +49,27 @@ export default function ProfileOwnerMobile({ user }) {
   const profileKey = id || user?._id;
 
   const canonicalize = useCallback((path) => {
-    if (path && path !== location.pathname) navigate(path, { replace: true });
-  }, [location.pathname, navigate]);
+    if (path && path !== location.pathname) navigate(`${path}${location.search}`, { replace: true });
+  }, [location.pathname, location.search, navigate]);
   const profileState = useAuthenticatedProfile({ profileKey, viewer: user, onCanonicalPath: canonicalize });
+  const collectionLocation = readProfileCollectionLocation(searchParams, { own: true });
+  const collectionState = useProfileCollections({
+    profileId: profileState.profile?._id,
+    section: collectionLocation.section,
+    page: collectionLocation.page,
+    enabled: profileState.status === AUTHENTICATED_PROFILE_STATUS.READY,
+  });
   const view = useMemo(() => buildOwnerProfileView({
     profile: profileState.profile || {},
     scripts: profileState.scripts,
     purchasedScripts: profileState.purchasedScripts,
     bookmarkedScripts: profileState.bookmarkedScripts,
-  }), [profileState.bookmarkedScripts, profileState.profile, profileState.purchasedScripts, profileState.scripts]);
+    collectionCounts: collectionState.data?.counts,
+  }), [collectionState.data?.counts, profileState.bookmarkedScripts, profileState.profile, profileState.purchasedScripts, profileState.scripts]);
+
+  const updateCollectionLocation = useCallback((section, page = 1) => {
+    setSearchParams(writeProfileCollectionLocation(searchParams, { section, page }));
+  }, [searchParams, setSearchParams]);
 
   const syncViewer = useCallback((update) => {
     const next = mergeOwnProfileUpdate(user || {}, update || {});
@@ -103,6 +122,29 @@ export default function ProfileOwnerMobile({ user }) {
     }
   };
 
+  const removeSaved = async (projectId) => {
+    const result = await collectionState.removeSaved(projectId);
+    if (!result.ok) return;
+    setUser((current) => {
+      if (!current) return current;
+      const favoriteScripts = (Array.isArray(current.favoriteScripts) ? current.favoriteScripts : [])
+        .filter((entry) => String(entry?._id || entry) !== String(projectId));
+      const next = { ...current, favoriteScripts };
+      try { localStorage.setItem("user", JSON.stringify(next)); } catch { /* memory state remains authoritative */ }
+      return next;
+    });
+    if (result.pageBecameEmpty) updateCollectionLocation("bookmarks", collectionLocation.page - 1);
+    toast.success("Removed from saved projects");
+    window.dispatchEvent(new CustomEvent("bookmarkUpdated", { detail: { scriptId: projectId, bookmarked: false } }));
+  };
+
+  const reloadProfile = profileState.reload;
+  const reloadCollections = collectionState.reload;
+  const reloadAll = useCallback(() => {
+    reloadProfile();
+    reloadCollections();
+  }, [reloadCollections, reloadProfile]);
+
   const header = <PageHeader title="Your profile" eyebrow="Workspace" backTo="/dashboard" />;
   const shell = (children, overlays = null) => (
     <MobileShell
@@ -111,7 +153,7 @@ export default function ProfileOwnerMobile({ user }) {
       className="ckm-owner-profile"
       appBar={header}
       bottomNav={<NavBar user={user} />}
-      onConnectionRestored={profileState.reload}
+      onConnectionRestored={reloadAll}
       overlays={overlays}
     >
       {children}
@@ -191,6 +233,15 @@ export default function ProfileOwnerMobile({ user }) {
           {view.projects.length ? <ul>{view.projects.slice(0, 4).map((project) => <li key={project.id}><Link to={`/script/${encodeURIComponent(project.id)}`}><span>{project.genre}</span><strong>{project.title}</strong><p>{project.summary}</p></Link></li>)}</ul> : <p>No published projects yet.</p>}
         </section>
       ) : null}
+
+      <ProfileCollectionsMobile
+        state={collectionState}
+        section={collectionLocation.section}
+        page={collectionLocation.page}
+        own
+        onLocationChange={updateCollectionLocation}
+        onRemoveSaved={removeSaved}
+      />
     </article>,
     overlays,
   );

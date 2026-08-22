@@ -326,6 +326,13 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     note: "The authenticated account's native identity and professional overview, including the shared profile editor.",
   },
 
+  "ckm-profile-collection": {
+    kind: PAGE_FAMILY,
+    owner: "screens/profiles/profile-collections/ProfileCollectionsMobile.css",
+    family: "profiles",
+    note: "The shared native general-profile activity and owner-only saved-project collection with bounded URL-owned paging.",
+  },
+
   "ckm-account-settings": {
     kind: PAGE_FAMILY,
     owner: "screens/profiles/owner-profile/AccountSettingsMobile.css",

@@ -1,8 +1,13 @@
 import { useCallback, useContext, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AuthContext } from "../../../../context/AuthContext";
 import { AUTHENTICATED_PROFILE_STATUS } from "../../../../pages/profile/authenticatedProfile";
 import { useAuthenticatedProfile } from "../../../../pages/profile/useAuthenticatedProfile";
+import {
+  readProfileCollectionLocation,
+  writeProfileCollectionLocation,
+} from "../../../../pages/profile/profileCollections";
+import { useProfileCollections } from "../../../../pages/profile/useProfileCollections";
 import { resolveMediaUrl } from "../../../../utils/mediaUrl";
 import PageHeader from "../../../components/app-bars/PageHeader";
 import Badge from "../../../components/badges/Badge";
@@ -18,6 +23,7 @@ import NavBar from "../../../components/navigation/NavBar";
 import MobileShell from "../../../shell/MobileShell";
 import { MOBILE_SHELL_MODE } from "../../../shell/mobileShellModes";
 import { buildVisitorProfileView } from "./visitorProfileModel";
+import ProfileCollectionsMobile from "../profile-collections/ProfileCollectionsMobile";
 import "./ProfileVisitorMobile.css";
 
 const Chips = ({ label, values }) => values?.length ? (
@@ -47,6 +53,7 @@ export default function ProfileVisitorMobile({ user }) {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { setUser } = useContext(AuthContext);
   const toast = useToast();
   const messageButtonRef = useRef(null);
@@ -60,8 +67,8 @@ export default function ProfileVisitorMobile({ user }) {
   const [blockConfirmOpen, setBlockConfirmOpen] = useState(false);
 
   const handleCanonicalPath = useCallback((path) => {
-    if (path && path !== location.pathname) navigate(path, { replace: true });
-  }, [location.pathname, navigate]);
+    if (path && path !== location.pathname) navigate(`${path}${location.search}`, { replace: true });
+  }, [location.pathname, location.search, navigate]);
 
   const profileState = useAuthenticatedProfile({
     profileKey: id,
@@ -69,6 +76,16 @@ export default function ProfileVisitorMobile({ user }) {
     setViewer: setUser,
     onCanonicalPath: handleCanonicalPath,
   });
+  const collectionLocation = readProfileCollectionLocation(searchParams, { own: false });
+  const collectionState = useProfileCollections({
+    profileId: profileState.profile?._id,
+    section: "activity",
+    page: collectionLocation.page,
+    enabled: profileState.status === AUTHENTICATED_PROFILE_STATUS.READY,
+  });
+  const updateCollectionLocation = useCallback((_section, page = 1) => {
+    setSearchParams(writeProfileCollectionLocation(searchParams, { section: "activity", page }));
+  }, [searchParams, setSearchParams]);
   const view = useMemo(() => buildVisitorProfileView({
     profile: profileState.profile || {},
     scripts: profileState.scripts,
@@ -77,6 +94,13 @@ export default function ProfileVisitorMobile({ user }) {
     contact: profileState.contact,
     contactStats: profileState.contactStats,
   }), [profileState.contact, profileState.contactStats, profileState.profile, profileState.relationship, profileState.scripts, user]);
+
+  const reloadProfile = profileState.reload;
+  const reloadCollections = collectionState.reload;
+  const reloadAll = useCallback(() => {
+    reloadProfile();
+    reloadCollections();
+  }, [reloadCollections, reloadProfile]);
 
   const header = (
     <PageHeader
@@ -92,7 +116,7 @@ export default function ProfileVisitorMobile({ user }) {
       className="ckm-visitor-profile"
       appBar={header}
       bottomNav={<NavBar user={user} />}
-      onConnectionRestored={profileState.reload}
+      onConnectionRestored={reloadAll}
       overlays={overlays}
     >
       {children}
@@ -325,6 +349,13 @@ export default function ProfileVisitorMobile({ user }) {
           {view.projects.length ? <ul>{view.projects.map((project) => <li key={project.id}><Link to={`/share/project/${encodeURIComponent(project.id)}`}><span>{project.genre}</span><strong>{project.title}</strong><p>{project.summary}</p></Link></li>)}</ul> : <p>No published projects available.</p>}
         </section>
       ) : null}
+
+      <ProfileCollectionsMobile
+        state={collectionState}
+        section="activity"
+        page={collectionLocation.page}
+        onLocationChange={updateCollectionLocation}
+      />
 
       <section className="ckm-visitor-profile__safety" aria-label="Profile safety">
         <Button ref={blockButtonRef} variant="tertiary" onClick={blockAction} pending={profileState.pending.block}>

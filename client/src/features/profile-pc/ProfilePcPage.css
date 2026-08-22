@@ -4,6 +4,121 @@
   font-family: "IBM Plex Sans", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+.profile-workspace-activity {
+  display: grid;
+  gap: 20px;
+}
+
+.profile-workspace-activity > header h2,
+.profile-workspace-activity > header p {
+  margin: 0;
+}
+
+.profile-workspace-activity > header h2 {
+  color: var(--profile-ink, #172033);
+  font: 700 24px/1.2 var(--font-display, Georgia, serif);
+}
+
+.profile-workspace-activity > header p {
+  margin-top: 4px;
+  color: var(--profile-muted, #667085);
+}
+
+.profile-workspace-activity__list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.profile-workspace-activity__post,
+.profile-workspace-activity__state {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--profile-border, #e4e7ec);
+  border-radius: 16px;
+  background: var(--profile-surface, #fff);
+}
+
+.profile-workspace-activity__post > p {
+  margin: 0;
+  color: var(--profile-ink, #172033);
+  line-height: 1.65;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.profile-workspace-activity__post > img,
+.profile-workspace-activity__post > video {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  max-height: 420px;
+  border-radius: 12px;
+  background: #101828;
+  object-fit: contain;
+}
+
+.profile-workspace-activity__post > footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  color: var(--profile-muted, #667085);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.profile-workspace-activity__state {
+  justify-items: start;
+  color: var(--profile-muted, #667085);
+}
+
+.profile-workspace-activity__state > span {
+  overflow-wrap: anywhere;
+}
+
+.profile-workspace-activity__state > button,
+.profile-workspace-activity__pagination > button {
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--profile-border, #d0d5dd);
+  border-radius: 10px;
+  background: var(--profile-surface, #fff);
+  color: var(--profile-ink, #172033);
+  font-weight: 700;
+}
+
+.profile-workspace-activity__pagination {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.profile-workspace-activity__pagination > span {
+  color: var(--profile-muted, #667085);
+  text-align: center;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .profile-workspace-activity__list {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-workspace-activity__pagination {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .profile-workspace-activity__pagination > span {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+}
+
 
 .profile-pc-page {
   display: grid;
