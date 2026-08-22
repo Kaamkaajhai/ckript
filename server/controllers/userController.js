@@ -2150,7 +2150,7 @@ export const getBlockedUsers = async (req, res) => {
 
 export const getWatchlist = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    const user = await User.findById(req.user._id).select("industryProfile.savedScripts");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -2160,9 +2160,14 @@ export const getWatchlist = async (req, res) => {
     const savedScriptIds = user.industryProfile?.savedScripts || [];
 
     // Populate the script details
+    const requestedLimit = Number.parseInt(req.query?.limit, 10);
+    const limit = Number.isFinite(requestedLimit) ? Math.min(24, Math.max(1, requestedLimit)) : 24;
     const scripts = await Script.find({ _id: { $in: savedScriptIds }, isDeleted: { $ne: true } })
-      .populate("creator", "name profileImage")
-      .sort({ createdAt: -1 });
+      .select("_id title sid coverImage thumbnailUrl genre primaryGenre contentType format logline price budget status isSold holdStatus createdAt creator")
+      .populate("creator", "name profileImage role username writerProfile.username")
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
 
     res.json(scripts);
   } catch (error) {

@@ -65,6 +65,14 @@ vi.mock("../screens/challenges/HallOfFameMobile", () => ({
   default: () => <main data-testid="mobile-hall-of-fame">Hall of Fame</main>,
 }));
 
+vi.mock("../screens/industry/IndustryHomeMobile", () => ({
+  default: () => <main data-testid="mobile-industry-home">Industry home</main>,
+}));
+
+vi.mock("../screens/industry/IndustryDashboardMobile", () => ({
+  default: () => <main data-testid="mobile-industry-dashboard">Industry dashboard</main>,
+}));
+
 vi.mock("../dev/ChallengeHubHarness", () => ({
   default: () => <main data-testid="mobile-challenge-harness">Challenge harness</main>,
 }));
@@ -136,6 +144,20 @@ describe("MobileRoutes", () => {
     const el = await mount("/messages");
     expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
     expect(el.querySelector('[data-testid="mobile-messages"]')).toBeTruthy();
+  });
+
+  it("renders industry home and the role-specific industry dashboard", async () => {
+    let el = await mount("/home", { user: { role: "producer" } });
+    expect(el.querySelector('[data-testid="mobile-industry-home"]')).toBeTruthy();
+
+    act(() => root.unmount());
+    container.remove();
+    root = null;
+    container = null;
+
+    el = await mount("/dashboard", { user: { role: "producer" } });
+    expect(el.querySelector('[data-testid="mobile-industry-dashboard"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
   });
 
   it("renders the native challenge hub at the canonical public route", async () => {

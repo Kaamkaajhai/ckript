@@ -804,6 +804,19 @@ function App() {
                     </AuthContext.Provider>
                   }
                 />
+                {/* Phase 7 industry workspace harness (D52). Both live routes
+                   depend on personalised, role-specific account data; this
+                   fixture keeps home/dashboard and their failures stable. */}
+                <Route
+                  path="/__mobile-industry"
+                  element={
+                    <AuthContext.Provider value={{ user: { _id: "preview-industry", name: "Naina Kapoor", role: "producer", token: "preview", favoriteScripts: [] }, loading: false, logout: () => {}, setUser: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="industry-workspace" />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
                 </>
               )}
               <Route path="/:id" element={<SingleSegmentProfileOrReferralRoute />} />

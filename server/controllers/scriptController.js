@@ -4855,17 +4855,21 @@ export const getMyPurchaseRequests = async (req, res) => {
     const isInvestorRole = ["investor", "producer", "director", "industry", "professional"].includes(role);
 
     let requests;
+    const requestedLimit = Number.parseInt(req.query?.limit, 10);
+    const limit = Number.isFinite(requestedLimit) ? Math.min(50, Math.max(1, requestedLimit)) : 50;
 
     if (isWriterRole) {
       requests = await ScriptPurchaseRequest.find({ writer: req.user._id })
         .populate("script", "title price thumbnailUrl isDeleted deletedAt")
         .populate("investor", "name profileImage role")
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .limit(limit);
     } else if (isInvestorRole) {
       requests = await ScriptPurchaseRequest.find({ investor: req.user._id })
         .populate("script", "title price thumbnailUrl creator isDeleted deletedAt")
         .populate("writer", "name profileImage role")
-        .sort({ createdAt: -1 });
+        .sort({ createdAt: -1 })
+        .limit(limit);
     } else {
       return res.status(403).json({ message: "Access denied." });
     }

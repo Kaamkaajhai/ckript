@@ -107,16 +107,26 @@ describe("mobileRoutePolicy — experience selection", () => {
     })).toMatchObject({ experience: "desktop", reason: "authentication-required" });
   });
 
-  it("does not hand the writer dashboard to an industry audience", () => {
+  it("mounts the role-specific native dashboard for an industry audience", () => {
     expect(resolveMobileExperience({
       isMobile: true,
       authLoading: false,
       user: producer,
       pathname: "/dashboard",
     })).toMatchObject({
-      experience: "desktop",
-      reason: "audience-not-implemented",
+      experience: "mobile",
+      routeId: "writer-dashboard",
+      screenId: "dashboard",
     });
+  });
+
+  it("mounts native industry home only for the industry audience", () => {
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: producer, pathname: "/home",
+    })).toMatchObject({ experience: "mobile", routeId: "industry-home", screenId: "industry-home" });
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: writer, pathname: "/home",
+    })).toMatchObject({ experience: "desktop", reason: "audience-not-implemented" });
   });
 
   it("keeps public and signed-out routes on their existing branch until implemented", () => {

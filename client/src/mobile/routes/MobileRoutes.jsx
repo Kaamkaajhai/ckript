@@ -2,6 +2,7 @@ import { lazy } from "react";
 import { Route, Routes, useLocation, useParams } from "react-router-dom";
 import MobileRouteBoundary from "../shell/MobileRouteBoundary";
 import { isOwnProfileKey } from "./mobileRoutePolicy";
+import { isIndustryAudience } from "../../layouts/app-shell/shellPolicy";
 
 const Dashboard = lazy(() => import("../screens/Dashboard"));
 const Holds = lazy(() => import("../screens/Holds"));
@@ -27,6 +28,8 @@ const ChallengeDetailMobile = lazy(() => import("../screens/challenges/Challenge
 const ChallengeRegisterMobile = lazy(() => import("../screens/challenges/ChallengeRegisterMobile"));
 const ChallengeDashboardMobile = lazy(() => import("../screens/challenges/ChallengeDashboardMobile"));
 const HallOfFameMobile = lazy(() => import("../screens/challenges/HallOfFameMobile"));
+const IndustryHomeMobile = lazy(() => import("../screens/industry/IndustryHomeMobile"));
+const IndustryDashboardMobile = lazy(() => import("../screens/industry/IndustryDashboardMobile"));
 const PrimitiveGallery = lazy(() => import("../dev/PrimitiveGallery"));
 const CreateHarness = lazy(() => import("../dev/CreateHarness"));
 const UploadHarness = lazy(() => import("../dev/UploadHarness"));
@@ -40,6 +43,7 @@ const ChallengeDetailHarness = lazy(() => import("../dev/ChallengeDetailHarness"
 const ChallengeRegisterHarness = lazy(() => import("../dev/ChallengeRegisterHarness"));
 const ChallengeDashboardHarness = lazy(() => import("../dev/ChallengeDashboardHarness"));
 const HallOfFameHarness = lazy(() => import("../dev/HallOfFameHarness"));
+const IndustryWorkspaceHarness = lazy(() => import("../dev/IndustryWorkspaceHarness"));
 
 function AuthenticatedProfileRoute({ user }) {
   const { id } = useParams();
@@ -70,7 +74,7 @@ export default function MobileRoutes({
   preview = false,
   devScreen = null,
 }) {
-  const dashboard = (
+  const writerDashboard = (
     <Dashboard
       time={time}
       initials={initials}
@@ -80,6 +84,9 @@ export default function MobileRoutes({
       preview={preview}
     />
   );
+  const dashboard = isIndustryAudience(user?.role)
+    ? <IndustryDashboardMobile user={user} />
+    : writerDashboard;
 
   // App.jsx's development-only routes already own their exact path, so a
   // nested <Routes> below them would never match. Render the requested dev
@@ -146,6 +153,10 @@ export default function MobileRoutes({
     return <MobileRouteBoundary><HallOfFameHarness /></MobileRouteBoundary>;
   }
 
+  if (devScreen === "industry-workspace") {
+    return <MobileRouteBoundary><IndustryWorkspaceHarness user={user} /></MobileRouteBoundary>;
+  }
+
   if (preview) {
     return <MobileRouteBoundary>{dashboard}</MobileRouteBoundary>;
   }
@@ -154,6 +165,7 @@ export default function MobileRoutes({
     <MobileRouteBoundary>
       <Routes>
         <Route path="/dashboard" element={dashboard} />
+        <Route path="/home" element={<IndustryHomeMobile user={user} />} />
         {/* /ai-tools is the dashboard, because on desktop it is literally the
             same element (App.jsx mounts <DashboardRoute /> at both). Without
             this line a mobile writer got the desktop dashboard at one alias and

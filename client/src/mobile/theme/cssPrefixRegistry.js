@@ -268,6 +268,20 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     owner: "screens/discovery/components/FeaturedLeadCard.css",
     note: "The editorial lead and the sentence explaining why it leads. Its own prefix because it is a different composition from the shared discovery card, not a variant of it.",
   },
+
+  // --- Industry workspace (Phase 7, D52) -------------------------------
+  "ckm-industry-home": {
+    kind: PAGE_FAMILY,
+    owner: "screens/industry/IndustryHomeMobile.css",
+    family: "industry",
+    note: "Personalised, URL-filtered project discovery desk at /home.",
+  },
+  "ckm-industry-dashboard": {
+    kind: PAGE_FAMILY,
+    owner: "screens/industry/IndustryDashboardMobile.css",
+    family: "industry",
+    note: "Role-aware overview, deals, matches, finance, and market workspace at /dashboard.",
+  },
   "ckm-trailer": {
     kind: SHARED_COMPONENT,
     owner: "components/media/TrailerDialog.css",

@@ -82,6 +82,7 @@ import {
   presentTransaction,
   sortDeals,
 } from "./producerLedger";
+import { loadIndustryDashboard } from "./industryDashboard";
 import LedgerDealRow from "./components/LedgerDealRow";
 import LedgerAside from "./components/LedgerAside";
 import LedgerDetailDrawer from "./components/LedgerDetailDrawer";
@@ -188,39 +189,20 @@ const ProducerDashboardPage = () => {
 
   // ── Fetching ──────────────────────────────────────────────────────────────
   const fetchAll = useCallback(async () => {
-    const [dashRes, walletRes, txnRes, requestRes, watchRes] = await Promise.allSettled([
-      api.get("/dashboard/investor"),
-      api.get("/transactions/wallet/balance"),
-      api.get("/transactions?limit=10"),
-      api.get("/scripts/purchase-requests/mine"),
-      api.get("/users/watchlist"),
-    ]);
-
-    /*
-     * A failed leg keeps whatever is already on screen rather than blanking the
-     * region — a transient 500 on one endpoint must not wipe the four that
-     * answered. Only the deal-flow endpoint raises the error notice, because it
-     * is the only one whose absence changes what the page means.
-     */
-    if (dashRes.status === "fulfilled") {
-      setDash(dashRes.value.data);
-      setDashFailed(false);
+    const result = await loadIndustryDashboard();
+    if (result.ok) {
+      const next = result.data;
+      if (!next.failures.dash) setDash(next.dash);
+      if (!next.failures.wallet) setWallet(next.wallet);
+      if (!next.failures.transactions) setTransactions(next.transactions);
+      if (!next.failures.requests) setPurchaseRequests(next.purchaseRequests);
+      if (!next.failures.watchlist) setWatchlist(next.watchlist);
+      setDashFailed(Boolean(next.failures.dash));
+      setSyncedAt(next.syncedAt);
     } else {
       setDashFailed(true);
+      setSyncedAt(new Date());
     }
-    if (walletRes.status === "fulfilled") setWallet(walletRes.value.data);
-    if (txnRes.status === "fulfilled") {
-      const payload = txnRes.value.data;
-      setTransactions(payload?.transactions || (Array.isArray(payload) ? payload : []));
-    }
-    if (requestRes.status === "fulfilled") {
-      setPurchaseRequests(Array.isArray(requestRes.value.data) ? requestRes.value.data : []);
-    }
-    if (watchRes.status === "fulfilled") {
-      setWatchlist(Array.isArray(watchRes.value.data) ? watchRes.value.data : []);
-    }
-
-    setSyncedAt(new Date());
     setLoading(false);
   }, []);
 
