@@ -116,16 +116,22 @@ export const tierFor = (count, tiers = REFERRAL_TIERS) =>
  * toward a tier) and `registered` (signed up, not yet verified). A click that never became a signup
  * leaves no trace anywhere, so a "pending" state would always be empty and is not invented here.
  */
-export const listCompetitionReferrals = async (userId, competition) => {
+export const listCompetitionReferrals = async (userId, competition, { page = 1, limit = 12 } = {}) => {
   const { start, end } = referralWindow(competition);
-  if (!start || !end) return [];
+  if (!start || !end) return { items: [], total: 0 };
 
-  const referred = await User.find({ referredBy: userId, referredAt: { $gte: start, $lte: end } })
-    .select("name profileImage writerProfile.username createdAt referredAt hasReceivedReferralBonus referralBonusAwardedAt")
-    .sort({ referredAt: -1 })
-    .lean();
+  const filter = { referredBy: userId, referredAt: { $gte: start, $lte: end } };
+  const [referred, total] = await Promise.all([
+    User.find(filter)
+      .select("name profileImage writerProfile.username createdAt referredAt hasReceivedReferralBonus referralBonusAwardedAt")
+      .sort({ referredAt: -1, _id: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit)
+      .lean(),
+    User.countDocuments(filter),
+  ]);
 
-  return referred.map((user) => ({
+  return { items: referred.map((user) => ({
     name: user.name || "Writer",
     username: user.writerProfile?.username || "",
     profileImage: user.profileImage || "",
@@ -134,7 +140,7 @@ export const listCompetitionReferrals = async (userId, competition) => {
     registeredAt: user.createdAt,
     status: user.hasReceivedReferralBonus ? "qualified" : "registered",
     qualifiedAt: user.referralBonusAwardedAt || null,
-  }));
+  })), total };
 };
 
 /**

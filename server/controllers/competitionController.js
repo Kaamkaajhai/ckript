@@ -32,6 +32,14 @@ import {
   competitionEntrySummary,
 } from "../utils/competitionEntrySummary.js";
 import {
+  COMPETITION_DASHBOARD_ENTRY_FIELDS,
+  competitionDashboardEntry,
+} from "../utils/competitionDashboardEntry.js";
+import {
+  competitionPageInfo,
+  parseCompetitionCommunityPaging,
+} from "../utils/competitionCommunityPaging.js";
+import {
   COMPETITION_REGISTRATION_MODE,
   competitionRegistrationCharge,
   competitionRegistrationMode,
@@ -1013,12 +1021,14 @@ export const getMyEntry = async (req, res) => {
     const competition = await loadCompetitionById(req.params.id);
     if (!competition) return res.status(404).json({ message: "Competition not found." });
 
-    // Challenge detail needs only registration state and the Event ID. Dashboard/editor callers
-    // retain the complete owner record, but `?view=summary` must not make a public-detail visit pull
-    // screenplay bodies, registration answers, payment references, or AI evaluation into memory.
+    // Challenge detail and dashboard are explicit projections. Only the editor retains the complete
+    // owner record: it needs the script id but is also the one place whose save/submit contract owns
+    // the full entry. Neither read-only route may pull bodies, answers or payment evidence into memory.
     const summaryView = req.query.view === "summary";
+    const dashboardView = req.query.view === "dashboard";
     const entryQuery = CompetitionEntry.findOne({ competitionId: competition._id, userId: req.user._id });
     if (summaryView) entryQuery.select(COMPETITION_ENTRY_SUMMARY_FIELDS);
+    if (dashboardView) entryQuery.select(COMPETITION_DASHBOARD_ENTRY_FIELDS);
     const entry = await entryQuery;
     if (!entry) return res.status(404).json({ message: "You are not registered for this competition." });
 
@@ -1026,7 +1036,11 @@ export const getMyEntry = async (req, res) => {
     const phase = getCompetitionPhase(competition, now);
     const payload = {
       competition: publicCompetition(competition, phase),
-      entry: summaryView ? competitionEntrySummary(entry) : entry,
+      entry: summaryView
+        ? competitionEntrySummary(entry)
+        : dashboardView
+          ? competitionDashboardEntry(entry)
+          : entry,
       phase,
       timeline: buildTimeline(competition, entry, now),
       serverNow: now.toISOString(),
@@ -1235,41 +1249,61 @@ export const getCompetitionParticipants = async (req, res) => {
     const competition = await loadCompetitionById(req.params.id);
     if (!competition) return res.status(404).json({ message: "Competition not found." });
 
-    const mine = await CompetitionEntry.findOne({ competitionId: competition._id, userId: req.user._id }).lean();
+    const mine = await CompetitionEntry.findOne({ competitionId: competition._id, userId: req.user._id }).select("_id").lean();
     if (!mine) return res.status(403).json({ message: "Only entrants can see who else is competing." });
-
-    const entries = await CompetitionEntry.find({ competitionId: competition._id })
-      .populate({
-        path: "userId",
-        select: "name profileImage role bio writerProfile.username writerProfile.genres isPrivate isDeactivated isFrozen followers followRequests",
-      })
-      .lean();
-
+    const paging = parseCompetitionCommunityPaging(req.query);
     const meId = String(req.user._id);
-    const participants = entries
-      .map((entry) => entry.userId)
-      // A deleted or suspended account is not part of the room. A PRIVATE account still is — being
-      // private hides your work, not your presence — but see the field list above: nothing about
-      // their entry is included either way.
-      .filter((user) => user && !user.isDeactivated && !user.isFrozen)
-      .map((user) => ({
-        _id: user._id,
-        name: user.name,
-        username: user.writerProfile?.username || "",
-        profileImage: user.profileImage || "",
-        role: user.role,
-        bio: user.isPrivate ? "" : String(user.bio || "").slice(0, 240),
-        genres: user.isPrivate ? [] : (user.writerProfile?.genres || []).slice(0, 5),
-        isPrivate: Boolean(user.isPrivate),
-        isSelf: String(user._id) === meId,
-        isFollowing: (user.followers || []).some((f) => String(f) === meId),
-        // followUser always creates a request (it never consults isPrivate), so the button has three
-        // states, not two. Without this the UI would offer "Follow" to someone you already asked.
-        followRequestPending: (user.followRequests || []).some((r) => String(r?.from) === meId),
-      }))
-      .sort((a, b) => (a.isSelf ? -1 : b.isSelf ? 1 : a.name.localeCompare(b.name)));
-
-    return res.json({ participants, total: participants.length });
+    // Join only the requested page and facet the filtered total in the database. The old populate
+    // loaded every entrant plus every follower/request id for every account into application memory.
+    const [result = {}] = await CompetitionEntry.aggregate([
+      { $match: { competitionId: competition._id } },
+      { $lookup: { from: User.collection.name, localField: "userId", foreignField: "_id", as: "user" } },
+      { $unwind: "$user" },
+      { $match: { "user.isDeactivated": { $ne: true }, "user.isFrozen": { $ne: true } } },
+      { $addFields: { isSelf: { $eq: [{ $toString: "$user._id" }, meId] } } },
+      { $sort: { isSelf: -1, "user.name": 1, "user._id": 1 } },
+      { $facet: {
+        rows: [
+          { $skip: (paging.page - 1) * paging.limit },
+          { $limit: paging.limit },
+          { $project: {
+            _id: "$user._id",
+            name: "$user.name",
+            username: "$user.writerProfile.username",
+            profileImage: "$user.profileImage",
+            role: "$user.role",
+            bio: "$user.bio",
+            genres: "$user.writerProfile.genres",
+            isPrivate: "$user.isPrivate",
+            isSelf: 1,
+          } },
+        ],
+        meta: [{ $count: "total" }],
+      } },
+    ]);
+    const rows = result.rows || [];
+    const ids = rows.map((user) => user._id);
+    const [followed, pending] = ids.length ? await Promise.all([
+      User.find({ _id: { $in: ids }, followers: req.user._id }).select("_id").lean(),
+      User.find({ _id: { $in: ids }, "followRequests.from": req.user._id }).select("_id").lean(),
+    ]) : [[], []];
+    const followedIds = new Set(followed.map((user) => String(user._id)));
+    const pendingIds = new Set(pending.map((user) => String(user._id)));
+    const participants = rows.map((user) => ({
+      _id: user._id,
+      name: user.name || "Writer",
+      username: user.username || "",
+      profileImage: user.profileImage || "",
+      role: user.role,
+      bio: user.isPrivate ? "" : String(user.bio || "").slice(0, 240),
+      genres: user.isPrivate ? [] : (user.genres || []).slice(0, 5),
+      isPrivate: Boolean(user.isPrivate),
+      isSelf: Boolean(user.isSelf),
+      isFollowing: followedIds.has(String(user._id)),
+      followRequestPending: pendingIds.has(String(user._id)),
+    }));
+    const total = Number(result.meta?.[0]?.total || 0);
+    return res.json({ participants, ...competitionPageInfo({ ...paging, total }) });
   } catch (error) {
     console.error("[competition] participants failed:", error?.message || error);
     return res.status(500).json({ message: "Failed to load participants." });
@@ -1329,14 +1363,16 @@ export const getMyCompetitionReferrals = async (req, res) => {
     const competition = await loadCompetitionById(req.params.id);
     if (!competition) return res.status(404).json({ message: "Competition not found." });
 
-    const [progress, referrals] = await Promise.all([
+    const paging = parseCompetitionCommunityPaging(req.query);
+    const [progress, history] = await Promise.all([
       getReferralProgress(req.user._id, competition),
-      listCompetitionReferrals(req.user._id, competition),
+      listCompetitionReferrals(req.user._id, competition, paging),
     ]);
 
     return res.json({
       progress,
-      referrals,
+      referrals: history.items,
+      pageInfo: competitionPageInfo({ ...paging, total: history.total }),
       referralCode: await ensureReferralCode(req.user),
       window: referralWindow(competition),
     });

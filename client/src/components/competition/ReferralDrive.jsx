@@ -35,7 +35,7 @@ const RULES = [
   "Rewards are specific to this competition and are granted when results are announced.",
 ];
 
-const ReferralDrive = ({ competitionId, referrals: initialProgress, referralCode: initialCode, competitionName = "" }) => {
+const ReferralDrive = ({ competitionId, referrals: initialProgress, referralCode: initialCode, competitionName = "", historyState = null, onLoadMore = null, onRetry = null }) => {
   const [progress, setProgress] = useState(initialProgress || null);
   const [code, setCode] = useState(initialCode || "");
   const [history, setHistory] = useState([]);
@@ -45,7 +45,7 @@ const ReferralDrive = ({ competitionId, referrals: initialProgress, referralCode
   // The dashboard already has progress from /me; this fills in the history table, which is the one
   // thing that payload doesn't carry.
   useEffect(() => {
-    if (!competitionId) return undefined;
+    if (!competitionId || historyState) return undefined;
     let alive = true;
     api.get(`/competitions/${competitionId}/referrals`)
       .then(({ data }) => {
@@ -57,12 +57,16 @@ const ReferralDrive = ({ competitionId, referrals: initialProgress, referralCode
       .catch(() => { /* progress from /me still renders; the table just stays empty */ })
       .finally(() => { if (alive) setLoaded(true); });
     return () => { alive = false; };
-  }, [competitionId]);
+  }, [competitionId, historyState]);
 
-  if (!progress) return null;
+  const visibleProgress = historyState?.progress || progress;
+  const visibleCode = historyState?.referralCode || code;
+  const visibleHistory = historyState?.items || history;
+  const historyLoaded = historyState ? historyState.status !== "idle" && historyState.status !== "loading" : loaded;
+  if (!visibleProgress) return null;
 
-  const link = code ? `${window.location.origin}/${code}` : "";
-  const { count = 0, awaitingVerification = 0, earned, next, tiers = [] } = progress;
+  const link = visibleCode ? `${window.location.origin}/${visibleCode}` : "";
+  const { count = 0, awaitingVerification = 0, earned, next, tiers = [] } = visibleProgress;
   const target = next?.at || tiers[tiers.length - 1]?.at || 1;
   const pct = Math.min(100, Math.round((count / target) * 100));
 
@@ -210,7 +214,7 @@ const ReferralDrive = ({ competitionId, referrals: initialProgress, referralCode
       </div>
 
       {/* History */}
-      {history.length ? (
+      {visibleHistory.length ? (
         <div className="mt-6">
           <h3 className="ckc-meta flex items-center gap-1.5">
             <Users className="h-3.5 w-3.5" aria-hidden="true" /> Who you've brought in
@@ -226,7 +230,7 @@ const ReferralDrive = ({ competitionId, referrals: initialProgress, referralCode
                 </tr>
               </thead>
               <tbody>
-                {history.map((row, i) => (
+                {visibleHistory.map((row, i) => (
                   <tr key={i} style={{ borderTop: "1px solid var(--ckc-rule)" }}>
                     <td className="py-2.5 pr-3" style={{ color: "var(--ckc-ink)" }}>
                       {row.name}
@@ -253,12 +257,14 @@ const ReferralDrive = ({ competitionId, referrals: initialProgress, referralCode
               </tbody>
             </table>
           </div>
+          {historyState?.hasMore ? <button type="button" className="ckc-btn ckc-btn-quiet mt-3" disabled={historyState.status === "loading"} onClick={onLoadMore}>{historyState.status === "loading" ? "Loading…" : "Load more referrals"}</button> : null}
         </div>
-      ) : loaded ? (
+      ) : historyLoaded ? (
         <p className="mt-6" style={{ fontSize: 14, color: "var(--ckc-muted)" }}>
           Nobody has joined through your link yet.
         </p>
       ) : null}
+      {historyState?.failure?.message ? <div className="mt-3"><p style={{ fontSize: 14, color: "var(--ckc-accent-text)" }}>{historyState.failure.message}</p>{onRetry ? <button type="button" className="ckc-btn ckc-btn-quiet mt-2" onClick={onRetry}>Try again</button> : null}</div> : null}
 
       {/* Rules */}
       <div

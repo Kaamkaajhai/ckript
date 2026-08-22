@@ -73,7 +73,7 @@ describe("competition entry hub summary", () => {
     );
     assert.match(getMyEntry, /req\.query\.view === ["']summary["']/);
     assert.match(getMyEntry, /entryQuery\.select\(COMPETITION_ENTRY_SUMMARY_FIELDS\)/);
-    assert.match(getMyEntry, /summaryView \? competitionEntrySummary\(entry\) : entry/);
+    assert.match(getMyEntry, /summaryView[\s\S]*competitionEntrySummary\(entry\)[\s\S]*dashboardView[\s\S]*competitionDashboardEntry\(entry\)/);
     assert.match(getMyEntry, /if \(!summaryView\)[\s\S]*getReferralProgress/);
 
     const getMine = controllerSource.slice(

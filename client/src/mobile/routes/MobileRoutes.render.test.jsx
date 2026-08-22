@@ -57,6 +57,10 @@ vi.mock("../screens/challenges/ChallengeRegisterMobile", () => ({
   default: () => <main data-testid="mobile-challenge-register">Challenge register</main>,
 }));
 
+vi.mock("../screens/challenges/ChallengeDashboardMobile", () => ({
+  default: () => <main data-testid="mobile-challenge-dashboard">Challenge dashboard</main>,
+}));
+
 vi.mock("../dev/ChallengeHubHarness", () => ({
   default: () => <main data-testid="mobile-challenge-harness">Challenge harness</main>,
 }));
@@ -67,6 +71,10 @@ vi.mock("../dev/ChallengeDetailHarness", () => ({
 
 vi.mock("../dev/ChallengeRegisterHarness", () => ({
   default: () => <main data-testid="mobile-challenge-register-harness">Challenge register harness</main>,
+}));
+
+vi.mock("../dev/ChallengeDashboardHarness", () => ({
+  default: () => <main data-testid="mobile-challenge-dashboard-harness">Challenge dashboard harness</main>,
 }));
 
 vi.mock("../screens/profiles/visitor-profile/ProfileVisitorMobile", () => ({
@@ -139,6 +147,12 @@ describe("MobileRoutes", () => {
     expect(el.querySelector('[data-testid="mobile-challenge-register"]')).toBeTruthy();
   });
 
+  it("renders the exact participant dashboard through the native workspace", async () => {
+    const el = await mount("/challenge/dashboard?c=forty-eight-hours&tab=studio");
+    expect(el.querySelector('[data-testid="mobile-challenge-dashboard"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
+  });
+
   it("renders the deterministic challenge fixture when App.jsx owns its dev route", async () => {
     const el = await mount("/__mobile-challenges?tab=mine", { devScreen: "challenges" });
     expect(el.querySelector('[data-testid="mobile-challenge-harness"]')).toBeTruthy();
@@ -152,6 +166,11 @@ describe("MobileRoutes", () => {
   it("renders the deterministic challenge-registration fixture when App.jsx owns its dev route", async () => {
     const el = await mount("/__mobile-challenge-register?state=external", { devScreen: "challenge-register" });
     expect(el.querySelector('[data-testid="mobile-challenge-register-harness"]')).toBeTruthy();
+  });
+
+  it("renders the deterministic participant-dashboard fixture when App.jsx owns its dev route", async () => {
+    const el = await mount("/__mobile-challenge-dashboard?state=results", { devScreen: "challenge-dashboard" });
+    expect(el.querySelector('[data-testid="mobile-challenge-dashboard-harness"]')).toBeTruthy();
   });
 
   it("renders the same dashboard at /ai-tools, because desktop does", async () => {
