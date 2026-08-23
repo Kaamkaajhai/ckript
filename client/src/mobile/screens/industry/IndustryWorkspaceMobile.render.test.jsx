@@ -63,6 +63,7 @@ describe("native industry workspace", () => {
     el = await mount(<IndustryDashboardMobile user={actor} previewState={dashboardReady} />, "/dashboard");
     expect(el.textContent).toContain("Discovery-only account");
     expect(el.textContent).not.toContain("Finance");
+    expect(el.textContent).not.toContain("standing mandate");
   });
 
   it("keeps partial dashboard data visible", async () => {

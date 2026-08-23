@@ -3,6 +3,8 @@ import { afterEach, describe, test } from "node:test";
 import mongoose from "mongoose";
 import Post from "../models/Post.js";
 import Script from "../models/Script.js";
+import ScriptOption from "../models/ScriptOption.js";
+import ScriptPurchaseRequest from "../models/ScriptPurchaseRequest.js";
 import User from "../models/User.js";
 import { getProfileCollections, getUserProfile } from "./userController.js";
 
@@ -14,6 +16,8 @@ const originals = {
   postFind: Post.find,
   scriptCount: Script.countDocuments,
   scriptFind: Script.find,
+  optionDistinct: ScriptOption.distinct,
+  purchaseDistinct: ScriptPurchaseRequest.distinct,
 };
 
 const viewerId = new mongoose.Types.ObjectId();
@@ -81,6 +85,8 @@ afterEach(() => {
   Post.find = originals.postFind;
   Script.countDocuments = originals.scriptCount;
   Script.find = originals.scriptFind;
+  ScriptOption.distinct = originals.optionDistinct;
+  ScriptPurchaseRequest.distinct = originals.purchaseDistinct;
 });
 
 describe("general profile collections endpoint", () => {
@@ -159,6 +165,7 @@ describe("general profile collections endpoint", () => {
 
     assert.equal(captured.status, 200);
     assert.equal(captured.body.own, true);
+    assert.equal(captured.body.savedSource, "favorites");
     assert.deepEqual(captured.body.counts, { activity: 2, saved: 1 });
     assert.equal(captured.body.items[0].canonicalPath, "/the-archive/mira");
     assert.deepEqual(savedFilter._id.$in, [projectId]);
@@ -167,6 +174,52 @@ describe("general profile collections endpoint", () => {
     assert.deepEqual(findCapture.sort, { title: 1, _id: 1 });
     assert.equal(findCapture.skip, 0);
     assert.equal(findCapture.limit, 12);
+  });
+
+  test("uses the industry watchlist as the five professional roles' saved profile collection", async () => {
+    const findCapture = {};
+    let savedFilter;
+    User.findOne = () => chain(publicWriter({
+      role: "professional",
+      favoriteScripts: [new mongoose.Types.ObjectId()],
+      industryProfile: { savedScripts: [projectId] },
+    }));
+    Post.countDocuments = async () => 0;
+    Script.countDocuments = async (filter) => { savedFilter = filter; return 1; };
+    Script.find = (filter) => {
+      savedFilter = filter;
+      return chain([{ _id: projectId, title: "The Watchlist Project" }], findCapture);
+    };
+    const { captured, res } = response();
+
+    await getProfileCollections(request({ userId: writerId, section: "saved" }), res);
+
+    assert.equal(captured.status, 200);
+    assert.equal(captured.body.savedSource, "watchlist");
+    assert.deepEqual(savedFilter._id.$in, [projectId]);
+    assert.match(findCapture.select, /title/);
+  });
+
+  test("loads purchases for every film-professional own profile role", async () => {
+    for (const role of ["investor", "producer", "director", "industry", "professional"]) {
+      let purchaseLookups = 0;
+      const user = {
+        ...publicWriter({ role }),
+        language: "en",
+        async populate() {},
+        toObject() { return { ...this }; },
+      };
+      User.findOne = () => documentChain(user);
+      Script.find = () => documentChain([]);
+      ScriptPurchaseRequest.distinct = async () => { purchaseLookups += 1; return []; };
+      ScriptOption.distinct = async () => { purchaseLookups += 1; return []; };
+      const { captured, res } = response();
+
+      await getUserProfile(request({ userId: writerId }), res);
+
+      assert.equal(captured.status, 200);
+      assert.equal(purchaseLookups, 2, `${role} should load both purchase sources`);
+    }
   });
 
   test("enforces profile privacy before collection queries", async () => {

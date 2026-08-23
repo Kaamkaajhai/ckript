@@ -64,10 +64,10 @@ function DealCard({ deal }) {
 export default function IndustryDashboardMobile({ user, previewData = null, previewState = null }) {
   const [searchParams, setSearchParams] = useSearchParams();
   const query = useMemo(() => readIndustryDashboardQuery(searchParams), [searchParams]);
-  const liveDashboard = useIndustryDashboard({ enabled: !previewState, previewData });
+  const isProfessional = isFilmIndustryProfessionalRole(user);
+  const liveDashboard = useIndustryDashboard({ enabled: !previewState, previewData, professional: isProfessional });
   const dashboard = previewState || liveDashboard;
   const data = dashboard.data;
-  const isProfessional = isFilmIndustryProfessionalRole(user);
   const tabs = isProfessional ? SECTIONS : SECTIONS.filter(({ key }) => !["deals", "finance"].includes(key));
   const section = tabs.some(({ key }) => key === query.section) ? query.section : "overview";
 
@@ -100,8 +100,10 @@ export default function IndustryDashboardMobile({ user, previewData = null, prev
     );
     if (section === "matches") return matched.length ? matched.map((project, index) => (
       <DiscoveryProjectCard key={project._id} project={project} rank={index + 1} />
-    )) : (
+    )) : isProfessional ? (
       <EmptyState compact titleAs="h2" icon="auto_awesome" title="No matches this week" body="Refine your mandate while new work enters the catalogue." actions={<Button variant="secondary" to="/mandates">Edit mandate</Button>} />
+    ) : (
+      <EmptyState compact titleAs="h2" icon="auto_awesome" title="No projects to review" body="Explore the catalogue while new casting matches arrive." actions={<Button variant="secondary" to="/search">Search projects</Button>} />
     );
     if (section === "finance") return (
       <section className="ckm-industry-dashboard__finance">
@@ -145,7 +147,7 @@ export default function IndustryDashboardMobile({ user, previewData = null, prev
           ))}
         </dl>
         <section className="ckm-industry-dashboard__next">
-          <div><h2>{matched.length} new {matched.length === 1 ? "match" : "matches"}</h2><p>Projects ranked against your standing mandate.</p></div>
+          <div><h2>{matched.length} new {matched.length === 1 ? "match" : "matches"}</h2><p>{isProfessional ? "Projects ranked against your standing mandate." : "Projects selected for your discovery profile."}</p></div>
           <Button variant="secondary" onClick={() => setSection("matches")}>Review matches</Button>
         </section>
         {isProfessional && deals.slice(0, 3).map((deal) => <DealCard key={deal.id} deal={deal} />)}

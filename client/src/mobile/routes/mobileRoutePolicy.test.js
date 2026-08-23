@@ -4,6 +4,8 @@ import { resolveMobileExperience } from "./mobileRoutePolicy";
 const writer = { id: "writer-1", role: "writer" };
 const creator = { id: "creator-1", role: "creator" };
 const producer = { id: "producer-1", role: "producer" };
+const industryProfessionals = ["investor", "producer", "director", "industry", "professional"]
+  .map((role) => ({ id: `${role}-1`, role }));
 
 describe("mobileRoutePolicy — experience selection", () => {
   it.each([writer, creator])("mounts the mobile dashboard for $role on a phone", (user) => {
@@ -38,7 +40,7 @@ describe("mobileRoutePolicy — experience selection", () => {
     });
   });
 
-  it.each([writer, creator, producer])("mounts native search for authenticated $role users", (user) => {
+  it.each([writer, creator, ...industryProfessionals])("mounts native search for authenticated $role users", (user) => {
     expect(resolveMobileExperience({
       isMobile: true,
       authLoading: false,
@@ -84,7 +86,7 @@ describe("mobileRoutePolicy — experience selection", () => {
     })).toMatchObject({ experience: "desktop", reason: "authentication-required" });
   });
 
-  it.each([writer, creator, producer])("mounts native featured for authenticated $role users", (user) => {
+  it.each([writer, creator, ...industryProfessionals])("mounts native featured for authenticated $role users", (user) => {
     expect(resolveMobileExperience({
       isMobile: true,
       authLoading: false,
@@ -530,13 +532,23 @@ describe("mobileRoutePolicy — experience selection", () => {
     })).toMatchObject({ experience: "desktop", reason: "audience-not-implemented" });
   });
 
-  it("mounts the canonical messages route through the native inbox", () => {
+  it.each([writer, ...industryProfessionals])("mounts the canonical messages route through the native $role inbox", (user) => {
     expect(resolveMobileExperience({
       isMobile: true,
       authLoading: false,
-      user: writer,
+      user,
       pathname: "/messages",
     })).toMatchObject({ experience: "mobile", routeId: "messages", screenId: "messages" });
+  });
+
+  it.each(industryProfessionals)("keeps the native owner profile and saved query for $role", (user) => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user,
+      pathname: "/profile",
+      search: "?tab=bookmarks",
+    })).toMatchObject({ experience: "mobile", routeId: "profile", screenId: "profile-owner" });
   });
 
   it("mounts the shared native project surface for a reader without rewriting its route (D32)", () => {

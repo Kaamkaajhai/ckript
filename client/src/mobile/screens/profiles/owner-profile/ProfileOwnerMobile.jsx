@@ -10,6 +10,7 @@ import {
 import { useAuthenticatedProfile } from "../../../../pages/profile/useAuthenticatedProfile";
 import {
   readProfileCollectionLocation,
+  removeSavedProjectFromViewer,
   writeProfileCollectionLocation,
 } from "../../../../pages/profile/profileCollections";
 import { useProfileCollections } from "../../../../pages/profile/useProfileCollections";
@@ -127,15 +128,15 @@ export default function ProfileOwnerMobile({ user }) {
     if (!result.ok) return;
     setUser((current) => {
       if (!current) return current;
-      const favoriteScripts = (Array.isArray(current.favoriteScripts) ? current.favoriteScripts : [])
-        .filter((entry) => String(entry?._id || entry) !== String(projectId));
-      const next = { ...current, favoriteScripts };
+      const next = removeSavedProjectFromViewer(current, projectId, result.data?.source);
       try { localStorage.setItem("user", JSON.stringify(next)); } catch { /* memory state remains authoritative */ }
       return next;
     });
     if (result.pageBecameEmpty) updateCollectionLocation("bookmarks", collectionLocation.page - 1);
     toast.success("Removed from saved projects");
-    window.dispatchEvent(new CustomEvent("bookmarkUpdated", { detail: { scriptId: projectId, bookmarked: false } }));
+    window.dispatchEvent(new CustomEvent("bookmarkUpdated", {
+      detail: { scriptId: projectId, bookmarked: false, source: result.data?.source },
+    }));
   };
 
   const reloadProfile = profileState.reload;
@@ -201,7 +202,7 @@ export default function ProfileOwnerMobile({ user }) {
           <div><p>{view.role}</p><h2 id="owner-profile-name">{view.name}</h2><span>{view.username ? `@${view.username}` : view.location || "Ckript member"}</span></div>
         </div>
         <div className="ckm-owner-profile__connections"><span><strong>{view.followers}</strong> followers</span><span><strong>{view.following}</strong> following</span></div>
-        <div className="ckm-owner-profile__actions"><Button onClick={() => setEditorOpen(true)}>Edit profile</Button><Button variant="secondary" to="/profile?tab=settings">Account &amp; security</Button><Button variant="secondary" to="/follow-requests">Follow requests{view.pendingFollowRequests ? ` (${view.pendingFollowRequests})` : ""}</Button><Button variant="secondary" to="/collaborations">Collaboration requests</Button></div>
+        <div className="ckm-owner-profile__actions"><Button onClick={() => setEditorOpen(true)}>Edit profile</Button><Button variant="secondary" to="/profile?tab=settings">Account &amp; security</Button><Button variant="secondary" to="/follow-requests">Follow requests{view.pendingFollowRequests ? ` (${view.pendingFollowRequests})` : ""}</Button>{view.writer ? <Button variant="secondary" to="/collaborations">Collaboration requests</Button> : null}</div>
       </section>
 
       <section className="ckm-owner-profile__stats" aria-label="Profile workspace totals">

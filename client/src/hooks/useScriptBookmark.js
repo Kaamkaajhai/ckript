@@ -1,6 +1,7 @@
 import { useCallback, useContext, useEffect, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
 import api from "../services/api";
+import { isFilmIndustryProfessionalRole } from "../utils/industryAccess";
 
 /*
  * useScriptBookmark — the one implementation of "star this project".
@@ -13,7 +14,49 @@ import api from "../services/api";
  * A member cannot bookmark their own project, and a signed-out visitor cannot
  * bookmark at all — `canBookmark` reports that so callers can hide the control.
  */
-const toId = (item) => (typeof item === "string" ? item : item?._id);
+export const SCRIPT_BOOKMARK_SOURCE = Object.freeze({
+  FAVORITES: "favorites",
+  WATCHLIST: "watchlist",
+});
+
+const toId = (item) => String(typeof item === "string" ? item : item?._id || "");
+
+export const getScriptBookmarkSource = (user) => isFilmIndustryProfessionalRole(user)
+  ? SCRIPT_BOOKMARK_SOURCE.WATCHLIST
+  : SCRIPT_BOOKMARK_SOURCE.FAVORITES;
+
+export const readScriptBookmarkIds = (user, source = getScriptBookmarkSource(user)) => {
+  const items = source === SCRIPT_BOOKMARK_SOURCE.WATCHLIST
+    ? user?.industryProfile?.savedScripts
+    : user?.favoriteScripts;
+  return Array.isArray(items) ? items.map(toId).filter(Boolean) : [];
+};
+
+export const updateScriptBookmarkViewer = (user, scriptId, bookmarked, source) => {
+  if (!user) return user;
+  const id = String(scriptId || "");
+  const currentIds = readScriptBookmarkIds(user, source);
+  const nextIds = bookmarked
+    ? Array.from(new Set([...currentIds, id])).filter(Boolean)
+    : currentIds.filter((item) => item !== id);
+  if (source === SCRIPT_BOOKMARK_SOURCE.WATCHLIST) {
+    return {
+      ...user,
+      industryProfile: { ...(user.industryProfile || {}), savedScripts: nextIds },
+    };
+  }
+  return { ...user, favoriteScripts: nextIds };
+};
+
+export async function requestScriptBookmark({ scriptId, bookmarked, source }) {
+  if (source === SCRIPT_BOOKMARK_SOURCE.WATCHLIST) {
+    const operation = bookmarked ? "remove" : "add";
+    const { data } = await api.post(`/users/watchlist/${operation}`, { scriptId });
+    return Boolean(data?.saved);
+  }
+  const { data } = await api.post(`/scripts/${scriptId}/favorite`);
+  return Boolean(data?.favorited);
+}
 
 export const useScriptBookmark = (project) => {
   const { user, setUser } = useContext(AuthContext);
@@ -21,16 +64,19 @@ export const useScriptBookmark = (project) => {
   const [pending, setPending] = useState(false);
 
   const scriptId = project?._id;
+  const source = getScriptBookmarkSource(user);
+  const savedItems = source === SCRIPT_BOOKMARK_SOURCE.WATCHLIST
+    ? user?.industryProfile?.savedScripts
+    : user?.favoriteScripts;
   const canBookmark = Boolean(user?._id && scriptId && project?.creator?._id !== user._id);
 
   useEffect(() => {
-    const ids = user?.favoriteScripts;
-    if (!scriptId || !Array.isArray(ids)) {
+    if (!scriptId || !Array.isArray(savedItems)) {
       setIsBookmarked(false);
       return;
     }
-    setIsBookmarked(ids.some((item) => toId(item) === scriptId));
-  }, [user?.favoriteScripts, scriptId]);
+    setIsBookmarked(savedItems.some((item) => toId(item) === String(scriptId)));
+  }, [savedItems, scriptId]);
 
   const toggleBookmark = useCallback(async (event) => {
     event?.preventDefault?.();
@@ -39,25 +85,17 @@ export const useScriptBookmark = (project) => {
 
     setPending(true);
     try {
-      const { data } = await api.post(`/scripts/${scriptId}/favorite`);
-      const nextFavorited = Boolean(data?.favorited);
-      setIsBookmarked(nextFavorited);
+      const nextBookmarked = await requestScriptBookmark({ scriptId, bookmarked: isBookmarked, source });
+      setIsBookmarked(nextBookmarked);
 
       setUser((prev) => {
-        if (!prev) return prev;
-        const currentIds = Array.isArray(prev.favoriteScripts)
-          ? prev.favoriteScripts.map(toId).filter(Boolean)
-          : [];
-        const updatedIds = nextFavorited
-          ? Array.from(new Set([...currentIds, scriptId]))
-          : currentIds.filter((item) => item !== scriptId);
-        const updatedUser = { ...prev, favoriteScripts: updatedIds };
-        localStorage.setItem("user", JSON.stringify(updatedUser));
+        const updatedUser = updateScriptBookmarkViewer(prev, scriptId, nextBookmarked, source);
+        try { localStorage.setItem("user", JSON.stringify(updatedUser)); } catch { /* memory state remains authoritative */ }
         return updatedUser;
       });
 
       window.dispatchEvent(new CustomEvent("bookmarkUpdated", {
-        detail: { scriptId, bookmarked: nextFavorited },
+        detail: { scriptId, bookmarked: nextBookmarked, source },
       }));
     } catch {
       // A failed toggle leaves the previous state showing rather than lying
@@ -65,7 +103,7 @@ export const useScriptBookmark = (project) => {
     } finally {
       setPending(false);
     }
-  }, [canBookmark, pending, scriptId, setUser]);
+  }, [canBookmark, isBookmarked, pending, scriptId, setUser, source]);
 
   return { isBookmarked, canBookmark, pending, toggleBookmark };
 };

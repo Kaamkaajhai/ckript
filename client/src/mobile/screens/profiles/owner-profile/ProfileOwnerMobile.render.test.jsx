@@ -85,14 +85,14 @@ afterEach(() => {
   localStorage.clear();
 });
 
-async function render() {
+async function render({ user = viewer } = {}) {
   await act(async () => {
     root.render(
-      <AuthContext.Provider value={{ user: viewer, setUser: vi.fn() }}>
+      <AuthContext.Provider value={{ user, setUser: vi.fn() }}>
         <ToastContext.Provider value={mocks.toast}>
           <MemoryRouter initialEntries={["/profile"]}>
             <div className="ckm">
-              <Routes><Route path="/profile" element={<ProfileOwnerMobile user={viewer} />} /></Routes>
+              <Routes><Route path="/profile" element={<ProfileOwnerMobile user={user} />} /></Routes>
             </div>
           </MemoryRouter>
         </ToastContext.Provider>
@@ -113,6 +113,21 @@ describe("ProfileOwnerMobile", () => {
     expect(container.textContent).toContain("Production update");
     expect(container.querySelectorAll('input[name="profile-collection"]')).toHaveLength(2);
     expect(container.textContent).toContain("Saved");
+    expect(container.querySelector('a[href="/collaborations"]')).toBeTruthy();
+  });
+
+  it("does not offer the writer-only collaboration queue on an industry profile", async () => {
+    const producer = { _id: "producer-1", role: "producer", name: "Dev Rao" };
+    mocks.state = {
+      ...readyState(),
+      profile: { ...readyState().profile, ...producer, writerProfile: undefined, industryProfile: { company: "North Star" } },
+      scripts: [],
+    };
+
+    await render({ user: producer });
+
+    expect(container.querySelector('a[href="/collaborations"]')).toBeNull();
+    expect(container.querySelector('a[href="/profile?tab=settings"]')).toBeTruthy();
   });
 
   it("opens the native editor and saves through the shared mutation", async () => {

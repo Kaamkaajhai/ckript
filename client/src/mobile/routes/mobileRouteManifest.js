@@ -594,12 +594,9 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
   },
 
   /*
-   * /offer-holds is an INDUSTRY screen, despite living in the plan's writer
-   * phase. The audience is decided by the server, not by preference:
-   * holdScript() 403s any role that is not investor/producer/director
-   * (scriptController.js:4770) and getMyHolds() queries { holder: req.user._id }
-   * (scriptController.js:4856). A writer can never be a holder, so this route's
-   * only endpoint returns [] for a writer unconditionally, forever.
+   * /offer-holds is a FILM-PROFESSIONAL screen. The server uses the shared
+   * five-role vocabulary for quote/order/verify/read/release, and holder reads
+   * are always scoped to req.user._id. A writer can never be a holder.
    *
    * Writers keep the existing desktop route via fallbackDisposition — the same
    * mechanism that keeps /dashboard writer-only.

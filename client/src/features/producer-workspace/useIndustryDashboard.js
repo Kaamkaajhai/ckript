@@ -3,7 +3,7 @@ import { INDUSTRY_DASHBOARD_STATUS, loadIndustryDashboard } from "./industryDash
 
 const initialState = Object.freeze({ requestKey: -1, status: INDUSTRY_DASHBOARD_STATUS.IDLE, data: null, failure: null });
 
-export default function useIndustryDashboard({ enabled = true, previewData = null } = {}) {
+export default function useIndustryDashboard({ enabled = true, previewData = null, professional = true } = {}) {
   const [revision, setRevision] = useState(0);
   const [state, setState] = useState(initialState);
   const requestKey = enabled ? revision : -1;
@@ -11,14 +11,14 @@ export default function useIndustryDashboard({ enabled = true, previewData = nul
   useEffect(() => {
     if (requestKey < 0 || previewData) return undefined;
     const controller = new AbortController();
-    loadIndustryDashboard({ signal: controller.signal }).then((result) => {
+    loadIndustryDashboard({ signal: controller.signal, professional }).then((result) => {
       if (controller.signal.aborted || result.cancelled) return;
       setState(result.ok
         ? { requestKey, status: INDUSTRY_DASHBOARD_STATUS.READY, data: result.data, failure: null }
         : { requestKey, status: INDUSTRY_DASHBOARD_STATUS.FAILED, data: null, failure: result });
     });
     return () => controller.abort();
-  }, [previewData, requestKey]);
+  }, [previewData, professional, requestKey]);
 
   const retry = useCallback(() => setRevision((value) => value + 1), []);
   if (previewData) {

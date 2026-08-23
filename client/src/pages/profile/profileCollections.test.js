@@ -4,6 +4,7 @@ import {
   loadProfileCollection,
   normalizeProfileCollectionResponse,
   readProfileCollectionLocation,
+  removeSavedProjectFromViewer,
   removeSavedProfileProject,
   writeProfileCollectionLocation,
 } from "./profileCollections";
@@ -33,6 +34,7 @@ describe("profile collection client contract", () => {
     })).toEqual({
       profileId: "writer-1",
       own: true,
+      savedSource: "favorites",
       counts: { activity: 4, bookmarks: 2 },
       items: [{ _id: "post-1" }],
       pagination: {
@@ -76,10 +78,32 @@ describe("profile collection client contract", () => {
 
   it("accepts removal only when the server confirms the project is no longer saved", async () => {
     api.post.mockResolvedValueOnce({ data: { favorited: false } });
-    await expect(removeSavedProfileProject("project/1")).resolves.toEqual({ ok: true, data: { projectId: "project/1" } });
+    await expect(removeSavedProfileProject("project/1")).resolves.toEqual({ ok: true, data: { projectId: "project/1", source: "favorites" } });
     expect(api.post).toHaveBeenCalledWith("/scripts/project%2F1/favorite");
 
     api.post.mockResolvedValueOnce({ data: { favorited: true } });
     await expect(removeSavedProfileProject("project-2")).resolves.toMatchObject({ ok: false, message: expect.stringMatching(/still saved/i) });
+  });
+
+  it("removes an industry saved project through the authoritative watchlist", async () => {
+    api.post.mockResolvedValueOnce({ data: { saved: false } });
+
+    await expect(removeSavedProfileProject("project-3", { source: "watchlist" })).resolves.toEqual({
+      ok: true,
+      data: { projectId: "project-3", source: "watchlist" },
+    });
+    expect(api.post).toHaveBeenCalledWith("/users/watchlist/remove", { scriptId: "project-3" });
+  });
+
+  it("updates the viewer's matching saved collection without crossing the two stores", () => {
+    const viewer = {
+      favoriteScripts: ["favorite-1"],
+      industryProfile: { company: "North Star", savedScripts: ["watch-1", { _id: "watch-2" }] },
+    };
+    expect(removeSavedProjectFromViewer(viewer, "watch-2", "watchlist")).toEqual({
+      favoriteScripts: ["favorite-1"],
+      industryProfile: { company: "North Star", savedScripts: ["watch-1"] },
+    });
+    expect(removeSavedProjectFromViewer(viewer, "favorite-1", "favorites").industryProfile.savedScripts).toHaveLength(2);
   });
 });

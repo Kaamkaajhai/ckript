@@ -66,6 +66,7 @@ import {
 import {
   PROFILE_COLLECTION_STATUS,
   readProfileCollectionLocation,
+  removeSavedProjectFromViewer,
   writeProfileCollectionLocation,
 } from "./profile/profileCollections";
 import { useProfileCollections } from "./profile/useProfileCollections";
@@ -678,13 +679,13 @@ const Profile = () => {
     setBookmarkedScripts((previous) => previous.filter((script) => String(script?._id) !== String(projectId)));
     setUser((current) => {
       if (!current) return current;
-      const favoriteScripts = (Array.isArray(current.favoriteScripts) ? current.favoriteScripts : [])
-        .filter((entry) => String(entry?._id || entry) !== String(projectId));
-      const next = { ...current, favoriteScripts };
+      const next = removeSavedProjectFromViewer(current, projectId, result.data?.source);
       try { localStorage.setItem("user", JSON.stringify(next)); } catch { /* memory state remains authoritative */ }
       return next;
     });
-    window.dispatchEvent(new CustomEvent("bookmarkUpdated", { detail: { scriptId: projectId, bookmarked: false } }));
+    window.dispatchEvent(new CustomEvent("bookmarkUpdated", {
+      detail: { scriptId: projectId, bookmarked: false, source: result.data?.source },
+    }));
     if (result.pageBecameEmpty) selectProfileTab("bookmarks", collectionPage - 1);
   }, [collectionPage, profileCollections, selectProfileTab, setUser]);
 

@@ -884,8 +884,9 @@ export const getUserProfile = async (req, res) => {
         .sort({ deletedAt: -1, updatedAt: -1 });
     }
 
-    // Fetch scripts purchased by this user (only for own profile or investor/producer viewing)
-    const isPro = ["investor", "producer", "director"].includes(user.role);
+    // Fetch purchases only on the owner's profile, for the shared five-role
+    // film-professional audience that can buy or option projects.
+    const isPro = isFilmIndustryProfessionalRole(user);
     let purchasedScripts = [];
     if (isOwnProfile && isPro) {
       const [approvedPurchaseScriptIds, convertedOptionScriptIds] = await Promise.all([
@@ -995,7 +996,7 @@ export const getProfileCollections = async (req, res) => {
     if (!profileLookupQuery) return res.status(400).json({ message: "Invalid profile id" });
 
     const profile = await User.findOne(profileLookupQuery)
-      .select("_id name role writerProfile.username isPrivate isDeactivated followers followRequests blockedUsers favoriteScripts")
+      .select("_id name role writerProfile.username isPrivate isDeactivated followers followRequests blockedUsers favoriteScripts industryProfile.savedScripts")
       .lean();
     if (!profile || String(profile.role || "").toLowerCase() === "reader") {
       return res.status(404).json({ message: "General profile collections not found" });
@@ -1017,7 +1018,12 @@ export const getProfileCollections = async (req, res) => {
       });
     }
 
-    const savedIds = own && Array.isArray(profile.favoriteScripts) ? profile.favoriteScripts : [];
+    const savedSource = isFilmIndustryProfessionalRole(profile) ? "watchlist" : "favorites";
+    const savedIds = own
+      ? savedSource === "watchlist"
+        ? (Array.isArray(profile.industryProfile?.savedScripts) ? profile.industryProfile.savedScripts : [])
+        : (Array.isArray(profile.favoriteScripts) ? profile.favoriteScripts : [])
+      : [];
     const publicSavedFilter = {
       _id: { $in: savedIds },
       status: "published",
@@ -1085,6 +1091,7 @@ export const getProfileCollections = async (req, res) => {
     return res.json({
       profileId: profile._id,
       own,
+      savedSource,
       counts: { activity: activityTotal, saved: own ? savedTotal : null },
       items,
       pagination: profileCollectionMeta({ ...query, total, own }),
@@ -2150,6 +2157,10 @@ export const getBlockedUsers = async (req, res) => {
 
 export const getWatchlist = async (req, res) => {
   try {
+    if (!isFilmIndustryProfessionalRole(req.user)) {
+      return res.status(403).json({ message: "Only film industry professionals can access a project watchlist." });
+    }
+
     const user = await User.findById(req.user._id).select("industryProfile.savedScripts");
 
     if (!user) {
@@ -2162,7 +2173,12 @@ export const getWatchlist = async (req, res) => {
     // Populate the script details
     const requestedLimit = Number.parseInt(req.query?.limit, 10);
     const limit = Number.isFinite(requestedLimit) ? Math.min(24, Math.max(1, requestedLimit)) : 24;
-    const scripts = await Script.find({ _id: { $in: savedScriptIds }, isDeleted: { $ne: true } })
+    const scripts = await Script.find({
+      _id: { $in: savedScriptIds },
+      status: "published",
+      isSold: { $ne: true },
+      isDeleted: { $ne: true },
+    })
       .select("_id title sid coverImage thumbnailUrl genre primaryGenre contentType format logline price budget status isSold holdStatus createdAt creator")
       .populate("creator", "name profileImage role username writerProfile.username")
       .sort({ createdAt: -1 })
@@ -2177,7 +2193,20 @@ export const getWatchlist = async (req, res) => {
 
 export const addToWatchlist = async (req, res) => {
   try {
-    const { scriptId } = req.body;
+    if (!isFilmIndustryProfessionalRole(req.user)) {
+      return res.status(403).json({ message: "Only film industry professionals can save projects to a watchlist." });
+    }
+
+    const scriptId = asObjectId(req.body?.scriptId);
+    if (!scriptId) return res.status(400).json({ message: "A valid project id is required." });
+    const scriptExists = await Script.exists({
+      _id: scriptId,
+      status: "published",
+      isSold: { $ne: true },
+      isDeleted: { $ne: true },
+    });
+    if (!scriptExists) return res.status(404).json({ message: "Project not found or no longer available." });
+
     const user = await User.findById(req.user._id);
 
     if (!user) {
@@ -2193,14 +2222,14 @@ export const addToWatchlist = async (req, res) => {
     }
 
     // Check if already in watchlist
-    if (user.industryProfile.savedScripts.includes(scriptId)) {
-      return res.status(400).json({ message: "Script already in watchlist" });
+    if (user.industryProfile.savedScripts.some((id) => String(id) === String(scriptId))) {
+      return res.json({ message: "Project is already in your watchlist.", saved: true, projectId: scriptId });
     }
 
     user.industryProfile.savedScripts.push(scriptId);
     await user.save();
 
-    res.json({ message: "Script added to watchlist" });
+    res.json({ message: "Project added to watchlist.", saved: true, projectId: scriptId });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -2208,23 +2237,28 @@ export const addToWatchlist = async (req, res) => {
 
 export const removeFromWatchlist = async (req, res) => {
   try {
-    const { scriptId } = req.body;
+    if (!isFilmIndustryProfessionalRole(req.user)) {
+      return res.status(403).json({ message: "Only film industry professionals can change a project watchlist." });
+    }
+
+    const scriptId = asObjectId(req.body?.scriptId);
+    if (!scriptId) return res.status(400).json({ message: "A valid project id is required." });
     const user = await User.findById(req.user._id);
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    if (!user.industryProfile?.savedScripts) {
-      return res.status(400).json({ message: "Watchlist is empty" });
-    }
-
-    user.industryProfile.savedScripts = user.industryProfile.savedScripts.filter(
-      (id) => id.toString() !== scriptId
+    const savedScripts = Array.isArray(user.industryProfile?.savedScripts)
+      ? user.industryProfile.savedScripts
+      : [];
+    user.industryProfile = user.industryProfile || {};
+    user.industryProfile.savedScripts = savedScripts.filter(
+      (id) => String(id) !== String(scriptId)
     );
     await user.save();
 
-    res.json({ message: "Script removed from watchlist" });
+    res.json({ message: "Project removed from watchlist.", saved: false, projectId: scriptId });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

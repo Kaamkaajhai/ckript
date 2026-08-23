@@ -36,6 +36,17 @@ describe("industry dashboard contract", () => {
     expect(api.get).toHaveBeenCalledTimes(5);
   });
 
+  it("keeps discovery-only roles away from finance, deal, and watchlist endpoints", async () => {
+    api.get.mockResolvedValue({ data: { matchedScripts: [] } });
+
+    await expect(loadIndustryDashboard({ professional: false })).resolves.toMatchObject({
+      ok: true,
+      data: { dash: { matchedScripts: [] }, transactions: [], purchaseRequests: [], watchlist: [] },
+    });
+    expect(api.get).toHaveBeenCalledTimes(1);
+    expect(api.get).toHaveBeenCalledWith("/dashboard/investor", { signal: undefined });
+  });
+
   it("fails only when every dashboard leg fails", async () => {
     api.get.mockRejectedValue(new Error("offline"));
     await expect(loadIndustryDashboard()).resolves.toMatchObject({ ok: false, failures: expect.any(Object) });

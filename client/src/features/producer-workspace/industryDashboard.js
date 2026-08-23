@@ -42,15 +42,18 @@ export function normalizeIndustryDashboardPayload({ dash, wallet, transactions, 
 
 const messageFor = (cause) => cause?.response?.data?.message || "We couldn't load your industry dashboard just now.";
 
-export async function loadIndustryDashboard({ signal } = {}) {
-  const names = ["dash", "wallet", "transactions", "requests", "watchlist"];
-  const settled = await Promise.allSettled([
-    api.get("/dashboard/investor", { signal }),
-    api.get("/transactions/wallet/balance", { signal }),
-    api.get("/transactions", { signal, params: { limit: 6 } }),
-    api.get("/scripts/purchase-requests/mine", { signal, params: { limit: 12 } }),
-    api.get("/users/watchlist", { signal, params: { limit: 8 } }),
-  ]);
+export async function loadIndustryDashboard({ signal, professional = true } = {}) {
+  const legs = [
+    ["dash", () => api.get("/dashboard/investor", { signal })],
+    ...(professional ? [
+      ["wallet", () => api.get("/transactions/wallet/balance", { signal })],
+      ["transactions", () => api.get("/transactions", { signal, params: { limit: 6 } })],
+      ["requests", () => api.get("/scripts/purchase-requests/mine", { signal, params: { limit: 12 } })],
+      ["watchlist", () => api.get("/users/watchlist", { signal, params: { limit: 8 } })],
+    ] : []),
+  ];
+  const names = legs.map(([name]) => name);
+  const settled = await Promise.allSettled(legs.map(([, request]) => request()));
 
   if (signal?.aborted) return { ok: false, cancelled: true };
 

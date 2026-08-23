@@ -44,7 +44,7 @@ export function useProfileCollections({ profileId, section = "activity", page = 
     setRemovingId(id);
     setActionError("");
     try {
-      const result = await removeSavedProfileProject(id);
+      const result = await removeSavedProfileProject(id, { source: state.data?.savedSource });
       if (!result.ok) {
         setActionError(result.message);
         return result;

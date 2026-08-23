@@ -1,7 +1,7 @@
-import { useContext, useMemo, useState } from "react";
-import { AuthContext } from "../../../context/AuthContext";
+import { useMemo, useState } from "react";
 import api from "../../../services/api";
 import SocialShareButton from "../../../components/SocialShareButton";
+import useScriptBookmark from "../../../hooks/useScriptBookmark";
 import { hasActiveFilmIndustryProfessionalAccess } from "../../../utils/industryAccess";
 import { getScriptCanonicalPath } from "../../../utils/scriptPath";
 import { safeMediaSrc } from "../../../utils/safeMediaSrc";
@@ -447,13 +447,28 @@ export function ProfileWorkspaceCredentials({ profile }) {
   );
 }
 
+function ProfileProjectBookmark({ script, isOwnProfile }) {
+  const { isBookmarked, canBookmark, pending, toggleBookmark } = useScriptBookmark(script);
+  if (isOwnProfile || !canBookmark) return null;
+  return (
+    <button
+      type="button"
+      className="profile-workspace-icon-btn"
+      aria-label={isBookmarked ? `Remove ${script.title} from bookmarks` : `Bookmark ${script.title}`}
+      aria-pressed={isBookmarked}
+      disabled={pending}
+      onClick={toggleBookmark}
+    >
+      <svg width="15" height="15" viewBox="0 0 24 24" fill={isBookmarked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 4.5h13.5a.75.75 0 01.75.75v15.69a.75.75 0 01-1.219.594L12 16.34l-6.281 5.194a.75.75 0 01-1.219-.594V5.25a.75.75 0 01.75-.75z" />
+      </svg>
+    </button>
+  );
+}
+
 export function ProfileWorkspaceProjects({ scripts, profile, isOwnProfile, navigate, renderDelete, limit, showToolbar = true, onViewAll }) {
-  const { user, setUser } = useContext(AuthContext);
   const [genre, setGenre] = useState("All");
   const [sort, setSort] = useState("Recent");
-  const [bookmarkOverrides, setBookmarkOverrides] = useState(() => new Map());
-  const favoriteIds = Array.isArray(user?.favoriteScripts) ? user.favoriteScripts : [];
-  const bookmarks = new Set(favoriteIds.map((item) => typeof item === "string" ? item : item?._id).filter(Boolean));
 
   const genres = useMemo(() => ["All", ...Array.from(new Set(scripts.map(projectGenre))).sort()], [scripts]);
   const rows = useMemo(() => {
@@ -476,33 +491,6 @@ export function ProfileWorkspaceProjects({ scripts, profile, isOwnProfile, navig
     if (!["approved", "published"].includes(script?.status)) return;
     api.post(`/scripts/${script._id}/interactions`, { type: "click", source: "profile_workspace", metadata: { from: "profile" } }).catch(() => null);
     navigate(getScriptCanonicalPath(script));
-  };
-
-  const toggleBookmark = async (event, script) => {
-    event.stopPropagation();
-    if (!user?._id || !script?._id || script?.creator?._id === user._id) return;
-    try {
-      const { data } = await api.post(`/scripts/${script._id}/favorite`);
-      const favorited = Boolean(data?.favorited);
-      setBookmarkOverrides((previous) => {
-        const next = new Map(previous);
-        next.set(script._id, favorited);
-        return next;
-      });
-      setUser((previous) => {
-        if (!previous) return previous;
-        const ids = Array.isArray(previous.favoriteScripts)
-          ? previous.favoriteScripts.map((item) => typeof item === "string" ? item : item?._id).filter(Boolean)
-          : [];
-        const favoriteScripts = favorited ? Array.from(new Set([...ids, script._id])) : ids.filter((id) => id !== script._id);
-        const updated = { ...previous, favoriteScripts };
-        localStorage.setItem("user", JSON.stringify(updated));
-        return updated;
-      });
-      window.dispatchEvent(new CustomEvent("bookmarkUpdated", { detail: { scriptId: script._id, bookmarked: favorited } }));
-    } catch {
-      // Keep the existing card behavior: a failed bookmark leaves the previous state intact.
-    }
   };
 
   return (
@@ -540,10 +528,6 @@ export function ProfileWorkspaceProjects({ scripts, profile, isOwnProfile, navig
           </div>
           {visibleRows.map((script) => {
             const clickable = ["approved", "published"].includes(script.status);
-            const saved = bookmarkOverrides.has(script._id)
-              ? bookmarkOverrides.get(script._id)
-              : bookmarks.has(script._id);
-            const canBookmark = Boolean(!isOwnProfile && user?._id && script?.creator?._id !== user._id);
             return (
               <div
                 key={script._id}
@@ -568,19 +552,7 @@ export function ProfileWorkspaceProjects({ scripts, profile, isOwnProfile, navig
                 <span className="profile-workspace-project-row__meta">{new Intl.NumberFormat("en-IN", { notation: Number(script.views || 0) >= 1000 ? "compact" : "standard" }).format(Number(script.views || 0))}</span>
                 <span className="profile-workspace-project-row__status" data-status={script.status}>{projectStatus(script)}</span>
                 <span className="profile-workspace-project-row__actions">
-                  {canBookmark && (
-                    <button
-                      type="button"
-                      className="profile-workspace-icon-btn"
-                      aria-label={saved ? `Remove ${script.title} from bookmarks` : `Bookmark ${script.title}`}
-                      aria-pressed={saved}
-                      onClick={(event) => toggleBookmark(event, script)}
-                    >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 4.5h13.5a.75.75 0 01.75.75v15.69a.75.75 0 01-1.219.594L12 16.34l-6.281 5.194a.75.75 0 01-1.219-.594V5.25a.75.75 0 01.75-.75z" />
-                      </svg>
-                    </button>
-                  )}
+                  <ProfileProjectBookmark script={script} isOwnProfile={isOwnProfile} />
                   {isOwnProfile && renderDelete?.(script)}
                 </span>
               </div>

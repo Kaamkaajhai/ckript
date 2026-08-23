@@ -1,3 +1,5 @@
+import { isFilmIndustryProfessionalRole } from "../../../../utils/industryAccess";
+
 /*
  * industryNav — destinations for the film-industry audience: producers,
  * directors, investors and other industry professionals (see shellPolicy).
@@ -42,51 +44,57 @@ const INDUSTRY_ROLE_LABELS = {
  * @param {import("../buildNav").NavContext} context
  * @returns {import("../buildNav").NavPreset}
  */
-export const industryNav = ({ user, profilePath, msgCount }) => ({
-  /*
-   * The identity card shows the person's actual role rather than a single label
-   * for the whole audience — a director should not be told they are a "Producer".
-   */
-  roleLabel: INDUSTRY_ROLE_LABELS[String(user?.role || "").toLowerCase()] || "Industry Professional",
-  home: "/home",
-  searchPlaceholder: "Search projects, writers…",
+export const industryNav = ({ user, profilePath, msgCount }) => {
+  const professional = isFilmIndustryProfessionalRole(user);
+  return {
+    /*
+     * The identity card shows the person's actual role rather than a single label
+     * for the whole audience — a director should not be told they are a "Producer".
+     */
+    roleLabel: INDUSTRY_ROLE_LABELS[String(user?.role || "").toLowerCase()] || "Industry Professional",
+    home: "/home",
+    searchPlaceholder: "Search projects, writers…",
 
-  rail: [
-    { key: "home",      path: "/home",      label: "Discover",  icon: "home", exact: true },
-    { key: "dashboard", path: "/dashboard", label: "Dashboard", icon: "dashboard", exact: true },
-    { key: "featured",  path: "/featured",  label: "Featured",  icon: "featured" },
-    { key: "writers",   path: "/writers",   label: "Writers",   icon: "writers" },
-    { key: "messages",  path: "/messages",  label: "Messages",  icon: "messages", badge: msgCount },
-    { key: "profile",   path: profilePath,  label: "Profile",   icon: "profile" },
-  ],
+    rail: [
+      { key: "home",      path: "/home",      label: "Discover",  icon: "home", exact: true },
+      { key: "dashboard", path: "/dashboard", label: "Dashboard", icon: "dashboard", exact: true },
+      { key: "featured",  path: "/featured",  label: "Featured",  icon: "featured" },
+      { key: "writers",   path: "/writers",   label: "Writers",   icon: "writers" },
+      { key: "messages",  path: "/messages",  label: "Messages",  icon: "messages", badge: msgCount },
+      { key: "profile",   path: profilePath,  label: "Profile",   icon: "profile" },
+    ],
 
-  drawer: [
-    { key: "home",      path: "/home",      label: "Discover",        icon: "home", exact: true },
-    { key: "dashboard", path: "/dashboard", label: "Dashboard",       icon: "dashboard", exact: true },
-    { key: "search",    path: "/search",    label: "Search Projects", icon: "search" },
-    { divider: true },
-    { key: "featured",  path: "/featured",   label: "Featured Projects", icon: "featured" },
-    { key: "top",       path: "/top-script", label: "Top Scripts",       icon: "top" },
-    { key: "writers",   path: "/writers",    label: "Browse Writers",    icon: "writers" },
-    { divider: true },
-    // What I am looking for, and what I have kept.
-    { key: "mandates",  path: "/mandates",                  label: "My Mandates",   icon: "offers" },
-    { key: "saved",     path: `${profilePath}?tab=bookmarks`, label: "Saved Projects", icon: "bookmark" },
-    { divider: true },
-    { key: "messages",  path: "/messages",  label: "Messages", icon: "messages", badge: msgCount },
-  ],
+    drawer: [
+      { key: "home",      path: "/home",      label: "Discover",        icon: "home", exact: true },
+      { key: "dashboard", path: "/dashboard", label: "Dashboard",       icon: "dashboard", exact: true },
+      { key: "search",    path: "/search",    label: "Search Projects", icon: "search" },
+      { divider: true },
+      { key: "featured",  path: "/featured",   label: "Featured Projects", icon: "featured" },
+      { key: "top",       path: "/top-script", label: "Top Scripts",       icon: "top" },
+      { key: "writers",   path: "/writers",    label: "Browse Writers",    icon: "writers" },
+      ...(professional ? [
+        { divider: true },
+        // What I am looking for, and what I have kept. Actors share discovery
+        // chrome but do not receive professional mandates, options, or watchlists.
+        { key: "mandates", path: "/mandates", label: "My Mandates", icon: "offers" },
+        { key: "saved", path: `${profilePath}?tab=bookmarks`, label: "Saved Projects", icon: "bookmark" },
+      ] : []),
+      { divider: true },
+      { key: "messages",  path: "/messages",  label: "Messages", icon: "messages", badge: msgCount },
+    ],
 
-  mobileKeys: ["home", "featured", "messages"],
+    mobileKeys: ["home", "featured", "messages"],
 
   /*
    * The producer's equivalent of the writer's "My Projects": the scripts they
    * have bookmarked. Same endpoint shape (an array of Scripts), so the drawer
    * renders it with the same code — the only difference is data.
    */
-  collection: {
-    title: "Watchlist",
-    endpoint: "/users/watchlist",
-  },
-});
+    collection: professional ? {
+      title: "Watchlist",
+      endpoint: "/users/watchlist",
+    } : null,
+  };
+};
 
 export default industryNav;

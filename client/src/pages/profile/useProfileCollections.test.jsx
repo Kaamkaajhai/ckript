@@ -77,6 +77,7 @@ describe("useProfileCollections", () => {
   it("removes locally and reports when a later page became empty", async () => {
     mocks.load.mockResolvedValueOnce({ ok: true, data: {
       items: [{ _id: "saved-1", title: "Only result" }],
+      savedSource: "watchlist",
       counts: { activity: 2, bookmarks: 13 },
       pagination: { page: 2, limit: 12, total: 13, totalPages: 2, hasPrevious: true, hasNext: false },
     } });
@@ -87,5 +88,6 @@ describe("useProfileCollections", () => {
 
     expect(container.firstElementChild.dataset.emptyPage).toBe("true");
     expect(container.textContent).not.toContain("Only result");
+    expect(mocks.remove).toHaveBeenCalledWith("saved-1", { source: "watchlist" });
   });
 });

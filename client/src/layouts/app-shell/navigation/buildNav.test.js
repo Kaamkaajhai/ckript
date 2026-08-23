@@ -126,6 +126,13 @@ describe("buildNav — industry (producer / director / investor)", () => {
     expect(paths(investor.primary)).toEqual(paths(producer.primary));
     expect(paths(investor.drawer)).toEqual(paths(producer.drawer));
   });
+
+  it("keeps professional-only mandates and watchlists out of the actor discovery chrome", () => {
+    const actor = navFor("actor");
+    expect(paths(actor.drawer)).not.toContain("/mandates");
+    expect(paths(actor.drawer).some((path) => path.includes("tab=bookmarks"))).toBe(false);
+    expect(actor.collection).toBeNull();
+  });
 });
 
 describe("buildNav — admin", () => {

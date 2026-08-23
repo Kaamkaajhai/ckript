@@ -12,7 +12,13 @@ export const PROFILE_COLLECTION_STATUS = Object.freeze({
   FAILED: "failed",
 });
 
+export const PROFILE_SAVED_SOURCE = Object.freeze({
+  FAVORITES: "favorites",
+  WATCHLIST: "watchlist",
+});
+
 const text = (value) => String(value ?? "").trim();
+const idOf = (value) => text(value?._id || value?.id || value);
 const failure = (cause, fallbackMessage) => ({
   ok: false,
   statusCode: Number(cause?.response?.status || 0),
@@ -44,9 +50,13 @@ export function writeProfileCollectionLocation(current, { section, page = 1 } = 
 export function normalizeProfileCollectionResponse(data = {}) {
   const pagination = data.pagination || {};
   const serverSection = text(pagination.section).toLowerCase();
+  const savedSource = text(data.savedSource).toLowerCase() === PROFILE_SAVED_SOURCE.WATCHLIST
+    ? PROFILE_SAVED_SOURCE.WATCHLIST
+    : PROFILE_SAVED_SOURCE.FAVORITES;
   return {
     profileId: text(data.profileId),
     own: Boolean(data.own),
+    savedSource,
     counts: {
       activity: Math.max(0, Number(data.counts?.activity) || 0),
       bookmarks: data.counts?.saved == null ? null : Math.max(0, Number(data.counts.saved) || 0),
@@ -63,6 +73,23 @@ export function normalizeProfileCollectionResponse(data = {}) {
       privateCollection: Boolean(pagination.privateCollection),
     },
   };
+}
+
+export function removeSavedProjectFromViewer(viewer, projectId, source = PROFILE_SAVED_SOURCE.FAVORITES) {
+  if (!viewer) return viewer;
+  const id = idOf(projectId);
+  const withoutProject = (items) => (Array.isArray(items) ? items : [])
+    .filter((entry) => idOf(entry) !== id);
+  if (source === PROFILE_SAVED_SOURCE.WATCHLIST) {
+    return {
+      ...viewer,
+      industryProfile: {
+        ...(viewer.industryProfile || {}),
+        savedScripts: withoutProject(viewer.industryProfile?.savedScripts),
+      },
+    };
+  }
+  return { ...viewer, favoriteScripts: withoutProject(viewer.favoriteScripts) };
 }
 
 export async function loadProfileCollection({ profileId, section = "activity", page = 1, query = "", sort = "recent", signal } = {}) {
@@ -85,13 +112,18 @@ export async function loadProfileCollection({ profileId, section = "activity", p
   }
 }
 
-export async function removeSavedProfileProject(projectId) {
+export async function removeSavedProfileProject(projectId, { source = PROFILE_SAVED_SOURCE.FAVORITES } = {}) {
   const id = text(projectId);
   if (!id) return failure(null, "This saved project is no longer available.");
   try {
+    if (source === PROFILE_SAVED_SOURCE.WATCHLIST) {
+      const { data } = await api.post("/users/watchlist/remove", { scriptId: id });
+      if (data?.saved !== false) return failure(null, "The project is still in your watchlist. Please try again.");
+      return { ok: true, data: { projectId: id, source: PROFILE_SAVED_SOURCE.WATCHLIST } };
+    }
     const { data } = await api.post(`/scripts/${encodeURIComponent(id)}/favorite`);
     if (data?.favorited !== false) return failure(null, "The project is still saved. Please try again.");
-    return { ok: true, data: { projectId: id } };
+    return { ok: true, data: { projectId: id, source: PROFILE_SAVED_SOURCE.FAVORITES } };
   } catch (cause) {
     return failure(cause, "Could not remove this saved project.");
   }
