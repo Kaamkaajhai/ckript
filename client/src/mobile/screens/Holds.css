@@ -99,6 +99,16 @@
   gap: var(--ckm-space-2);
 }
 
+.ckm .ckm-holds__item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ckm-space-2);
+}
+
+.ckm .ckm-holds__release {
+  align-self: flex-end;
+}
+
 .ckm .ckm-holds__row {
   display: flex;
   align-items: flex-start;

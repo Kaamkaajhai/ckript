@@ -83,6 +83,8 @@ import {
   sortDeals,
 } from "./producerLedger";
 import { loadIndustryDashboard } from "./industryDashboard";
+import { releaseOfferHold } from "./offerHolds";
+import { revealWriterContact } from "../../pages/script-detail/projectActions";
 import LedgerDealRow from "./components/LedgerDealRow";
 import LedgerAside from "./components/LedgerAside";
 import LedgerDetailDrawer from "./components/LedgerDetailDrawer";
@@ -166,6 +168,7 @@ const ProducerDashboardPage = () => {
   const [transactions, setTransactions] = useState([]);
   const [purchaseRequests, setPurchaseRequests] = useState([]);
   const [watchlist, setWatchlist] = useState([]);
+  const [failures, setFailures] = useState({});
   const [revealedWriters, setRevealedWriters] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -197,6 +200,7 @@ const ProducerDashboardPage = () => {
       if (!next.failures.transactions) setTransactions(next.transactions);
       if (!next.failures.requests) setPurchaseRequests(next.purchaseRequests);
       if (!next.failures.watchlist) setWatchlist(next.watchlist);
+      setFailures(next.failures || {});
       setDashFailed(Boolean(next.failures.dash));
       setSyncedAt(next.syncedAt);
     } else {
@@ -462,11 +466,17 @@ const ProducerDashboardPage = () => {
     setConfirmError("");
     try {
       if (confirm.kind === "release") {
-        await api.post("/scripts/release-hold", { scriptId: confirm.deal.scriptId });
+        const result = await releaseOfferHold({
+          holdId: confirm.deal.recordId || confirm.deal.id,
+          scriptId: confirm.deal.scriptId,
+        });
+        if (!result.ok) throw Object.assign(new Error(result.message), { response: { data: { message: result.message } } });
         setDetailId(null);
         await fetchAll();
       } else {
-        const { data } = await api.post(`/payment/reveal-contact/${confirm.deal.writerId}`);
+        const result = await revealWriterContact({ writerId: confirm.deal.writerId });
+        if (!result.ok) throw Object.assign(new Error(result.message), { response: { data: { message: result.message } } });
+        const data = result.data;
         /*
          * Reflect the spend in the session immediately so the quota meter and
          * the menu's disabled state agree with the server without a reload.
@@ -476,12 +486,14 @@ const ProducerDashboardPage = () => {
             ...previous,
             subscription: {
               ...(previous.subscription || {}),
-              revealedContacts: [
-                ...(Array.isArray(previous.subscription?.revealedContacts)
-                  ? previous.subscription.revealedContacts
-                  : []),
-                { writerId: confirm.deal.writerId, revealedAt: new Date().toISOString() },
-              ],
+                revealedContacts: (() => {
+                  const rows = Array.isArray(previous.subscription?.revealedContacts)
+                    ? previous.subscription.revealedContacts
+                    : [];
+                  return rows.some((entry) => String(entry?.writerId || "") === String(confirm.deal.writerId))
+                    ? rows
+                    : [...rows, { writerId: confirm.deal.writerId, revealedAt: new Date().toISOString() }];
+                })(),
             },
           } : previous));
         }
@@ -587,7 +599,8 @@ const ProducerDashboardPage = () => {
         <div>
           <h2 className="ck-ledger__block-title">Money in and out</h2>
           <p className="ck-ledger__block-sub">
-            {formatShortInr(walletBalance)} in wallet · {formatShortInr(stats.totalInvested)} deployed
+            {failures.wallet ? "Wallet unavailable" : `${formatShortInr(walletBalance)} in wallet`}
+            {` · ${formatShortInr(stats.totalInvested)} deployed`}
           </p>
         </div>
         <button type="button" className="ck-ledger__btn ck-ledger__btn--sm" onClick={handleExportCsv}>
@@ -596,7 +609,15 @@ const ProducerDashboardPage = () => {
         </button>
       </div>
 
-      {transactions.length === 0 ? (
+      {failures.transactions ? (
+        <div className="ck-ledger__notice" role="alert">
+          <div className="ck-ledger__notice-body">
+            <strong>Transaction history did not load.</strong>
+            <span>{failures.transactions}</span>
+          </div>
+          <button type="button" className="ck-ledger__btn" onClick={handleRefresh}>Retry</button>
+        </div>
+      ) : transactions.length === 0 ? (
         <p className="ck-ledger__block-sub" style={{ margin: 0 }}>No transactions on this account yet.</p>
       ) : (
         <table className="ck-ledger__table">

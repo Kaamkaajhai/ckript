@@ -2,7 +2,7 @@ import express from "express";
 import protect from "../middleware/authMiddleware.js";
 import {
   uploadScript, getScripts, getScriptById, getScriptByPath, getPublicScriptById, unlockScript,
-  holdScript, releaseHold, getMyHolds, addRoles,
+  releaseHold, getMyHolds, addRoles,
   getFeaturedScripts, getTopScripts, searchScriptsReader,
   getLatestScripts, recordRead, toggleFavorite, getCategories,
   trackScriptInteraction,
@@ -200,7 +200,6 @@ router.put("/purchase-request/:id/reject", protect, rejectScriptPurchase);
 router.get("/:id/similar", protect, getSimilarScripts);
 router.get("/:id", protect, getScriptById);
 router.post("/unlock", protect, unlockScript);
-router.post("/hold", protect, holdScript);
 router.post("/release-hold", protect, releaseHold);
 router.post("/add-roles", protect, addRoles);
 router.post("/:id/read", protect, recordRead);

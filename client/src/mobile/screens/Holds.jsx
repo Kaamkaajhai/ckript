@@ -1,3 +1,4 @@
+import { useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import AppBar from "../components/app-bars/AppBar";
 import NavBar from "../components/navigation/NavBar";
@@ -7,6 +8,7 @@ import Icon from "../components/Icon";
 import EmptyState from "../components/EmptyState";
 import InlineMessage from "../components/feedback/InlineMessage";
 import SkeletonGroup, { SkeletonRows } from "../components/feedback/Skeletons";
+import ConfirmDialog from "../components/overlays/ConfirmDialog";
 import MobileShell from "../shell/MobileShell";
 import { MOBILE_SHELL_MODE } from "../shell/mobileShellModes";
 import { useHoldsData } from "../hooks/useHoldsData";
@@ -37,12 +39,9 @@ import "./Holds.css";
  * what is committed. It is the same "at a glance" role the dashboard's own
  * overview plays, at the size this screen earns.
  *
- * NO ACTIONS YET, DELIBERATELY. `releaseHold` and the hold payment endpoints
- * exist, but releasing a hold is a destructive, money-adjacent action whose
- * desktop counterpart has never been built — there is no established
- * confirmation copy, no refund rule, and no place a failure is currently
- * reported. Shipping the read surface first is the honest half; the write half
- * belongs with the desktop screen. Recorded in plan §19.3 (2026-08-08).
+ * Releasing is the one mutation this collection owns. It uses the same shared
+ * request as the desktop ledger and a destructive confirmation that states the
+ * no-refund rule before anything changes.
  */
 
 const money = (amount) => `₹${Number(amount || 0).toLocaleString()}`;
@@ -63,7 +62,7 @@ const formatDate = (date) => (
   date ? date.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }) : ""
 );
 
-function HoldRow({ row }) {
+function HoldRow({ row, onAskRelease }) {
   const countdown = row.isOpen ? countdownFor(row.daysLeft) : null;
 
   /*
@@ -129,12 +128,49 @@ function HoldRow({ row }) {
           )}
         </div>
       </Surface>
+      {row.isOpen && row.scriptId && (
+        <Button
+          className="ckm-holds__release"
+          variant="tertiary"
+          onClick={(event) => onAskRelease(row, event.currentTarget)}
+        >
+          Release option
+        </Button>
+      )}
     </li>
   );
 }
 
-export default function Holds({ user }) {
-  const { data, loading, error, refresh } = useHoldsData();
+export default function Holds({ user, previewState = null }) {
+  const liveHolds = useHoldsData({ enabled: !previewState });
+  const {
+    data,
+    loading,
+    error,
+    refresh,
+    release,
+    releasingId,
+    releaseError,
+    clearReleaseError,
+  } = previewState || liveHolds;
+  const [releaseTarget, setReleaseTarget] = useState(null);
+  const releaseButtonRef = useRef(null);
+
+  const closeRelease = () => {
+    if (releasingId) return;
+    setReleaseTarget(null);
+    clearReleaseError();
+  };
+
+  const confirmRelease = async () => {
+    if (await release(releaseTarget)) setReleaseTarget(null);
+  };
+
+  const askRelease = (row, opener) => {
+    releaseButtonRef.current = opener;
+    clearReleaseError();
+    setReleaseTarget(row);
+  };
 
   const shell = {
     mode: MOBILE_SHELL_MODE.STANDARD,
@@ -240,10 +276,30 @@ export default function Holds({ user }) {
             <span className="ckm-holds__group-count">{group.rows.length}</span>
           </h2>
           <ul className="ckm-holds__list">
-            {group.rows.map((row) => <HoldRow key={row.id} row={row} />)}
+            {group.rows.map((row) => (
+              <HoldRow
+                key={row.id}
+                row={row}
+                onAskRelease={askRelease}
+              />
+            ))}
           </ul>
         </section>
       ))}
+
+      <ConfirmDialog
+        open={Boolean(releaseTarget)}
+        title={`Release your option on ${releaseTarget?.title || "this project"}?`}
+        message="The project goes back on the market immediately. The option fee is not refunded, and this cannot be undone."
+        confirmLabel="Release option"
+        cancelLabel="Keep option"
+        destructive
+        pending={releasingId === releaseTarget?.id}
+        error={releaseError}
+        onCancel={closeRelease}
+        onConfirm={confirmRelease}
+        returnFocusTo={releaseButtonRef}
+      />
     </MobileShell>
   );
 }

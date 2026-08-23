@@ -39,6 +39,7 @@ import {
   getRevealedContactCount,
   getContactsLimit,
   getRemainingContacts,
+  isFilmIndustryProfessionalRole,
 } from "../utils/industryAccess.js";
 import { extractTextFromPdfBuffer, extractTextFromPdfUrl, normalizeExtractedPdfText, formatScreenplayLikeText } from "../utils/pdfTextExtraction.js";
 import {
@@ -96,6 +97,7 @@ import {
   attachUploadedScriptMedia,
   canUploadPitchVideo,
 } from "../utils/scriptMedia.js";
+import { isValidRazorpaySignature, validateScriptHoldPayment } from "../utils/scriptHold.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -4882,110 +4884,39 @@ export const getMyPurchaseRequests = async (req, res) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Hold/Option a script (for producers - ₹200 default, 30 days)
-export const holdScript = async (req, res) => {
-  try {
-    const { scriptId } = req.body;
-    const scriptObjectId = parseMongoObjectId(scriptId);
-    if (!scriptObjectId) {
-      return res.status(400).json({ message: "Invalid script ID." });
-    }
-    const script = await Script.findById(scriptObjectId);
-
-    if (!script) return res.status(404).json({ message: "Script not found" });
-    if (script.isDeleted) {
-      return res.status(410).json({ message: "This project was deleted by creator and is no longer available." });
-    }
-    if (script.holdStatus === "held") {
-      return res.status(400).json({ message: "This script is already on hold by another party" });
-    }
-    if (script.holdStatus === "sold") {
-      return res.status(400).json({ message: "This script has been sold" });
-    }
-
-    const user = await User.findById(req.user._id);
-    if (!["investor", "producer", "director"].includes(user.role)) {
-      return res.status(403).json({ message: "Only industry professionals can hold scripts" });
-    }
-
-    const fee = script.holdFee || 200;
-    const pricing = getScriptPurchasePricing(fee);
-    const platformCut = pricing.platformTaxAmount;
-    const creatorPayout = pricing.baseAmount;
-    const endDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
-
-    // Create option record
-    const option = await ScriptOption.create({
-      script: scriptObjectId,
-      holder: req.user._id,
-      fee,
-      platformCut,
-      creatorPayout,
-      endDate,
-      status: "active",
-    });
-
-    // Update script
-    script.holdStatus = "held";
-    script.heldBy = req.user._id;
-    script.holdStartDate = new Date();
-    script.holdEndDate = endDate;
-    await script.save();
-
-    // Notify the creator
-    await Notification.create({
-      user: script.creator,
-      type: "hold",
-      from: req.user._id,
-      script: script._id,
-      message: `${user.name} has placed a hold on "${script.title}" for ₹${fee} (30 days). You earn ₹${creatorPayout}!`,
-    });
-
-    res.json({
-      message: "Script held successfully",
-      option,
-      holdDetails: {
-        fee: pricing.baseAmount,
-        buyerCommission: platformCut,
-        totalPayable: pricing.totalAmount,
-        platformCut,
-        creatorPayout,
-        expiresAt: endDate,
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
 // Release a hold
 export const releaseHold = async (req, res) => {
   try {
-    const { scriptId } = req.body;
-    const scriptObjectId = parseMongoObjectId(scriptId);
-    if (!scriptObjectId) {
-      return res.status(400).json({ message: "Invalid script ID." });
-    }
-    const script = await Script.findById(scriptObjectId);
-
-    if (!script) return res.status(404).json({ message: "Script not found" });
-    if (script.heldBy?.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ message: "You are not holding this script" });
+    const optionObjectId = parseMongoObjectId(req.body?.optionId);
+    const scriptObjectId = parseMongoObjectId(req.body?.scriptId);
+    if (!optionObjectId && !scriptObjectId) {
+      return res.status(400).json({ message: "A valid option or script ID is required." });
     }
 
-    script.holdStatus = "available";
-    script.heldBy = null;
-    script.holdStartDate = null;
-    script.holdEndDate = null;
-    await script.save();
+    const identity = optionObjectId ? { _id: optionObjectId } : { script: scriptObjectId };
+    const option = await ScriptOption.findOneAndUpdate(
+      { ...identity, holder: req.user._id, status: "active", endDate: { $gt: new Date() } },
+      { $set: { status: "cancelled" } },
+      { new: true }
+    );
+    if (!option) {
+      const existing = await ScriptOption.findOne({ ...identity, holder: req.user._id }).select("status endDate");
+      return res.status(existing ? 409 : 404).json({
+        message: existing ? "This option is no longer active." : "Option not found.",
+      });
+    }
 
-    // Update option
-    await ScriptOption.findOneAndUpdate(
-      { script: scriptObjectId, holder: req.user._id, status: "active" },
-      { status: "cancelled" }
+    // The option is the money record and remains authoritative even if the writer deleted the
+    // project. Only clear a project that is still held by this exact account.
+    await Script.updateOne(
+      { _id: option.script, heldBy: req.user._id },
+      { $set: { holdStatus: "available", heldBy: null, holdStartDate: null, holdEndDate: null } }
     );
 
-    res.json({ message: "Hold released" });
+    res.json({
+      message: "Hold released",
+      option: { id: option._id, status: option.status, scriptId: option.script },
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -4994,13 +4925,19 @@ export const releaseHold = async (req, res) => {
 // Get script options/holds for current user
 export const getMyHolds = async (req, res) => {
   try {
+    if (!isFilmIndustryProfessionalRole(req.user)) {
+      return res.status(403).json({ message: "Only industry professionals can view holds." });
+    }
+    const limit = asInt(req.query?.limit, { min: 1, max: 100, fallback: 100 });
     const options = await ScriptOption.find({ holder: req.user._id })
+      .select("script fee platformCut creatorPayout startDate endDate status convertedToSale createdAt updatedAt")
       .populate({
         path: "script",
         select: "title genre coverImage creator price trailerThumbnail",
         populate: { path: "creator", select: "name profileImage" }
       })
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(limit);
 
     res.json(options);
   } catch (error) {
@@ -6033,6 +5970,9 @@ export const getScriptPurchaseQuote = async (req, res) => {
 // @access  Private
 export const getScriptHoldQuote = async (req, res) => {
   try {
+    if (!isFilmIndustryProfessionalRole(req.user)) {
+      return res.status(403).json({ message: "Only industry professionals can hold scripts." });
+    }
     const { scriptId } = req.body;
     const scriptObjectId = parseMongoObjectId(scriptId);
     if (!scriptObjectId) return res.status(400).json({ message: "Invalid script ID." });
@@ -6839,7 +6779,7 @@ export const createScriptHoldOrder = async (req, res) => {
     }
 
     const user = await User.findById(req.user._id);
-    if (!["investor", "producer", "director"].includes(user.role)) {
+    if (!isFilmIndustryProfessionalRole(user)) {
       return res.status(403).json({ message: "Only industry professionals can hold scripts" });
     }
 
@@ -6903,6 +6843,10 @@ export const verifyScriptHold = async (req, res) => {
 
     console.log("Script hold verification:", { razorpay_order_id, razorpay_payment_id, scriptId });
 
+    if (![razorpay_order_id, razorpay_payment_id, razorpay_signature, scriptId].every((value) => String(value || "").trim())) {
+      return res.status(400).json({ message: "Payment verification payload is incomplete.", success: false });
+    }
+
     // Check if Razorpay key secret is available
     if (!process.env.RAZORPAY_KEY_SECRET) {
       console.error("RAZORPAY_KEY_SECRET not found in environment");
@@ -6912,14 +6856,12 @@ export const verifyScriptHold = async (req, res) => {
       });
     }
 
-    // Verify signature
-    const body = razorpay_order_id + "|" + razorpay_payment_id;
-    const expectedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-      .update(body.toString())
-      .digest("hex");
-
-    const isAuthentic = expectedSignature === razorpay_signature;
+    const isAuthentic = isValidRazorpaySignature({
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      signature: razorpay_signature,
+      secret: process.env.RAZORPAY_KEY_SECRET,
+    });
 
     if (!isAuthentic) {
       console.error("Signature verification failed");
@@ -6947,17 +6889,47 @@ export const verifyScriptHold = async (req, res) => {
       });
     }
 
-    // Double-check hold status
-    if (script.holdStatus === "held") {
-      return res.status(400).json({
-        message: "Script is already held",
-        success: false
-      });
-    }
-
     const user = await User.findById(req.user._id);
+    if (!user || !isFilmIndustryProfessionalRole(user)) {
+      return res.status(403).json({ message: "Only industry professionals can hold scripts.", success: false });
+    }
     const fee = script.holdFee || 200;
     const pricing = getScriptPurchasePricing(fee);
+    const razorpay = getRazorpay();
+    const [order, payment] = await Promise.all([
+      razorpay.orders.fetch(razorpay_order_id),
+      razorpay.payments.fetch(razorpay_payment_id),
+    ]);
+    const paymentCheck = validateScriptHoldPayment({
+      order,
+      payment,
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      userId: req.user._id,
+      scriptId: scriptObjectId,
+      expectedTotalInr: pricing.totalAmount,
+    });
+    if (!paymentCheck.ok) {
+      return res.status(paymentCheck.pending ? 409 : 400).json({ message: paymentCheck.message, success: false });
+    }
+
+    const existingOption = await ScriptOption.findOne({
+      $or: [{ paymentId: razorpay_payment_id }, { orderId: razorpay_order_id }],
+    });
+    if (existingOption) {
+      const sameOwner = String(existingOption.holder) === String(req.user._id);
+      const sameScript = String(existingOption.script) === String(scriptObjectId);
+      if (!sameOwner || !sameScript) {
+        return res.status(409).json({ message: "This payment has already been used.", success: false });
+      }
+      return res.json({ success: true, message: "Hold already placed.", option: existingOption, recovered: true });
+    }
+
+    // Provider validation happens before this availability check: a captured callback for a hold
+    // lost to a concurrent buyer must be reconciled/refunded, never mistaken for an unpaid attempt.
+    if (script.holdStatus === "held" || script.holdStatus === "sold" || script.isSold) {
+      return res.status(409).json({ message: "This script is no longer available for a hold.", success: false, paymentCaptured: true });
+    }
     const platformCut = pricing.platformTaxAmount;
     const creatorPayout = pricing.baseAmount;
     const endDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
@@ -6986,7 +6958,7 @@ export const verifyScriptHold = async (req, res) => {
 
     // The buyer may have paid in a non-INR currency; read what was actually charged from the order so
     // the buyer transaction records the real currency/amount. Creator payout stays INR (see below).
-    const charge = await readOrderCharge(razorpay_order_id, pricing.totalAmount);
+    const charge = paymentCheck.charge;
 
     // Create transaction record for holder (payment)
     await Transaction.create({

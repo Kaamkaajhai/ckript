@@ -3,6 +3,8 @@ import { INDUSTRY_HOME_STATUS, normalizeIndustryFeed } from "../../features/inve
 import { INDUSTRY_DASHBOARD_STATUS } from "../../features/producer-workspace/industryDashboard";
 import { MANDATES_STATUS } from "../../features/producer-workspace/mandatesData";
 import { WRITER_ROSTER_STATUS } from "../../features/producer-workspace/writerRosterData";
+import { buildHoldsModel } from "../data/holdsModel";
+import Holds from "../screens/Holds";
 import IndustryDashboardMobile from "../screens/industry/IndustryDashboardMobile";
 import IndustryHomeMobile from "../screens/industry/IndustryHomeMobile";
 import MandatesMobile from "../screens/industry/MandatesMobile";
@@ -50,6 +52,16 @@ const writer = {
   scriptCount: 4, totalViews: 12400, avgScore: 86, followerCount: 820,
 };
 const mandate = { formats: ["feature"], genres: ["Drama"], excludeGenres: ["Horror"], specificHooks: ["True Story"] };
+const holdsData = buildHoldsModel([{
+  _id: "hold-1",
+  fee: 12000,
+  platformCut: 600,
+  creatorPayout: 12000,
+  startDate: "2026-08-18T10:00:00Z",
+  endDate: "2026-09-18T10:00:00Z",
+  status: "active",
+  script: projects[0],
+}], { now: new Date("2026-08-23T10:00:00Z") });
 
 export default function IndustryWorkspaceHarness({ user }) {
   const [params] = useSearchParams();
@@ -57,6 +69,24 @@ export default function IndustryWorkspaceHarness({ user }) {
   const state = params.get("state") || "ready";
   const actor = params.get("role") === "actor";
   const fixtureUser = { ...user, _id: "preview-industry", name: actor ? "Arjun Mehta" : "Naina Kapoor", role: actor ? "actor" : "producer", favoriteScripts: [] };
+
+  if (view === "holds") {
+    const previewState = state === "loading"
+      ? { data: null, loading: true, error: null, refresh: retry }
+      : state === "error"
+        ? { data: null, loading: false, error: new Error("The holds service is unavailable."), refresh: retry }
+        : {
+          data: state === "empty" ? buildHoldsModel([]) : holdsData,
+          loading: false,
+          error: null,
+          refresh: retry,
+          release: async () => false,
+          releasingId: "",
+          releaseError: "",
+          clearReleaseError: retry,
+        };
+    return <Holds user={fixtureUser} previewState={previewState} />;
+  }
 
   if (view === "dashboard") {
     const previewState = state === "loading"

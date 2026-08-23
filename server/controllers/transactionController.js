@@ -136,11 +136,26 @@ const recordInvalidBankAttempt = async (user, reason = "Invalid bank details") =
   return security;
 };
 
-const serializeTransaction = (transaction) => {
+export const serializeTransaction = (transaction) => {
   const plainTransaction = transaction?.toObject ? transaction.toObject() : transaction;
+  const currency = String(plainTransaction?.currency || "").trim().toUpperCase();
+  const baseCurrency = String(plainTransaction?.baseCurrency || "").trim().toUpperCase();
   return {
-    ...plainTransaction,
-    currency: normalizedCurrency,
+    _id: plainTransaction?._id,
+    type: plainTransaction?.type,
+    amount: Number(plainTransaction?.amount || 0),
+    currency: /^[A-Z]{3}$/.test(currency) ? currency : normalizedCurrency,
+    baseCurrency: /^[A-Z]{3}$/.test(baseCurrency) ? baseCurrency : normalizedCurrency,
+    baseAmount: plainTransaction?.baseAmount,
+    fxRate: plainTransaction?.fxRate,
+    status: plainTransaction?.status,
+    description: plainTransaction?.description || "",
+    reference: plainTransaction?.reference || "",
+    paymentMethod: plainTransaction?.paymentMethod || "",
+    relatedScript: plainTransaction?.relatedScript || null,
+    relatedProject: plainTransaction?.relatedProject || null,
+    createdAt: plainTransaction?.createdAt,
+    updatedAt: plainTransaction?.updatedAt,
   };
 };
 

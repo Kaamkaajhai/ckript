@@ -40,4 +40,20 @@ describe("industry dashboard contract", () => {
     api.get.mockRejectedValue(new Error("offline"));
     await expect(loadIndustryDashboard()).resolves.toMatchObject({ ok: false, failures: expect.any(Object) });
   });
+
+  it("names wallet and transaction failures independently so finance never invents a zero or empty ledger", async () => {
+    api.get.mockImplementation((path) => {
+      if (path.includes("/transactions")) return Promise.reject({ response: { data: { message: `${path} down` } } });
+      return Promise.resolve({ data: [] });
+    });
+    await expect(loadIndustryDashboard()).resolves.toMatchObject({
+      ok: true,
+      data: {
+        failures: {
+          wallet: "/transactions/wallet/balance down",
+          transactions: "/transactions down",
+        },
+      },
+    });
+  });
 });

@@ -105,8 +105,15 @@ export default function IndustryDashboardMobile({ user, previewData = null, prev
     );
     if (section === "finance") return (
       <section className="ckm-industry-dashboard__finance">
-        <div className="ckm-industry-dashboard__wallet"><span>Wallet balance</span><strong>{formatShortInr(walletBalance)}</strong></div>
-        {transactions.length ? transactions.map((row) => (
+        <div className="ckm-industry-dashboard__wallet">
+          <span>Wallet balance</span>
+          <strong>{data?.failures?.wallet ? "Unavailable" : formatShortInr(walletBalance)}</strong>
+        </div>
+        {data?.failures?.transactions ? (
+          <InlineMessage tone="error" title="Transaction history did not load" onRetry={dashboard.retry}>
+            {data.failures.transactions}
+          </InlineMessage>
+        ) : transactions.length ? transactions.map((row) => (
           <div className="ckm-industry-dashboard__transaction" key={row.id}>
             <span><strong>{row.description}</strong><small>{row.date} · {row.status}</small></span>
             <b className={row.isCredit ? "is-credit" : ""}>{row.amount}</b>
