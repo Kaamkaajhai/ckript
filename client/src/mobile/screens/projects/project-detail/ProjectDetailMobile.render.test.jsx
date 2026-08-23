@@ -82,6 +82,7 @@ async function mount(entry, { user = producer, ...props } = {}) {
               <PathProbe />
               <Routes>
                 <Route path="/script/:id" element={<ProjectDetailMobile user={user} {...props} />} />
+                <Route path="/reader/script/:id" element={<ProjectDetailMobile user={user} canonicalize={false} backTo="/reader" screenId="reader-project" {...props} />} />
                 <Route path="/:projectHeading/:writerUsername" element={<ProjectDetailMobile user={user} {...props} />} />
               </Routes>
             </div>
@@ -185,19 +186,25 @@ describe("ProjectDetailMobile — the viewer's standing is text, not a missing b
 });
 
 describe("ProjectDetailMobile — the reader", () => {
-  it("opens the preview window rather than the whole document for a non-buyer", async () => {
+  it("opens structured preview text rather than the full PDF for a non-buyer", async () => {
     const el = await mount("/script/p1", { previewData: project({ hasUploadedScriptFile: true }) });
 
     expect(sectionText(el, "read")).toContain("pages 1–8");
     await act(async () => { buttonWith(el, "Read the preview").click(); });
 
-    const pdf = el.querySelector('[data-testid="pdf"]');
-    expect(pdf).toBeTruthy();
-    expect(pdf.getAttribute("data-start")).toBe("1");
-    expect(pdf.getAttribute("data-end")).toBe("8");
-    expect(pdf.getAttribute("data-all")).toBe("false");
-    // Always the authenticated proxy, never the private storage URL.
-    expect(pdf.getAttribute("data-url")).toContain("/api/scripts/p1/pdf");
+    expect(el.querySelector('[data-testid="pdf"]')).toBeFalsy();
+    expect(el.querySelector('[data-testid="screenplay"]').textContent).toContain("ARCHIVE");
+  });
+
+  it("keeps the reader route stable while loading the same project contract", async () => {
+    api.get.mockImplementation((url) => {
+      if (url.includes("/similar")) return Promise.resolve({ data: [] });
+      return Promise.resolve({ data: project({ canonicalPath: "/the-monsoon-archive/mira" }) });
+    });
+
+    await mount("/reader/script/p1", { user: { ...producer, role: "reader" } });
+    expect(api.get.mock.calls[0][0]).toBe("/scripts/p1");
+    expect(seenPath).toBe("/reader/script/p1");
   });
 
   it("opens the whole screenplay for a buyer, from the canonical Fountain source", async () => {

@@ -10,8 +10,10 @@ const scriptOptionSchema = new mongoose.Schema({
   endDate: { type: Date, required: true }, // 30 days from start
   status: { type: String, enum: ["active", "expired", "converted", "cancelled"], default: "active" },
   convertedToSale: { type: Boolean, default: false },
-  paymentId: { type: String },
-  orderId: { type: String },
+  paymentId: { type: String, unique: true, sparse: true },
+  orderId: { type: String, unique: true, sparse: true },
 }, { timestamps: true });
+
+scriptOptionSchema.index({ holder: 1, createdAt: -1 });
 
 export default mongoose.model("ScriptOption", scriptOptionSchema);

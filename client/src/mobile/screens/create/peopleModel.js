@@ -1,5 +1,5 @@
 import { COLLAB_ROLES, getCollabRoleLabel } from "../../../constants/collabRoles";
-import { getCollaboratorUserId } from "../../../components/collab/useCollaborators";
+import { getCollaboratorIdentity, getCollaboratorUserId } from "../../../components/collab/useCollaborators";
 
 /*
  * Ckript Mobile — the People surface's rows and permission rules (decision D18).
@@ -40,7 +40,7 @@ export const buildAccessRows = (entries = [], {
   pending = false,
 } = {}) => (Array.isArray(entries) ? entries : []).map((entry) => {
   const userId = getCollaboratorUserId(entry);
-  const key = userId || entry.invitedEmail || entry._id;
+  const key = getCollaboratorIdentity(entry);
   const isMe = Boolean(userId) && String(userId) === String(myUserId);
   return {
     key,
@@ -52,6 +52,8 @@ export const buildAccessRows = (entries = [], {
     accessLabel: entry.accessLevel === "content_only" ? "Content only" : "Full access",
     accessLevel: entry.accessLevel || "full_access",
     pending,
+    inviteExpired: Boolean(entry.inviteExpired),
+    inviteExpiresAt: entry.inviteExpiresAt || null,
     isMe,
     canManage: Boolean(isOwner) && !isMe,
   };

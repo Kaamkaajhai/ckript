@@ -33,6 +33,7 @@ const collaboratorSchema = new mongoose.Schema({
     default: "full_access",
   },
   invitedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+  invitedAt: { type: Date, default: Date.now },
   inviteToken: { type: String, default: null },
   inviteExpiresAt: { type: Date, default: null },
   status: {

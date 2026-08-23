@@ -1,3 +1,5 @@
+import trailerVideoSrc from "../../../assets/ckript-video.mp4";
+
 /* ─────────────────────────────────────────────────────────────
    Ckript Landing — shared design tokens.
 
@@ -22,6 +24,7 @@ export const BODY = "'PT Serif',Georgia,serif";
 
 export const LOGO_SRC = "/ckript-logo-landscape-nobg.png";
 export const LOGO_FOOTER_SRC = "/ckript_logo_no_bg.png";
+export const TRAILER_VIDEO_SRC = trailerVideoSrc;
 
 /* Destinations carried over from the previous landing page. */
 export const ROUTES = {

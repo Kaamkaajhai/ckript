@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import api from "../../services/api";
+import {
+  loadOfferHolds,
+  releaseOfferHold,
+} from "../../features/producer-workspace/offerHolds";
 import { buildHoldsModel } from "../data/holdsModel";
 
 /*
@@ -35,33 +38,41 @@ export function useHoldsData({ enabled = true } = {}) {
   const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [releasingId, setReleasingId] = useState("");
+  const [releaseError, setReleaseError] = useState("");
   const [now, setNow] = useState(() => new Date());
 
   const disposed = useRef(false);
+  const request = useRef({ id: 0, controller: null });
   useEffect(() => {
     disposed.current = false;
-    return () => { disposed.current = true; };
+    return () => {
+      disposed.current = true;
+      request.current.controller?.abort();
+    };
   }, []);
 
   const fetchHolds = useCallback(async ({ silent = false } = {}) => {
     if (!enabled) return;
+    request.current.controller?.abort();
+    const controller = new AbortController();
+    const requestId = request.current.id + 1;
+    request.current = { id: requestId, controller };
     if (silent) setRefreshing(true); else setLoading(true);
     setError(null);
 
     try {
-      const { data } = await api.get("/scripts/holds");
-      if (disposed.current) return;
-      // The controller responds with the array directly (`res.json(options)`),
-      // but a proxy or error page can substitute an object; coercing here keeps
-      // that out of the model, which is entitled to assume an array or nothing.
-      setRaw(Array.isArray(data) ? data : []);
+      const result = await loadOfferHolds({ signal: controller.signal });
+      if (disposed.current || request.current.id !== requestId || result.cancelled) return;
+      if (!result.ok) throw Object.assign(new Error(result.message), { offerHoldsResult: result });
+      setRaw(result.data);
       // Re-reading the clock on every load keeps the countdown honest after a
       // manual refresh, without waiting for the hourly tick.
       setNow(new Date());
     } catch (cause) {
-      if (!disposed.current) setError(cause);
+      if (!disposed.current && request.current.id === requestId && !controller.signal.aborted) setError(cause);
     } finally {
-      if (!disposed.current) {
+      if (!disposed.current && request.current.id === requestId) {
         setRefreshing(false);
         setLoading(false);
       }
@@ -85,7 +96,36 @@ export function useHoldsData({ enabled = true } = {}) {
 
   const refresh = useCallback(() => fetchHolds({ silent: Boolean(raw) }), [fetchHolds, raw]);
 
-  return { data, loading, error, refreshing, refresh };
+  const release = useCallback(async (row) => {
+    const id = String(row?.id || "");
+    if (!id || releasingId) return false;
+    setReleasingId(id);
+    setReleaseError("");
+    const result = await releaseOfferHold({ holdId: id, scriptId: row?.scriptId });
+    if (!disposed.current) {
+      if (result.ok) {
+        setRaw((current) => (current || []).map((hold) => (
+          String(hold?._id || hold?.id || "") === id ? { ...hold, status: "cancelled" } : hold
+        )));
+      } else {
+        setReleaseError(result.message);
+      }
+      setReleasingId("");
+    }
+    return result.ok;
+  }, [releasingId]);
+
+  return {
+    data,
+    loading,
+    error,
+    refreshing,
+    refresh,
+    release,
+    releasingId,
+    releaseError,
+    clearReleaseError: () => setReleaseError(""),
+  };
 }
 
 export default useHoldsData;

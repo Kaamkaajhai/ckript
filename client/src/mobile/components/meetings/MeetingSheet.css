@@ -1,0 +1,22 @@
+.ckm .ckm-meeting__form,
+.ckm .ckm-meeting__connect {
+  display: grid;
+  gap: var(--ckm-space-3);
+}
+
+.ckm .ckm-meeting__form:focus {
+  outline: none;
+}
+
+.ckm .ckm-meeting__error {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-1);
+  margin: 0;
+  color: var(--ckm-red-ink);
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+}
+
+.ckm .ckm-meeting__error .material-symbols-outlined {
+  font-size: 18px;
+}

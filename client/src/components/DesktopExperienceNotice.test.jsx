@@ -63,7 +63,7 @@ afterEach(() => {
 
 describe("DesktopExperienceNotice — DEF-23", () => {
   it("does not cover a route that is already a native mobile screen", async () => {
-    for (const pathname of ["/featured", "/top-script", "/search", "/dashboard"]) {
+    for (const pathname of ["/featured", "/top-script", "/search", "/dashboard", "/messages"]) {
       const el = await mount(pathname);
       expect(el.textContent).not.toContain("Switch to Desktop");
       act(() => root.unmount());
@@ -77,7 +77,7 @@ describe("DesktopExperienceNotice — DEF-23", () => {
   });
 
   it("still shows on a route that is genuinely still desktop markup", async () => {
-    const el = await mount("/messages");
+    const el = await mount("/pricing");
     expect(el.textContent).toContain("Switch to Desktop");
   });
 
@@ -88,12 +88,12 @@ describe("DesktopExperienceNotice — DEF-23", () => {
 
   it("does not show on a desktop viewport at all", async () => {
     setViewport(1280);
-    const el = await mount("/messages");
+    const el = await mount("/pricing");
     expect(el.textContent).not.toContain("Switch to Desktop");
   });
 
   it("gives the close control an accessible name and a 44 px target", async () => {
-    const el = await mount("/messages");
+    const el = await mount("/pricing");
     const close = el.querySelector('button[aria-label="Dismiss this notice"]');
     expect(close).toBeTruthy();
     expect(close.className).toContain("w-11");
@@ -101,7 +101,7 @@ describe("DesktopExperienceNotice — DEF-23", () => {
   });
 
   it("sets the primary label colour where an unlayered rule cannot defeat it", async () => {
-    const el = await mount("/messages");
+    const el = await mount("/pricing");
     const cta = Array.from(el.querySelectorAll("button"))
       .find((b) => b.textContent.includes("Continue on Mobile"));
     // index.css's unlayered `button { color: inherit }` beats Tailwind's

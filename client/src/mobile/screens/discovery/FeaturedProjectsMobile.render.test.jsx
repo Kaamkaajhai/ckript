@@ -23,6 +23,7 @@ const mandated = {
   industryProfile: { mandates: { genres: ["Drama"], formats: ["Movie"], excludeGenres: [], specificHooks: [] } },
 };
 const writer = { _id: "viewer-2", name: "Asha", role: "writer", favoriteScripts: [] };
+const reader = { _id: "reader-1", name: "Riya", role: "reader", favoriteScripts: [] };
 
 const toast = {
   show: vi.fn(), dismiss: vi.fn(), dismissAll: vi.fn(),
@@ -245,6 +246,15 @@ describe("FeaturedProjectsMobile", () => {
     expect(el.querySelector('a[href="/restricted-signal/mira"]')).toBeTruthy();
     expect(el.textContent).not.toContain("Access Restricted");
     expect(el.textContent).not.toContain("business email");
+  });
+
+  it("keeps lead and ranked project opens inside the reader route family", async () => {
+    const el = await mount("/featured", {
+      user: reader,
+      previewData: { featured: page([]), ranked: page([project("r1", "Reader Signal")]) },
+    });
+    expect(el.querySelectorAll('a[href="/reader/script/r1"]').length).toBeGreaterThanOrEqual(2);
+    expect(el.querySelector('a[href="/reader-signal/mira"]')).toBeNull();
   });
 
   it("offers no eight-column table on a phone", async () => {

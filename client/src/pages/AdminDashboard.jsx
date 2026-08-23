@@ -1273,7 +1273,10 @@ const AdminDashboard = () => {
         try {
             const formData = new FormData();
             formData.append("file", file);
-            const { data } = await adminApi.post("/messages/upload", formData);
+            const { data } = await adminApi.post(
+                `/messages/upload?receiverId=${encodeURIComponent(activeMessageUser._id)}`,
+                formData
+            );
             setMessageAttachment(data || null);
         } catch (err) {
             console.error("Admin attachment upload error:", err);
@@ -1291,6 +1294,7 @@ const AdminDashboard = () => {
         const attachmentPayload = messageAttachment
             ? {
                 fileUrl: messageAttachment.fileUrl,
+                fileGrant: messageAttachment.fileGrant,
                 fileType: messageAttachment.fileType,
                 fileName: messageAttachment.fileName,
                 fileSize: messageAttachment.fileSize,
@@ -1623,7 +1627,7 @@ const AdminDashboard = () => {
         }
     };
 
-    const handleOpenMembershipProof = async (event, userId, membershipType, fallbackUrl) => {
+    const handleOpenMembershipProof = async (event, userId, membershipType) => {
         event.preventDefault();
         if (!userId) return;
 
@@ -1632,7 +1636,7 @@ const AdminDashboard = () => {
 
         try {
             const { data } = await adminApi.get(`/admin/writer-membership/${userId}/${normalizedType}/access-url`);
-            const accessUrl = data?.url || fallbackUrl;
+            const accessUrl = data?.url;
             if (accessUrl) {
                 window.open(accessUrl, "_blank", "noopener,noreferrer");
                 return;
@@ -1640,10 +1644,6 @@ const AdminDashboard = () => {
             showToast("Proof link unavailable", "error");
         } catch (err) {
             console.error(err);
-            if (fallbackUrl) {
-                window.open(fallbackUrl, "_blank", "noopener,noreferrer");
-                return;
-            }
             showToast(err?.response?.data?.message || "Failed to open proof", "error");
         }
     };
@@ -2460,11 +2460,12 @@ const AdminDashboard = () => {
                                                         <p className={`text-xs mt-2 ${isDark ? "text-amber-300" : "text-amber-700"}`}>Admin note: {item.verification.adminNote}</p>
                                                     )}
 
-                                                    {item.verification?.proofUrl ? (
+                                                    {(item.verification?.proofFileName || item.verification?.proofPublicId || item.verification?.proofUrl) ? (
                                                         <a
-                                                            href={item.verification.proofUrl}
+                                                            href={`#${item.key}-proof`}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
+                                                            onClick={(event) => handleOpenMembershipProof(event, user._id, item.key)}
                                                             className="inline-flex mt-2 text-xs font-bold text-[#a83a4d] hover:text-[#e79aa6]"
                                                         >
                                                             View uploaded proof

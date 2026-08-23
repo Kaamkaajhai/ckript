@@ -206,7 +206,7 @@ const CONTENT_FIELDS = [
   "theme", "overview", "eligibility", "format", "prizes", "detailedPrizes", "rules",
   "faq", "judges", "sponsors", "communityLinks", "resources",
   "bannerUrl", "mobileBannerUrl", "cardThumbnailUrl", "ogImageUrl", "logoUrl", "backgroundImageUrl", "gallery",
-  "cardConfig", "prizePool", "visibility", "referralTiers",
+  "cardConfig", "prizePool", "entryFee", "visibility", "referralTiers",
 ];
 
 /**

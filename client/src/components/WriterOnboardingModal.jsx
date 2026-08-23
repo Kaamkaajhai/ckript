@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion as Motion } from "framer-motion";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, FileText } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
@@ -15,6 +15,11 @@ import { useAuthModal } from "../context/AuthModalContext";
 import { useToast } from "../context/ToastContext";
 import useScrollLock from "../hooks/useScrollLock";
 import api from "../services/api";
+import {
+  loadMembershipProofAccessUrl,
+  submitMembershipProof,
+  validateMembershipProof,
+} from "../pages/profile/accountCredentials";
 import OTPVerification from "./OTPVerification";
 import PasswordInput from "./PasswordInput";
 import "./WriterOnboardingModal.css";
@@ -131,7 +136,7 @@ const WRITER_TERMS_ROUTE = "/terms-conditions?tab=writer";
 const PRIVACY_POLICY_VERSION = "registration-privacy-v2026-03-24";
 const REGISTRATION_PRIVACY_ROUTE = "/registration-privacy-policy";
 
-const PROOF_ALLOWED_ACCEPT = "image/*,.pdf";
+const PROOF_ALLOWED_ACCEPT = ".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp";
 
 const DRAFT_KEY = "sb-writer-onboarding-modal-draft-v1";
 
@@ -275,7 +280,7 @@ const STATUS_META = {
 };
 
 function WriterOnboardingModalInner({ onClose, onComplete }) {
-  const { join, setUser } = useContext(AuthContext);
+  const { join, setUser, updateSessionUser } = useContext(AuthContext);
   const { openAuthModal } = useAuthModal();
   const toast = useToast();
   const navigate = useNavigate();
@@ -512,17 +517,13 @@ function WriterOnboardingModalInner({ onClose, onComplete }) {
     if (nowOff) setProofFiles((prev) => ({ ...prev, [guild.review]: null }));
   };
 
-  const openProof = async (review, fallbackUrl) => {
-    try {
-      const { data } = await api.get("/onboarding/writer-membership-proof/access-url", {
-        params: { membershipType: review },
-      });
-      const url = data?.url || fallbackUrl;
-      if (url) window.open(url, "_blank", "noopener,noreferrer");
-      else setError("Proof link unavailable.");
-    } catch {
-      if (fallbackUrl) window.open(fallbackUrl, "_blank", "noopener,noreferrer");
+  const openProof = async (review) => {
+    const result = await loadMembershipProofAccessUrl(review);
+    if (!result.ok) {
+      setError(result.message);
+      return;
     }
+    window.open(result.data.url, "_blank", "noopener,noreferrer");
   };
 
   // ── Account creation (step 3 primary) ───────────────────────
@@ -600,7 +601,7 @@ function WriterOnboardingModalInner({ onClose, onComplete }) {
     for (const guild of GUILDS) {
       if (!profile[guild.member]) continue;
       const review = profile.membershipVerification?.[guild.review] || EMPTY_MEMBERSHIP_REVIEW;
-      const hasProof = Boolean(proofFiles[guild.review] || review.proofUrl);
+      const hasProof = Boolean(proofFiles[guild.review] || review.proofFileName);
       if (review.status !== "approved" && !hasProof) {
         setStep(6);
         setError(`Please upload ${guild.title.split(" ")[0]} proof before continuing.`);
@@ -635,13 +636,9 @@ function WriterOnboardingModalInner({ onClose, onComplete }) {
         membershipUploadPromiseRef.current = (async () => {
           let merged = null;
           const submit = async (membershipType, file) => {
-            const form = new FormData();
-            form.append("membershipType", membershipType);
-            form.append("proof", file);
-            const res = await api.post("/onboarding/writer-membership-proof", form, {
-              headers: { "Content-Type": "multipart/form-data" },
-            });
-            if (res?.data?.user?.writerProfile) merged = mergeWriterProfile(res.data.user.writerProfile);
+            const result = await submitMembershipProof({ membershipType, file });
+            if (!result.ok) throw result.cause || new Error(result.message);
+            merged = mergeWriterProfile(result.data);
           };
           if (queued.wga) await submit("wga", queued.wga);
           if (queued.swa) await submit("swa", queued.swa);
@@ -697,6 +694,7 @@ function WriterOnboardingModalInner({ onClose, onComplete }) {
         privacyPolicyVersion: PRIVACY_POLICY_VERSION,
       });
       if (response?.data?.success !== false) {
+        updateSessionUser(response?.data?.user);
         clearDraft();
         onComplete();
       }
@@ -836,7 +834,7 @@ function WriterOnboardingModalInner({ onClose, onComplete }) {
 
   if (showOTP) {
     return (
-      <motion.div
+      <Motion.div
         className="wom-overlay"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -854,12 +852,12 @@ function WriterOnboardingModalInner({ onClose, onComplete }) {
             onBack={() => setShowOTP(false)}
           />
         </div>
-      </motion.div>
+      </Motion.div>
     );
   }
 
   return (
-    <motion.div
+    <Motion.div
       className="wom-overlay"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -870,7 +868,7 @@ function WriterOnboardingModalInner({ onClose, onComplete }) {
       }}
       onKeyDown={handleKeyDown}
     >
-      <motion.div
+      <Motion.div
         ref={cardRef}
         className="wom-card"
         role="dialog"
@@ -958,8 +956,8 @@ function WriterOnboardingModalInner({ onClose, onComplete }) {
             <line x1="19" y1="5" x2="5" y2="19" />
           </svg>
         </button>
-      </motion.div>
-    </motion.div>
+      </Motion.div>
+    </Motion.div>
   );
 
   // ── Per-step form bodies ────────────────────────────────────
@@ -1212,14 +1210,22 @@ function WriterOnboardingModalInner({ onClose, onComplete }) {
                         <span className={`wom-status ${statusMeta?.cls || ""}`}>{statusMeta?.label}</span>
                       ) : (
                         <>
-                          <label className={`wom-upload ${file || review.proofUrl ? "wom-upload--filled" : ""}`}>
+                          <label className={`wom-upload ${file || review.proofFileName ? "wom-upload--filled" : ""}`}>
                             <input
                               type="file"
                               hidden
                               accept={PROOF_ALLOWED_ACCEPT}
                               onChange={(e) => {
                                 setError("");
-                                setProofFiles((prev) => ({ ...prev, [guild.review]: e.target.files?.[0] || null }));
+                                const file = e.target.files?.[0] || null;
+                                const validation = validateMembershipProof(file);
+                                if (!validation.ok) {
+                                  setError(validation.message);
+                                  e.target.value = "";
+                                  setProofFiles((prev) => ({ ...prev, [guild.review]: null }));
+                                  return;
+                                }
+                                setProofFiles((prev) => ({ ...prev, [guild.review]: file }));
                               }}
                             />
                             <FileText size={16} />
@@ -1232,10 +1238,10 @@ function WriterOnboardingModalInner({ onClose, onComplete }) {
                           {statusMeta && (
                             <span className={`wom-status ${statusMeta.cls}`}>
                               {statusMeta.label}
-                              {review.proofUrl && (
+                              {review.proofFileName && (
                                 <button
                                   type="button"
-                                  onClick={() => openProof(guild.review, review.proofUrl)}
+                                  onClick={() => openProof(guild.review)}
                                   style={{ background: "none", border: "none", padding: 0, color: "inherit", textDecoration: "underline", cursor: "pointer", font: "inherit" }}
                                 >
                                   view

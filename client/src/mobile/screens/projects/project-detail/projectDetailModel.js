@@ -48,7 +48,6 @@ export const formatMoney = (value) => {
     maximumFractionDigits: 0,
   }).format(amount);
 };
-
 export const formatCount = (value) => new Intl.NumberFormat(undefined, {
   notation: Number(value) >= 10000 ? "compact" : "standard",
   maximumFractionDigits: 1,
@@ -713,19 +712,3 @@ export const describeOwnerManage = ({ script = {}, capabilities = {} } = {}) => 
       : "This takes the project out of the listings and off your profile. Anyone who already bought it keeps their access. This cannot be undone from the app.",
   };
 };
-
-/**
- * The empty meeting draft.
- *
- * It lives with the view model rather than with the sheet for a mechanical reason and a real one:
- * a component file that also exports a helper breaks fast refresh, and the shape of a form the
- * SCREEN owns is the screen's model, not the sheet's.
- */
-export const emptyMeetingDraft = (projectTitle = "") => ({
-  title: has(projectTitle) ? `Ckript meeting: ${text(projectTitle)}` : "Ckript meeting",
-  date: "",
-  time: "",
-  duration: "30",
-  message: "",
-  needsCalendar: false,
-});

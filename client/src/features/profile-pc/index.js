@@ -8,6 +8,7 @@ export {
 } from "./profilePolicy";
 export {
   ProfileWorkspaceIdentity,
+  ProfileWorkspaceActivity,
   ProfileWorkspaceBookmarks,
   ProfileWorkspaceMeetings,
   ProfileWorkspaceProjects,

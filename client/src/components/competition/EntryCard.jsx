@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown, Award, Download } from "lucide-react";
-import api from "../../services/api";
 import PhaseTimeline from "./PhaseTimeline";
 import { rewardLabel } from "./labels";
+import { downloadChallengeCertificate } from "../../pages/challenge/challengeHub";
 
 /**
  * One competition entry of your own — status, award, key numbers, timeline and certificate.
@@ -58,30 +58,12 @@ const EntryCard = ({ item, serverNow }) => {
   const downloadCertificate = async () => {
     setDownloading(true);
     setDownloadError("");
-    try {
-      const { data } = await api.get(`/competitions/${competition._id}/certificate`, {
-        params: { download: 1 },
-        responseType: "blob",
-      });
-      const url = window.URL.createObjectURL(new Blob([data], { type: "application/pdf" }));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${competition.name} certificate.pdf`.replace(/[\\/]/g, "-");
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      // responseType blob means the error body is a Blob too, so the message has to be read out of it.
-      let message = "Could not download your certificate.";
-      try {
-        const text = await err?.response?.data?.text?.();
-        if (text) message = JSON.parse(text).message || message;
-      } catch { /* keep the generic message */ }
-      setDownloadError(message);
-    } finally {
-      setDownloading(false);
-    }
+    const result = await downloadChallengeCertificate({
+      competitionId: competition._id,
+      competitionName: competition.name,
+    });
+    if (!result.ok) setDownloadError(result.message);
+    setDownloading(false);
   };
   const year = new Date(competition?.dates?.startsAt || entry.createdAt).getFullYear();
   const declared = Boolean(competition?.resultsDeclaredAt);

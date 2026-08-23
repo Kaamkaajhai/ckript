@@ -26,39 +26,29 @@
  * All derivation lives in writerRoster.js and is unit tested. This file is
  * fetching, state and wiring.
  *
- * TWO SERVER PROBLEMS THIS PAGE DOES NOT FIX
- * ------------------------------------------
- * 1. `getWriters` uses an EXCLUSION projection, so every row in the response
- *    carries email, phone, address, subscription and activeSessions — including
- *    per-session IP addresses. This page binds none of it (writerRoster.js is
- *    the only thing that reads a writer field, and it reads eleven of them),
- *    but that is containment, not a fix: the data is in the response body
- *    whatever the UI renders. The fix is an inclusion projection server-side.
- *    Until then the profile gate below protects a page whose protected content
- *    has already been sent.
- * 2. `getWriters` builds a regex from the raw search string with no
- *    escapeRegExp, unlike search.js. Typing "(" returns a 500, which this page
- *    renders as its error state — correct behaviour, incorrect cause.
+ * RESPONSE BOUNDARY
+ * -----------------
+ * D53A moved loading into the shared desktop/native contract. `getWriters`
+ * now starts and ends with positive projections, and escapes search text before
+ * it reaches Mongo regex matching, so roster rows cannot carry private account
+ * or session fields and literal punctuation cannot turn into a server error.
  */
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import api from "../../services/api";
 import { AuthContext } from "../../context/AuthContext";
-import { useAuthModal } from "../../context/AuthModalContext";
 import { usesAppShell } from "../../layouts/app-shell/shellPolicy";
 import {
-  hasActiveFilmIndustryProfessionalAccess,
-  isIndustryProfessionalWithPersonalEmail,
   isFilmIndustryProfessionalRole,
 } from "../../utils/industryAccess";
 import { getProfileCanonicalPath } from "../../utils/profilePath";
 import RosterRail from "./components/RosterRail";
 import RosterRow from "./components/RosterRow";
 import RosterPane from "./components/RosterPane";
-import RosterRestrictDialog from "./components/RosterRestrictDialog";
 import PanelResizeHandle from "./components/PanelResizeHandle";
 import RosterIcon from "./components/RosterIcon";
 import useResizablePanel from "./useResizablePanel";
+import useWriterRoster from "./useWriterRoster";
+import { WRITER_ROSTER_STATUS } from "./writerRosterData";
 import {
   EMPTY_FACETS,
   SORTS,
@@ -66,7 +56,6 @@ import {
   buildBoardStats,
   buildChips,
   buildFacetCounts,
-  buildRequestParams,
   countActiveFacets,
   filterWriters,
   getMandate,
@@ -106,7 +95,6 @@ const COLUMNS = [
 
 const WriterRosterPage = () => {
   const { user } = useContext(AuthContext);
-  const { openPricingModal } = useAuthModal();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -119,16 +107,12 @@ const WriterRosterPage = () => {
 
   /* ── Data. One cell holding the response AND the request it answers, so a
    * response for a search the viewer has already changed cannot be rendered. */
-  const [result, setResult] = useState(null);
-  const [reloadToken, setReloadToken] = useState(0);
-  const [mandateSource, setMandateSource] = useState(null);
 
   /* ── Surfaces ── */
   const [selectedId, setSelectedId] = useState(null);
   const [focusIndex, setFocusIndex] = useState(-1);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [showAllGenres, setShowAllGenres] = useState(false);
-  const [restrictedFor, setRestrictedFor] = useState(null);
 
   const filtersPanel = useResizablePanel(PANEL_CONFIG.filters);
   const profilePanel = useResizablePanel(PANEL_CONFIG.profile);
@@ -142,66 +126,17 @@ const WriterRosterPage = () => {
     return () => clearTimeout(t);
   }, [queryInput]);
 
-  /*
-   * The gate. Identical predicate to /featured and to the profile this page
-   * links to: an industry account on a personal address, with no active paid
-   * access, may browse but not open a profile. The page this replaces checked
-   * hasBusinessEmail alone, which locked out FIP subscribers on a personal
-   * address and told writers and readers they needed a business email.
-   */
-  const isBlocked = isIndustryProfessionalWithPersonalEmail(user)
-    && !hasActiveFilmIndustryProfessionalAccess(user);
-
   /* ── The register ─────────────────────────────────────────────────────── */
 
-  const requestKey = useMemo(
-    () => `${reloadToken}|${buildRequestParams({ sort, query })}`,
-    [reloadToken, sort, query],
-  );
-
-  useEffect(() => {
-    const controller = new AbortController();
-    let active = true;
-
-    (async () => {
-      try {
-        const { data } = await api.get(
-          `/users/writers?${buildRequestParams({ sort, query })}`,
-          { signal: controller.signal },
-        );
-        if (!active) return;
-        setResult({ key: requestKey, writers: Array.isArray(data) ? data : [], failed: false });
-      } catch {
-        // An aborted request is a superseded one, not a failure to report.
-        if (!active || controller.signal.aborted) return;
-        setResult({ key: requestKey, writers: [], failed: true });
-      }
-    })();
-
-    return () => { active = false; controller.abort(); };
-  }, [requestKey, sort, query]);
-
-  /*
-   * The mandate. Industry roles only — nobody else has one — and a failure is
-   * silent: the facet and the fit block simply do not appear.
-   */
-  useEffect(() => {
-    if (!isFilmIndustryProfessionalRole(user)) { setMandateSource(null); return undefined; }
-    const controller = new AbortController();
-    (async () => {
-      try {
-        const { data } = await api.get("/users/me", { signal: controller.signal });
-        setMandateSource(data);
-      } catch { /* no mandate is a valid state, not an error worth a banner */ }
-    })();
-    return () => controller.abort();
-  }, [user]);
-
-  const isLoading = result?.key !== requestKey;
-  const status = isLoading ? "loading" : (result.failed ? "error" : "ok");
-  const writers = result?.writers || NO_WRITERS;
-
-  const retry = useCallback(() => setReloadToken((t) => t + 1), []);
+  const roster = useWriterRoster({ sort, query, user });
+  const requestKey = roster.requestKey;
+  const isLoading = roster.status === WRITER_ROSTER_STATUS.LOADING;
+  const status = roster.status === WRITER_ROSTER_STATUS.FAILED
+    ? "error"
+    : (isLoading ? "loading" : "ok");
+  const writers = roster.data?.writers || NO_WRITERS;
+  const mandateSource = roster.data?.mandateSource || null;
+  const retry = roster.retry;
 
   useEffect(() => {
     if (status === "error") retryRef.current?.focus();
@@ -302,9 +237,8 @@ const WriterRosterPage = () => {
    */
   const openProfile = useCallback((writer) => {
     if (!writer) return;
-    if (isBlocked) { setRestrictedFor(writer); return; }
     navigate(getProfileCanonicalPath(writer, { viewerId: user?._id, viewerRole: user?.role }));
-  }, [isBlocked, navigate, user]);
+  }, [navigate, user]);
 
   /* ── Keyboard ─────────────────────────────────────────────────────────── */
 
@@ -442,7 +376,7 @@ const WriterRosterPage = () => {
         <h1 className="ckr-sr">Writers</h1>
         {/* Refetch only ever follows a sort or search change — a facet toggle
             filters what is already in hand and never reaches this. */}
-        {status === "loading" && result && (
+        {status === "loading" && roster.data && (
           <div className="ckr-progress" aria-hidden="true"><i /></div>
         )}
 
@@ -567,7 +501,7 @@ const WriterRosterPage = () => {
               </div>
             </div>
 
-            {status === "loading" && !result && (
+            {status === "loading" && !roster.data && (
               <div className="ckr-rows" role="rowgroup" aria-busy="true">
                 {Array.from({ length: 9 }).map((_, i) => (
                   <div className="ckr-row ckr-row--skel" role="row" key={i}>
@@ -721,7 +655,6 @@ const WriterRosterPage = () => {
                 writer={selected}
                 mandate={mandate}
                 profilePath={profilePath}
-                restricted={isBlocked}
                 onOpenProfile={() => openProfile(selected)}
               />
             </div>
@@ -757,14 +690,6 @@ const WriterRosterPage = () => {
         </div>
       )}
 
-      {restrictedFor && (
-        <RosterRestrictDialog
-          writer={restrictedFor}
-          onClose={() => setRestrictedFor(null)}
-          onUpgrade={() => { setRestrictedFor(null); openPricingModal("industry"); }}
-          onBusinessEmail={() => { setRestrictedFor(null); navigate("/producer-director-onboarding"); }}
-        />
-      )}
     </div>
   );
 };

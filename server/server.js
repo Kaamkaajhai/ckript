@@ -275,22 +275,6 @@ const createRealtimeServer = () => {
       console.log(`User ${socket.id} joined notifications for: ${socketUserId}`);
     });
 
-    socket.on("send-message", (data = {}) => {
-      const chatId = String(data.chatId || "");
-      if (!canAccessChatRoom(chatId, socketUserId)) {
-        socket.emit("socket-error", { event: "send-message", message: "Access denied." });
-        return;
-      }
-
-      const payloadSenderId = data?.sender?._id || data?.sender;
-      if (payloadSenderId && String(payloadSenderId) !== socketUserId) {
-        socket.emit("socket-error", { event: "send-message", message: "Sender mismatch." });
-        return;
-      }
-
-      io.to(chatId).emit("receive-message", data);
-    });
-
     socket.on("typing", (data = {}) => {
       const chatId = String(data.chatId || "");
       if (!canAccessChatRoom(chatId, socketUserId)) {

@@ -53,6 +53,7 @@ export const createNotification = async ({
   from = null,
   script = null,
   message = "",
+  actionToken = "",
 }) => {
   if (!userId) return null;
 
@@ -63,6 +64,7 @@ export const createNotification = async ({
       from,
       script,
       message,
+      actionToken: String(actionToken || "").trim().slice(0, 256),
     });
   } catch (error) {
     console.error("Failed to create notification:", error.message);

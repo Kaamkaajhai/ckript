@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, FileText } from "lucide-react";
 import { AuthContext } from "../context/AuthContext";
@@ -215,7 +215,7 @@ const clearDraft = () => {
 };
 
 function ProducerOnboardingModalInner({ onClose, onComplete }) {
-  const { join, setUser } = useContext(AuthContext);
+  const { join, setUser, updateSessionUser } = useContext(AuthContext);
   const { openAuthModal } = useAuthModal();
   const toast = useToast();
   const navigate = useNavigate();
@@ -526,12 +526,13 @@ function ProducerOnboardingModalInner({ onClose, onComplete }) {
     }
     setLoading(true);
     try {
-      await api.put("/users/update", {
+      const response = await api.put("/users/update", {
         onboardingComplete: true,
         privacyPolicyAccepted: true,
         privacyPolicyVersion: PRIVACY_POLICY_VERSION,
         termsVersion: INVESTOR_TERMS_VERSION,
       });
+      updateSessionUser(response?.data);
       clearDraft();
       onComplete();
     } catch (err) {
@@ -605,7 +606,7 @@ function ProducerOnboardingModalInner({ onClose, onComplete }) {
   const handleFinishLater = () => {
     clearDraft();
     onClose();
-    navigate("/dashboard");
+    navigate("/home", { replace: true });
   };
 
   const handleSignIn = () => {

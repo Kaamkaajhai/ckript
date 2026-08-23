@@ -16,6 +16,8 @@ export default function OverviewModule({ data, onChange }) {
   const handleChange = (e) => {
     onChange(e.target.name, e.target.value);
   };
+  const entryFee = data.entryFee || { mode: "paid", inrMinor: 9800, usdMinor: 200 };
+  const updateEntryFee = (field, value) => onChange("entryFee", { ...entryFee, [field]: value });
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -72,6 +74,34 @@ export default function OverviewModule({ data, onChange }) {
               Hidden and private both mean &ldquo;not listed&rdquo;. Neither blocks the direct link
               &mdash; use Draft for that.
             </p>
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-[#555] uppercase tracking-wide" htmlFor="competition-entry-mode">Registration fee</label>
+              <select
+                id="competition-entry-mode"
+                value={entryFee.mode || "paid"}
+                onChange={(event) => updateEntryFee("mode", event.target.value)}
+                className="w-full px-4 py-2.5 bg-[#fbfbfa] border border-[#e4e2e0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#111] transition-all"
+              >
+                <option value="paid">Paid through Ckript</option>
+                <option value="free">Free entry</option>
+              </select>
+              <p className="text-xs text-[#888]">Existing competitions remain paid unless free entry is selected explicitly.</p>
+            </div>
+            {entryFee.mode !== "free" ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-[#555] uppercase tracking-wide" htmlFor="competition-fee-inr">INR price</label>
+                  <input id="competition-fee-inr" type="number" min="0.01" step="0.01" value={(entryFee.inrMinor ?? 9800) / 100} onChange={(event) => updateEntryFee("inrMinor", Math.round(Number(event.target.value) * 100))} className="w-full px-4 py-2.5 bg-[#fbfbfa] border border-[#e4e2e0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#111] transition-all" />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold text-[#555] uppercase tracking-wide" htmlFor="competition-fee-usd">USD price</label>
+                  <input id="competition-fee-usd" type="number" min="0.01" step="0.01" value={(entryFee.usdMinor ?? 200) / 100} onChange={(event) => updateEntryFee("usdMinor", Math.round(Number(event.target.value) * 100))} className="w-full px-4 py-2.5 bg-[#fbfbfa] border border-[#e4e2e0] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#111] transition-all" />
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <div className="space-y-2">

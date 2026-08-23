@@ -89,6 +89,7 @@ export default function ChipSelect({
         wrap
         aria-labelledby={`${id}-label`}
         aria-describedby={describedBy}
+        aria-invalid={error ? true : undefined}
         aria-label={undefined}
       >
         {options.map((option) => {

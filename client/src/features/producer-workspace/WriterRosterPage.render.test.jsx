@@ -203,30 +203,25 @@ describe("WriterRosterPage — the detail pane", () => {
   });
 });
 
-describe("WriterRosterPage — the gate", () => {
-  const blocked = { _id: "u2", role: "producer", email: "harlan@gmail.com" };
+describe("WriterRosterPage — profile access", () => {
+  const personalEmailProducer = { _id: "u2", role: "producer", email: "harlan@gmail.com" };
 
-  it("keeps the whole register readable for a blocked viewer", async () => {
-    await mount(blocked);
+  it("keeps the whole register readable for an industry viewer", async () => {
+    await mount(personalEmailProducer);
     expect(all(".ckr-row")).toHaveLength(3);
 
     await click(byText(".ckr-row", "Wei Chen"));
     expect(container.querySelector(".ckr-pane__name").textContent).toBe("Wei Chen");
   });
 
-  it("explains itself on the profile action, and offers both routes out", async () => {
-    await mount(blocked);
+  it("does not revive the retired personal-email restriction", async () => {
+    await mount(personalEmailProducer);
     await click(byText(".ckr-row", "Wei Chen"));
 
     const action = byText(".ckr-pane .ckr-btn", "Open full profile");
-    expect(action.tagName, "a gated action must not be an inert link").toBe("BUTTON");
-
-    await click(action);
-    expect(text()).toContain("Access Restricted");
-    expect(text()).toContain("Still visible without upgrading");
-
-    await click(byText(".ckr-modal .ckr-btn", "Get Film Industry Professional"));
-    expect(openPricingModal).toHaveBeenCalledWith("industry");
+    expect(action.tagName).toBe("A");
+    expect(action.getAttribute("href")).toContain("/profile/b");
+    expect(text()).not.toContain("Access Restricted");
   });
 
   it("does not block a writer or a reader on a personal address", async () => {

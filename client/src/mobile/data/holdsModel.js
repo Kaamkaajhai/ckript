@@ -155,6 +155,7 @@ export function buildHoldRow(hold, now = new Date()) {
 
   return {
     id: String(hold?._id || hold?.id || ""),
+    scriptId: String(script?._id || ""),
 
     // getMyHolds populates the creator with `name profileImage` only — no
     // username — so the canonical two-segment URL is not derivable here and
@@ -188,7 +189,6 @@ export function buildHoldRow(hold, now = new Date()) {
 
     // Kept verbatim for the receipt line; never used to decide time state.
     rawStatus: String(hold?.status || "").toLowerCase(),
-    paymentId: hold?.paymentId || "",
   };
 }
 

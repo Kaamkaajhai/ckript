@@ -4,8 +4,23 @@ import { io } from "socket.io-client";
 import api from "../../services/api";
 import { AuthContext } from "../../context/AuthContext";
 import { isSocketSupported } from "../../utils/apiOrigin";
+import { hasActiveFilmIndustryProfessionalAccess, isWriterRole } from "../../utils/industryAccess";
 import MessagesSkeleton from "../../components/skeleton/MessagesSkeleton";
 import MeetingModal from "../../components/MeetingModal";
+import {
+  buildMessageChatId,
+  deleteOwnMessage,
+  getMessagePreview,
+  getMessageThreadContext,
+  getMessagingError,
+  loadConversationMessages,
+  loadMessageConversations,
+  MAX_MESSAGE_ATTACHMENT_BYTES,
+  QUICK_MESSAGE_REACTIONS,
+  sendConversationMessage,
+  toggleMessageReaction,
+  uploadConversationAttachment,
+} from "./messageContract";
 import {
   MessageCircle, ChevronLeft, Send, Lock, Search, X, Check, CheckCheck, Smile,
   Trash2, Video, FileText, Paperclip, Loader2, Download, ShieldCheck, ArrowRight,
@@ -17,11 +32,6 @@ import "./MessagesOperatorPage.css";
 const API_ORIGIN = (import.meta.env.VITE_API_URL || "http://localhost:5002").replace(/\/api\/?$/, "").replace(/\/$/, "");
 
 /* ── helpers ──────────────────────────────────────────────────── */
-const buildChatId = (a, b) => {
-  const sorted = [a.toString(), b.toString()].sort();
-  return `${sorted[0]}_${sorted[1]}`;
-};
-
 const formatTime = (date) =>
   new Date(date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
@@ -36,16 +46,6 @@ const formatDay = (date) => {
 };
 
 const isSameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
-
-const getMessagePreview = (msg) =>
-  msg?.text ||
-  (msg?.fileType === "video"
-    ? "🎬 Trailer Video"
-    : msg?.fileType === "image"
-      ? "📷 Image"
-      : msg?.fileUrl
-        ? "📎 File"
-        : "");
 
 const resolveMediaUrl = (url) => {
   if (!url) return "";
@@ -65,9 +65,7 @@ const formatFileSize = (bytes = 0) => {
 const initialsOf = (name = "") =>
   name.trim().split(/\s+/).slice(0, 2).map((w) => w[0]?.toUpperCase() || "").join("") || "?";
 
-const QUICK_EMOJIS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 const REACTION_HIDE_DELAY_MS = 900;
-const MAX_ATTACHMENT_SIZE_BYTES = 250 * 1024 * 1024;
 const FILTERS = [
   ["all", "All"],
   ["unread", "Unread"],
@@ -188,6 +186,7 @@ const MessagesOperatorPage = () => {
 
   const isWriter = user && ["writer", "creator"].includes(user.role);
   const isInvestor = user && user.role === "investor";
+  const hasMeetingAccess = hasActiveFilmIndustryProfessionalAccess(user);
 
   const scrollMessagesToBottom = (behavior = "smooth") => {
     messagesEndRef.current?.scrollIntoView({ behavior, block: "end" });
@@ -289,6 +288,14 @@ const MessagesOperatorPage = () => {
       );
     });
 
+    sock.on("message-reaction", ({ messageId, reactions }) => {
+      setMessages((prev) => prev.map((message) => (
+        message._id === messageId
+          ? { ...message, reactions: Array.isArray(reactions) ? reactions : [] }
+          : message
+      )));
+    });
+
     return () => sock.close();
   }, [user?._id]);
 
@@ -310,8 +317,7 @@ const MessagesOperatorPage = () => {
     if (!chatId) return;
     if (!silent) setMessagesLoading(true);
     try {
-      const { data } = await api.get(`/messages/${chatId}`);
-      const next = Array.isArray(data) ? data : [];
+      const next = await loadConversationMessages(chatId);
       setMessages((prev) => {
         const sameLength = prev.length === next.length;
         const sameFirst = prev[0]?._id === next[0]?._id;
@@ -329,8 +335,7 @@ const MessagesOperatorPage = () => {
   const loadConversations = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
     try {
-      const { data } = await api.get("/messages/conversations");
-      const next = Array.isArray(data) ? data : [];
+      const next = await loadMessageConversations();
       setConversations(next);
       const activeId = activeChatRef.current?.chatId;
       if (activeId) {
@@ -372,7 +377,7 @@ const MessagesOperatorPage = () => {
     const recipientRole = searchParams.get("recipientRole") || (isInvestor ? "writer" : "investor");
     if (!recipientId || !(isInvestor || isWriter)) return;
 
-    const chatId = buildChatId(user._id, recipientId);
+    const chatId = buildMessageChatId(user._id, recipientId);
     const existing = conversations.find((c) => c.chatId === chatId);
     if (existing) { handleSelectChat(existing); return; }
 
@@ -457,13 +462,17 @@ const MessagesOperatorPage = () => {
     const sentText = textToSend;
 
     try {
-      const { data: saved } = await api.post("/messages/send", {
+      const saved = await sendConversationMessage({
         receiverId: activeChat.user._id,
         text: sentText || "",
         ...extraPayload,
       });
-      setMessages((prev) => prev.map((m) => (m._id === tempId ? saved : m)));
-      socket?.emit("send-message", { ...saved, chatId: activeChat.chatId });
+      // The server broadcasts the persisted document. It may reach this tab
+      // before the POST resolves, so remove that echo before replacing the
+      // optimistic row rather than rendering the saved message twice.
+      setMessages((prev) => prev
+        .filter((m) => m._id !== saved._id)
+        .map((m) => (m._id === tempId ? saved : m)));
 
       if (activeChat.isPending) {
         const promoted = { ...activeChat, lastMessage: getMessagePreview(saved), isPending: false };
@@ -481,12 +490,7 @@ const MessagesOperatorPage = () => {
       return true;
     } catch (err) {
       setMessages((prev) => prev.filter((m) => m._id !== tempId));
-      const code = err.response?.data?.code;
-      setSendError(
-        code === "PURCHASE_REQUIRED"
-          ? "Purchase a project from this writer first to unlock messaging."
-          : err.response?.data?.message || "Failed to send message."
-      );
+      setSendError(getMessagingError(err, "Failed to send message."));
       return false;
     }
   };
@@ -499,6 +503,7 @@ const MessagesOperatorPage = () => {
     const attachmentPayload = attachment
       ? {
           fileUrl: attachment.fileUrl,
+          fileGrant: attachment.fileGrant,
           fileType: attachment.fileType,
           fileName: attachment.fileName,
           fileSize: attachment.fileSize,
@@ -522,17 +527,15 @@ const MessagesOperatorPage = () => {
     const file = e.target.files?.[0];
     if (!file) return;
     setSendError("");
-    if (file.size > MAX_ATTACHMENT_SIZE_BYTES) {
+    if (file.size > MAX_MESSAGE_ATTACHMENT_BYTES) {
       setSendError("Attachment is too large. Maximum size is 250MB.");
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
     setUploadingAttachment(true);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const { data } = await api.post("/messages/upload", formData);
-      setAttachment(data);
+      const uploaded = await uploadConversationAttachment({ file, receiverId: activeChat.user._id });
+      setAttachment(uploaded);
     } catch (err) {
       setSendError(err.response?.data?.message || "Failed to upload attachment.");
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -574,7 +577,7 @@ const MessagesOperatorPage = () => {
   const handleReaction = async (messageId, emoji) => {
     scheduleReactionHide(1100);
     try {
-      const { data: reactions } = await api.patch(`/messages/${messageId}/reaction`, { emoji });
+      const reactions = await toggleMessageReaction(messageId, emoji);
       setMessages((prev) => prev.map((m) => (m._id === messageId ? { ...m, reactions } : m)));
     } catch { /* silent */ }
   };
@@ -582,11 +585,10 @@ const MessagesOperatorPage = () => {
   const handleDelete = async (messageId) => {
     setDeleteModal(null);
     try {
-      await api.delete(`/messages/${messageId}`);
+      await deleteOwnMessage(messageId);
       setMessages((prev) =>
         prev.map((m) => (m._id === messageId ? { ...m, deleted: true, text: "" } : m))
       );
-      socket?.emit("message-deleted", { chatId: activeChat.chatId, messageId });
     } catch { /* silent */ }
   };
 
@@ -628,23 +630,14 @@ const MessagesOperatorPage = () => {
     if (activeChat?.user?._id) navigate(`/profile/${activeChat.user._id}`);
   };
 
-  /* ── derived deal context from the real thread ──────────── */
-  const scriptFromThread = useMemo(
-    () => messages.find((m) => m.script && (m.script._id || typeof m.script === "string"))?.script || null,
-    [messages]
-  );
-  const sharedFiles = useMemo(
-    () => messages.filter((m) => m.fileUrl && !m.deleted),
-    [messages]
-  );
-  const adminTrailer = useMemo(
-    () => messages.find((m) => (m.sender?.role === "admin") && m.fileType === "video" && m.fileUrl),
-    [messages]
-  );
+  /* ── derived deal context from the shared thread contract ─ */
+  const threadContext = useMemo(() => getMessageThreadContext(messages), [messages]);
+  const { primaryProject, sharedFiles, adminTrailer } = threadContext;
 
   const otherIsInvestor = activeChat?.user?.role === "investor";
-  const scriptId = scriptFromThread?._id || (typeof scriptFromThread === "string" ? scriptFromThread : null);
-  const scriptTitle = scriptFromThread?.title || "";
+  const scriptId = primaryProject?.id || null;
+  const scriptTitle = primaryProject?.title || "";
+  const canScheduleMeeting = hasMeetingAccess && isWriterRole(activeChat?.user) && Boolean(scriptId);
 
   /* ── filtered + sorted conversation list ────────────────── */
   const visibleConvs = useMemo(() => {
@@ -721,7 +714,7 @@ const MessagesOperatorPage = () => {
             {/* emoji picker */}
             {emojiPicker === msg._id && (
               <div className="mo-picker" onMouseEnter={clearReactionHideTimer} onMouseLeave={() => scheduleReactionHide()}>
-                {QUICK_EMOJIS.map((em) => (
+                {QUICK_MESSAGE_REACTIONS.map((em) => (
                   <button key={em} onClick={() => handleReaction(msg._id, em)}>{em}</button>
                 ))}
               </div>
@@ -950,7 +943,7 @@ const MessagesOperatorPage = () => {
                   </div>
                 </div>
                 <div className="mo-toolacts">
-                  {isInvestor && scriptId && (
+                  {canScheduleMeeting && (
                     <button className="mo-tbtn" onClick={() => setShowMeeting(true)}>
                       <Calendar size={13} /> Meeting
                     </button>
@@ -1173,7 +1166,7 @@ const MessagesOperatorPage = () => {
       </div>
 
       {/* meeting modal (investor → writer scheduling) */}
-      {isInvestor && (
+      {canScheduleMeeting && (
         <MeetingModal
           isOpen={showMeeting}
           onClose={() => setShowMeeting(false)}

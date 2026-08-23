@@ -1,5 +1,5 @@
 import { useCallback, useContext, useEffect, useId, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { useAuthModal } from "../context/AuthModalContext";
@@ -8,6 +8,7 @@ import useScrollLock from "../hooks/useScrollLock";
 import OTPVerification from "./OTPVerification";
 import GoogleSignInButton from "./GoogleSignInButton";
 import PasswordInput from "./PasswordInput";
+import { resolvePostAuthPath } from "../routing/audienceTransitions";
 import "./AuthModal.css";
 
 /* ─────────────────────────────────────────────────────────────
@@ -92,20 +93,6 @@ function ensureAuthModalFonts() {
 const FOCUSABLE =
   'a[href],button:not([disabled]),input:not([disabled]),textarea,select,[tabindex]:not([tabindex="-1"])';
 
-const getSafeRedirectPath = (value = "") => {
-  const path = String(value || "").trim();
-  if (!path || !path.startsWith("/")) return "";
-  if (path.startsWith("//")) return "";
-  if (path.startsWith("/login")) return "";
-  return path;
-};
-
-const defaultPathForRole = (role) => {
-  if (role === "reader") return "/reader";
-  if (role === "investor") return "/home";
-  return "/dashboard";
-};
-
 function AuthModalInner({ redirect, onClose }) {
   const { user, login, setUser } = useContext(AuthContext);
   const { openProducerOnboarding, openWriterOnboarding, openForgotPasswordModal } = useAuthModal();
@@ -136,8 +123,7 @@ function AuthModalInner({ redirect, onClose }) {
       onClose();
       const first = String(userData?.name || "").trim().split(/\s+/)[0];
       toast.success(first ? `Welcome back, ${first}.` : "You're signed in.");
-      const safeRedirect = getSafeRedirectPath(redirect);
-      navigate(safeRedirect || defaultPathForRole(userData?.role), { replace: false });
+      navigate(resolvePostAuthPath({ requestedPath: redirect, user: userData }), { replace: false });
     },
     [navigate, onClose, redirect, toast]
   );

@@ -1,6 +1,10 @@
 import { useContext, useEffect, useState } from "react";
-import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
+import {
+  disconnectGoogleCalendar,
+  loadGoogleCalendarStatus,
+  startGoogleCalendarConnection,
+} from "../pages/profile/accountSecurity";
 
 // Settings card to connect/disconnect Google Calendar (producer meeting scheduling). Self-contained:
 // fetches its own status, and reads the ?calendar=connected|error flag the OAuth callback redirects to.
@@ -13,7 +17,9 @@ const GoogleCalendarCard = ({ dark = false }) => {
 
   const load = async () => {
     try {
-      const { data } = await api.get("/google-calendar/status");
+      const result = await loadGoogleCalendarStatus();
+      if (!result.ok) throw result.cause || new Error(result.message);
+      const data = result.data;
       setStatus(data || {});
       // Keep AuthContext in sync so the schedule gate reflects reality without a full reload.
       if (user && Boolean(user?.googleCalendar?.connected) !== Boolean(data?.connected)) {
@@ -46,7 +52,9 @@ const GoogleCalendarCard = ({ dark = false }) => {
     setNotice(null);
     try {
       const returnTo = `${window.location.pathname}${window.location.search}`;
-      const { data } = await api.post("/google-calendar/auth-url", { returnTo });
+      const result = await startGoogleCalendarConnection(returnTo);
+      if (!result.ok) throw result.cause || new Error(result.message);
+      const data = result.data;
       if (data?.url) window.location.href = data.url;
       else {
         setNotice({ type: "err", text: "Google Calendar is not available right now." });
@@ -62,7 +70,8 @@ const GoogleCalendarCard = ({ dark = false }) => {
     setBusy(true);
     setNotice(null);
     try {
-      await api.delete("/google-calendar");
+      const result = await disconnectGoogleCalendar();
+      if (!result.ok) throw result.cause || new Error(result.message);
       setStatus((s) => ({ ...s, connected: false, calendarEmail: "" }));
       if (user) setUser({ ...user, googleCalendar: { connected: false, calendarEmail: "" } });
       setNotice({ type: "ok", text: "Google Calendar disconnected." });

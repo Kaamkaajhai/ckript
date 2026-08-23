@@ -1,7 +1,7 @@
 import { useState } from "react";
 import InviteModal from "./InviteModal";
 import { getCollabRoleLabel } from "../../constants/collabRoles";
-import useCollaborators, { getCollaboratorUserId } from "./useCollaborators";
+import useCollaborators, { getCollaboratorIdentity } from "./useCollaborators";
 
 export default function CollaboratorsPanel({ scriptId, currentUserId, compact = false, dark = false }) {
   const [showInviteModal, setShowInviteModal] = useState(false);
@@ -11,11 +11,12 @@ export default function CollaboratorsPanel({ scriptId, currentUserId, compact = 
      to accept. The row now asks; "Remove" becomes "Confirm remove" until it is
      pressed a second time or something else is clicked. */
   const [confirmRemove, setConfirmRemove] = useState(null);
+  const [refreshingInvite, setRefreshingInvite] = useState("");
 
   const {
     loading, error, isOwner,
     active: activeCollaborators, pending: pendingInvites,
-    reload: loadCollaborators, updateRole, remove: removeCollaborator, collabVisibility,
+    reload: loadCollaborators, updateRole, remove: removeCollaborator, resend: resendInvite, collabVisibility,
   } = useCollaborators(scriptId, currentUserId);
 
   const askRemove = (key) => {
@@ -73,7 +74,7 @@ export default function CollaboratorsPanel({ scriptId, currentUserId, compact = 
                 <div className="flex items-center gap-1.5 ml-auto">
                   <select
                     value={entry.role === "full_admin" ? (entry.accessLevel || "full_access") : "content_only"}
-                    onChange={(event) => updateRole(entry.user?._id || entry.invitedEmail, entry.role, event.target.value)}
+                    onChange={(event) => updateRole(getCollaboratorIdentity(entry), entry.role, event.target.value)}
                     className={`rounded-xl border px-2 py-1 text-xs font-medium outline-none ${dark ? "border-[#2a4a6a] bg-[#0d1829] text-gray-300" : "border-gray-200 bg-gray-50 text-gray-700"}`}
                   >
                     {entry.role === "full_admin" && (
@@ -82,10 +83,10 @@ export default function CollaboratorsPanel({ scriptId, currentUserId, compact = 
                     <option value="content_only">Content</option>
                   </select>
                   <button
-                    onClick={() => askRemove(getCollaboratorUserId(entry) || entry.invitedEmail)}
+                    onClick={() => askRemove(getCollaboratorIdentity(entry))}
                     className={`rounded-xl px-2 py-1 text-xs font-semibold transition ${dark ? "bg-red-500/10 text-red-400 hover:bg-red-500/20" : "bg-red-50 text-red-600 hover:bg-red-100"}`}
                   >
-                    {confirmRemove === (getCollaboratorUserId(entry) || entry.invitedEmail) ? "Confirm remove" : "Remove"}
+                    {confirmRemove === getCollaboratorIdentity(entry) ? "Confirm remove" : "Remove"}
                   </button>
                 </div>
               ) : (
@@ -108,12 +109,26 @@ export default function CollaboratorsPanel({ scriptId, currentUserId, compact = 
                     <p className={`text-xs truncate ${dark ? "text-amber-500/80" : "text-gray-600"}`}>{entry.user?.email || entry.invitedEmail}</p>
                   </div>
                   {isOwner && (
-                    <button
-                      onClick={() => askRemove(getCollaboratorUserId(entry) || entry.invitedEmail)}
-                      className={`shrink-0 rounded-xl px-2 py-1 text-[11px] font-bold transition ${dark ? "bg-red-500/10 text-red-400 hover:bg-red-500/20" : "bg-red-50 text-red-600 hover:bg-red-100"}`}
-                    >
-                      {confirmRemove === (getCollaboratorUserId(entry) || entry.invitedEmail) ? "Confirm" : "Cancel"}
-                    </button>
+                    <div className="flex shrink-0 gap-1">
+                      <button
+                        disabled={Boolean(refreshingInvite)}
+                        onClick={async () => {
+                          const identity = getCollaboratorIdentity(entry);
+                          setRefreshingInvite(identity);
+                          await resendInvite(identity);
+                          setRefreshingInvite("");
+                        }}
+                        className={`rounded-xl px-2 py-1 text-[11px] font-bold transition disabled:opacity-50 ${dark ? "bg-white/[0.06] text-amber-300 hover:bg-white/[0.1]" : "bg-white text-amber-800 hover:bg-amber-100"}`}
+                      >
+                        {refreshingInvite === getCollaboratorIdentity(entry) ? "Refreshing…" : entry.inviteExpired ? "Refresh" : "New link"}
+                      </button>
+                      <button
+                        onClick={() => askRemove(getCollaboratorIdentity(entry))}
+                        className={`rounded-xl px-2 py-1 text-[11px] font-bold transition ${dark ? "bg-red-500/10 text-red-400 hover:bg-red-500/20" : "bg-red-50 text-red-600 hover:bg-red-100"}`}
+                      >
+                        {confirmRemove === getCollaboratorIdentity(entry) ? "Confirm" : "Cancel"}
+                      </button>
+                    </div>
                   )}
                 </div>
                 <div className="mt-1.5 flex items-center gap-1.5">
@@ -121,7 +136,7 @@ export default function CollaboratorsPanel({ scriptId, currentUserId, compact = 
                     {getCollabRoleLabel(entry.role)}
                   </span>
                   <span className={`text-[10px] uppercase font-bold tracking-wide ${dark ? "text-amber-500/60" : "text-amber-700/60"}`}>
-                    • {entry.accessLevel === "content_only" ? "content only" : "full access"}
+                    • {entry.inviteExpired ? "expired" : entry.accessLevel === "content_only" ? "content only" : "full access"}
                   </span>
                 </div>
               </div>

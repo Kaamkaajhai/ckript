@@ -1,9 +1,8 @@
-import { useContext, useState } from "react";
+import { createElement, useContext, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ChevronDown, Trophy, Award, Sparkles, Mail, ExternalLink, ArrowLeft, X, User } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
 import { useAuthModal } from "../../context/AuthModalContext";
-import useCompetition from "../../components/competition/useCompetition";
 // Both /challenge/c/:slug and /hall-of-fame/:slug expose the same `slug` param, so this renders
 // unchanged under either route.
 import CompetitionRecord from "../hall-of-fame/HallOfFameDetail";
@@ -14,6 +13,12 @@ import { COMPANY } from "../../constants/company";
 import externalUrl from "../../utils/externalUrl";
 import "./challenge.css";
 import { JUDGING_CRITERIA, ELIGIBILITY_EXAMPLES } from "./constants";
+import {
+  CHALLENGE_DETAIL_STATUS,
+  challengeCountdownTarget,
+  challengeDetailAction,
+} from "./challengeDetail";
+import useChallengeDetail from "./useChallengeDetail";
 
 const Section = ({ id, title, children, subtitle }) => (
   <section id={id} className="scroll-mt-24 py-10">
@@ -36,10 +41,10 @@ const Card = ({ children, className = "", onClick, role, tabIndex }) => (
 
 // Rank reads by WEIGHT, not by a different hue per prize — a gold/silver/coral trio turned the
 // prize grid into a paint chart, and none of these is the thing that is live.
-const PrizeCard = ({ icon: Icon, title, items = [], accent }) => (
+const PrizeCard = ({ icon, title, items = [], accent }) => (
   <Card>
     <div className="flex items-center gap-2">
-      <Icon className="h-5 w-5" style={{ color: accent }} aria-hidden="true" />
+      {createElement(icon, { className: "h-5 w-5", style: { color: accent }, "aria-hidden": "true" })}
       <h3 className="ckc-title ckc-h3">{title}</h3>
     </div>
     <ul className="mt-4 space-y-2">
@@ -131,26 +136,28 @@ const CtaButton = ({ cta, className = "" }) => (
   </button>
 );
 
-// The next date the page counts down to, per phase.
-const countdownTargetFor = (phase, dates = {}) => {
-  if (phase === "announced") return { target: dates.regOpensAt, label: "Registration opens in" };
-  if (phase === "registration_open") return { target: dates.regClosesAt, label: "Registration closes in" };
-  if (phase === "registration_closed") return { target: dates.startsAt, label: "Competition starts in" };
-  if (phase === "live") return { target: dates.endsAt, label: "Time remaining" };
-  return { target: null, label: "" };
-};
-
 const CompetitionLanding = () => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext) || {};
   const { openAuthModal } = useAuthModal();
-  const [activeTab, setActiveTab] = useState("brief");
   const [selectedJudge, setSelectedJudge] = useState(null);
   const [selectedSponsor, setSelectedSponsor] = useState(null);
   // /challenge/c/:slug names its competition; the hook falls back to "the active one" when it is
   // absent, which is how every pre-hub entry point still works.
   const { slug } = useParams();
-  const { competition, entry, phase, timeline, results, serverNow, loading, error, refresh } = useCompetition({ slug });
+  const detail = useChallengeDetail({ slug, user });
+  const {
+    competition,
+    phase,
+    timeline = [],
+    results,
+    serverNow,
+  } = detail.public.data || {};
+  const entry = detail.entry.data || null;
+  const loading = detail.public.status === CHALLENGE_DETAIL_STATUS.LOADING;
+  const error = detail.public.failure?.message || "";
+  const entryPending = Boolean(user && competition && detail.entry.status === CHALLENGE_DETAIL_STATUS.LOADING);
+  const entryFailed = detail.entry.status === CHALLENGE_DETAIL_STATUS.FAILED;
 
   if (loading) {
     return (
@@ -168,6 +175,9 @@ const CompetitionLanding = () => {
         <div className="mx-auto max-w-3xl px-4 py-20">
           <Card className="text-center">
             <p className="ckc-lede" style={{ margin: "0 auto" }}>{error}</p>
+            <button type="button" className="ckc-btn" style={{ marginTop: 20 }} onClick={detail.refresh}>
+              Try again
+            </button>
           </Card>
         </div>
       </div>
@@ -187,7 +197,7 @@ const CompetitionLanding = () => {
   // had just written for it that it does not exist. Nothing needs fetching to avoid that: the
   // /active payload this page is already holding carries both the competition and its results, and
   // the Results section further down renders them.
-  if (phase === "results" && competition?.visibility !== "hidden") {
+  if (phase === "results" && !["hidden", "private"].includes(competition?.visibility)) {
     return <CompetitionRecord />;
   }
 
@@ -214,7 +224,7 @@ const CompetitionLanding = () => {
     );
   }
 
-  const { target, label } = countdownTargetFor(phase, competition.dates);
+  const { target, label } = challengeCountdownTarget(phase, competition.dates);
   const oneLiner = String(competition.overview || "").split(/(?<=[.!?])\s/)[0] || "";
 
   // Register and the dashboard are single routes shared by every competition, so they only know
@@ -222,50 +232,27 @@ const CompetitionLanding = () => {
   // whatever competition is active — not necessarily the one whose page they are standing on.
   const here = competition.slug || slug || "";
   const registerPath = here ? `/challenge/register?c=${here}` : "/challenge/register";
-  const dashboardPath = here ? `/challenge/dashboard?c=${here}` : "/challenge/dashboard";
 
   // The CTA is the same in the hero and the sticky bar, so registration state can never look
   // different in two places on one screen.
-  const cta = (() => {
-    if (entry) return { label: "Open Dashboard", onClick: () => navigate(dashboardPath), disabled: false };
-    if (phase === "registration_open") {
-      return {
-        label: "Register Now",
-        // route is a <Navigate to="/"> that drops its query string, so a ?next= link would strand
-        // them on the homepage having forgotten why they came.
-        onClick: () => {
-          if (user) {
-            navigate(registerPath);
-          } else {
-            openAuthModal({ redirect: registerPath });
-          }
-        },
-        disabled: false,
-      };
-    }
-    if (phase === "announced") return { label: "Registration opens soon", disabled: true };
-    if (phase === "registration_closed") return { label: "Writing begins soon", disabled: true };
-    // The one phase a newcomer cannot act on — registration is shut and judging has not started. A
-    // disabled "Registration closed" made it a dead end during the single week the competition is
-    // most visible. The theme is public the moment the gun fires, and it is the most interesting
-    // thing on the site that week, so send them to it.
-    if (phase === "live") {
-      return {
-        label: "See this year's theme",
-        onClick: () => {
-          // Smooth by default, instant for anyone who has asked for less motion — a long animated
-          // jump is exactly what that preference exists to prevent.
-          const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-          document.getElementById("theme")?.scrollIntoView({
-            behavior: reduce ? "auto" : "smooth",
-            block: "start",
-          });
-        },
-        disabled: false,
-      };
-    }
-    return { label: "Registration closed", disabled: true };
-  })();
+  const action = entryFailed
+    ? { kind: "unavailable", label: "Entry status unavailable", disabled: true }
+    : challengeDetailAction({ competition, entry, entryPending, phase, user, fallbackSlug: slug });
+  const cta = {
+    ...action,
+    onClick: () => {
+      if (action.kind === "authenticate") return openAuthModal({ redirect: registerPath });
+      if (action.to) return navigate(action.to);
+      if (action.targetId) {
+        const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+        document.getElementById(action.targetId)?.scrollIntoView({
+          behavior: reduce ? "auto" : "smooth",
+          block: "start",
+        });
+      }
+      return undefined;
+    },
+  };
 
   const mailto = (subject) =>
     `mailto:${COMPANY.supportEmail}?subject=${encodeURIComponent(`${subject} — ${competition.name}`)}`;
@@ -296,7 +283,7 @@ const CompetitionLanding = () => {
 
           {target ? (
             <div style={{ marginTop: 38 }}>
-              <CountdownTimer target={target} serverNow={serverNow} label={label} onExpire={refresh} />
+              <CountdownTimer target={target} serverNow={serverNow} label={label} onExpire={detail.refresh} />
             </div>
           ) : null}
 
@@ -309,6 +296,13 @@ const CompetitionLanding = () => {
               </span>
             ) : null}
           </div>
+          {action.reason ? <p className="ckc-lede" style={{ marginTop: 12 }}>{action.reason}</p> : null}
+          {entryFailed ? (
+            <p className="ckc-lede" style={{ marginTop: 12 }}>
+              {detail.entry.failure?.message}{" "}
+              <button type="button" className="ckc-link" onClick={detail.retryEntry}>Try again</button>
+            </p>
+          ) : null}
         </header>
 
         <Section id="participants" title="Who else is writing">

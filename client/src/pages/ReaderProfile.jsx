@@ -1,6 +1,6 @@
-import { useState, useEffect, useContext, useRef } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { createElement, useCallback, useState, useContext, useRef } from "react";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
+import { motion as Motion, AnimatePresence } from "framer-motion";
 import { BookOpen, Heart, MessageSquare, Pencil, ArrowLeft, X, Camera, Save, Loader2 } from "lucide-react";
 import api from "../services/api";
 import { AuthContext } from "../context/AuthContext";
@@ -12,6 +12,13 @@ import SocialShareButton from "../components/SocialShareButton";
 import ProfileCompletionBanner from "../components/ProfileCompletionBanner";
 import { getProfileCanonicalPath } from "../utils/profilePath";
 import { getScriptCanonicalPath } from "../utils/scriptPath";
+import {
+  readReaderProfileLocation,
+  readerFollowLabel,
+  READER_PROFILE_STATUS,
+  writeReaderProfileLocation,
+} from "./reader-profile/readerProfile";
+import { useReaderProfile } from "./reader-profile/useReaderProfile";
 
 const normalizePublicShareUrl = (rawUrl = "", fallbackUrl = "") => {
   const candidate = String(rawUrl || fallbackUrl || "").trim();
@@ -112,7 +119,7 @@ const EditProfileModal = ({ profile, onClose, onSaved }) => {
   const currentImage = previewImage || resolveImage(profile.profileImage);
 
   return (
-    <motion.div
+    <Motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
@@ -123,7 +130,7 @@ const EditProfileModal = ({ profile, onClose, onSaved }) => {
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
 
       {/* Modal */}
-      <motion.div
+      <Motion.div
         initial={{ opacity: 0, scale: 0.95, y: 16 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 16 }}
@@ -237,7 +244,7 @@ const EditProfileModal = ({ profile, onClose, onSaved }) => {
           {/* Error / Success */}
           <AnimatePresence>
             {error && (
-              <motion.div
+              <Motion.div
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
@@ -247,10 +254,10 @@ const EditProfileModal = ({ profile, onClose, onSaved }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M12 3a9 9 0 100 18 9 9 0 000-18z" />
                 </svg>
                 <p className="text-[12px] font-semibold text-red-600">{error}</p>
-              </motion.div>
+              </Motion.div>
             )}
             {success && (
-              <motion.div
+              <Motion.div
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="flex items-center gap-2 px-4 py-2.5 bg-green-50 border border-green-100 rounded-xl"
@@ -259,7 +266,7 @@ const EditProfileModal = ({ profile, onClose, onSaved }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                 </svg>
                 <p className="text-[12px] font-semibold text-green-700">Profile updated successfully!</p>
-              </motion.div>
+              </Motion.div>
             )}
           </AnimatePresence>
         </div>
@@ -286,8 +293,8 @@ const EditProfileModal = ({ profile, onClose, onSaved }) => {
             {saving ? "Saving..." : "Save Changes"}
           </button>
         </div>
-      </motion.div>
-    </motion.div>
+      </Motion.div>
+    </Motion.div>
   );
 };
 
@@ -297,39 +304,39 @@ const ReaderProfile = () => {
   const { user } = useContext(AuthContext);
   const { isDarkMode: dark } = useDarkMode();
   const navigate = useNavigate();
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("read");
-  const [readScripts, setReadScripts] = useState([]);
-  const [favorites, setFavorites] = useState([]);
-  const [reviews, setReviews] = useState([]);
-  const [dataLoading, setDataLoading] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [editOpen, setEditOpen] = useState(false);
   const [showConnectionsModal, setShowConnectionsModal] = useState(false);
   const [connectionsType, setConnectionsType] = useState("followers");
 
   const profileId = id || user?._id;
-  const isOwnProfile = !id || id === user?._id;
-
-  const normalizeScriptId = (value) => {
-    if (!value) return null;
-    if (typeof value === "string") return value;
-    if (typeof value === "object") {
-      if (value.script) return normalizeScriptId(value.script);
-      if (value._id) return String(value._id);
-      if (typeof value.toString === "function") {
-        const normalized = value.toString();
-        if (normalized && normalized !== "[object Object]") return normalized;
-      }
+  const { section: activeTab, page } = readReaderProfileLocation(searchParams);
+  const canonicalize = useCallback((path) => {
+    if (!id && path) {
+      const query = searchParams.toString();
+      navigate(`${path}${query ? `?${query}` : ""}`, { replace: true });
     }
-    return null;
+  }, [id, navigate, searchParams]);
+  const profileState = useReaderProfile({
+    profileId,
+    section: activeTab,
+    page,
+    viewer: user,
+    onCanonicalPath: canonicalize,
+  });
+  const profile = profileState.data?.profile || null;
+  const isOwnProfile = Boolean(profileState.data?.own);
+  const readScripts = activeTab === "read" ? profileState.data?.items || [] : [];
+  const favorites = activeTab === "favorites" ? profileState.data?.items || [] : [];
+  const reviews = activeTab === "reviews" ? profileState.data?.items || [] : [];
+  const dataLoading = profileState.status === READER_PROFILE_STATUS.LOADING;
+
+  const setActiveTab = (section) => {
+    setSearchParams(writeReaderProfileLocation(searchParams, { section, page: 1 }));
   };
 
-  const getReadScriptIds = (userObj) => {
-    const scriptsReadIds = Array.isArray(userObj?.scriptsRead)
-      ? userObj.scriptsRead.map(normalizeScriptId).filter(Boolean)
-      : [];
-    return [...new Set(scriptsReadIds)];
+  const setPage = (nextPage) => {
+    setSearchParams(writeReaderProfileLocation(searchParams, { section: activeTab, page: nextPage }));
   };
 
   const resolveImage = (url) => {
@@ -338,59 +345,8 @@ const ReaderProfile = () => {
     return `${(import.meta.env.VITE_API_URL || "http://localhost:5002").replace(/\/api\/?$/, "").replace(/\/$/, "")}${url}`;
   };
 
-  useEffect(() => { fetchProfile(); }, [profileId]);
-  useEffect(() => { if (profileId) fetchTabData(); }, [activeTab, profileId]);
-
-  const fetchProfile = async () => {
-    try {
-      setLoading(true);
-      const [userRes, reviewsRes] = await Promise.all([
-        api.get(`/users/${profileId}`),
-        api.get(`/reviews/user/${profileId}?limit=1`) // Fetch total review count
-      ]);
-      const userObj = userRes.data.user || userRes.data;
-      setProfile({ ...userObj, reviewsCount: reviewsRes.data.total || 0 });
-    } catch { setProfile(null); }
-    finally { setLoading(false); }
-  };
-
-  const fetchTabData = async () => {
-    try {
-      setDataLoading(true);
-      if (activeTab === "read" || activeTab === "favorites") {
-        const { data } = await api.get(`/users/${profileId}`);
-        const userObj = data.user || data;
-        const arr = activeTab === "read" ? getReadScriptIds(userObj) : userObj.favoriteScripts;
-
-        if (arr?.length) {
-          const scripts = await Promise.all(
-            arr.slice(0, 20).map(async (entry) => {
-              try {
-                const scriptId = normalizeScriptId(entry);
-                if (!scriptId) return null;
-                const s = typeof entry === "object" && entry?._id && entry?.title
-                  ? entry
-                  : (await api.get(`/scripts/${scriptId}`)).data;
-                return s;
-              } catch { return null; }
-            })
-          );
-          if (activeTab === "read") setReadScripts(scripts.filter(Boolean));
-          else setFavorites(scripts.filter(Boolean));
-        } else {
-          if (activeTab === "read") setReadScripts([]);
-          else setFavorites([]);
-        }
-      } else if (activeTab === "reviews") {
-        const { data } = await api.get(`/reviews/user/${profileId}`);
-        setReviews(data.reviews || []);
-      }
-    } catch { /* silent */ }
-    finally { setDataLoading(false); }
-  };
-
   const handleProfileSaved = (updatedData) => {
-    setProfile((prev) => ({ ...prev, ...updatedData }));
+    profileState.applyProfileUpdate(updatedData);
   };
 
   const openConnectionsModal = (type) => {
@@ -412,7 +368,7 @@ const ReaderProfile = () => {
     navigate(getProfilePath(userRef));
   };
 
-  if (loading) return (
+  if (profileState.status === READER_PROFILE_STATUS.LOADING) return (
     <div className="min-h-[80vh] flex items-center justify-center">
       <div className="w-10 h-10 border-3 border-gray-200 border-t-[#1e3a5f] rounded-full animate-spin" />
     </div>
@@ -425,8 +381,17 @@ const ReaderProfile = () => {
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
         </svg>
       </div>
-      <p className="text-gray-900 font-extrabold text-xl">Profile not found</p>
-      <p className="text-gray-500 font-medium text-sm mb-2">This user might have been removed or deleted.</p>
+      <p className="text-gray-900 font-extrabold text-xl">
+        {profileState.status === READER_PROFILE_STATUS.PRIVATE ? "This reader profile is private" : "Reader profile unavailable"}
+      </p>
+      <p className="text-gray-500 font-medium text-sm mb-2">{profileState.failure?.message || "This reader might have been removed."}</p>
+      {profileState.status === READER_PROFILE_STATUS.PRIVATE && profileState.failure?.profileId ? (
+        <button type="button" onClick={profileState.follow} disabled={profileState.followPending} className="text-sm font-bold text-white bg-[#1e3a5f] px-6 py-2.5 rounded-xl disabled:opacity-50">
+          {profileState.failure?.relationship?.followRequestPending ? "Cancel follow request" : "Send follow request"}
+        </button>
+      ) : profileState.status === READER_PROFILE_STATUS.FAILED ? (
+        <button type="button" onClick={profileState.reload} className="text-sm font-bold text-white bg-[#1e3a5f] px-6 py-2.5 rounded-xl">Try again</button>
+      ) : null}
       <Link to="/reader" className="text-sm font-bold text-white bg-[#1e3a5f] hover:bg-[#162d4a] px-6 py-2.5 rounded-xl transition-colors">
         Back to Reader
       </Link>
@@ -444,12 +409,12 @@ const ReaderProfile = () => {
     title: profile?.shareMeta?.title || `${profile?.name || "Reader"} | Ckript`,
     text: profile?.shareMeta?.text || `Check out ${profile?.name || "this reader"}'s profile on Ckript.`,
   };
-  const readScriptsCount = readScripts.length;
+  const readScriptsCount = profileState.data.counts.read;
 
   const tabs = [
     { key: "read", label: "Scripts Read", icon: BookOpen, count: readScriptsCount },
-    { key: "favorites", label: "Favorites", icon: Heart, count: profile.favoriteScripts?.length || 0 },
-    { key: "reviews", label: "Reviews", icon: MessageSquare, count: profile.reviewsCount || 0 },
+    { key: "favorites", label: "Favorites", icon: Heart, count: profileState.data.counts.favorites },
+    { key: "reviews", label: "Reviews", icon: MessageSquare, count: profileState.data.counts.reviews },
   ];
 
   const profileCompletion = profile?.profileCompletion;
@@ -491,7 +456,7 @@ const ReaderProfile = () => {
       />
 
       {/* Main Profile Header Card */}
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className={`rounded-3xl border shadow-sm overflow-hidden mb-8 ${dark ? "bg-[#101e30] border-[#182840]" : "bg-white border-gray-100"}`}>
+      <Motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className={`rounded-3xl border shadow-sm overflow-hidden mb-8 ${dark ? "bg-[#101e30] border-[#182840]" : "bg-white border-gray-100"}`}>
         {/* Decorative Gradient Banner */}
         <div className="h-36 sm:h-44 bg-gradient-to-tr from-[#0f1c2e] via-[#1e3a5f] to-[#3a6ea5] relative overflow-hidden">
           <div className="absolute inset-0 opacity-20">
@@ -554,14 +519,25 @@ const ReaderProfile = () => {
                       Edit Profile
                     </button>
                   )}
+                  {!isOwnProfile && (
+                    <button
+                      type="button"
+                      onClick={profileState.follow}
+                      disabled={profileState.followPending || profileState.data.relationship.blockedByCurrent || profileState.data.relationship.blockedByProfile}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white bg-[#1e3a5f] border border-[#1e3a5f] disabled:opacity-50"
+                    >
+                      {profileState.followPending ? "Updating…" : readerFollowLabel(profileState.data.relationship)}
+                    </button>
+                  )}
                 </div>
+                {profileState.actionError ? <p className="mt-3 text-sm font-semibold text-red-600">{profileState.actionError}</p> : null}
               </div>
 
               <div className="grid grid-cols-2 gap-2.5 self-start">
                 {[
-                  { label: "Scripts Read", value: readScriptsCount },
+                  { label: "Scripts Read", value: readScriptsCount ?? "Private" },
                   { label: "Followers", value: profile.followers?.length || 0, connectionType: "followers" },
-                  { label: "Reviews", value: profile.reviewsCount || 0 },
+                  { label: "Reviews", value: profileState.data.counts.reviews },
                   { label: "Following", value: profile.following?.length || 0, connectionType: "following" },
                 ].map((item) => (
                   <button
@@ -620,7 +596,7 @@ const ReaderProfile = () => {
                       <Icon size={16} strokeWidth={isActive ? 2.4 : 2} className={isActive ? "text-blue-200" : dark ? "text-gray-400" : "text-gray-500"} />
                       <span>{tab.label}</span>
                       <div className={`ml-0.5 px-1.5 py-0.5 rounded-md text-[10px] font-black tabular-nums ${isActive ? "bg-white/20 text-white" : dark ? "bg-white/[0.08] text-gray-300" : "bg-white border border-gray-200 text-gray-600"}`}>
-                        {tab.count}
+                        {tab.count == null ? "Private" : tab.count}
                       </div>
                     </button>
                   );
@@ -629,20 +605,20 @@ const ReaderProfile = () => {
             </div>
           </div>
         </div>
-      </motion.div>
+      </Motion.div>
 
       {/* Main Tab Content */}
       <AnimatePresence mode="wait">
         {dataLoading ? (
-          <motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+          <Motion.div key="loading" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
             {[...Array(6)].map((_, i) => (
               <div key={i} className={`rounded-2xl border h-[280px] animate-pulse shadow-sm ${dark ? "bg-[#101e30] border-[#182840]" : "bg-white border-gray-100"}`} />
             ))}
-          </motion.div>
+          </Motion.div>
         ) : (
           <div className="min-h-[400px]">
             {activeTab === "read" && (
-              <motion.div key="read" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+              <Motion.div key="read" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
                 {readScripts.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                     {readScripts.map((s) => <ProjectCard key={s._id} project={s} userName={s.creator?.name || "Unknown"} />)}
@@ -655,11 +631,11 @@ const ReaderProfile = () => {
                     action={isOwnProfile ? <Link to="/reader" className="mt-4 inline-block px-6 py-2.5 bg-[#1e3a5f] text-white rounded-xl text-sm font-bold hover:bg-[#162d4a] transition-colors shadow-sm">Explore Scripts</Link> : null}
                   />
                 )}
-              </motion.div>
+              </Motion.div>
             )}
 
             {activeTab === "favorites" && (
-              <motion.div key="favorites" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+              <Motion.div key="favorites" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
                 {favorites.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
                     {favorites.map((s) => <ProjectCard key={s._id} project={s} userName={s.creator?.name || "Unknown"} />)}
@@ -667,15 +643,15 @@ const ReaderProfile = () => {
                 ) : (
                   <EmptyState
                     icon={Heart}
-                    title="No favorites saved"
-                    subtitle={isOwnProfile ? "Save your favorite scripts by tapping the heart icon!" : "This user hasn't saved any favorites."}
+                    title={profileState.data.pagination.privateCollection ? "Favorites are private" : "No favorites saved"}
+                    subtitle={isOwnProfile ? "Save your favorite scripts by tapping the heart icon!" : "Readers' saved projects are visible only to them."}
                   />
                 )}
-              </motion.div>
+              </Motion.div>
             )}
 
             {activeTab === "reviews" && (
-              <motion.div key="reviews" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
+              <Motion.div key="reviews" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1 }} exit={{ opacity: 0, y: -8 }}>
                 {reviews.length > 0 ? (
                   <div className="columns-1 lg:columns-2 gap-4 sm:gap-6 space-y-4 sm:space-y-6">
                     {reviews.map((r) => (
@@ -703,11 +679,33 @@ const ReaderProfile = () => {
                     subtitle={isOwnProfile ? "Help writers by sharing your thoughtful feedback!" : "This user hasn't reviewed any scripts."}
                   />
                 )}
-              </motion.div>
+              </Motion.div>
             )}
           </div>
         )}
       </AnimatePresence>
+
+      {!dataLoading && profileState.data.pagination.totalPages > 1 ? (
+        <nav className="mt-8 flex items-center justify-center gap-4" aria-label={`${activeTab} pages`}>
+          <button
+            type="button"
+            disabled={!profileState.data.pagination.hasPrevious}
+            onClick={() => setPage(page - 1)}
+            className="min-h-11 px-4 rounded-xl border border-gray-200 bg-white text-sm font-bold disabled:opacity-40"
+          >
+            Previous
+          </button>
+          <span className="text-sm font-semibold text-gray-500">Page {page} of {profileState.data.pagination.totalPages}</span>
+          <button
+            type="button"
+            disabled={!profileState.data.pagination.hasNext}
+            onClick={() => setPage(page + 1)}
+            className="min-h-11 px-4 rounded-xl border border-gray-200 bg-white text-sm font-bold disabled:opacity-40"
+          >
+            Next
+          </button>
+        </nav>
+      ) : null}
 
       {/* Connections Modal */}
       {showConnectionsModal && (
@@ -715,7 +713,7 @@ const ReaderProfile = () => {
           className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
           onClick={() => setShowConnectionsModal(false)}
         >
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0, scale: 0.97, y: 6 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             className={`rounded-2xl shadow-2xl max-w-md w-full border overflow-hidden ${dark ? "bg-[#0d1520] border-white/[0.08]" : "bg-white border-gray-200"}`}
@@ -783,7 +781,7 @@ const ReaderProfile = () => {
                 </div>
               )}
             </div>
-          </motion.div>
+          </Motion.div>
         </div>
       )}
 
@@ -806,7 +804,7 @@ const EmptyState = ({ icon: Icon, title, subtitle, action }) => {
   return (
   <div className={`backdrop-blur-xl rounded-3xl border shadow-sm p-12 lg:p-16 text-center max-w-2xl mx-auto flex flex-col items-center ${dark ? "bg-[#101e30]/50 border-[#182840]" : "bg-white/50 border-gray-100/50"}`}>
     <div className={`w-20 h-20 rounded-2xl border shadow-sm flex items-center justify-center mb-6 ${dark ? "bg-white/[0.04] border-[#182840]" : "bg-gradient-to-br from-gray-50 to-gray-100 border-white"}`}>
-      <Icon size={32} strokeWidth={1.5} className="text-gray-400" />
+      {createElement(Icon, { size: 32, strokeWidth: 1.5, className: "text-gray-400" })}
     </div>
     <h3 className={`text-xl font-black mb-2 ${dark ? "text-gray-100" : "text-gray-900"}`}>{title}</h3>
     <p className="text-sm text-gray-500 font-medium max-w-md mx-auto leading-relaxed mb-2">{subtitle}</p>

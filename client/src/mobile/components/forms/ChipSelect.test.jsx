@@ -65,6 +65,7 @@ describe("ChipSelect — semantics", () => {
     const group = document.querySelector(".ckm-chip-row");
     const described = document.getElementById(group.getAttribute("aria-describedby"));
 
+    expect(group.getAttribute("aria-invalid")).toBe("true");
     expect(described.textContent).toContain("Pick at least one.");
     expect(described.getAttribute("role")).toBe("alert");
   });

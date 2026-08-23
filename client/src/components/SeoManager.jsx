@@ -8,6 +8,7 @@ import {
   SITE_URL,
 } from "../seo/seoRoutes";
 import { searchVerification } from "../seo/seoConfig";
+import { isMissingSeoContentPath } from "../seo/seoPageContent";
 
 function setMetaByName(name, content) {
   let tag = document.querySelector(`meta[name="${name}"]`);
@@ -64,7 +65,9 @@ export default function SeoManager() {
     const canonicalPath = resolveCanonicalPath(pathname);
     const seo = getSeoForPath(pathname);
     const canonicalUrl = seo.canonicalUrl || `${SITE_URL}${canonicalPath}`;
-    const robots = isNoIndexPath(pathname) ? "noindex, nofollow" : "index, follow";
+    const robots = isNoIndexPath(pathname) || isMissingSeoContentPath(canonicalPath)
+      ? "noindex, nofollow"
+      : "index, follow";
 
     document.title = seo.title || defaultSeo.title;
 

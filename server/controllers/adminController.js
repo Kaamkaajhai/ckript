@@ -33,6 +33,10 @@ import {
 import { extractTextFromPdfUrl } from "../utils/pdfTextExtraction.js";
 import { fetchTrustedPdfAsset, getCloudinaryResourceTypeFromUrl } from "../utils/remoteAssetPolicy.js";
 import { asTrimmedString } from "../utils/requestValue.js";
+import {
+    describeMembershipProofAsset,
+    hasMembershipProofAsset,
+} from "../utils/membershipProofAsset.js";
 
 const buildChatId = (idA, idB) => {
     const sorted = [idA.toString(), idB.toString()].sort();
@@ -2284,7 +2288,7 @@ export const getPendingWriterMembershipReviews = async (req, res) => {
                     label: "WGA",
                     status: String(wga?.status || "not_submitted"),
                     submittedAt: wga?.submittedAt,
-                    proofUrl: wga?.proofUrl || "",
+                    hasProof: hasMembershipProofAsset(wga),
                     proofFileName: wga?.proofFileName || "",
                     adminNote: wga?.adminNote || "",
                 },
@@ -2293,7 +2297,7 @@ export const getPendingWriterMembershipReviews = async (req, res) => {
                     label: "SWA",
                     status: String(swa?.status || "not_submitted"),
                     submittedAt: swa?.submittedAt,
-                    proofUrl: swa?.proofUrl || "",
+                    hasProof: hasMembershipProofAsset(swa),
                     proofFileName: swa?.proofFileName || "",
                     adminNote: swa?.adminNote || "",
                 },
@@ -2336,27 +2340,26 @@ export const getWriterMembershipProofAccessUrl = async (req, res) => {
         }
 
         const entry = user?.writerProfile?.membershipVerification?.[membershipType] || {};
-        const proofUrl = normalizeString(entry?.proofUrl);
-        const proofPublicId = normalizeString(entry?.proofPublicId);
-        const proofMimeType = normalizeString(entry?.proofMimeType).toLowerCase();
+        const asset = describeMembershipProofAsset(entry);
 
-        if (!proofUrl && !proofPublicId) {
+        if (!asset.fallbackUrl && !asset.publicId) {
             return res.status(404).json({ message: "Proof file not found" });
         }
 
-        if (proofMimeType !== "application/pdf" || !proofPublicId) {
-            return res.json({ url: proofUrl });
+        if (!asset.publicId) {
+            res.set("Cache-Control", "private, no-store");
+            return res.json({ url: asset.fallbackUrl });
         }
 
         const expiresAt = Math.floor(Date.now() / 1000) + 10 * 60;
-        const resourceType = getCloudinaryResourceTypeFromUrl(proofUrl) || "raw";
-        const signedUrl = buildPrivateDownloadUrl(proofPublicId, "pdf", {
-            resource_type: resourceType,
-            type: "upload",
+        const signedUrl = buildPrivateDownloadUrl(asset.publicId, asset.format, {
+            resource_type: asset.resourceType,
+            type: asset.deliveryType,
             expires_at: expiresAt,
             attachment: false,
         });
 
+        res.set("Cache-Control", "private, no-store");
         return res.json({ url: signedUrl });
     } catch (error) {
         return res.status(500).json({ message: error.message || "Failed to build proof access URL" });
@@ -2428,7 +2431,7 @@ export const reviewWriterMembership = async (req, res) => {
             return res.status(400).json({ message: `No pending ${membershipConfig.label} membership review found` });
         }
 
-        if (decision === "approve" && !entry.proofUrl) {
+        if (decision === "approve" && !hasMembershipProofAsset(entry)) {
             return res.status(400).json({ message: `${membershipConfig.label} proof is missing` });
         }
 

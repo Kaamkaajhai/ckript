@@ -74,8 +74,9 @@ import Sheet from "../../../components/overlays/Sheet";
 import MobileShell from "../../../shell/MobileShell";
 import { MOBILE_SHELL_MODE } from "../../../shell/mobileShellModes";
 import { shareProject } from "../../../data/shareProject";
+import MeetingSheet from "../../../components/meetings/MeetingSheet";
+import { emptyMeetingDraft } from "../../../components/meetings/meetingModel";
 import FeedbackSheet from "./components/FeedbackSheet";
-import MeetingSheet from "./components/MeetingSheet";
 import ProjectReaderDialog from "./components/ProjectReaderDialog";
 import ProjectSection from "./components/ProjectSection";
 import PurchaseRequestList from "./components/PurchaseRequestList";
@@ -96,7 +97,6 @@ import {
   describePurchaseAction,
   describeReaderAccess,
   describeTransactionStanding,
-  emptyMeetingDraft,
   formatMoney,
   getSection,
   resolveRecommendedAction,
@@ -118,6 +118,9 @@ function ProjectDetailLoading() {
 export default function ProjectDetailMobile({
   user: userProp = undefined,
   previewData = null,
+  canonicalize = true,
+  backTo = "/search",
+  screenId = "project-detail",
   /*
    * The lists the API would have supplied, for the sweep harness only.
    *
@@ -143,7 +146,7 @@ export default function ProjectDetailMobile({
     writerUsername: params.writerUsername,
     user,
     pathname: location.pathname,
-    onCanonicalPath: (path) => navigate(path, { replace: true }),
+    onCanonicalPath: canonicalize ? (path) => navigate(path, { replace: true }) : undefined,
     // The harness supplies a settled project so a five-width sweep measures the same screen twice.
     enabled: !previewData,
   });
@@ -373,7 +376,7 @@ export default function ProjectDetailMobile({
     <PageHeader
       title={script?.title || (status === PROJECT_DETAIL_STATUS.LOADING ? "Loading project" : "Project")}
       eyebrow={script ? describeCredit(script) : ""}
-      backTo="/search"
+      backTo={backTo}
       backLabel="Back"
       actions={script ? (
         <>
@@ -395,7 +398,7 @@ export default function ProjectDetailMobile({
   const shell = (children, overlays = null) => (
     <MobileShell
       mode={MOBILE_SHELL_MODE.DETAIL}
-      screenId="project-detail"
+      screenId={screenId}
       className="ckm-project"
       scrollClassName="ckm-project__scroll"
       appBar={header}

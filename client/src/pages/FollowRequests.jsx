@@ -1,48 +1,13 @@
-import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import api from "../services/api";
 import { useDarkMode } from "../context/DarkModeContext";
+import {
+  INCOMING_FOLLOW_REQUEST_STATUS,
+  useIncomingFollowRequests,
+} from "./profile/useIncomingFollowRequests";
 
 export default function FollowRequests() {
   const { isDarkMode } = useDarkMode();
-  const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [actingId, setActingId] = useState("");
-
-  const fetchRequests = useCallback(async () => {
-    setLoading(true);
-    setError("");
-    try {
-      const { data } = await api.get("/users/follow-requests");
-      setRequests(Array.isArray(data?.requests) ? data.requests : []);
-    } catch (err) {
-      setError(err?.response?.data?.message || "Failed to load follow requests.");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchRequests();
-  }, [fetchRequests]);
-
-  const decide = async (req, decision) => {
-    const fromUserId = req?.from?._id;
-    if (!fromUserId || actingId) return;
-    setActingId(fromUserId);
-    try {
-      const endpoint = decision === "accept"
-        ? "/users/follow-requests/accept"
-        : "/users/follow-requests/reject";
-      await api.post(endpoint, { fromUserId });
-      setRequests((prev) => prev.filter((r) => (r?.from?._id) !== fromUserId));
-    } catch (err) {
-      setError(err?.response?.data?.message || "Action failed. Please try again.");
-    } finally {
-      setActingId("");
-    }
-  };
+  const { requests, status, error, actingId, reload, decide } = useIncomingFollowRequests();
 
   const cardCls = isDarkMode
     ? "bg-[#0d1520] border-white/[0.06]"
@@ -63,17 +28,20 @@ export default function FollowRequests() {
         <div className={`mb-4 px-3 py-2 rounded-lg text-sm ${
           isDarkMode ? "bg-red-500/10 text-red-300 border border-red-500/20" : "bg-red-50 text-red-700 border border-red-200"
         }`}>
-          {error}
+          <span>{error}</span>
+          {status === INCOMING_FOLLOW_REQUEST_STATUS.FAILED ? (
+            <button type="button" onClick={reload} className="ml-2 font-bold underline">Try again</button>
+          ) : null}
         </div>
       )}
 
-      {loading ? (
+      {status === INCOMING_FOLLOW_REQUEST_STATUS.LOADING ? (
         <div className="flex justify-center items-center py-16">
           <div className={`w-6 h-6 border-2 rounded-full animate-spin ${
             isDarkMode ? "border-white/10 border-t-white/50" : "border-gray-200 border-t-[#1e3a5f]"
           }`} />
         </div>
-      ) : requests.length === 0 ? (
+      ) : status === INCOMING_FOLLOW_REQUEST_STATUS.FAILED ? null : requests.length === 0 ? (
         <div className={`rounded-2xl border p-10 text-center ${cardCls}`}>
           <p className={`text-sm font-semibold ${textSecondary}`}>No pending follow requests.</p>
         </div>
@@ -107,7 +75,7 @@ export default function FollowRequests() {
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
                   <button
-                    onClick={() => decide(req, "accept")}
+                    onClick={() => decide(u._id, "accept")}
                     disabled={actingId === u._id}
                     className={`px-3 py-1.5 rounded-lg text-[12px] font-bold transition-colors disabled:opacity-60 ${
                       isDarkMode ? "bg-blue-500 text-white hover:bg-blue-600" : "bg-[#1e3a5f] text-white hover:bg-[#152a47]"
@@ -116,7 +84,7 @@ export default function FollowRequests() {
                     Accept
                   </button>
                   <button
-                    onClick={() => decide(req, "reject")}
+                    onClick={() => decide(u._id, "reject")}
                     disabled={actingId === u._id}
                     className={`px-3 py-1.5 rounded-lg text-[12px] font-semibold border transition-colors disabled:opacity-60 ${
                       isDarkMode ? "border-white/15 text-[#b0c0d0] hover:bg-white/[0.05]" : "border-gray-300 text-gray-600 hover:bg-gray-50"

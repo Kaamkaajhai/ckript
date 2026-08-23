@@ -12,6 +12,13 @@ import { isMobileShellMode } from "../shell/mobileShellModes";
  */
 const APP_ROUTE_PATTERNS = [
   "/",
+  "/__mobile-challenge-detail",
+  "/__mobile-challenge-register",
+  "/__mobile-challenge-dashboard",
+  "/__mobile-hall-of-fame",
+  "/__mobile-industry",
+  "/__mobile-reader",
+  "/__mobile-challenges",
   "/__mobile-checkout",
   "/__mobile-create",
   "/__mobile-featured",
@@ -35,6 +42,7 @@ const APP_ROUTE_PATTERNS = [
   "/challenge/dashboard",
   "/challenge/register",
   "/challenges",
+  "/collaborations",
   "/contact",
   "/create-project",
   "/create-project/:draftId",

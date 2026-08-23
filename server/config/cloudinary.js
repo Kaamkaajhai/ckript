@@ -36,6 +36,9 @@ const uploadToCloudinaryRemote = async (buffer, options = {}) => {
   if (options.public_id) {
     uploadOptions.public_id = options.public_id;
   }
+  if (options.type) {
+    uploadOptions.type = options.type;
+  }
 
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(uploadOptions, (error, result) => {
@@ -56,6 +59,9 @@ const uploadToCloudinaryChunkedRemote = async (buffer, options = {}) => {
 
   if (options.public_id) {
     uploadOptions.public_id = options.public_id;
+  }
+  if (options.type) {
+    uploadOptions.type = options.type;
   }
 
   return new Promise((resolve, reject) => {

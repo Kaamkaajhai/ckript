@@ -2,18 +2,17 @@ import { useContext, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   Home, CalendarDays, Trophy, Users, BookOpen, PenLine,
-  Lock, Copy, Check, CheckCircle2, AlertCircle, ExternalLink, Laptop,
+  Lock, Copy, Check, CheckCircle2, AlertCircle, ExternalLink,
 } from "lucide-react";
 import { AuthContext } from "../../context/AuthContext";
-import api from "../../services/api";
-import useCompetition from "../../components/competition/useCompetition";
+import useChallengeDashboard from "./useChallengeDashboard";
+import { CHALLENGE_DASHBOARD_STATUS, challengeDashboardTab } from "./challengeDashboard";
 import CountdownTimer from "../../components/competition/CountdownTimer";
 import PhaseTimeline from "../../components/competition/PhaseTimeline";
 import CompetitionJourney from "../../components/competition/CompetitionJourney";
-import ParticipantsGrid from "../../components/competition/ParticipantsGrid";
+import CompetitionParticipants from "../../components/competition/CompetitionParticipants";
 import ReferralDrive from "../../components/competition/ReferralDrive";
 import { rewardLabel } from "../../components/competition/labels";
-import useIsMobile from "../../mobile/hooks/useIsMobile";
 import "./challenge.css";
 import {
   JUDGING_CRITERIA, WRITING_RESOURCES, STUDIO_LOCKED_MESSAGE, PARTICIPANT_COMPLETION_MESSAGE,
@@ -118,23 +117,30 @@ const AIResults = ({ ai }) => {
 const CompetitionDashboard = () => {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext) || {};
-  const isMobile = useIsMobile();
   // One route serves every competition, so the one being looked at travels in `?c=` from whichever
   // page linked here. Resolving "the active competition" instead would show a writer the wrong
   // event's clock, theme and entry — and their own is the one with a deadline.
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const slug = searchParams.get("c") || "";
-  const { competition, entry, phase, timeline, results, referrals, referralCode, serverNow, loading, refresh } = useCompetition({ slug });
-  const [section, setSection] = useState("home");
+  const dashboard = useChallengeDashboard({ slug, user, communityEnabled: challengeDashboardTab(searchParams.get("tab")) === "community" });
+  const { competition, entry, phase, timeline, results, referrals, referralCode, serverNow } = dashboard.data || {};
+  const loading = dashboard.status === CHALLENGE_DASHBOARD_STATUS.LOADING;
+  const section = challengeDashboardTab(searchParams.get("tab"));
+  const setSection = (next) => {
+    const updated = new URLSearchParams(searchParams);
+    if (next === "home") updated.delete("tab"); else updated.set("tab", next);
+    if (slug) updated.set("c", slug);
+    setSearchParams(updated, { replace: true });
+  };
   const [copied, setCopied] = useState(false);
-  const [opening, setOpening] = useState(false);
-  const [openError, setOpenError] = useState("");
 
   useEffect(() => {
-    if (loading) return;
-    if (!competition) navigate("/challenge", { replace: true });
-    else if (!entry) navigate("/challenge", { replace: true });
-  }, [loading, competition, entry, navigate]);
+    if ([CHALLENGE_DASHBOARD_STATUS.NOT_FOUND, CHALLENGE_DASHBOARD_STATUS.NOT_REGISTERED].includes(dashboard.status)) navigate("/challenge", { replace: true });
+  }, [dashboard.status, navigate]);
+
+  if (dashboard.status === CHALLENGE_DASHBOARD_STATUS.FAILED) {
+    return <div className="ckc" style={{ minHeight: "100vh", padding: 48, textAlign: "center" }}><p className="ckc-prose">{dashboard.failure?.message}</p><button type="button" className="ckc-btn mt-4" onClick={dashboard.refresh}>Try again</button></div>;
+  }
 
   if (loading || !competition || !entry) {
     return (
@@ -152,17 +158,8 @@ const CompetitionDashboard = () => {
   const currentStep = (timeline || []).find((step) => step.status === "current");
 
   const openEditor = async () => {
-    setOpening(true);
-    setOpenError("");
-    try {
-      const { data } = await api.post(`/competitions/${competition._id}/open-editor`);
-      navigate(`/create-project/${data.scriptId}?ctx=competition`);
-    } catch (err) {
-      setOpenError(err?.response?.data?.message || "Could not open the editor. Please try again.");
-      refresh();
-    } finally {
-      setOpening(false);
-    }
+    const scriptId = await dashboard.openEditor();
+    if (scriptId) navigate(`/create-project/${scriptId}?ctx=competition`);
   };
 
   const renderOpenEditorButton = () => (
@@ -170,13 +167,13 @@ const CompetitionDashboard = () => {
       <button
         type="button"
         onClick={openEditor}
-        disabled={opening}
+        disabled={dashboard.opening}
         className="ckc-btn"
       >
-        {opening ? "Opening…" : entry.scriptId ? "Continue writing" : "Open Script Editor"}
+        {dashboard.opening ? "Opening…" : entry.scriptId ? "Continue writing" : "Open Script Editor"}
       </button>
-      {openError ? (
-        <p style={{ marginTop: 10, fontSize: 14, color: "var(--ckc-accent-text)" }}>{openError}</p>
+      {dashboard.openError ? (
+        <p style={{ marginTop: 10, fontSize: 14, color: "var(--ckc-accent-text)" }}>{dashboard.openError}</p>
       ) : null}
     </div>
   );
@@ -423,12 +420,15 @@ const CompetitionDashboard = () => {
         competitionName={competition.name}
         referrals={referrals}
         referralCode={referralCode}
+        historyState={dashboard.referrals}
+        onLoadMore={dashboard.loadMoreReferrals}
+        onRetry={dashboard.retryReferrals}
       />
 
       <Card>
         <h2 className="ckc-title ckc-h3">Who else is writing</h2>
         <div className="mt-5">
-          <ParticipantsGrid competitionId={competition._id} prizePool={competition.prizePool} />
+          <CompetitionParticipants state={dashboard.participants} pendingId={dashboard.followPending} followError={dashboard.followError} onToggleFollow={dashboard.toggleFollow} onLoadMore={dashboard.loadMoreParticipants} onRetry={dashboard.retryParticipants} />
         </div>
       </Card>
     </div>
@@ -531,27 +531,6 @@ const CompetitionDashboard = () => {
     community: renderCommunity, resources: renderResources, studio: renderStudio,
   }[section]();
 
-  if (isMobile) {
-    return (
-      <div className="ckc" style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
-        <Card className="text-center w-full max-w-sm" style={{ background: "var(--ckc-cream)", border: "1px solid var(--ckc-rule)", padding: "32px 24px" }}>
-          <div className="flex flex-col items-center gap-4">
-            <Laptop className="h-10 w-10" style={{ color: "var(--ckc-accent)" }} />
-            <div>
-              <h3 className="ckc-title ckc-h2" style={{ color: "var(--ckc-ink)" }}>You're registered!</h3>
-              <p style={{ marginTop: 8, fontSize: 15, lineHeight: 1.6, color: "var(--ckc-muted)" }}>
-                Please log in on a laptop or desktop computer to view full competition details, access the challenge workflow, and write your script.
-              </p>
-            </div>
-            <button className="ckc-btn w-full mt-4" onClick={() => navigate("/")}>
-              Return Home
-            </button>
-          </div>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="ckc" style={{ minHeight: "100vh", paddingBottom: 96 }}>
       <div style={{ margin: "0 auto", maxWidth: 1120, padding: "48px 24px 0" }}>
@@ -589,7 +568,7 @@ const CompetitionDashboard = () => {
             section you are standing in — so it sits above the nav rather than three cards into Home. */}
         {phase === "announced" || phase === "registration_open" || phase === "registration_closed" ? (
           <Card style={{ marginTop: 34, padding: "28px 32px" }}>
-            <CountdownTimer target={competition.dates?.startsAt} serverNow={serverNow} label="Competition starts in" onExpire={refresh} />
+            <CountdownTimer target={competition.dates?.startsAt} serverNow={serverNow} label="Competition starts in" onExpire={dashboard.refresh} />
             <p className="ckc-prose" style={{ marginTop: 18, fontSize: 14 }}>
               The theme is revealed the moment the clock hits zero. Then you have 48 hours.
             </p>
@@ -598,7 +577,7 @@ const CompetitionDashboard = () => {
 
         {isLive ? (
           <Card className="ckc-live" style={{ marginTop: 34, padding: "28px 32px" }}>
-            <CountdownTimer target={competition.dates?.endsAt} serverNow={serverNow} label="Time remaining" onExpire={refresh} />
+            <CountdownTimer target={competition.dates?.endsAt} serverNow={serverNow} label="Time remaining" onExpire={dashboard.refresh} />
           </Card>
         ) : null}
 
