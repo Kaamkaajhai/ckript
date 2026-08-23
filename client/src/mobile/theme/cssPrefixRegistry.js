@@ -300,6 +300,20 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     note: "Full-screen trailer playback with source fallback and the narrated-summary alternative. Promoted out of screens/discovery/components in D28, when project detail became its second caller — §6 reserves a family's components/ folder for components exclusive to that family.",
   },
 
+  // --- Public marketing (Phase 8, D57) ---------------------------------
+  "ckm-landing": {
+    kind: PAGE_FAMILY,
+    owner: "marketing/LandingMobile.css",
+    family: "marketing",
+    note: "The native public homepage at `/`: one scroll surface containing every canonical landing beat plus its menu, trailer, and partner dialogs.",
+  },
+  "ckm-seo-page": {
+    kind: PAGE_FAMILY,
+    owner: "marketing/SeoContentMobile.css",
+    family: "marketing",
+    note: "The shared native renderer for registered feature, audience, industry, resource, blog, tool, FAQ, genre, and long-form guide routes (D58).",
+  },
+
   // --- Authenticated project detail (Phase 4, D28) ----------------------
   "ckm-project": {
     kind: PAGE_FAMILY,

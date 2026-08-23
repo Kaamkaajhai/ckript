@@ -53,6 +53,22 @@ vi.mock("../screens/reader/ReaderDiscoverMobile", () => ({
   default: () => <main data-testid="mobile-reader-discover">Reader discover</main>,
 }));
 
+vi.mock("../marketing/LandingMobile", () => ({
+  default: ({ user }) => (
+    <main data-testid="mobile-landing" data-audience={user?.role || "public"}>
+      Mobile landing
+    </main>
+  ),
+}));
+
+vi.mock("../marketing/SeoContentMobile", () => ({
+  default: ({ user }) => (
+    <main data-testid="mobile-seo-content" data-audience={user?.role || "public"}>
+      Mobile SEO content
+    </main>
+  ),
+}));
+
 vi.mock("../screens/challenges/ChallengeHubMobile", () => ({
   default: () => <main data-testid="mobile-challenge-hub">Challenges</main>,
 }));
@@ -154,6 +170,35 @@ async function mount(pathname, props = {}) {
 }
 
 describe("MobileRoutes", () => {
+  it("renders the shared native landing for public and authenticated viewers", async () => {
+    let el = await mount("/", { user: null });
+    expect(el.querySelector('[data-testid="mobile-landing"]')?.dataset.audience).toBe("public");
+
+    act(() => root.unmount());
+    container.remove();
+    root = null;
+    container = null;
+
+    el = await mount("/", { user: { role: "writer" } });
+    expect(el.querySelector('[data-testid="mobile-landing"]')?.dataset.audience).toBe("writer");
+  });
+
+  it.each([
+    "/features",
+    "/features/ai-script-analysis",
+    "/for/producers",
+    "/industries/films",
+    "/resources/blog/ai-script-analysis-for-screenwriters",
+    "/tools/screenplay-analyzer",
+    "/faq",
+    "/genre/thriller",
+    "/how-to-sell-a-script",
+  ])("renders the shared native SEO renderer at %s", async (pathname) => {
+    const el = await mount(pathname, { user: null });
+    expect(el.querySelector('[data-testid="mobile-seo-content"]')?.dataset.audience).toBe("public");
+    expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
+  });
+
   it("renders the mobile dashboard at its canonical URL", async () => {
     const el = await mount("/dashboard");
     expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeTruthy();

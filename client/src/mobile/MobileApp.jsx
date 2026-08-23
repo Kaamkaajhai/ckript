@@ -1,5 +1,6 @@
 import { useContext, useEffect, useMemo, useState } from "react";
 import { AuthContext } from "../context/AuthContext";
+import CookieConsentBanner from "../components/CookieConsentBanner";
 import ToastProvider from "./components/feedback/ToastProvider";
 import Skeleton from "./components/Skeleton";
 import MobileRoutes from "./routes/MobileRoutes";
@@ -10,14 +11,14 @@ import "./theme/primitives.css";
 import "./MobileApp.css";
 
 /*
- * MobileApp — the root of the separate mobile experience. It is mounted (by
- * App.jsx) only for a signed-in creator on a phone-sized viewport, and fully
- * replaces the desktop chrome with a native-feeling app shell:
+ * MobileApp — the root of the separate mobile experience. App.jsx mounts it
+ * for every route and audience that the mobile manifest has promoted, and it
+ * fully replaces desktop chrome with a native-feeling app shell:
  *
  *   • a full-viewport frame that owns its own scroll,
  *   • a brief load skeleton for a deliberate first paint,
  *   • the toast layer every screen raises transient messages through,
- *   • and the Dashboard — the one screen built for mobile so far.
+ *   • and route-aware native screens selected by MobileRoutes.
  *
  * It derives display identity (initials / name) from the auth user and wires
  * the real logout, so nothing here is faked once mounted on a real account.
@@ -36,12 +37,12 @@ function firstName(user) {
   return String(source).trim().split(/\s+/)[0] || "";
 }
 
-export default function MobileApp({ preview = false, devScreen = null }) {
+export default function MobileApp({ preview = false, devScreen = null, skipBoot = false }) {
   const { user, logout } = useContext(AuthContext);
   const time = useClock();
-  // A development harness is opened to be looked at, not to be introduced —
-  // it skips the boot skeleton so a resize/reload lands straight on the work.
-  const [booting, setBooting] = useState(!devScreen);
+  // Development harnesses and shared public pages are opened to be looked at,
+  // not introduced by authenticated app chrome. They land on content directly.
+  const [booting, setBooting] = useState(!devScreen && !skipBoot);
 
   const initials = useMemo(() => initialsFrom(user), [user]);
   const userName = useMemo(() => firstName(user), [user]);
@@ -49,10 +50,10 @@ export default function MobileApp({ preview = false, devScreen = null }) {
   // Brief boot skeleton — long enough to read as an intentional load, short
   // enough to never feel like a stall.
   useEffect(() => {
-    if (devScreen) return undefined;
+    if (devScreen || skipBoot) return undefined;
     const t = setTimeout(() => setBooting(false), 650);
     return () => clearTimeout(t);
-  }, [devScreen]);
+  }, [devScreen, skipBoot]);
 
   // Give the browser chrome (address bar / status bar) the app's dark nav
   // colour while mounted, then restore it on unmount for the desktop app.
@@ -89,6 +90,7 @@ export default function MobileApp({ preview = false, devScreen = null }) {
               devScreen={devScreen}
             />
           )}
+          <CookieConsentBanner mobile />
         </ToastProvider>
       </div>
     </div>

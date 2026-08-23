@@ -599,24 +599,24 @@ Status vocabulary:
 
 | Route(s) | Desktop source | Mobile target/prefix | Status |
 |---|---|---|---|
-| `/` | `pages/landing/Landing.jsx` | `marketing/LandingMobile.jsx` / `ckm-landing` | NOT STARTED |
+| `/` | `pages/landing/Landing.jsx` | `marketing/LandingMobile.jsx` / `ckm-landing` | COMPLETE |
 | `/about` | `pages/About.jsx` | `marketing/AboutMobile.jsx` / `ckm-about` | NOT STARTED |
 | `/contact` | `pages/ContactPage.jsx` | `marketing/ContactMobile.jsx` / `ckm-contact` | NOT STARTED |
 | `/pricing` | `pages/PricingRoute.jsx` | `marketing/PricingMobile.jsx` / `ckm-pricing` | NOT STARTED |
-| `/features`, `/features/:slug` | `pages/SeoPage.jsx` | `marketing/SeoContentMobile.jsx` / `ckm-seo-page` | NOT STARTED |
-| `/for`, `/for/:slug` | `pages/SeoPage.jsx` | same mobile SEO renderer | NOT STARTED |
-| `/industries`, `/industries/:slug` | `pages/SeoPage.jsx` | same mobile SEO renderer | NOT STARTED |
-| `/resources`, `/resources/:slug` | `pages/SeoPage.jsx` | same mobile SEO renderer | NOT STARTED |
-| `/resources/blog`, `/resources/blog/:slug` | `pages/SeoPage.jsx` | same mobile SEO renderer | NOT STARTED |
-| `/tools`, `/tools/:slug` | `pages/SeoPage.jsx` | same mobile SEO renderer | NOT STARTED |
-| `/faq`, `/genre/:slug` | `pages/SeoPage.jsx` | same mobile SEO renderer | NOT STARTED |
-| `/how-to-sell-a-script` | `pages/SeoPage.jsx` | same mobile SEO renderer | NOT STARTED |
-| `/how-to-find-producers` | `pages/SeoPage.jsx` | same mobile SEO renderer | NOT STARTED |
-| `/how-to-pitch-screenplay` | `pages/SeoPage.jsx` | same mobile SEO renderer | NOT STARTED |
-| `/how-to-find-film-investors` | `pages/SeoPage.jsx` | same mobile SEO renderer | NOT STARTED |
-| `/film-investment-india` | `pages/SeoPage.jsx` | same mobile SEO renderer | NOT STARTED |
-| `/bollywood-script-submission` | `pages/SeoPage.jsx` | same mobile SEO renderer | NOT STARTED |
-| `/web-series-screenplay-guide` | `pages/SeoPage.jsx` | same mobile SEO renderer | NOT STARTED |
+| `/features`, `/features/:slug` | `pages/SeoPage.jsx` | `marketing/SeoContentMobile.jsx` / `ckm-seo-page` | COMPLETE |
+| `/for`, `/for/:slug` | `pages/SeoPage.jsx` | same mobile SEO renderer | COMPLETE |
+| `/industries`, `/industries/:slug` | `pages/SeoPage.jsx` | same mobile SEO renderer | COMPLETE |
+| `/resources`, `/resources/:slug` | `pages/SeoPage.jsx` | same mobile SEO renderer | COMPLETE |
+| `/resources/blog`, `/resources/blog/:slug` | `pages/SeoPage.jsx` | same mobile SEO renderer | COMPLETE |
+| `/tools`, `/tools/:slug` | `pages/SeoPage.jsx` | same mobile SEO renderer | COMPLETE |
+| `/faq`, `/genre/:slug` | `pages/SeoPage.jsx` | same mobile SEO renderer | COMPLETE |
+| `/how-to-sell-a-script` | `pages/SeoPage.jsx` | same mobile SEO renderer | COMPLETE |
+| `/how-to-find-producers` | `pages/SeoPage.jsx` | same mobile SEO renderer | COMPLETE |
+| `/how-to-pitch-screenplay` | `pages/SeoPage.jsx` | same mobile SEO renderer | COMPLETE |
+| `/how-to-find-film-investors` | `pages/SeoPage.jsx` | same mobile SEO renderer | COMPLETE |
+| `/film-investment-india` | `pages/SeoPage.jsx` | same mobile SEO renderer | COMPLETE |
+| `/bollywood-script-submission` | `pages/SeoPage.jsx` | same mobile SEO renderer | COMPLETE |
+| `/web-series-screenplay-guide` | `pages/SeoPage.jsx` | same mobile SEO renderer | COMPLETE |
 | `/challenges` | `pages/landing/ChallengesPage.jsx` | `marketing/ChallengesMobile.jsx` / `ckm-challenges-marketing` | NOT STARTED |
 | `/forgot-password` | `pages/ForgotPasswordRoute.jsx` | `auth/ForgotPasswordMobile.jsx` / `ckm-forgot-password` | NOT STARTED |
 | `/invite/:token` | `pages/AcceptInvite.jsx` | `auth/AcceptInviteMobile.jsx` / `ckm-invite` | NOT STARTED |
@@ -856,8 +856,8 @@ Phases are ordered to minimize architectural rework. Implement vertical slices: 
 
 ### Phase 8 — Marketing, authentication, onboarding, legal, and public sharing
 
-- [ ] Landing and all sections, marketing navigation, footer, trailer, and partner dialogs.
-- [ ] SEO content renderer for every registered content route and slug.
+- [x] Landing and all sections, marketing navigation, footer, trailer, and partner dialogs. *(D57: `/` is a shared public native screen for signed-out and authenticated viewers; it owns the complete canonical landing sequence, account-aware CTAs, menu, accessible feature accordion, format rail, current challenge deadline, trailer and partner dialogs, statutory footer, and frame-aware consent banner. The legacy hard-coded event poster is suppressed on native mobile, and desktop/native share the valid tracked trailer source.)*
+- [x] SEO content renderer for every registered content route and slug. *(D58: 21 route patterns and 41 registered paths now share one native public-shell renderer and one desktop/native content resolver; features, audiences, industries, resources/blog, tools, FAQ, genres, and seven long-form guides preserve canonical SEO/prerender ownership. Unknown dynamic slugs render an explicit recovery state and are `noindex`; FAQ content is no longer duplicated as generic cards.)*
 - [ ] About, contact, pricing, challenge marketing page.
 - [ ] Authentication, OTP, forgot password, invite, referral, and return-to-route behavior.
 - [ ] Writer, producer/director, investor redirect, and industry onboarding.
@@ -1182,14 +1182,16 @@ checkpoint_update_2026_08_12: "REPORTS COMPLETE (D20); Phase 3 bullet 4 is close
 checkpoint_update_2026_08_22_mandates: "COMPLETE (D53B; D53 CONTINUES). `/mandates` is a native professional-only SCREEN over shared desktop/native read-write state. Four allow-listed arrays are normalized on client and server; non-professional roles are refused before account lookup; malformed/unknown values are dropped; load/save failure retains a recoverable draft; include/exclude genres resolve conflicts at interaction time. Focused client tests pass 107/107, all server tests pass 490/490 in 90 suites, touched lint and diff checks are clean, and the 4,199-module production build prerenders/verifies 53/53 routes. The combined industry workspace sweep passes 100/100 state-width measurements with zero findings."
 checkpoint_update_2026_08_23_reader_workspace: "COMPLETE (D55). `/reader` and `/reader/search` are distinct native Reader Home and Discover screens over one shared desktop/native contract; the former combines independently recoverable private read/favorite shelves with fresh projects, while the latter owns bounded URL-backed query/format/genre/page state. The reader-search server boundary is exact-role, positively projected, regex-safe, page-clamped, limited to 24, and no longer mutates missing SIDs during GET. Existing Featured, Top Scripts, Messages, `/reader/script/:id`, and `/reader/profile/:id?` presentations explicitly admit the reader audience and keep project opens on reader URLs; reader-only routes deny every other role. Evidence: 145/145 final focused client tests, all 513 server tests in 96 suites, touched client/server ESLint, clean diff check, a 4,207-module production build with 53/53 routes prerendered, and deterministic Home/Discover browser checks at 320/360/390/430/768px plus loading/partial/empty/failure surfaces with no horizontal overflow or page errors. Full client is 2,165/2,170 with exactly the recorded five unrelated failures (four stale AppShell expectations and DataTable's CSV-header expectation). No physical-device or screen-reader run is claimed."
 checkpoint_update_2026_08_23_audience_transitions: "COMPLETE (D56; PHASE 7 COMPLETE). `routing/audienceTransitions.js` is the pure source for canonical audience homes, exact route ownership, local/authorized post-auth returns, and denied-route destinations; `AudienceTransitionBoundary` runs before desktop/mobile experience selection and replaces foreign entries without mounting their content. Cached sessions stay neutral until `/auth/me` confirms the current role; onboarding completion immediately merges the returned server user into memory and local storage; industry finish-later resolves to `/home`. Evidence: 324/324 focused transition/route/navigation tests before the final exact-reader hardening, 55/55 final routing tests, clean touched ESLint, full client 2,218/2,223 with the exact five known unrelated failures, a 4,209-module production build and 53/53 prerender verification, plus real Chrome checks for writer, producer, actor, and reader transitions. Writer denial passed at 320/360/390/430/768px with no horizontal overflow; authorized reader query/hash survived; Back returned to the allowed prior page and Forward returned to the replacement home. No physical-device or screen-reader run is claimed."
-latest_completed_work_item: "Audience-switch/onboarding transitions and permission matrix; Phase 7 exit gate (2026-08-23, D56)."
+checkpoint_update_2026_08_23_native_landing: "COMPLETE (D57). `/` is a `SHARED_PUBLIC_SCREEN` in the public shell for anonymous and authenticated phone viewers, with immediate content rather than the authenticated-app boot. `LandingMobile` renders every canonical marketing beat over shared landing data and auth/challenge controllers; native Dialogs own menu, trailer, and partner detail, while the feature rail becomes an APG accordion. Cookie consent now renders inside the 520px native frame with safe placement and 44px decisions; the hard-coded desktop event poster no longer obscures native content; desktop/native trailer presentations share the real tracked `ckript-video.mp4` asset instead of the missing `/nexara-trailer.MP4`. Evidence: 137/137 focused tests, clean touched ESLint, full client 2,241/2,246 with the exact five known unrelated failures, a 4,213-module build plus 53/53 prerender verification, and 25/25 Chrome state-width measurements at 320/360/390/430/768px with zero findings plus real Tab/Escape focus containment and return. No physical-device or screen-reader result is claimed."
+checkpoint_update_2026_08_23_native_seo_content: "COMPLETE (D58). All 21 SEO content route patterns (41 registered paths) are `SHARED_PUBLIC_SCREEN` entries backed by `SeoContentMobile` and the registered `ckm-seo-page` family. `seoPageContent.js` is the single desktop/native resolver for marketing, blog, genre, guide, related-link, and not-found state; canonical metadata, schemas, sitemap, and prerender remain owned by `seoRoutes.js` and `SeoManager`. Invalid dynamic slugs now show recovery links and receive `noindex, nofollow`; FAQ uses disclosure controls without duplicated capability cards. Evidence: 195/195 focused tests, clean touched ESLint, full client 2,313/2,318 with exactly the five known unrelated failures, a 4,216-module production build plus 53/53 prerender verification, and real browser checks at 320/360/390/430/768px with one main, one h1, correct 320→520px framing, no horizontal overflow, undersized/unnamed controls, overlays, or page errors. The browser sweep found and fixed three short links whose width was below the 44px product target. FAQ disclosure, invalid-slug noindex, and related-link navigation were exercised at 390px. No physical-device or screen-reader result is claimed."
+latest_completed_work_item: "Shared native SEO content renderer (2026-08-23, D58)."
 current_phase: 8
-current_work_item: "NEXT — D57 Phase 8. Landing/marketing mobile shell and all landing sections, navigation, footer, trailer, and partner dialogs."
+current_work_item: "NEXT — D59 Phase 8. Native About, Contact, Pricing, and Challenge marketing pages."
 previous_work_item_d29: "COMPLETE — Claude — 2026-08-20. D29 gave the native project screen its writes and gave BOTH platforms one definition of each. New: `pages/script-detail/projectActions.js` (the nine requests, their validation and one `{ ok, message, flags }` refusal envelope), `pages/script-detail/useProjectActions.js` (pending flags, the writer's request list and its visibility-aware poll, the reviews list, the producer rating, the reveal quota, the meeting stats), and five native components — `StarRating` (a real radio group, not five buttons), `FeedbackSheet` (one form behind both a reader review and a producer rating), `PurchaseRequestSheet`, `PurchaseRequestList` and `MeetingSheet` (with its Google Calendar connect leg). `ScriptDetail.jsx` deleted its private copies rather than gaining a mobile sibling: -262 lines, +75. Three sections joined the screen — `feedback`, `purchase` and an owner-only `manage` — and the section registry is addressed by id now, because inserting one in the middle of a positional array would have retitled its neighbours. STILL OPEN IN THIS FAMILY: `/script/:id/pay` (the Razorpay checkout, moved into Phase 4 on 2026-08-09) and the public shared project."
 previous_work_item_d27: "COMPLETE — Claude — 2026-08-14. D27 native `/featured` is promoted, with both of its sources bounded and paged, its facets single-valued to match the rest of the discovery family, its trailer contract shared with desktop, and the removed personal-email gate not revived."
 previous_work_item: "Native authenticated project detail, the read half (2026-08-14, fourth Phase 4 session, D28)."
 last_completed_work_item: "Version history (2026-08-11, thirteenth session). NEW: `components/screenplay/useVersionHistory.js` (shared: three endpoints, `lineDiff`, `summariseDiff`, `timeAgo`), `mobile/screens/create/versionsModel.js`, `overlays/VersionsDialog.jsx`. CHANGED: `VersionHistoryModal.jsx` (now reads the shared hook — 90 lines lighter), `editorChrome.js`, `Editor.jsx`, `Editor.css`. 12 model tests and 10 screen tests. PRIOR ENTRY: People + DEF-14/15/16 (twelfth session). NEW: `components/collab/useCollaborators.js` (the shared data layer, used by BOTH platforms), `mobile/screens/create/peopleModel.js` and `overlays/PeopleDialog.jsx`. CHANGED: `CollaboratorsPanel.jsx` (now reads the shared hook, and asks before removing), `editorChrome.js` (the `people` item), `Editor.jsx`, `Editor.css`, `CreateHarness.jsx` (presence fixtures), and `components/EmptyState.css` (a shared contrast fix). 13 model tests and 9 screen tests. PRIOR ENTRY: Comments (eleventh session). NEW: `commentsModel.js` (threads, filters, open count, and `describeComposer` — D17 as a pure function) and `overlays/CommentsSheet.jsx`. CHANGED: `editorChrome.js` (the `comments` item, whose hint carries the live open count), `Editor.jsx` (the sheet and seven context reads), `Editor.css` (the thread card, the quoted anchor, and a measured `--ckm-editor-warn-text`), `CreateHarness.jsx` (four comment fixtures and a dev-only `window.__ckmEditorApi` so a sweep can drive a REAL selection). 11 model tests and 11 screen tests."
-next_action: "BEGIN D57 / PHASE 8: audit `pages/landing/Landing.jsx`, its section registry/components, `LandingNav`, footer, trailer and partner dialogs, public SEO/prerender ownership, auth-modal entry points, and mobile route dispositions for `/`. Write the logged-out versus signed-in public-shell matrix and text wireframe first; then implement the native landing shell as one coherent route slice without moving SEO content out of the canonical URL."
+next_action: "BEGIN D59 / PHASE 8: audit `pages/About.jsx`, `pages/ContactPage.jsx`, `pages/PricingRoute.jsx` and `pages/landing/ChallengesPage.jsx`, including their existing overlay entry points, forms/API writes, plan data, challenge CTA ownership, public SEO/prerender records, logged-out/authenticated actions, and invalid/failure states. Record a route/state matrix and decide which content/data seams can be shared before implementing the four native public-shell presentations."
 open_follow_ups:
   - "D49 RECOVERS CAPTURED REGISTRATION PAYMENTS SERVER-TO-SERVER WHEN THE WRITER RETURNS, BUT IT DOES NOT YET CONSUME A RAZORPAY WEBHOOK. The persisted intent and `reconcile-registration-payment` close callback loss on the same or another browser after an authenticated return, and every checkout retry reuses one order. A writer who pays and never returns still waits for an explicit reconciliation request. Before production claims unattended settlement, add an authenticated `payment.captured` webhook with Razorpay signature verification, resolve the intent by authoritative order id, call the same idempotent finalizer, and run one real sandbox capture plus duplicate webhook delivery. No real charge or webhook was used in D49."
   - "D45 MAKES EVERY NEW WGA/SWA PROOF AN AUTHENTICATED CLOUDINARY ASSET, BUT EXISTING ASSETS ARE NOT RETROACTIVELY MIGRATED. Their storage URLs are no longer returned by owner, onboarding, current-user, or pending-review payloads, and current UI asks the authorized access endpoint; however, an old `upload`-type URL that was previously copied remains publicly deliverable. Before production claims all historical proofs are private, migrate the existing membership-proof folder to authenticated delivery, update stored asset identifiers if Cloudinary changes them, and verify one PDF plus one image through both writer and admin access routes. This session used the real signing helper but did not mutate a paid Cloudinary asset."
@@ -1231,17 +1233,16 @@ open_follow_ups:
   - "The client test suite is flaky under full-suite concurrency — unrelated files fail on different runs. Re-run before investigating a red result. Confirmed again 2026-08-11: `pages/admin/adminCompetitionsEditor.test.jsx`'s two focus tests fail in the full run and pass when their file is run alone, with the working tree byte-identical."
   - "D23 FIXED THE NATIVE BOTTOM-BAR REGRESSION WITHOUT REVERSING DESKTOP. `buildNav` now accepts an explicit preset `mobileItems` source; writer Projects is compact-only while Create remains in rail/drawer. `buildNav`, `mobileNav` and native `NavBar` suites are green. The legacy `AppShell.render.test.jsx` still has four unrelated/stale assertions: AppShell does not mount its old `.ck-mobile-nav`, and its current writer rail does not contain Upload. Those failures are outside the native bar and were not hidden or rewritten in D23."
 active_files:
-  - "client/src/routing/audienceTransitions.js"
-  - "client/src/routing/AudienceTransitionBoundary.jsx"
-  - "client/src/App.jsx"
-  - "client/src/context/AuthContext.jsx"
-  - "client/src/components/AuthModal.jsx"
-  - "client/src/pages/landing/Landing.jsx"
-  - "client/src/pages/landing/_shared/LandingNav.jsx"
+  - "client/src/seo/seoPageContent.js"
+  - "client/src/seo/seoRoutes.js"
+  - "client/src/components/SeoManager.jsx"
+  - "client/src/pages/SeoPage.jsx"
+  - "client/src/mobile/marketing/SeoContentMobile.jsx"
+  - "client/src/mobile/marketing/SeoContentMobile.css"
   - "client/src/mobile/routes/mobileRouteManifest.js"
 known_blockers: []
 last_updated: "2026-08-23"
-updated_by: "Codex D56 audience transitions complete; Phase 7 closed; Phase 8 begins at D57"
+updated_by: "Codex D58 native SEO content complete; Phase 8 continues at D59"
 ```
 
 ### 19.2 Phase status
@@ -1256,7 +1257,7 @@ updated_by: "Codex D56 audience transitions complete; Phase 7 closed; Phase 8 be
 | 5. Profiles/network/messages | COMPLETE | Codex | 2026-08-21 | 2026-08-22 | **D33–D46 COMPLETE:** signed-out public, authenticated visitor, own-profile overview/editor/settings/credentials, bounded public Activity and private Saved lists, inbound follow requests, full message inbox/thread including attachments/mutations/context/meetings, own/visitor reader profile, and the collaboration family are native. Shared contracts own profile/actions/security/collections, payout and guild credentials, follow decisions, message requests/mutations/context, meetings, reader activity, collaboration requests, recipient invitations, and sanitized cross-project activity. D46 closes the exit gate by replacing the unbounded base-profile post/saved payload with one paged, access-checked desktop/native collection boundary. |
 | 6. Challenges/hall of fame | COMPLETE | Codex | 2026-08-22 | 2026-08-22 | **D47–D51 COMPLETE:** canonical hub, detail, registration, participant dashboard, Hall of Fame archive, and permanent Hall records are native over shared desktop/native contracts. Operational/community and public archive/script collections are projected, bounded, and paged; challenge and record URLs preserve canonical slugs/query state; public/member chrome, lifecycle/payment/recovery, editor handoff, results/rewards/certificates, dynamic SEO, and privacy boundaries are covered. The closing D51 gate passed 41 focused client tests, all 483 server tests, production build/prerender, the exact six-failure client baseline, and 45/45 browser measurements. |
 | 7. Industry/reader | COMPLETE | Codex | 2026-08-22 | 2026-08-23 | **D52–D56 COMPLETE:** industry home/dashboard, roster, mandates, offer/ledger/saved variants, reader Home/Discover plus shared discovery/messages/detail/profile ownership, and the cross-audience transition/permission matrix are native and role-safe. One app-level boundary prevents foreign route content or chrome before desktop/mobile selection; canonical homes, auth restoration, authorized returns, onboarding session refresh, and Back/Forward denial behavior are covered. |
-| 8. Public/auth/onboarding/legal | NOT STARTED | — | — | — | — |
+| 8. Public/auth/onboarding/legal | IN PROGRESS | Codex | 2026-08-23 | — | **D57–D58 COMPLETE:** canonical `/` is a native shared-public landing; all 21 SEO content patterns / 41 registered paths now use one native renderer over a shared desktop/native content resolver with canonical prerender ownership and explicit noindex recovery for invalid slugs. About, Contact, Pricing, and Challenge marketing are next. |
 | 9. Admin/finance | NOT STARTED | — | — | — | — |
 | 10. Hardening/release | NOT STARTED | — | — | — | — |
 
@@ -1267,6 +1268,92 @@ updated_by: "Codex D56 audience transitions complete; Phase 7 closed; Phase 8 be
 **Prior Phase 3 evidence (2026-08-13, sixteenth session):** Both creation routes now share deterministic 25 MiB large-video preflight, one fresh AbortController per concurrent media attempt, cancelled-versus-failed recovery, disabled file mutation during transfer, and honest from-0 retry against the retained script id. Focused helper/model/render coverage passes (8 files / 221 tests); the create/upload orchestrator regression passes (3 files / 13 tests, with the updated success-flow file clean at 2/2); touched lint is clean apart from `CreateProject/index.jsx`'s exact four pre-existing findings; the 4,061-module production build and all 53 prerendered routes pass; and the six-state × five-width Chromium matrix passes 30/30 with no new-action sizing/name, copy, or horizontal-overflow failure. Phase 3 remains open for the D21 server-backed resumable contract and the recorded competition/bottom-nav product decisions; see the newest §19.3 entry.
 
 ### 19.3 Session log template
+
+#### 2026-08-23 — Codex — D58: shared native SEO content renderer (COMPLETE)
+
+**Route/content audit:** `App.jsx` exposes 21 SEO content patterns covering 41 registered paths: 27 exact marketing/resource/tool/FAQ pages, 3 blog posts, 4 genres, and 7 long-form guides. `seoRoutes.js` remains the canonical source for title, description, canonical URL, schemas, sitemap, and the 53-route prerender pass; it does not execute either React renderer. The desktop `SeoPage` previously owned a private content resolver and silently rendered generic Ckript copy for every unknown dynamic slug. D58 extracts that resolver into `seo/seoPageContent.js` so desktop and native consume the same content, related links, and explicit found/not-found state. Unknown slugs within a registered SEO family now render recovery navigation and `SeoManager` marks them `noindex, nofollow`; unrelated dynamic application routes are not caught by that rule.
+
+**State matrix:**
+
+| State | Content | Navigation/conversion | SEO behavior |
+|---|---|---|---|
+| Registered marketing/tool/resource path | eyebrow, one h1, canonical description, 2–3 content chapters | breadcrumb, up to 8 deduplicated related links, account-aware CTA | existing registered canonical metadata and schemas |
+| Registered blog/genre/long guide | programmatic title and canonical description over shared supplemental chapters | same public-shell navigation and CTA | existing article/genre/guide canonical ownership |
+| FAQ | one h1 plus four native disclosure controls | related links and account-aware CTA | existing FAQ schema; duplicate generic chapter cards removed on both platforms |
+| Unknown slug inside a registered family | explicit not-found heading and four recovery links | no dead end; signed-out/authenticated header remains available | fallback metadata plus `noindex, nofollow`; never added to sitemap/prerender |
+| Signed-in viewer | same public content | header/final CTA returns to canonical audience workspace | no authenticated app chrome or boot delay |
+
+**Reusable public-shell wireframe:**
+
+```text
+[Ckript]                                      [Sign in / workspace]
+[Home / family / current breadcrumb]
+[EYEBROW]
+[One editorial H1]
+[Canonical description]
+[01 content chapter]
+[02 content chapter]
+[03 content chapter, when present]
+[FAQ disclosures, FAQ route only]
+[Related Ckript pages →]
+[Account-aware final CTA]
+[Privacy] [Terms] [Contact] [legal entity]
+```
+
+**Implementation:** Added `mobile/marketing/SeoContentMobile.jsx` and its registered `ckm-seo-page` CSS family, promoted all 21 patterns to `SHARED_PUBLIC_SCREEN`, and routed them to the reusable public presentation for anonymous and authenticated viewers. Added `seo/seoPageContent.js`; desktop `SeoPage` now consumes it too instead of retaining a parallel resolver. The native presentation uses one public `MobileShell` scroll surface, horizontally scrollable breadcrumb semantics, editorial chapter cards, native FAQ disclosures, bounded related navigation, 44px actions, and account-aware sign-in/workspace conversion. No API/data contract was duplicated.
+
+**Verification:** Focused content, render, route-policy/coverage, and CSS-contract suites pass **195/195**; touched ESLint is clean. The full client passes **2,313/2,318** across 197 files with exactly the five recorded unrelated failures: four stale `AppShell.render.test.jsx` compact-nav/upload expectations and `DataTable.test.jsx`'s CSV-header expectation. Production transformed **4,216 modules**, emitted `SeoContentMobile` as a separate ~3.59kB JS / ~5.39kB CSS slice, and prerendered/verified **53/53** public routes. A real-browser five-width sweep at 320/360/390/430/768px measured one main, one h1, the public shell, correct 320→520px framing, zero document overflow, zero undersized or unnamed controls, and no framework/page errors. It found three short breadcrumb/footer links below the 44px width target; their hit regions were fixed and all widths re-measured clean. At 390px, FAQ disclosure opened, an invalid tool slug rendered recovery with `noindex, nofollow`, and a related link navigated back to registered indexed content. The full-page feature rendering was visually inspected.
+
+**Limitations:** No physical-device, operating-system screen-reader, installed/PWA, or virtual-keyboard run is claimed. These pages contain no text input or fixed action dock, so the remaining D58 risk is principally assistive-technology reading order rather than keyboard avoidance.
+
+**Exact next action:** Begin D59 at About, Contact, Pricing, and Challenge marketing: inventory content, overlays, forms/API writes, pricing/plan data, challenge CTA ownership, SEO/prerender behavior, account-aware actions, and failure states; define shared seams and four public-shell wireframes before promotion.
+
+#### 2026-08-23 — Codex — D57: native landing/marketing public shell (COMPLETE)
+
+**Requested continuation and route audit:** Continue from completed D56 and begin Phase 8 at the canonical homepage. `/` is still `desktop-migration-fallback`; `App.jsx` owns the one canonical route and lazy desktop `Landing`, while `SeoManager` reads the static `/` record from `seo/seoRoutes.js` and `scripts/prerender-seo.mjs` writes/verifies `dist/index.html` without executing either React presentation. The native branch can therefore replace presentation at the same URL without forking metadata, canonical links, JSON-LD, sitemap, or crawler output. The desktop landing orchestrator has eleven content beats plus two overlays: Hero and `LandingNav`; conditional public competition deadline strip over `/competitions/list` and `/competitions/completed`; How-it-works bridge; three-step discover/watch/own story; marquee; seven-feature switcher; five-format gallery; sample-trailer dialog; two-sided writer/industry problem; two partner cards and a partner-detail dialog; final CTA; and the statutory footer. Its actions open sign-in, writer onboarding, producer onboarding, About, Pricing, internal Challenge/Contact/Privacy/Terms routes, two external sites, or the sample trailer. The landing data arrays and `useChallenge` are presentation-independent and will be imported, not copied.
+
+**Current primary-source review and decisions:** [WCAG 2.2 Reflow](https://www.w3.org/WAI/WCAG22/Understanding/reflow) sets the 320 CSS-pixel single-column floor; [Target Size](https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html) is the standards floor while Ckript retains its stricter 44px product target. The [APG accordion pattern](https://www.w3.org/WAI/ARIA/apg/patterns/accordion/) requires native header buttons with `aria-expanded`/`aria-controls`, so the seven-feature desktop rail becomes a one-panel-at-a-time mobile accordion rather than a horizontally compressed tab rail. The [APG modal-dialog pattern](https://www.w3.org/WAI/ARIA/apg/patterns/dialog-modal/) requires inert background, contained focus, Escape, visible close, and focus return; trailer and partner details therefore use the existing native `Dialog`/`Overlay` stack rather than the desktop fixed overlays. Current [web.dev image guidance](https://web.dev/articles/browser-level-image-lazy-loading) keeps the first-viewport visual eager and defers offscreen format/feature/partner imagery with declared dimensions/aspect boxes to avoid layout shift. The public shell owns one vertical scroll surface; no bottom app navigation appears on a marketing page.
+
+**Logged-out versus signed-in public-shell matrix:**
+
+| Entry/action | Logged out | Signed in | History/overlay rule |
+|---|---|---|---|
+| Open `/` on a phone | native public landing, no account chrome | same public landing; membership is acknowledged rather than forcing an app redirect | canonical `/` remains in history and retains homepage SEO |
+| Header account action | open sign-in overlay with safe return ownership | link to `getDefaultAuthenticatedPath(user)` | deliberate app navigation pushes; modal returns focus to its trigger |
+| Browse/discover CTA | open producer onboarding | reader uses `/reader/search`; other known members use `/featured`; unknown role uses canonical home | route navigation remains link semantics |
+| Writer/start CTA | open writer onboarding | writer uses `/new-project`; non-writer uses its canonical home | no onboarding is opened over an already authenticated account |
+| Challenge deadline | logged-out registration opens auth with captured canonical target; live theme opens directly | opens canonical challenge registration/detail | existing public data hook and URL contract are shared |
+| About/Pricing | existing global overlay until their own Phase 8 items land | same account-aware overlay | never stack native trailer/partner dialogs with global overlays |
+| Trailer/partner detail | native full-screen dialog | same | background inert; Escape/close; focus restored; video paused/reset on close |
+
+**Text wireframe (one primary scroll surface):**
+
+```text
+Public app bar: Ckript logo · Menu
+  Menu dialog: Scripts · Challenge · For producers · Pricing · Contact · Sign in/Open app
+
+Hero: editorial promise · short value statement · Browse/Open Ckript · Meet the platform
+Conditional challenge deadline strip
+How it works: 01 discover · 02 watch · 03 own · contextual discovery action
+Editorial marquee
+Tools: seven accessible accordion headers; one detailed image/copy/bullet panel at a time
+Formats: five lazy image cards in a horizontal snap rail · contextual writer action
+Trailer: cinema still · Watch sample -> full-screen video dialog · start/discover action
+Problem: writer card · industry card · account-aware actions
+Partners: two touch cards -> one full-screen detail dialog with a two-option selector and external site link
+Final CTA: account-aware writer and discovery actions
+Footer: Platform · Company · Legal links · corporate disclosure · email
+```
+
+**Implementation boundaries decided before code:** `mobile/marketing/LandingMobile.jsx` owns the mobile composition and native overlays; it imports the canonical landing content/data and global auth controller but not desktop section JSX or CSS. `/` becomes `SHARED_PUBLIC_SCREEN` with `public` shell and remains available to both anonymous and authenticated viewers. The native page receives no duplicate `SeoManager` or route-specific head effect. The public route skips the authenticated app's deliberate boot drawing so the homepage has immediate content; below-fold media is lazy, the decorative hero uses one light local asset, and reduced motion removes marquee travel. The implementation will add tests for route disposition, anonymous/member CTA routing, complete section inventory, accordion semantics, dialogs, video cleanup, and footer/legal content before browser measurement.
+
+**Changes and integration defects fixed:** Added `mobile/marketing/LandingMobile.jsx`, `LandingMobile.css`, `landingModel.js`, and their tests; registered `ckm-landing`; promoted `/` to `SHARED_PUBLIC_SCREEN`; wired the lazy route and public boot bypass; and added explicit `MobileRoutes`/`MobileApp` coverage. The screen contains Hero, challenge deadline, journey, marquee, seven-feature accordion, five-format snap rail, trailer, two-sided problem, partner cards/detail, final CTA, complete footer/legal disclosure, account-aware menu, and native dialogs. Browser inspection found three integration defects that unit markup could not expose: the global cookie banner lived behind the `z-index:1000` native app and was unusable, the hard-coded `EventPosterModal` painted above every native screen/dialog, and both desktop/native trailer presentations pointed at the nonexistent `/nexara-trailer.MP4`. Consent now mounts inside the native frame with safe-bottom placement and 44px decisions, the legacy poster stays desktop-only because native carries the current challenge inline, and both landing presentations use one exported `TRAILER_VIDEO_SRC` backed by the tracked `ckript-video.mp4`. Standalone footer targets also retain the product's 44px minimum.
+
+**Verification:** Focused route, model, render, integration, and policy coverage passed **137/137**; touched-file ESLint is clean. Full client passed **2,241/2,246** across 195 files with exactly the five recorded unrelated failures: four stale `AppShell.render.test.jsx` mobile-nav/upload expectations and the `DataTable.test.jsx` CSV header expectation. Production build transformed **4,213 modules**, emitted `LandingMobile` as a separate ~14.34kB JS / 16.11kB CSS slice, and prerendered/verified **53/53** public routes; the existing large-chunk and admin circular-chunk warnings remain. The tracked trailer is 76.0MB and is requested only after the viewer presses play; adaptive encoding remains an optimization, not an initial-page transfer. Headless Chrome 151 measured base, expanded feature, menu, partner, and trailer states at **320, 360, 390, 430, and 768px**: **25/25** combinations had one `main`, one `h1`, public shell, correct 320→520px frame, and zero horizontal-scroll, genuine-overflow, undersized-target, unnamed-control, sub-11px-text, framework-overlay, or missing-media findings. Twelve real Tab cycles stayed in the menu; Escape closed it, cleared inertness, and restored focus to the exact trigger. Four 390px screenshots were visually inspected after removing the legacy poster collision.
+
+**Limitations:** No physical-device, virtual-keyboard, operating-system screen-reader, or installed/PWA run is claimed. The current 76.0MB MP4 is valid and on-demand but should eventually receive an adaptive/compressed delivery variant if production media budgets require it.
+
+**Exact next action:** Begin D58 at `pages/SeoPage.jsx` and `seo/seoRoutes.js`: inventory every registered path/slug, dynamic not-found state, prerender/canonical ownership, internal navigation, and long-content behavior; write one shared public-shell content wireframe, then implement and promote the reusable `mobile/marketing/SeoContentMobile.jsx` / `ckm-seo-page` route family.
 
 #### 2026-08-23 — Codex — D56: audience transitions and permission matrix (COMPLETE; PHASE 7 COMPLETE)
 

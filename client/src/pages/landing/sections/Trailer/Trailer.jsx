@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import Diamond from "../../_shared/Diamond";
 import Icon from "../../_shared/Icon";
-import { ROUTES } from "../../_shared/theme";
+import { ROUTES, TRAILER_VIDEO_SRC } from "../../_shared/theme";
 import "./Trailer.css";
 
 export default function Trailer() {
@@ -80,7 +80,7 @@ export default function Trailer() {
             <video
               ref={videoRef}
               className="ckl-trailer-popup-video"
-              src="/nexara-trailer.MP4"
+              src={TRAILER_VIDEO_SRC}
               controls
               autoPlay
               playsInline

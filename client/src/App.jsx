@@ -30,6 +30,7 @@ import {
   CONTENT_VARIANT,
 } from "./layouts/app-shell/shellPolicy";
 import { MOBILE_EXPERIENCE, resolveMobileExperience } from "./mobile/routes/mobileRoutePolicy";
+import { MOBILE_ROUTE_DISPOSITION } from "./mobile/routes/mobileRouteManifest";
 import AudienceTransitionBoundary from "./routing/AudienceTransitionBoundary";
 import { getDefaultAuthenticatedPath } from "./routing/audienceTransitions";
 
@@ -412,9 +413,11 @@ function RootExperience({ children }) {
     isDev: import.meta.env.DEV,
   });
 
-  if (decision.experience === MOBILE_EXPERIENCE.MOBILE) return <MobileApp />;
+  if (decision.experience === MOBILE_EXPERIENCE.MOBILE) {
+    return <MobileApp skipBoot={decision.disposition === MOBILE_ROUTE_DISPOSITION.SHARED_PUBLIC_SCREEN} />;
+  }
 
-  return children;
+  return <><CookieConsentBanner />{children}</>;
 }
 
 function App() {
@@ -451,7 +454,6 @@ function App() {
           <LanguagePreferenceSync />
           <ScrollToTopOnRouteChange />
           <SeoManager />
-          <CookieConsentBanner />
           <AnalyticsBootstrap />
           <AdminLoginHandler>
             <Suspense

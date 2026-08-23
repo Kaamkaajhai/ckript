@@ -173,16 +173,45 @@ describe("mobileRoutePolicy — experience selection", () => {
       .toMatchObject({ experience: "desktop", reason: "audience-not-implemented" });
   });
 
-  it("keeps public and signed-out routes on their existing branch until implemented", () => {
-    expect(resolveMobileExperience({
-      isMobile: true,
-      authLoading: false,
-      user: null,
-      pathname: "/",
-    })).toMatchObject({
-      experience: "desktop",
-      disposition: "desktop-migration-fallback",
-    });
+  it("mounts the canonical native landing for signed-out visitors and authenticated members", () => {
+    for (const user of [null, writer, producer, reader]) {
+      expect(resolveMobileExperience({
+        isMobile: true,
+        authLoading: false,
+        user,
+        pathname: "/",
+      })).toMatchObject({
+        experience: "mobile",
+        routeId: "landing",
+        screenId: "landing",
+        disposition: "shared-public-screen",
+      });
+    }
+  });
+
+  it.each([
+    "/features",
+    "/features/ai-script-analysis",
+    "/for/producers",
+    "/industries/films",
+    "/resources/blog/ai-script-analysis-for-screenwriters",
+    "/tools/screenplay-analyzer",
+    "/faq",
+    "/genre/thriller",
+    "/how-to-sell-a-script",
+  ])("mounts the shared native SEO content screen at %s for every viewer", (pathname) => {
+    for (const user of [null, writer, producer, reader]) {
+      expect(resolveMobileExperience({
+        isMobile: true,
+        authLoading: false,
+        user,
+        pathname,
+      })).toMatchObject({
+        experience: "mobile",
+        screenId: "seo-content",
+        disposition: "shared-public-screen",
+      });
+    }
   });
 
   it("does not switch experience while authentication is restoring", () => {

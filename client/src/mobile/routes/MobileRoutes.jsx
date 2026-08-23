@@ -25,6 +25,8 @@ const MessagesMobile = lazy(() => import("../screens/messages/MessagesMobile"));
 const ReaderProfileMobile = lazy(() => import("../screens/reader/reader-profile/ReaderProfileMobile"));
 const ReaderHomeMobile = lazy(() => import("../screens/reader/ReaderHomeMobile"));
 const ReaderDiscoverMobile = lazy(() => import("../screens/reader/ReaderDiscoverMobile"));
+const LandingMobile = lazy(() => import("../marketing/LandingMobile"));
+const SeoContentMobile = lazy(() => import("../marketing/SeoContentMobile"));
 const ChallengeHubMobile = lazy(() => import("../screens/challenges/ChallengeHubMobile"));
 const ChallengeDetailMobile = lazy(() => import("../screens/challenges/ChallengeDetailMobile"));
 const ChallengeRegisterMobile = lazy(() => import("../screens/challenges/ChallengeRegisterMobile"));
@@ -173,6 +175,28 @@ export default function MobileRoutes({
   return (
     <MobileRouteBoundary>
       <Routes>
+        <Route path="/" element={<LandingMobile user={user} />} />
+        <Route path="/features" element={<SeoContentMobile user={user} />} />
+        <Route path="/features/:slug" element={<SeoContentMobile user={user} />} />
+        <Route path="/for" element={<SeoContentMobile user={user} />} />
+        <Route path="/for/:slug" element={<SeoContentMobile user={user} />} />
+        <Route path="/industries" element={<SeoContentMobile user={user} />} />
+        <Route path="/industries/:slug" element={<SeoContentMobile user={user} />} />
+        <Route path="/resources" element={<SeoContentMobile user={user} />} />
+        <Route path="/resources/blog" element={<SeoContentMobile user={user} />} />
+        <Route path="/resources/blog/:slug" element={<SeoContentMobile user={user} />} />
+        <Route path="/resources/:slug" element={<SeoContentMobile user={user} />} />
+        <Route path="/tools" element={<SeoContentMobile user={user} />} />
+        <Route path="/tools/:slug" element={<SeoContentMobile user={user} />} />
+        <Route path="/faq" element={<SeoContentMobile user={user} />} />
+        <Route path="/genre/:slug" element={<SeoContentMobile user={user} />} />
+        <Route path="/how-to-sell-a-script" element={<SeoContentMobile user={user} />} />
+        <Route path="/how-to-find-producers" element={<SeoContentMobile user={user} />} />
+        <Route path="/how-to-pitch-screenplay" element={<SeoContentMobile user={user} />} />
+        <Route path="/how-to-find-film-investors" element={<SeoContentMobile user={user} />} />
+        <Route path="/film-investment-india" element={<SeoContentMobile user={user} />} />
+        <Route path="/bollywood-script-submission" element={<SeoContentMobile user={user} />} />
+        <Route path="/web-series-screenplay-guide" element={<SeoContentMobile user={user} />} />
         <Route path="/dashboard" element={dashboard} />
         <Route path="/home" element={<IndustryHomeMobile user={user} />} />
         <Route path="/writers" element={<WriterRosterMobile user={user} />} />

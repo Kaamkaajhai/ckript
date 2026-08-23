@@ -26,16 +26,24 @@ const redirect = (id, pattern) => ({
   reason: "The existing canonical redirect is shared by desktop and mobile.",
 });
 
+const seoContent = (id, pattern) => ({
+  id,
+  pattern,
+  disposition: MOBILE_ROUTE_DISPOSITION.SHARED_PUBLIC_SCREEN,
+  reason: "Shared native content renderer over the canonical SEO registry, content source, and internal-link model (Phase 8, D58).",
+  screenId: "seo-content",
+  shell: MOBILE_SHELL_MODE.PUBLIC,
+});
+
 /*
  * Route order is deliberate. Specific routes precede the two catch-all
  * patterns at the end, so matching cannot mistake a product route for a
  * username/referral or canonical project URL.
  *
  * This is a migration manifest, not a second product router. Every App.jsx
- * route has a disposition. Only entries marked SCREEN may replace the desktop
- * branch; every migration fallback continues through the existing route tree.
- *
- * Any entry that mounts a mobile screen must also declare its shell mode
+ * route has a disposition. Entries marked SCREEN or SHARED_PUBLIC_SCREEN may
+ * replace the desktop branch; every migration fallback continues through the
+ * existing route tree. Any entry that mounts a mobile screen must declare its shell mode
  * (§8.1). The shell mode — not the screen's JSX — decides which chrome the
  * route gets; mobileRouteCoverage.test.js enforces that every such entry has a
  * valid one.
@@ -208,31 +216,38 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
   },
 
-  migration("landing", "/"),
+  {
+    id: "landing",
+    pattern: "/",
+    disposition: MOBILE_ROUTE_DISPOSITION.SHARED_PUBLIC_SCREEN,
+    reason: "Canonical mobile marketing presentation shared by signed-out visitors and authenticated members (Phase 8, D57).",
+    screenId: "landing",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+  },
   migration("about", "/about"),
   migration("contact", "/contact"),
-  migration("features-index", "/features"),
-  migration("features-detail", "/features/:slug"),
-  migration("audience-index", "/for"),
-  migration("audience-detail", "/for/:slug"),
-  migration("industries-index", "/industries"),
-  migration("industries-detail", "/industries/:slug"),
-  migration("resources-blog-detail", "/resources/blog/:slug"),
-  migration("resources-blog", "/resources/blog"),
-  migration("resources-index", "/resources"),
-  migration("resources-detail", "/resources/:slug"),
-  migration("tools-index", "/tools"),
-  migration("tools-detail", "/tools/:slug"),
+  seoContent("features-index", "/features"),
+  seoContent("features-detail", "/features/:slug"),
+  seoContent("audience-index", "/for"),
+  seoContent("audience-detail", "/for/:slug"),
+  seoContent("industries-index", "/industries"),
+  seoContent("industries-detail", "/industries/:slug"),
+  seoContent("resources-blog-detail", "/resources/blog/:slug"),
+  seoContent("resources-blog", "/resources/blog"),
+  seoContent("resources-index", "/resources"),
+  seoContent("resources-detail", "/resources/:slug"),
+  seoContent("tools-index", "/tools"),
+  seoContent("tools-detail", "/tools/:slug"),
   migration("pricing", "/pricing"),
-  migration("faq", "/faq"),
-  migration("genre", "/genre/:slug"),
-  migration("sell-script-guide", "/how-to-sell-a-script"),
-  migration("find-producers-guide", "/how-to-find-producers"),
-  migration("pitch-screenplay-guide", "/how-to-pitch-screenplay"),
-  migration("find-investors-guide", "/how-to-find-film-investors"),
-  migration("film-investment-india", "/film-investment-india"),
-  migration("bollywood-submission", "/bollywood-script-submission"),
-  migration("web-series-guide", "/web-series-screenplay-guide"),
+  seoContent("faq", "/faq"),
+  seoContent("genre", "/genre/:slug"),
+  seoContent("sell-script-guide", "/how-to-sell-a-script"),
+  seoContent("find-producers-guide", "/how-to-find-producers"),
+  seoContent("pitch-screenplay-guide", "/how-to-pitch-screenplay"),
+  seoContent("find-investors-guide", "/how-to-find-film-investors"),
+  seoContent("film-investment-india", "/film-investment-india"),
+  seoContent("bollywood-submission", "/bollywood-script-submission"),
+  seoContent("web-series-guide", "/web-series-screenplay-guide"),
 
   redirect("privacy-alias", "/privacy"),
   redirect("registration-privacy-alias", "/registration-privacy-policy"),
