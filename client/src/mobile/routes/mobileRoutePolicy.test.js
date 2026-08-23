@@ -4,6 +4,7 @@ import { resolveMobileExperience } from "./mobileRoutePolicy";
 const writer = { id: "writer-1", role: "writer" };
 const creator = { id: "creator-1", role: "creator" };
 const producer = { id: "producer-1", role: "producer" };
+const reader = { id: "reader-1", role: "reader" };
 const industryProfessionals = ["investor", "producer", "director", "industry", "professional"]
   .map((role) => ({ id: `${role}-1`, role }));
 
@@ -63,7 +64,7 @@ describe("mobileRoutePolicy — experience selection", () => {
     })).toMatchObject({ experience: "desktop", reason: "authentication-required" });
   });
 
-  it.each([writer, creator, producer])("mounts native top scripts for authenticated $role users", (user) => {
+  it.each([writer, creator, producer, reader])("mounts native top scripts for authenticated $role users", (user) => {
     expect(resolveMobileExperience({
       isMobile: true,
       authLoading: false,
@@ -86,7 +87,7 @@ describe("mobileRoutePolicy — experience selection", () => {
     })).toMatchObject({ experience: "desktop", reason: "authentication-required" });
   });
 
-  it.each([writer, creator, ...industryProfessionals])("mounts native featured for authenticated $role users", (user) => {
+  it.each([writer, creator, reader, ...industryProfessionals])("mounts native featured for authenticated $role users", (user) => {
     expect(resolveMobileExperience({
       isMobile: true,
       authLoading: false,
@@ -157,6 +158,19 @@ describe("mobileRoutePolicy — experience selection", () => {
     expect(resolveMobileExperience({
       isMobile: true, authLoading: false, user: writer, pathname: "/home",
     })).toMatchObject({ experience: "desktop", reason: "audience-not-implemented" });
+  });
+
+  it("mounts reader home and discover only for the exact reader role", () => {
+    expect(resolveMobileExperience({ isMobile: true, authLoading: false, user: reader, pathname: "/reader" }))
+      .toMatchObject({ experience: "mobile", routeId: "reader-home", screenId: "reader-home" });
+    expect(resolveMobileExperience({ isMobile: true, authLoading: false, user: reader, pathname: "/reader/search", search: "?q=night" }))
+      .toMatchObject({ experience: "mobile", routeId: "reader-search", screenId: "reader-discover" });
+    for (const user of [writer, producer, { id: "unknown-1", role: "unknown" }]) {
+      expect(resolveMobileExperience({ isMobile: true, authLoading: false, user, pathname: "/reader" }))
+        .toMatchObject({ experience: "desktop" });
+    }
+    expect(resolveMobileExperience({ isMobile: true, authLoading: false, user: reader, pathname: "/dashboard" }))
+      .toMatchObject({ experience: "desktop", reason: "audience-not-implemented" });
   });
 
   it("keeps public and signed-out routes on their existing branch until implemented", () => {
@@ -532,7 +546,7 @@ describe("mobileRoutePolicy — experience selection", () => {
     })).toMatchObject({ experience: "desktop", reason: "audience-not-implemented" });
   });
 
-  it.each([writer, ...industryProfessionals])("mounts the canonical messages route through the native $role inbox", (user) => {
+  it.each([writer, reader, ...industryProfessionals])("mounts the canonical messages route through the native $role inbox", (user) => {
     expect(resolveMobileExperience({
       isMobile: true,
       authLoading: false,

@@ -817,6 +817,19 @@ function App() {
                     </AuthContext.Provider>
                   }
                 />
+                {/* Phase 7 reader workspace harness (D55). The live reader
+                   routes depend on private history, favourites, and a changing
+                   public catalogue; this fixture keeps every state stable. */}
+                <Route
+                  path="/__mobile-reader"
+                  element={
+                    <AuthContext.Provider value={{ user: { _id: "preview-reader", name: "Leela Thomas", role: "reader", token: "preview", favoriteScripts: [] }, loading: false, logout: () => {}, setUser: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="reader-workspace" />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
                 </>
               )}
               <Route path="/:id" element={<SingleSegmentProfileOrReferralRoute />} />

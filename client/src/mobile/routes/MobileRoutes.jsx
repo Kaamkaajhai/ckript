@@ -23,6 +23,8 @@ const FollowRequestsMobile = lazy(() => import("../screens/profiles/follow-reque
 const CollaborationRequestsMobile = lazy(() => import("../screens/collaboration/CollaborationRequestsMobile"));
 const MessagesMobile = lazy(() => import("../screens/messages/MessagesMobile"));
 const ReaderProfileMobile = lazy(() => import("../screens/reader/reader-profile/ReaderProfileMobile"));
+const ReaderHomeMobile = lazy(() => import("../screens/reader/ReaderHomeMobile"));
+const ReaderDiscoverMobile = lazy(() => import("../screens/reader/ReaderDiscoverMobile"));
 const ChallengeHubMobile = lazy(() => import("../screens/challenges/ChallengeHubMobile"));
 const ChallengeDetailMobile = lazy(() => import("../screens/challenges/ChallengeDetailMobile"));
 const ChallengeRegisterMobile = lazy(() => import("../screens/challenges/ChallengeRegisterMobile"));
@@ -46,6 +48,7 @@ const ChallengeRegisterHarness = lazy(() => import("../dev/ChallengeRegisterHarn
 const ChallengeDashboardHarness = lazy(() => import("../dev/ChallengeDashboardHarness"));
 const HallOfFameHarness = lazy(() => import("../dev/HallOfFameHarness"));
 const IndustryWorkspaceHarness = lazy(() => import("../dev/IndustryWorkspaceHarness"));
+const ReaderWorkspaceHarness = lazy(() => import("../dev/ReaderWorkspaceHarness"));
 
 function AuthenticatedProfileRoute({ user }) {
   const { id } = useParams();
@@ -159,6 +162,10 @@ export default function MobileRoutes({
     return <MobileRouteBoundary><IndustryWorkspaceHarness user={user} /></MobileRouteBoundary>;
   }
 
+  if (devScreen === "reader-workspace") {
+    return <MobileRouteBoundary><ReaderWorkspaceHarness user={user} /></MobileRouteBoundary>;
+  }
+
   if (preview) {
     return <MobileRouteBoundary>{dashboard}</MobileRouteBoundary>;
   }
@@ -190,6 +197,8 @@ export default function MobileRoutes({
         <Route path="/follow-requests" element={<FollowRequestsMobile user={user} />} />
         <Route path="/collaborations" element={<CollaborationRequestsMobile user={user} />} />
         <Route path="/messages" element={<MessagesMobile user={user} />} />
+        <Route path="/reader" element={<ReaderHomeMobile user={user} />} />
+        <Route path="/reader/search" element={<ReaderDiscoverMobile user={user} />} />
         <Route path="/challenge" element={<ChallengeHubMobile user={user} />} />
         <Route path="/challenge/c/:slug" element={<ChallengeDetailMobile user={user} />} />
         <Route path="/challenge/register" element={<ChallengeRegisterMobile user={user} />} />

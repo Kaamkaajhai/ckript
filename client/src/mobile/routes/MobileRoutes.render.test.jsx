@@ -45,6 +45,14 @@ vi.mock("../screens/messages/MessagesMobile", () => ({
   default: () => <main data-testid="mobile-messages">Messages</main>,
 }));
 
+vi.mock("../screens/reader/ReaderHomeMobile", () => ({
+  default: () => <main data-testid="mobile-reader-home">Reader home</main>,
+}));
+
+vi.mock("../screens/reader/ReaderDiscoverMobile", () => ({
+  default: () => <main data-testid="mobile-reader-discover">Reader discover</main>,
+}));
+
 vi.mock("../screens/challenges/ChallengeHubMobile", () => ({
   default: () => <main data-testid="mobile-challenge-hub">Challenges</main>,
 }));
@@ -99,6 +107,10 @@ vi.mock("../dev/ChallengeDashboardHarness", () => ({
 
 vi.mock("../dev/HallOfFameHarness", () => ({
   default: () => <main data-testid="mobile-hall-of-fame-harness">Hall of Fame harness</main>,
+}));
+
+vi.mock("../dev/ReaderWorkspaceHarness", () => ({
+  default: () => <main data-testid="mobile-reader-workspace-harness">Reader workspace harness</main>,
 }));
 
 vi.mock("../screens/profiles/visitor-profile/ProfileVisitorMobile", () => ({
@@ -239,6 +251,11 @@ describe("MobileRoutes", () => {
     expect(el.querySelector('[data-testid="mobile-hall-of-fame-harness"]')).toBeTruthy();
   });
 
+  it("renders the deterministic reader fixture when App.jsx owns its dev route", async () => {
+    const el = await mount("/__mobile-reader?view=discover&state=empty", { devScreen: "reader-workspace", user: { role: "reader" } });
+    expect(el.querySelector('[data-testid="mobile-reader-workspace-harness"]')).toBeTruthy();
+  });
+
   it("renders the same dashboard at /ai-tools, because desktop does", async () => {
     // App.jsx mounts the identical <DashboardRoute /> element at both URLs.
     // The alias must not be a second, differently-built dashboard.
@@ -267,6 +284,21 @@ describe("MobileRoutes", () => {
   it("renders native featured at the canonical /featured URL", async () => {
     const el = await mount("/featured?sort=views&budget=medium");
     expect(el.querySelector('[data-testid="mobile-featured"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
+  });
+
+  it("renders reader home and discover without substituting the writer dashboard", async () => {
+    let el = await mount("/reader", { user: { _id: "reader-1", role: "reader" } });
+    expect(el.querySelector('[data-testid="mobile-reader-home"]')).toBeTruthy();
+    expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
+
+    act(() => root.unmount());
+    container.remove();
+    root = null;
+    container = null;
+
+    el = await mount("/reader/search?q=night", { user: { _id: "reader-1", role: "reader" } });
+    expect(el.querySelector('[data-testid="mobile-reader-discover"]')).toBeTruthy();
     expect(el.querySelector('[data-testid="mobile-dashboard"]')).toBeNull();
   });
 

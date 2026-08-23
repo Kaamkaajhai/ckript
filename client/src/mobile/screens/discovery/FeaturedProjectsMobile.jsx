@@ -38,7 +38,7 @@
  * degrades one section rather than blanking the screen.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../../../services/api";
 import AppBar from "../../components/app-bars/AppBar";
 import Badge from "../../components/badges/Badge";
@@ -94,6 +94,7 @@ function FeaturedLoading() {
 
 export default function FeaturedProjectsMobile({ user, previewData = null }) {
   const toast = useToast();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const state = useMemo(() => readFeaturedState(searchParams), [searchParams]);
   const queryKey = featuredStateToParams(state).toString();
@@ -114,6 +115,10 @@ export default function FeaturedProjectsMobile({ user, previewData = null }) {
   queryKeyRef.current = queryKey;
 
   const mandate = useMemo(() => getMandate(user), [user]);
+  const readerViewer = String(user?.role || "").toLowerCase() === "reader";
+  const openProject = useCallback((project) => {
+    if (readerViewer && project?._id) navigate(`/reader/script/${encodeURIComponent(project._id)}`);
+  }, [navigate, readerViewer]);
 
   const setState = useCallback((patch) => {
     setSearchParams(featuredStateToParams({ ...state, ...patch }), { replace: true });
@@ -289,8 +294,8 @@ export default function FeaturedProjectsMobile({ user, previewData = null }) {
           <dd>{status === "loading" ? "—" : results.total}</dd>
         </div>
         <div>
-          <dt>Your mandate</dt>
-          <dd className="ckm-featured__glance-text">{mandate.label}</dd>
+          <dt>{readerViewer ? "Reader access" : "Your mandate"}</dt>
+          <dd className="ckm-featured__glance-text">{readerViewer ? "Published catalogue" : mandate.label}</dd>
         </div>
       </dl>
 
@@ -363,6 +368,7 @@ export default function FeaturedProjectsMobile({ user, previewData = null }) {
             onNext={() => setLeadIndex((i) => (i + 1) % leadPool.length)}
             onTrailer={() => setTrailerId(lead._id)}
             onShare={onShare}
+            projectTo={readerViewer ? `/reader/script/${encodeURIComponent(lead._id)}` : null}
           />
         </section>
       )}
@@ -379,6 +385,7 @@ export default function FeaturedProjectsMobile({ user, previewData = null }) {
                 key={project._id}
                 project={project}
                 onShare={onShare}
+                onOpen={readerViewer ? openProject : null}
               />
             ))}
           </div>
@@ -403,6 +410,7 @@ export default function FeaturedProjectsMobile({ user, previewData = null }) {
                 rank={index + 1}
                 metric={describeFeaturedMetric(project, state.sort)}
                 onShare={onShare}
+                onOpen={readerViewer ? openProject : null}
               />
             ))}
           </div>
@@ -434,6 +442,7 @@ export default function FeaturedProjectsMobile({ user, previewData = null }) {
                   key={project._id}
                   project={project}
                   onShare={onShare}
+                  onOpen={readerViewer ? openProject : null}
                   className="ckm-featured__match"
                 >
                   <span className="ckm-featured__match-chips">

@@ -58,6 +58,7 @@ export default function FeaturedLeadCard({
   onNext,
   onTrailer,
   onShare = null,
+  projectTo = null,
 }) {
   const { isBookmarked, canBookmark, pending, toggleBookmark } = useScriptBookmark(project);
   if (!project) return null;
@@ -66,6 +67,7 @@ export default function FeaturedLeadCard({
   const spotlight = getSpotlightLabel(project, { isTop: position === 1 });
   const why = getWhyLead(project, { mandate, sort });
   const score = getScore(project);
+  const destination = projectTo || getScriptCanonicalPath(project);
 
   return (
     <Card className="ckm-featured-lead">
@@ -77,7 +79,7 @@ export default function FeaturedLeadCard({
       />
       <CardBody>
         <CardEyebrow>{getCreatorName(project)}{project.genre ? ` · ${project.genre}` : ""}</CardEyebrow>
-        <CardTitle to={getScriptCanonicalPath(project)}>{title}</CardTitle>
+        <CardTitle to={destination}>{title}</CardTitle>
         <CardText>{getLoglineLabel(project)}</CardText>
 
         {why && <p className="ckm-featured-lead__why">{why}</p>}
@@ -94,7 +96,7 @@ export default function FeaturedLeadCard({
         </dl>
 
         <div className="ckm-featured-lead__actions">
-          <Button to={getScriptCanonicalPath(project)} fullWidth>View project</Button>
+          <Button to={destination} fullWidth>View project</Button>
           <div className="ckm-featured-lead__action-row">
             {canBookmark && (
               <IconButton

@@ -17,6 +17,7 @@ const APP_ROUTE_PATTERNS = [
   "/__mobile-challenge-dashboard",
   "/__mobile-hall-of-fame",
   "/__mobile-industry",
+  "/__mobile-reader",
   "/__mobile-challenges",
   "/__mobile-checkout",
   "/__mobile-create",

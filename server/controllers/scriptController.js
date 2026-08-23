@@ -98,6 +98,7 @@ import {
   canUploadPitchVideo,
 } from "../utils/scriptMedia.js";
 import { isValidRazorpaySignature, validateScriptHoldPayment } from "../utils/scriptHold.js";
+import { VISITOR_PROFILE_SCRIPT_FIELDS } from "../utils/profileProjection.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -5162,6 +5163,9 @@ export const getTopScripts = async (req, res) => {
 
 export const searchScriptsReader = async (req, res) => {
   try {
+    if (String(req.user?.role || "").toLowerCase() !== "reader") {
+      return res.status(403).json({ message: "Reader discovery is available only to reader accounts." });
+    }
     const { q, category, genre, page = 1, limit = 20 } = req.query;
     const query = { ...PUBLIC_SCRIPT_FILTER };
     const blockedUserIds = await getBlockedUserIdsForViewer(req.user._id);
@@ -5177,24 +5181,20 @@ export const searchScriptsReader = async (req, res) => {
     const genreFilter = asTrimmedString(genre);
     if (categoryFilter) query.contentType = categoryFilter;
     if (genreFilter) query.genre = genreFilter;
-    const pageNumber = asInt(page, { min: 1, fallback: 1 });
-    const pageSize = asInt(limit, { min: 1, max: 100, fallback: 20 });
+    const pageNumber = asInt(page, { min: 1, max: 1000, fallback: 1 });
+    const pageSize = asInt(limit, { min: 1, max: 24, fallback: 12 });
     const total = await Script.countDocuments(query);
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const currentPage = Math.min(pageNumber, totalPages);
     const scripts = await Script.find(query)
-      .populate("creator", "name profileImage role")
+      .select([...VISITOR_PROFILE_SCRIPT_FIELDS, "readsCount", "rating", "verifiedBadge"].join(" "))
+      .populate("creator", "name profileImage role writerProfile.username")
       .sort({ createdAt: -1 })
-      .skip((pageNumber - 1) * pageSize)
-      .limit(pageSize);
+      .skip((currentPage - 1) * pageSize)
+      .limit(pageSize)
+      .lean();
 
-    await Promise.all(
-      scripts.map(async (doc) => {
-        if (!doc.sid) {
-          await doc.save();
-        }
-      })
-    );
-
-    res.json({ scripts, totalPages: Math.ceil(total / pageSize), page: pageNumber, total });
+    res.json({ scripts, totalPages, page: currentPage, total });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -387,6 +387,13 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     note: "Reader identity, private own collections, public reviews, follow relationship, and URL-backed paging at /reader/profile/:id?.",
   },
 
+  "ckm-reader-home": {
+    kind: PAGE_FAMILY,
+    owner: "screens/reader/ReaderHomeMobile.css",
+    family: "reader",
+    note: "Reader-only private library home and URL-owned project discovery at /reader and /reader/search (D55).",
+  },
+
   "ckm-messages": {
     kind: PAGE_FAMILY,
     owner: "screens/messages/MessagesMobile.css",

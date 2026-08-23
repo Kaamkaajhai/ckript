@@ -434,7 +434,9 @@ export default function MessagesMobile({ user }) {
           icon="forum"
           title="No conversations yet"
           titleAs="h3"
-          body="When you connect with a writer or industry professional, your messages will appear here."
+          body={String(user?.role || "").toLowerCase() === "reader"
+            ? "Replies and existing project conversations will appear here."
+            : "When you connect with a writer or industry professional, your messages will appear here."}
         />
       ) : !visibleConversations.length ? (
         <EmptyState compact icon="search_off" title="No matching conversations" titleAs="h3" body="Try another name or message." />

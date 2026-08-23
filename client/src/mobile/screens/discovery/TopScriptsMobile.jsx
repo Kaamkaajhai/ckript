@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import api from "../../../services/api";
 import AppBar from "../../components/app-bars/AppBar";
 import Button from "../../components/buttons/Button";
@@ -47,6 +47,7 @@ function TopScriptsLoading() {
 
 export default function TopScriptsMobile({ user, previewData = null }) {
   const toast = useToast();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const state = useMemo(() => readTopScriptsState(searchParams), [searchParams]);
   const queryKey = topScriptsStateToParams(state).toString();
@@ -62,6 +63,10 @@ export default function TopScriptsMobile({ user, previewData = null }) {
   const appendControllerRef = useRef(null);
   const queryKeyRef = useRef(queryKey);
   queryKeyRef.current = queryKey;
+  const readerViewer = String(user?.role || "").toLowerCase() === "reader";
+  const openProject = useCallback((project) => {
+    if (readerViewer && project?._id) navigate(`/reader/script/${encodeURIComponent(project._id)}`);
+  }, [navigate, readerViewer]);
 
   const setState = useCallback((patch) => {
     setSearchParams(topScriptsStateToParams({ ...state, ...patch }), { replace: true });
@@ -240,6 +245,7 @@ export default function TopScriptsMobile({ user, previewData = null }) {
                 rank={index + 1}
                 metric={describeTopScriptMetric(project, state.sort)}
                 onShare={onShare}
+                onOpen={readerViewer ? openProject : null}
               />
             ))}
           </div>
