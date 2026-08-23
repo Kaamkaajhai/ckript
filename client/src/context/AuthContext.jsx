@@ -5,6 +5,8 @@ import { clearCacheByPrefix } from "../utils/localCache";
 import { linkAnonymousSessionToUser } from "../tracking/linkUserSession";
 import { sendTrackEvent } from "../tracking/analyticsClient";
 
+// Context and provider intentionally share this module to preserve the app's established import path.
+// eslint-disable-next-line react-refresh/only-export-components
 export const AuthContext = createContext();
 
 const API_URL = getApiBaseUrl();
@@ -23,20 +25,21 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const logoutTimerRef = useRef(null);
 
-  const redirectInvestorReview = useCallback((status) => {
-    if (typeof window === "undefined") return;
-    const reason = status === "rejected" ? "rejected" : "pending";
-    window.location.href = `/?investorReview=${reason}`;
-  }, []);
-
-  const isOnInvestorOnboardingPath = useCallback(() => {
-    if (typeof window === "undefined") return false;
-    const pathname = String(window.location.pathname || "").toLowerCase();
-    return (
-      pathname.includes("/producer-director-onboarding") ||
-      pathname.includes("/investor-onboarding") ||
-      pathname.includes("/industry-onboarding")
-    );
+  const updateSessionUser = useCallback((update) => {
+    setUser((current) => {
+      if (!current) return current;
+      const patch = typeof update === "function" ? update(current) : update;
+      if (!patch || typeof patch !== "object") return current;
+      const next = { ...current, ...patch };
+      if (typeof window !== "undefined") {
+        try {
+          localStorage.setItem("user", JSON.stringify(next));
+        } catch {
+          // The live in-memory session remains authoritative when storage is unavailable.
+        }
+      }
+      return next;
+    });
   }, []);
 
   // Clear any existing auto-logout timer
@@ -140,9 +143,12 @@ export const AuthProvider = ({ children }) => {
             return;
           }
 
-          // Optimistically set user and stop loading immediately for fast UI
+          // Restore the cached identity, but keep the transition boundary in its
+          // neutral loading state until the server confirms the current role.
+          // A role may have changed since this snapshot was written; exposing
+          // its old audience for a frame is both a data leak and a navigation
+          // mismatch on refresh.
           setUser(parsed);
-          setLoading(false);
 
           // Validate token with backend in the background
           const { data } = await axios.get(`${API_URL}/auth/me`, {
@@ -185,7 +191,7 @@ export const AuthProvider = ({ children }) => {
     };
     restoreSession();
     return () => clearLogoutTimer();
-  }, []);
+  }, [clearLogoutTimer, scheduleAutoLogout, trackAuthEvent]);
 
   const login = async (email, password) => {
     const normalizedEmail = String(email || "").trim().toLowerCase();
@@ -277,7 +283,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, setUser, loading, login, join, googleSignIn, logout }}>
+    <AuthContext.Provider value={{ user, setUser, updateSessionUser, loading, login, join, googleSignIn, logout }}>
       {children}
     </AuthContext.Provider>
   );

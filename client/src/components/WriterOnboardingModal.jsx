@@ -280,7 +280,7 @@ const STATUS_META = {
 };
 
 function WriterOnboardingModalInner({ onClose, onComplete }) {
-  const { join, setUser } = useContext(AuthContext);
+  const { join, setUser, updateSessionUser } = useContext(AuthContext);
   const { openAuthModal } = useAuthModal();
   const toast = useToast();
   const navigate = useNavigate();
@@ -694,6 +694,7 @@ function WriterOnboardingModalInner({ onClose, onComplete }) {
         privacyPolicyVersion: PRIVACY_POLICY_VERSION,
       });
       if (response?.data?.success !== false) {
+        updateSessionUser(response?.data?.user);
         clearDraft();
         onComplete();
       }

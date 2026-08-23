@@ -7,6 +7,8 @@ import WriterOnboardingModal from "../components/WriterOnboardingModal";
 import AboutModal from "../components/AboutModal";
 import PricingModal from "../components/PricingModal";
 import ForgotPasswordModal from "../components/ForgotPasswordModal";
+import { AuthContext } from "./AuthContext";
+import { resolvePostAuthPath } from "../routing/audienceTransitions";
 
 /* Global controller for the Ckript auth surfaces. Any component can pop the
    sign-in / join modal — or either role-specific onboarding modal — without
@@ -40,11 +42,14 @@ const AuthModalContext = createContext({
   isForgotPasswordModalOpen: false,
 });
 
+// The hook remains beside its provider to preserve the established public import.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useAuthModal = () => useContext(AuthModalContext);
 
 export const AuthModalProvider = ({ children }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useContext(AuthContext);
   const [state, setState] = useState({ open: false, redirect: "" });
   const [producerOpen, setProducerOpen] = useState(false);
   const [writerOpen, setWriterOpen] = useState(false);
@@ -215,7 +220,7 @@ export const AuthModalProvider = ({ children }) => {
         onClose={closeWriterOnboarding}
         onComplete={() => {
           closeWriterOnboarding();
-          const target = state.redirect || "/profile";
+          const target = resolvePostAuthPath({ requestedPath: state.redirect || "/profile", user });
           if (state.redirect) setState((prev) => ({ ...prev, redirect: "" }));
           navigate(target, { replace: true });
         }}

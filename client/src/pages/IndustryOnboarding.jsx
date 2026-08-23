@@ -33,7 +33,7 @@ const validatePassword = (password) => ({
 });
 
 const IndustryOnboarding = () => {
-  const { join, setUser } = useContext(AuthContext);
+  const { join, setUser, updateSessionUser } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const getDefaultMandates = () => ({
@@ -300,7 +300,8 @@ const IndustryOnboarding = () => {
       });
       
       if (response.data.success) {
-        navigate("/profile");
+        updateSessionUser(response.data.user);
+        navigate("/profile", { replace: true });
       }
     } catch (err) {
       setError(err.response?.data?.message || "Submission failed");
@@ -310,7 +311,7 @@ const IndustryOnboarding = () => {
   };
 
   const handleFinishLater = () => {
-    navigate("/profile");
+    navigate("/home", { replace: true });
   };
 
   // Toggle handlers

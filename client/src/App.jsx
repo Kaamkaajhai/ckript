@@ -30,6 +30,8 @@ import {
   CONTENT_VARIANT,
 } from "./layouts/app-shell/shellPolicy";
 import { MOBILE_EXPERIENCE, resolveMobileExperience } from "./mobile/routes/mobileRoutePolicy";
+import AudienceTransitionBoundary from "./routing/AudienceTransitionBoundary";
+import { getDefaultAuthenticatedPath } from "./routing/audienceTransitions";
 
 const Landing = lazy(() => import("./pages/landing/Landing"));
 const About = lazy(() => import("./pages/About"));
@@ -117,7 +119,7 @@ function AdminLoginHandler({ children }) {
         localStorage.setItem("user", JSON.stringify(userData));
         setUser(userData);
         // Clean URL by navigating without the query param
-        navigate("/dashboard", { replace: true });
+        navigate(getDefaultAuthenticatedPath(userData), { replace: true });
       } catch (err) {
         console.error("Failed to parse admin login data:", err);
       }
@@ -459,6 +461,7 @@ function App() {
                 </div>
               }
             >
+            <AudienceTransitionBoundary>
             <RootExperience>
             <Routes>
               <Route path="/" element={<Landing />} />
@@ -835,6 +838,7 @@ function App() {
               <Route path="/:id" element={<SingleSegmentProfileOrReferralRoute />} />
             </Routes>
             </RootExperience>
+            </AudienceTransitionBoundary>
             </Suspense>
 
           <EventPosterModal />
