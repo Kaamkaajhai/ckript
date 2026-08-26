@@ -1,5 +1,5 @@
 import { lazy } from "react";
-import { Route, Routes, useLocation, useParams } from "react-router-dom";
+import { Navigate, Route, Routes, useLocation, useParams } from "react-router-dom";
 import MobileRouteBoundary from "../shell/MobileRouteBoundary";
 import { isOwnProfileKey } from "./mobileRoutePolicy";
 import { isIndustryAudience } from "../../layouts/app-shell/shellPolicy";
@@ -26,6 +26,11 @@ const ReaderProfileMobile = lazy(() => import("../screens/reader/reader-profile/
 const ReaderHomeMobile = lazy(() => import("../screens/reader/ReaderHomeMobile"));
 const ReaderDiscoverMobile = lazy(() => import("../screens/reader/ReaderDiscoverMobile"));
 const LandingMobile = lazy(() => import("../marketing/LandingMobile"));
+const SignInMobile = lazy(() => import("../screens/auth/SignInMobile"));
+const RoleChooserMobile = lazy(() => import("../screens/auth/RoleChooserMobile"));
+const SignUpMobile = lazy(() => import("../screens/auth/SignUpMobile"));
+const ForgotPasswordMobile = lazy(() => import("../screens/auth/ForgotPasswordMobile"));
+const AcceptInviteMobile = lazy(() => import("../screens/auth/AcceptInviteMobile"));
 const SeoContentMobile = lazy(() => import("../marketing/SeoContentMobile"));
 const ChallengeHubMobile = lazy(() => import("../screens/challenges/ChallengeHubMobile"));
 const ChallengeDetailMobile = lazy(() => import("../screens/challenges/ChallengeDetailMobile"));
@@ -51,6 +56,24 @@ const ChallengeDashboardHarness = lazy(() => import("../dev/ChallengeDashboardHa
 const HallOfFameHarness = lazy(() => import("../dev/HallOfFameHarness"));
 const IndustryWorkspaceHarness = lazy(() => import("../dev/IndustryWorkspaceHarness"));
 const ReaderWorkspaceHarness = lazy(() => import("../dev/ReaderWorkspaceHarness"));
+
+/*
+ * The three onboarding deep links resolve into the one native stepper.
+ *
+ * `replace` rather than push, so the browser back button from step 1 goes where
+ * the visitor came from rather than back to a URL that only ever redirects —
+ * which would trap them in a loop between the two.
+ *
+ * The whole query is carried across (referral, return path, a prefilled email
+ * from the Google hand-off), because losing it here is exactly the defect §9.1
+ * has recorded against these routes since Phase 0.
+ */
+function SignUpRedirect({ as }) {
+  const { search } = useLocation();
+  const params = new URLSearchParams(search);
+  params.set("as", as);
+  return <Navigate to={`/signup?${params.toString()}`} replace />;
+}
 
 function AuthenticatedProfileRoute({ user }) {
   const { id } = useParams();
@@ -176,6 +199,18 @@ export default function MobileRoutes({
     <MobileRouteBoundary>
       <Routes>
         <Route path="/" element={<LandingMobile user={user} />} />
+
+        {/* Account entry (D59). Real routes, not an overlay: a modal has no URL,
+            and this flow has to survive a refresh, an Android back press and a
+            trip to the mail app for a verification code. */}
+        <Route path="/login" element={<SignInMobile />} />
+        <Route path="/join" element={<RoleChooserMobile />} />
+        <Route path="/signup" element={<SignUpMobile />} />
+        <Route path="/forgot-password" element={<ForgotPasswordMobile />} />
+        <Route path="/invite/:token" element={<AcceptInviteMobile />} />
+        <Route path="/writer-onboarding" element={<SignUpRedirect as="writer" />} />
+        <Route path="/producer-director-onboarding" element={<SignUpRedirect as="producer" />} />
+        <Route path="/industry-onboarding" element={<SignUpRedirect as="industry" />} />
         <Route path="/features" element={<SeoContentMobile user={user} />} />
         <Route path="/features/:slug" element={<SeoContentMobile user={user} />} />
         <Route path="/for" element={<SeoContentMobile user={user} />} />
