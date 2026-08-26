@@ -1,5 +1,13 @@
 import { useCallback, useContext, useEffect, useId, useRef, useState } from "react";
-import { AnimatePresence } from "framer-motion";
+// Aliased to `Motion` because this project's ESLint has no rule that counts a
+// JSX member expression as a use, so a bare `motion` reads as an unused import.
+// That is not cosmetic: on 2026-08-23 the import was deleted to silence exactly
+// that error while six `<Motion.div>` usages stayed behind, and every open of
+// this modal threw a ReferenceError until 2026-08-26 — nobody could sign in, on
+// either platform (DEF-33). The capitalised alias is the convention the rest of
+// the codebase already uses for this reason (BankDetails, PricingModal,
+// WriterOnboardingModal, the mobile Overlay and ToastProvider).
+import { AnimatePresence, motion as Motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { AuthContext } from "../context/AuthContext";
 import { useAuthModal } from "../context/AuthModalContext";
@@ -94,7 +102,7 @@ const FOCUSABLE =
   'a[href],button:not([disabled]),input:not([disabled]),textarea,select,[tabindex]:not([tabindex="-1"])';
 
 function AuthModalInner({ redirect, onClose }) {
-  const { user, login, setUser } = useContext(AuthContext);
+  const { user, login } = useContext(AuthContext);
   const { openProducerOnboarding, openWriterOnboarding, openForgotPasswordModal } = useAuthModal();
   const toast = useToast();
   const navigate = useNavigate();
@@ -239,7 +247,7 @@ function AuthModalInner({ redirect, onClose }) {
 
   if (showOTP) {
     return (
-      <motion.div
+      <Motion.div
         className="ckam-overlay"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -254,21 +262,22 @@ function AuthModalInner({ redirect, onClose }) {
             initialResendCooldownSeconds={otpConfig.resendCooldownSeconds}
             startCooldownOnMount={otpConfig.startCooldownOnMount}
             onSuccess={(userData) => {
-              setUser(userData);
+              // OTPVerification adopts the session itself now (AuthContext.adoptSession),
+              // so there is nothing left here but the transition.
               setShowOTP(false);
               finishAuth(userData);
             }}
             onBack={() => setShowOTP(false)}
           />
         </div>
-      </motion.div>
+      </Motion.div>
     );
   }
 
   const activeImage = hovered || "default";
 
   return (
-    <motion.div
+    <Motion.div
       className="ckam-overlay"
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
@@ -280,7 +289,7 @@ function AuthModalInner({ redirect, onClose }) {
       }}
       onKeyDown={handleKeyDown}
     >
-      <motion.div
+      <Motion.div
         ref={cardRef}
         className="ckam-card"
         role="dialog"
@@ -407,8 +416,8 @@ function AuthModalInner({ redirect, onClose }) {
             <line x1="19" y1="5" x2="5" y2="19" />
           </svg>
         </button>
-      </motion.div>
-    </motion.div>
+      </Motion.div>
+    </Motion.div>
   );
 }
 

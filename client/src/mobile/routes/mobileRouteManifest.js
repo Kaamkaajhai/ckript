@@ -260,11 +260,87 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
   redirect("investor-terms-alias", "/investor-terms"),
   migration("script-upload-terms", "/script-upload-terms"),
 
-  redirect("login-alias", "/login"),
-  redirect("join-alias", "/join"),
-  redirect("signup-alias", "/signup"),
-  migration("forgot-password", "/forgot-password"),
-  migration("accept-invite", "/invite/:token"),
+  /*
+   * Account entry (Phase 8, D59) — the first entries whose disposition
+   * deliberately differs by platform, which is what this manifest is for.
+   *
+   * Desktop presents auth as a modal over the page the visitor was reading, and
+   * App.jsx keeps `<Navigate to="/">` for all three paths. A phone cannot use
+   * that shape: a modal has no URL, so a refresh loses a half-filled form,
+   * Android back closes the surface instead of stepping back, and the OTP step
+   * routinely outlives a trip to the mail app. On mobile, auth is a
+   * destination.
+   *
+   * None of these are `signedOutOnly`, and that is deliberate rather than an
+   * omission. The obvious reading — "auth screens are for signed-out people" —
+   * breaks the stepper: /signup creates the real account at step 3 and the
+   * writer then fills in five more steps while signed in. A policy that bounced
+   * an authenticated viewer off /signup would destroy the flow at the exact
+   * moment it succeeded. The policy cannot tell "signed in because they
+   * finished step 3 four seconds ago" from "signed in and typed /signup", so
+   * each screen makes that call itself, which is the only place that knows.
+   *
+   * They carry no `fallbackDisposition` for the same reason: with
+   * `protection: "public"` and no audience, role or signed-out restriction,
+   * there is no branch left that could decline them, and a fallback that can
+   * never fire is configuration that lies.
+   *
+   * No new App.jsx route is added — every pattern below already exists there
+   * and in mobileRouteCoverage.test.js.
+   */
+  {
+    id: "sign-in",
+    pattern: "/login",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native sign in: email/password, Google, the OTP step a `requiresVerification` refusal advances into, password "
+      + "recovery, and `?redirect=` carried through to resolvePostAuthPath (plan §9.1, D59).",
+    protection: "public",
+    screenId: "sign-in",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+  },
+  {
+    id: "role-chooser",
+    pattern: "/join",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native role chooser — writer, producer/director, industry professional — and the one auth screen that is a choice "
+      + "rather than a form (plan §9.1, D59).",
+    protection: "public",
+    screenId: "role-chooser",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+  },
+  {
+    id: "sign-up",
+    pattern: "/signup",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "The native sign-up stepper. One screen for all three roles, parameterised by `?as=`; `?step=` is a real history entry "
+      + "so browser/Android back is step-back and a return from the mail app resumes where it left off; `?ref=` and `?redirect=` "
+      + "survive the whole flow including OTP. Its three query forms need no entries of their own — the screen reads them itself, "
+      + "the same arrangement /upload has for `?draft=` / `?edit=` (plan §9.1/§9.3, D59).",
+    protection: "public",
+    screenId: "sign-up",
+    shell: MOBILE_SHELL_MODE.FLOW,
+  },
+  {
+    id: "forgot-password",
+    pattern: "/forgot-password",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native password recovery over the already-headless useForgotPasswordFlow — request a code, then verify and set a new "
+      + "password — in the same entry chrome as sign in (plan §9.1, D59).",
+    protection: "public",
+    screenId: "forgot-password",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+  },
+  {
+    id: "accept-invite",
+    pattern: "/invite/:token",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native collaboration-invite acceptance. Deliberately NOT `signedOutOnly`: this is the one auth route that has work to "
+      + "do for both audiences — a signed-out invitee is told what the invite is and sent to sign in with this URL as the return "
+      + "path, and a signed-in one has it accepted (plan §9.1, D59).",
+    protection: "public",
+    screenId: "accept-invite",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+  },
   {
     id: "shared-profile",
     pattern: "/share/profile/:id",
@@ -352,10 +428,48 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
   },
 
-  migration("writer-onboarding", "/writer-onboarding"),
-  migration("producer-onboarding", "/producer-director-onboarding"),
+  /*
+   * The three onboarding deep links (Phase 8, D59).
+   *
+   * Desktop mounts a dedicated 1000-1400 line modal at each. Mobile does not,
+   * because all three ask for the same first three steps, create the account at
+   * the same point, run the same OTP leg, and diverge only in the profile
+   * fields that follow — so native implements one stepper and these three
+   * resolve into it. They keep working for SEO, the sidebar "Become a Writer"
+   * entry, the Terms page and the landing CTAs exactly as before.
+   *
+   * SCREEN rather than REDIRECT because the redirect is ours, not App.jsx's:
+   * the mobile screen decides the destination, and marking it REDIRECT would
+   * claim the existing desktop redirect is shared when there isn't one.
+   */
+  {
+    id: "writer-onboarding",
+    pattern: "/writer-onboarding",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Resolves to the native stepper at /signup?as=writer, preserving `?ref=` and `?redirect=` (plan §9.3, D59).",
+    protection: "public",
+    screenId: "signup-writer",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+  },
+  {
+    id: "producer-onboarding",
+    pattern: "/producer-director-onboarding",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Resolves to the native stepper at /signup?as=producer, preserving `?ref=` and `?redirect=` (plan §9.3, D59).",
+    protection: "public",
+    screenId: "signup-producer",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+  },
   redirect("investor-onboarding-alias", "/investor-onboarding"),
-  migration("industry-onboarding", "/industry-onboarding"),
+  {
+    id: "industry-onboarding",
+    pattern: "/industry-onboarding",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Resolves to the native stepper at /signup?as=industry, preserving `?ref=` and `?redirect=` (plan §9.3, D59).",
+    protection: "public",
+    screenId: "signup-industry",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+  },
 
   redirect("trending-alias", "/trending"),
   {

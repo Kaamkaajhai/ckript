@@ -414,7 +414,22 @@ function RootExperience({ children }) {
   });
 
   if (decision.experience === MOBILE_EXPERIENCE.MOBILE) {
-    return <MobileApp skipBoot={decision.disposition === MOBILE_ROUTE_DISPOSITION.SHARED_PUBLIC_SCREEN} />;
+    // The boot skeleton introduces the *app*, and it is a dashboard-shaped
+    // drawing. That is right for a member opening their workspace and wrong for
+    // a visitor with no account who arrived cold at a public page: someone who
+    // followed a share link or tapped "Sign in" is waiting on a form, and 650ms
+    // of someone else's dashboard loading is a stall wearing a costume.
+    //
+    // `shared-public-screen` already skipped it. The added clause is deliberately
+    // narrow — public protection AND no user — so it covers the D59 account-entry
+    // routes (ordinary SCREEN entries that happen to be public) without changing
+    // what a signed-in cold load does on any existing route.
+    const visitorArrivedCold = decision.protection === "public" && !user;
+    return (
+      <MobileApp
+        skipBoot={decision.disposition === MOBILE_ROUTE_DISPOSITION.SHARED_PUBLIC_SCREEN || visitorArrivedCold}
+      />
+    );
   }
 
   return <><CookieConsentBanner />{children}</>;

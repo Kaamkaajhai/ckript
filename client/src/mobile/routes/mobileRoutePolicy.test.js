@@ -643,3 +643,88 @@ describe("mobileRoutePolicy — experience selection", () => {
     })).toMatchObject({ experience: "desktop", reason: "dev-only" });
   });
 });
+
+/*
+ * Account entry (D59). These are the first entries whose disposition deliberately
+ * differs by platform, so the cases below pin BOTH halves of that: a phone gets a
+ * native screen, and everything else continues through the desktop route tree
+ * exactly as before.
+ */
+describe("mobileRoutePolicy — account entry (D59)", () => {
+  const AUTH_ROUTES = [
+    ["/login", "sign-in", "sign-in", "public"],
+    ["/join", "role-chooser", "role-chooser", "public"],
+    ["/signup", "sign-up", "sign-up", "flow"],
+    ["/forgot-password", "forgot-password", "forgot-password", "public"],
+    ["/invite/tok-123", "accept-invite", "accept-invite", "public"],
+  ];
+
+  it.each(AUTH_ROUTES)("mounts a native screen at %s for a signed-out visitor", (pathname, routeId, screenId, shell) => {
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: null, pathname,
+    })).toMatchObject({ experience: "mobile", routeId, screenId, shell, protection: "public" });
+  });
+
+  /*
+   * The one that would have broken the product: /signup creates the real account
+   * at step 3, and the writer then fills in five more steps while signed in. A
+   * `signedOutOnly` entry would have bounced them out at the exact moment the
+   * flow succeeded, so the screen — which can tell "just signed up" from "typed
+   * the URL" — owns that decision instead of the policy.
+   */
+  it.each(AUTH_ROUTES)("keeps %s mounted for a signed-in viewer rather than bouncing them", (pathname, routeId, screenId) => {
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: creator, pathname,
+    })).toMatchObject({ experience: "mobile", routeId, screenId });
+  });
+
+  it.each(AUTH_ROUTES)("leaves %s to the desktop tree on a wide viewport", (pathname, routeId) => {
+    expect(resolveMobileExperience({
+      isMobile: false, authLoading: false, user: null, pathname,
+    })).toMatchObject({ experience: "desktop", routeId, reason: "viewport" });
+  });
+
+  it.each(AUTH_ROUTES)("does not decide %s while the session is still restoring", (pathname) => {
+    // Deciding here would flash a sign-in screen at someone who is signed in.
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: true, user: null, pathname,
+    })).toMatchObject({ experience: "desktop", reason: "auth-loading" });
+  });
+
+  it("gives every audience the same account-entry screens", () => {
+    // Auth precedes audience: there is no writer sign-in and no producer one.
+    for (const user of [writer, creator, producer, reader, ...industryProfessionals]) {
+      expect(resolveMobileExperience({
+        isMobile: true, authLoading: false, user, pathname: "/login",
+      })).toMatchObject({ experience: "mobile", screenId: "sign-in" });
+    }
+  });
+
+  it.each([
+    ["/writer-onboarding", "writer-onboarding", "signup-writer"],
+    ["/producer-director-onboarding", "producer-onboarding", "signup-producer"],
+    ["/industry-onboarding", "industry-onboarding", "signup-industry"],
+  ])("resolves the %s deep link into the one native stepper", (pathname, routeId, screenId) => {
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: null, pathname,
+    })).toMatchObject({ experience: "mobile", routeId, screenId });
+  });
+
+  it("reports the shell mode so RootExperience can skip the boot skeleton", () => {
+    // A visitor tapping "Sign in" must not watch 650ms of someone else's
+    // dashboard loading first.
+    const decision = resolveMobileExperience({
+      isMobile: true, authLoading: false, user: null, pathname: "/login",
+    });
+    expect(decision.protection).toBe("public");
+    expect(decision.shell).toBe("public");
+  });
+
+  it("reports no shell or protection on a decision that mounts nothing", () => {
+    const decision = resolveMobileExperience({
+      isMobile: false, authLoading: false, user: null, pathname: "/login",
+    });
+    expect(decision.shell).toBeNull();
+    expect(decision.screenId).toBeNull();
+  });
+});

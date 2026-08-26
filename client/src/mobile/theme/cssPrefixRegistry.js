@@ -447,6 +447,37 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     note: "The bounded public Hall of Fame archive and permanent competition record at /hall-of-fame/:slug (D51).",
   },
 
+  // --- Account entry (Phase 8, D59) -------------------------------------
+  "ckm-auth": {
+    kind: PAGE_FAMILY,
+    owner: "screens/auth/Auth.css",
+    family: "auth",
+    note: "The dark account-entry chrome shared by /login, /join and /forgot-password, plus the frame all five auth screens mount in. "
+      + "One prefix and one stylesheet for the three because they are the same surface asking for different fields; the reserved "
+      + "`ckm-forgot-password` is retired unused rather than owning a second copy of every rule (§7.2, 2026-08-26). "
+      + "Its `__otp*` elements belong to `components/OtpInput.jsx`, which is a member of this family and is also mounted by the "
+      + "stepper — so `SignUp.css` re-skins `.ckm-auth__otp-box` for its own ground rather than declaring a second six-box control. "
+      + "That is a family component being reused inside the family, not `ckm-signup` reaching into another prefix.",
+  },
+  "ckm-signup": {
+    kind: PAGE_FAMILY,
+    owner: "screens/auth/SignUp.css",
+    family: "auth",
+    note: "The role-parameterised sign-up stepper at /signup?as=<role>. Reallocated from the three reserved but never-used prefixes "
+      + "`ckm-writer-onboarding`, `ckm-producer-onboarding` and `ckm-industry-onboarding`: mobile implements all three flows as ONE "
+      + "screen, so three prefixes would have been three names for one stylesheet. The role is a data attribute on the host, not a "
+      + "prefix. Separate from `ckm-auth` for the reason `ckm-editor` is separate from `ckm-create-project` — a flow-shell surface "
+      + "with a step rail, per-step panels and a keyboard-aware docked footer shares nothing but tokens with a sign-in form.",
+  },
+  "ckm-invite": {
+    kind: PAGE_FAMILY,
+    owner: "screens/auth/AcceptInviteMobile.css",
+    family: "auth",
+    note: "Collaboration invite acceptance at /invite/:token. Its own family: a token-resolution RESULT surface (resolving, accepted, "
+      + "expired, already used, signed-out) rather than a form, and the only auth route that renders for signed-in and signed-out "
+      + "viewers alike.",
+  },
+
   // --- Project creation (Phase 3) ---------------------------------------
   // The chooser at /new-project. Its own family rather than part of
   // ckm-create-project: it is a different route with a different shell, it

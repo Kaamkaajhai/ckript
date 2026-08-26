@@ -2,6 +2,7 @@ import { createContext, useState, useEffect, useRef, useCallback } from "react";
 import axios from "axios";
 import { getApiBaseUrl } from "../utils/apiOrigin";
 import { clearCacheByPrefix } from "../utils/localCache";
+import { clearAllDrafts } from "../mobile/screens/auth/authDraft";
 import { linkAnonymousSessionToUser } from "../tracking/linkUserSession";
 import { sendTrackEvent } from "../tracking/analyticsClient";
 
@@ -193,21 +194,57 @@ export const AuthProvider = ({ children }) => {
     return () => clearLogoutTimer();
   }, [clearLogoutTimer, scheduleAutoLogout, trackAuthEvent]);
 
+  /*
+   * Take on an authenticated payload as the live session — the ONE place that
+   * decides what "signed in" means to this client.
+   *
+   * Everything a session needs happens here together: the in-memory user, the
+   * persisted copy, the expiry timer that signs a stale token out, the link
+   * from the visitor's pre-auth anonymous tracking session to the account it
+   * became, and the auth analytics event.
+   *
+   * It exists because those five had drifted apart. `login` and `join` did all
+   * of it; `components/OTPVerification.jsx` wrote localStorage itself and left
+   * its callers to call `setUser`, and none of those callers scheduled the
+   * timer, linked the session or reported the event. Since OTP verification is
+   * the *primary* sign-up path, that meant every new account had a session
+   * that never expired in the browser and had silently lost its attribution,
+   * while an ordinary password login kept both (DEF-34).
+   *
+   * `reason` names the auth event ("login_success" / "signup_success" /
+   * "session_restored"); pass null to adopt the session without reporting one.
+   */
+  const adoptSession = useCallback((userData, { reason = "login_success" } = {}) => {
+    if (!userData?.token) return userData;
+
+    const expiresAt = userData.expiresAt || getTokenExpiryFromJwt(userData.token);
+    const session = expiresAt ? { ...userData, expiresAt } : userData;
+
+    setUser(session);
+    try {
+      localStorage.setItem("user", JSON.stringify(session));
+    } catch {
+      // The live in-memory session remains authoritative when storage is unavailable.
+    }
+    if (session.expiresAt) scheduleAutoLogout(session.expiresAt);
+
+    // Fire-and-forget so navigation is never waiting on analytics.
+    linkAnonymousSessionToUser(session).catch(console.error);
+    if (reason) trackAuthEvent(reason, session).catch(console.error);
+
+    return session;
+  }, [scheduleAutoLogout, trackAuthEvent]);
+
   const login = async (email, password) => {
     const normalizedEmail = String(email || "").trim().toLowerCase();
     const { data } = await axios.post(`${API_URL}/auth/login`, { email: normalizedEmail, password });
-    
+
     // If OTP verification is required, don't set user yet
     if (data.requiresVerification) {
       return data;
     }
-    
-    setUser(data);
-    localStorage.setItem("user", JSON.stringify(data));
-    if (data.expiresAt) scheduleAutoLogout(data.expiresAt);
-    // Fire-and-forget tracking events for fast UI navigation
-    linkAnonymousSessionToUser(data).catch(console.error);
-    trackAuthEvent("login_success", data).catch(console.error);
+
+    adoptSession(data, { reason: "login_success" });
     return data;
   };
 
@@ -237,17 +274,14 @@ export const AuthProvider = ({ children }) => {
     }
 
     const { data } = await axios.post(`${API_URL}/auth/join`, signupPayload);
-    
-    // If OTP verification is required, don't set user yet
+
+    // If OTP verification is required, don't set user yet. The surface that
+    // runs the OTP step adopts the session itself once the code is accepted.
     if (data.requiresVerification) {
       return data;
     }
-    
-    setUser(data);
-    localStorage.setItem("user", JSON.stringify(data));
-    if (data.expiresAt) scheduleAutoLogout(data.expiresAt);
-    linkAnonymousSessionToUser(data).catch(console.error);
-    trackAuthEvent("signup_success", data).catch(console.error);
+
+    adoptSession(data, { reason: "signup_success" });
     return data;
   };
 
@@ -257,11 +291,7 @@ export const AuthProvider = ({ children }) => {
     if (role) payload.role = role;
     const { data } = await axios.post(`${API_URL}/auth/google`, payload);
 
-    setUser(data);
-    localStorage.setItem("user", JSON.stringify(data));
-    if (data.expiresAt) scheduleAutoLogout(data.expiresAt);
-    linkAnonymousSessionToUser(data).catch(console.error);
-    trackAuthEvent(data?.isNewUser ? "signup_success" : "login_success", data).catch(console.error);
+    adoptSession(data, { reason: data?.isNewUser ? "signup_success" : "login_success" });
     return data;
   };
 
@@ -277,13 +307,19 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem("user");
     clearCacheByPrefix("dashboard:"); // clear any cached dashboard snapshot for privacy
 
+    // Any half-finished native sign-up goes with the session. `logout` navigates
+    // with location.replace, which does NOT clear sessionStorage — so without
+    // this, one person's part-filled sign-up survives in a browser the next
+    // person is about to use. See mobile/screens/auth/authDraft.js.
+    clearAllDrafts();
+
     if (redirect && typeof window !== "undefined") {
       window.location.replace("/");
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, setUser, updateSessionUser, loading, login, join, googleSignIn, logout }}>
+    <AuthContext.Provider value={{ user, setUser, updateSessionUser, adoptSession, loading, login, join, googleSignIn, logout }}>
       {children}
     </AuthContext.Provider>
   );

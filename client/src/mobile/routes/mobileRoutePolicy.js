@@ -15,6 +15,8 @@ const desktopDecision = (route, reason, disposition = route?.disposition) => ({
   routeId: route?.id ?? null,
   screenId: null,
   disposition: disposition ?? null,
+  shell: null,
+  protection: route?.protection ?? null,
   reason,
 });
 
@@ -136,6 +138,14 @@ export function resolveMobileExperience({
       ? route.ownScreenId
       : user && route.authenticatedScreenId ? route.authenticatedScreenId : route.screenId,
     disposition: route.disposition,
+    // The declared shell mode and protection travel with the decision so a
+    // caller can act on them without re-reading the manifest. RootExperience
+    // uses `protection` to answer one question the disposition alone could not:
+    // is this a public surface that a visitor with no account arrived at cold,
+    // and therefore is the app-boot skeleton honest chrome or a stall in front
+    // of a sign-in form?
+    shell: route.shell ?? null,
+    protection: route.protection ?? null,
     reason: "implemented-screen",
   };
 }
