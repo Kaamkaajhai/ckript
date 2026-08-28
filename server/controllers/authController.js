@@ -177,6 +177,34 @@ const buildVerificationResponse = (email) => ({
   resendCooldownSeconds: getOTPResendCooldownSeconds(),
 });
 
+/**
+ * Roles a stranger may give themselves at signup.
+ *
+ * `role` arrives in the request body and used to go straight into User.create, validated by nothing
+ * but the Mongoose enum — which contains `admin` and `finance`. Signing up as `role: "finance"` and
+ * verifying your own OTP therefore returned a token that `financeOnly` accepts, exposing every
+ * payment, invoice, user record and bank review. `admin` reached the whole admin API: its extra
+ * access-code check lives in `login`, which the signup path never touches, and the branch guard
+ * tests the SERVER's branch, with `master` in the default allow-list.
+ *
+ * So elevated roles are grant-only now: `admin`, `finance` and `judge` can be reached solely by an
+ * admin changing an existing account, never by asking for them at the door.
+ *
+ * An unknown or elevated value falls back to the default rather than 400ing, deliberately. A refusal
+ * would confirm which role names are real, and a would-be attacker learns nothing from a signup that
+ * simply behaves normally.
+ */
+const PUBLIC_SIGNUP_ROLES = new Set([
+  "creator", "writer", "reader",
+  "investor", "producer", "director", "actor", "industry", "professional",
+]);
+const DEFAULT_SIGNUP_ROLE = "creator";
+
+export const resolvePublicSignupRole = (requested) => {
+  const value = String(requested ?? "").trim().toLowerCase();
+  return PUBLIC_SIGNUP_ROLES.has(value) ? value : DEFAULT_SIGNUP_ROLE;
+};
+
 const CONTACT_REQUIRED_ROLES = new Set(["reader"]);
 const USERNAME_PATTERN = /^[a-z0-9_]{3,30}$/;
 const USERNAME_REQUIRED_ROLES = new Set([]);
@@ -608,7 +636,9 @@ export const join = async (req, res) => {
       return res.status(400).json({ message: passwordCheck.message });
     }
 
-    role = normalizeInputValue(role).toLowerCase() || "creator";
+    // Clamp BEFORE anything reads it — the role drives username/contact requirements below
+    // and the User.create call at the end of this handler.
+    role = resolvePublicSignupRole(normalizeInputValue(role));
     const normalizedUsername = normalizeInputValue(username).toLowerCase();
     const normalizedReferralInput = normalizeReferralInput(referralCode);
     const requiresUsername = USERNAME_REQUIRED_ROLES.has(role);
