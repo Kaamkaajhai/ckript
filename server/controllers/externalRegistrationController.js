@@ -3,6 +3,7 @@ import multer from "multer";
 import crypto from "crypto";
 import Competition from "../models/Competition.js";
 import CompetitionEntry from "../models/CompetitionEntry.js";
+import CompetitionRegistrationIntent from "../models/CompetitionRegistrationIntent.js";
 import ExternalRegistration from "../models/ExternalRegistration.js";
 import { uploadToCloudinary } from "../config/cloudinary.js";
 import { getCompetitionPhase } from "../utils/competitionPhase.js";
@@ -11,6 +12,13 @@ import { isKnownProvider, providerName, EXTERNAL_EVENT_PROVIDERS } from "../util
 import { recordGrant } from "../utils/ledger.js";
 import { createNotification } from "../utils/notify.js";
 import { sendExternalRegistrationDecisionEmail } from "../utils/emailService.js";
+import { hasProjectCreatorAccess } from "../utils/projectAccess.js";
+import {
+  COMPETITION_REGISTRATION_MODE,
+  competitionRegistrationCharge,
+  competitionRegistrationMode,
+  normalizeCompetitionRegistration,
+} from "../utils/competitionRegistration.js";
 
 /**
  * "I already registered through Luma / BookMyShow / FilmFreeway" — the claim, and the human decision.
@@ -27,8 +35,6 @@ import { sendExternalRegistrationDecisionEmail } from "../utils/emailService.js"
  * invoice is issued — the entrant paid a third party, and a Ckript invoice for money Ckript never
  * took would be a false document.
  */
-
-const REGISTRATION_FEE_MINOR = { INR: 9800, USD: 200 };
 
 const clean = (value, max = 200) => String(value ?? "").trim().slice(0, max);
 
@@ -106,6 +112,13 @@ export const submitExternalRegistration = async (req, res) => {
     const competition = await Competition.findById(req.params.id);
     if (!competition) return res.status(404).json({ message: "Competition not found." });
 
+    if (!hasProjectCreatorAccess(req.user)) {
+      return res.status(403).json({ message: "Only writer accounts can enter the competition." });
+    }
+    if (competitionRegistrationMode(competition) === COMPETITION_REGISTRATION_MODE.FREE) {
+      return res.status(409).json({ message: "This challenge is free to enter. Register directly instead." });
+    }
+
     const now = new Date();
     if (getCompetitionPhase(competition, now) !== "registration_open") {
       return res.status(409).json({ message: "Registration is not open for this challenge." });
@@ -121,6 +134,18 @@ export const submitExternalRegistration = async (req, res) => {
       return res.status(409).json({
         message: "You are already registered for this challenge.",
         eventId: existingEntry.eventId,
+      });
+    }
+
+    const paymentIntent = await CompetitionRegistrationIntent.findOne({
+      competition: competition._id,
+      user: req.user._id,
+      orderId: { $exists: true, $ne: "" },
+      state: { $ne: "verified" },
+    }).select("_id");
+    if (paymentIntent) {
+      return res.status(409).json({
+        message: "A Ckript payment order already exists for this challenge. Finish or recover that checkout instead of submitting a second admission path.",
       });
     }
 
@@ -146,27 +171,16 @@ export const submitExternalRegistration = async (req, res) => {
       return res.status(400).json({ message: "Enter your registration or booking ID from that platform." });
     }
 
-    const cleanCountry = clean(country, 80);
-    const cleanLanguage = clean(language, 60);
-    // Multipart sends repeated fields as an array and a single one as a string.
-    const rawGenres = Array.isArray(genres) ? genres : (genres ? [genres] : []);
-    const cleanGenres = rawGenres.map((g) => clean(g, 40)).filter(Boolean);
-    const cleanExperience = clean(experienceLevel, 20).toLowerCase();
-    const cleanPortfolio = clean(portfolioUrl, 300);
-
-    if (!isKnownCountry(cleanCountry)) return res.status(400).json({ message: "Select a country from the list." });
-    if (!cleanLanguage) return res.status(400).json({ message: "Preferred language is required." });
-    if (cleanGenres.length < 1 || cleanGenres.length > 3) return res.status(400).json({ message: "Select 1 to 3 genres." });
-    if (!["beginner", "intermediate", "professional"].includes(cleanExperience)) {
-      return res.status(400).json({ message: "Select a valid experience level." });
-    }
-    if (cleanPortfolio && !/^https?:\/\//i.test(cleanPortfolio)) {
-      return res.status(400).json({ message: "Portfolio link must start with http:// or https://" });
-    }
-    // Truthy across form-data ("true") and JSON (true) alike.
-    const accepted = (v) => v === true || String(v).toLowerCase() === "true";
-    if (!accepted(acceptRules)) return res.status(400).json({ message: "You must accept the competition rules." });
-    if (!accepted(acceptCopyright)) return res.status(400).json({ message: "You must accept the copyright policy." });
+    const normalized = normalizeCompetitionRegistration({
+      country,
+      language,
+      genres,
+      experienceLevel,
+      portfolioUrl,
+      acceptRules,
+      acceptCopyright,
+    }, { isKnownCountry });
+    if (!normalized.ok) return res.status(400).json({ message: normalized.message });
 
     const existing = await ExternalRegistration.findOne({
       competition: competition._id,
@@ -215,13 +229,7 @@ export const submitExternalRegistration = async (req, res) => {
       phone: cleanPhone,
       externalRef: cleanRef,
       externalRefKey: refKey(cleanRef),
-      registration: {
-        country: cleanCountry,
-        language: cleanLanguage,
-        genres: cleanGenres,
-        experienceLevel: cleanExperience,
-        portfolioUrl: cleanPortfolio,
-      },
+      registration: normalized.registration,
       acceptedRulesAt: now,
       acceptedCopyrightAt: now,
       status: "pending",
@@ -379,7 +387,7 @@ export const listExternalRegistrations = async (req, res) => {
 export const approveExternalRegistration = async (req, res) => {
   try {
     const request = await ExternalRegistration.findById(req.params.id)
-      .populate("user", "name email sid")
+      .populate("user", "name email sid role")
       .populate("competition");
     if (!request) return res.status(404).json({ message: "Request not found." });
     if (request.status === "approved") {
@@ -388,6 +396,21 @@ export const approveExternalRegistration = async (req, res) => {
 
     const competition = request.competition;
     if (!competition) return res.status(410).json({ message: "That challenge no longer exists." });
+    if (!request.user || !hasProjectCreatorAccess(request.user)) {
+      return res.status(409).json({ message: "This account is no longer eligible to create a competition entry." });
+    }
+
+    const activePayment = await CompetitionRegistrationIntent.findOne({
+      competition: competition._id,
+      user: request.user._id,
+      orderId: { $exists: true, $ne: "" },
+      state: { $ne: "verified" },
+    }).select("orderId state");
+    if (activePayment) {
+      return res.status(409).json({
+        message: "This entrant has an active Ckript payment order. Ask them to finish or recover that checkout before approving a second admission path.",
+      });
+    }
 
     // ONE TICKET, ONE ENTRY. Nothing about the submission stops two accounts naming the same booking
     // ID — a single ₹98 ticket bought on Luma could otherwise be posted to a group chat and turned
@@ -452,7 +475,7 @@ export const approveExternalRegistration = async (req, res) => {
       await recordGrant({
         kind: "competition_registration",
         user: request.user._id,
-        listPriceMinor: REGISTRATION_FEE_MINOR.INR,
+        listPriceMinor: competitionRegistrationCharge(competition, "INR").amountMinor,
         currency: "INR",
         grantedBy: req.user._id,
         reason: `registered via ${providerName(request.provider)}`,

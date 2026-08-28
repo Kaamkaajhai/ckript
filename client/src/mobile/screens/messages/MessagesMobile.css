@@ -1,0 +1,79 @@
+.ckm .ckm-messages__state,
+.ckm .ckm-messages__inbox { padding: var(--ckm-space-4); }
+
+.ckm .ckm-messages__state { display: grid; gap: var(--ckm-space-3); }
+.ckm .ckm-messages__inbox { display: grid; gap: var(--ckm-space-4); padding-bottom: calc(var(--ckm-space-8) + var(--ckm-safe-bottom)); }
+.ckm .ckm-messages__heading { margin: 0; font: var(--ckm-weight-semibold) var(--ckm-text-section)/var(--ckm-leading-section) var(--ckm-display); color: var(--ckm-text); }
+.ckm .ckm-messages__list { display: grid; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--ckm-line); }
+.ckm .ckm-messages__list li { border-bottom: 1px solid var(--ckm-line); }
+.ckm .ckm-messages__row { display: flex; width: 100%; min-height: 84px; gap: var(--ckm-space-3); align-items: center; padding: var(--ckm-space-3) 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.ckm .ckm-messages__row:active { transform: scale(var(--ckm-press-scale)); }
+.ckm .ckm-messages__row:focus-visible { outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring); outline-offset: var(--ckm-focus-ring-offset); border-radius: var(--ckm-r-sm); }
+.ckm .ckm-messages__avatar { display: grid; flex: 0 0 48px; width: 48px; height: 48px; place-items: center; overflow: hidden; border-radius: 50%; background: var(--ckm-ink); color: var(--ckm-on-dark); font-weight: var(--ckm-weight-semibold); }
+.ckm .ckm-messages__avatar.is-small { flex-basis: 40px; width: 40px; height: 40px; }
+.ckm .ckm-messages__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.ckm .ckm-messages__row-copy { display: grid; flex: 1; min-width: 0; gap: var(--ckm-space-1); }
+.ckm .ckm-messages__row-copy > span { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: var(--ckm-space-2); }
+.ckm .ckm-messages__row-copy strong { overflow: hidden; color: var(--ckm-text); font-size: var(--ckm-text-body); text-overflow: ellipsis; white-space: nowrap; }
+.ckm .ckm-messages__row-copy time { flex: none; color: var(--ckm-text-3); font-size: var(--ckm-text-caption); }
+.ckm .ckm-messages__row-copy small { overflow: hidden; color: var(--ckm-text-3); font-size: var(--ckm-text-support); line-height: var(--ckm-leading-support); text-overflow: ellipsis; white-space: nowrap; }
+.ckm .ckm-messages__row-copy b { display: grid; flex: none; min-width: 24px; height: 24px; place-items: center; padding: 0 var(--ckm-space-1); border-radius: 999px; background: var(--ckm-accent-ink); color: var(--ckm-on-dark); font-size: var(--ckm-text-micro); }
+
+.ckm .ckm-messages__thread { display: flex; min-height: 100%; flex-direction: column; background: var(--ckm-bg-soft); }
+.ckm .ckm-messages__member { display: flex; gap: var(--ckm-space-3); align-items: center; margin: var(--ckm-space-3) var(--ckm-space-4) 0; padding: var(--ckm-space-3); border: 1px solid var(--ckm-line-strong); border-radius: var(--ckm-r-md); background: var(--ckm-bg); color: var(--ckm-text); text-decoration: none; }
+.ckm .ckm-messages__member > span:last-child { display: grid; }
+.ckm .ckm-messages__member strong { font-size: var(--ckm-text-support); }
+.ckm .ckm-messages__member small { color: var(--ckm-text-3); font-size: var(--ckm-text-caption); }
+.ckm .ckm-messages__thread-state { display: grid; gap: var(--ckm-space-3); padding: var(--ckm-space-4); }
+.ckm .ckm-messages__stream { display: flex; flex: 1; flex-direction: column; gap: var(--ckm-space-2); padding: var(--ckm-space-4); }
+.ckm .ckm-messages__day { align-self: center; margin: var(--ckm-space-2) 0; color: var(--ckm-text-3); font-size: var(--ckm-text-caption); }
+.ckm .ckm-messages__bubble { width: fit-content; max-width: 84%; margin: 0 auto 0 0; padding: var(--ckm-space-3); border: 1px solid var(--ckm-line-strong); border-radius: 4px var(--ckm-r-lg) var(--ckm-r-lg) var(--ckm-r-lg); background: var(--ckm-bg); box-shadow: var(--ckm-shadow-card); }
+.ckm .ckm-messages__bubble.is-mine { margin-right: 0; margin-left: auto; border-color: var(--ckm-ink); border-radius: var(--ckm-r-lg) 4px var(--ckm-r-lg) var(--ckm-r-lg); background: var(--ckm-ink); color: var(--ckm-on-dark); }
+.ckm .ckm-messages__bubble.is-pending { opacity: .7; }
+.ckm .ckm-messages__bubble p { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; font-size: var(--ckm-text-support); line-height: var(--ckm-leading-support); }
+.ckm .ckm-messages__bubble footer { display: flex; justify-content: flex-end; gap: var(--ckm-space-2); margin-top: var(--ckm-space-1); color: var(--ckm-text-3); font-size: var(--ckm-text-micro); }
+.ckm .ckm-messages__bubble.is-mine footer { color: var(--ckm-muted-3); }
+.ckm .ckm-messages__image { display: block; width: min(240px, 100%); max-height: 260px; margin-bottom: var(--ckm-space-2); border-radius: var(--ckm-r-sm); object-fit: cover; }
+.ckm .ckm-messages__attachment { display: block; margin-bottom: var(--ckm-space-2); color: inherit; font-weight: var(--ckm-weight-semibold); overflow-wrap: anywhere; }
+.ckm .ckm-messages__message-actions { display: flex; max-width: 84%; flex-wrap: wrap; gap: var(--ckm-space-1); align-items: center; margin: var(--ckm-space-1) auto 0 0; }
+.ckm .ckm-messages__message-actions.is-mine { justify-content: flex-end; margin-right: 0; margin-left: auto; }
+.ckm .ckm-messages__reaction,
+.ckm .ckm-messages__react-menu > summary,
+.ckm .ckm-messages__delete { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; justify-content: center; padding: var(--ckm-space-2); border: 1px solid var(--ckm-line-strong); border-radius: 999px; background: var(--ckm-bg); color: var(--ckm-text-2); font: var(--ckm-weight-semibold) var(--ckm-text-caption)/1 var(--ckm-body); cursor: pointer; }
+.ckm .ckm-messages__reaction.is-mine { border-color: var(--ckm-accent-ink); background: var(--ckm-accent-soft); color: var(--ckm-accent-ink); }
+.ckm .ckm-messages__delete { color: var(--ckm-danger); }
+.ckm .ckm-messages__react-menu { position: relative; }
+.ckm .ckm-messages__react-menu > summary { list-style: none; }
+.ckm .ckm-messages__react-menu > summary::-webkit-details-marker { display: none; }
+.ckm .ckm-messages__react-options { position: absolute; right: 0; bottom: calc(100% + var(--ckm-space-1)); z-index: var(--ckm-z-menu); display: grid; grid-template-columns: repeat(3, 44px); gap: var(--ckm-space-1); padding: var(--ckm-space-2); border: 1px solid var(--ckm-line-strong); border-radius: var(--ckm-r-md); background: var(--ckm-bg); box-shadow: var(--ckm-shadow-pop); }
+.ckm .ckm-messages__react-options button { width: 44px; height: 44px; border: 0; border-radius: 50%; background: transparent; font-size: 20px; cursor: pointer; }
+.ckm .ckm-messages__reaction:focus-visible,
+.ckm .ckm-messages__react-menu > summary:focus-visible,
+.ckm .ckm-messages__react-options button:focus-visible,
+.ckm .ckm-messages__delete:focus-visible { outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring); outline-offset: var(--ckm-focus-ring-offset); }
+.ckm .ckm-messages__composer { position: sticky; bottom: 0; z-index: var(--ckm-z-sticky); display: grid; gap: var(--ckm-space-2); margin-top: auto; padding: var(--ckm-space-3) var(--ckm-space-4) calc(var(--ckm-space-3) + var(--ckm-safe-bottom)); border-top: 1px solid var(--ckm-line-strong); background: var(--ckm-bg); box-shadow: 0 -4px 14px -10px rgba(28, 26, 23, .3); }
+.ckm .ckm-messages__composer > label { font-size: var(--ckm-text-caption); font-weight: var(--ckm-weight-semibold); color: var(--ckm-text-2); }
+.ckm .ckm-messages__composer-row { display: flex; align-items: flex-end; gap: var(--ckm-space-2); }
+.ckm .ckm-messages__composer textarea { flex: 1; min-width: 0; min-height: 52px; max-height: 132px; resize: vertical; padding: var(--ckm-space-3); border: 1px solid var(--ckm-control-border); border-radius: var(--ckm-r-md); background: var(--ckm-bg); color: var(--ckm-text); font: var(--ckm-weight-regular) var(--ckm-text-body)/var(--ckm-leading-body) var(--ckm-body); }
+.ckm .ckm-messages__composer textarea:focus-visible { outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring); outline-offset: var(--ckm-focus-ring-offset); }
+.ckm .ckm-messages__composer .ckm-button { min-width: 96px; }
+.ckm .ckm-messages__composer .ckm-file-picker__list { max-height: 72px; overflow-y: auto; }
+.ckm .ckm-messages__upload { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--ckm-space-2); align-items: center; color: var(--ckm-text-2); font-size: var(--ckm-text-caption); }
+.ckm .ckm-messages__upload progress { width: 100%; accent-color: var(--ckm-accent-ink); }
+.ckm .ckm-messages__upload-ready { margin: 0; color: var(--ckm-green-ink); font-size: var(--ckm-text-caption); font-weight: var(--ckm-weight-semibold); }
+
+.ckm .ckm-messages__context { display: grid; gap: var(--ckm-space-5); }
+.ckm .ckm-messages__context section { display: grid; gap: var(--ckm-space-2); }
+.ckm .ckm-messages__context h3,
+.ckm .ckm-messages__context p { margin: 0; }
+.ckm .ckm-messages__context h3 { color: var(--ckm-text); font: var(--ckm-weight-semibold) var(--ckm-text-body)/var(--ckm-leading-body) var(--ckm-display); }
+.ckm .ckm-messages__context p { color: var(--ckm-text-3); font-size: var(--ckm-text-support); line-height: var(--ckm-leading-support); }
+.ckm .ckm-messages__context section > a { color: var(--ckm-accent-ink); font-size: var(--ckm-text-support); font-weight: var(--ckm-weight-semibold); }
+.ckm .ckm-messages__context-files { display: grid; gap: var(--ckm-space-2); margin: 0; padding: 0; list-style: none; }
+.ckm .ckm-messages__context-files a { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: var(--ckm-space-2); padding: var(--ckm-space-2) var(--ckm-space-3); border: 1px solid var(--ckm-line); border-radius: var(--ckm-r-sm); color: var(--ckm-text); text-decoration: none; }
+.ckm .ckm-messages__context-files span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ckm .ckm-messages__context-files small { flex: none; color: var(--ckm-text-3); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .ckm .ckm-messages__row { transition: transform var(--ckm-duration-press) var(--ckm-ease); }
+}

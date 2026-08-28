@@ -33,7 +33,7 @@ const validatePassword = (password) => ({
 });
 
 const IndustryOnboarding = () => {
-  const { join, setUser } = useContext(AuthContext);
+  const { join, adoptSession, updateSessionUser } = useContext(AuthContext);
   const navigate = useNavigate();
 
   const getDefaultMandates = () => ({
@@ -175,8 +175,10 @@ const IndustryOnboarding = () => {
       });
       
       if (response.data?.token) {
-        setUser(response.data);
-        localStorage.setItem("user", JSON.stringify(response.data));
+        // One function owns what "signed in" means — see AuthContext.adoptSession.
+        // This was `setUser` + a bare localStorage write, which left the session
+        // with no expiry timer and no anonymous-session link (DEF-34).
+        adoptSession(response.data, { reason: "signup_success" });
         setCurrentStep(2);
       }
     } catch (err) {
@@ -300,7 +302,8 @@ const IndustryOnboarding = () => {
       });
       
       if (response.data.success) {
-        navigate("/profile");
+        updateSessionUser(response.data.user);
+        navigate("/profile", { replace: true });
       }
     } catch (err) {
       setError(err.response?.data?.message || "Submission failed");
@@ -310,7 +313,7 @@ const IndustryOnboarding = () => {
   };
 
   const handleFinishLater = () => {
-    navigate("/profile");
+    navigate("/home", { replace: true });
   };
 
   // Toggle handlers

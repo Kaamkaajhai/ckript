@@ -30,6 +30,7 @@ export const FREE_EMAIL_DOMAINS = new Set([
 ]);
 
 export const FILM_PROFESSIONAL_ROLE_LIST = ["investor", "producer", "director", "industry", "professional"];
+export const WRITER_ROLE_LIST = ["writer", "creator"];
 
 export const getEmailDomain = (email = "") => {
   const normalized = String(email || "").trim().toLowerCase();
@@ -51,7 +52,12 @@ export const hasBusinessEmail = (email = "") => {
 export const isFilmIndustryProfessionalRole = (user = {}) =>
   FILM_PROFESSIONAL_ROLE_LIST.includes(String(user?.role || "").trim().toLowerCase());
 
-export const isIndustryProfessionalWithPersonalEmail = (user = {}) => false;
+export const isWriterRole = (roleOrUser = "") => {
+  const role = typeof roleOrUser === "string" ? roleOrUser : roleOrUser?.role;
+  return WRITER_ROLE_LIST.includes(String(role || "").trim().toLowerCase());
+};
+
+export const isIndustryProfessionalWithPersonalEmail = () => false;
 
 export const isEligibleForFipFreeTier = (user = {}) =>
   isFilmIndustryProfessionalRole(user) &&

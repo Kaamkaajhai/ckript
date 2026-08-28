@@ -8,8 +8,8 @@ import { sendOTPEmail } from "../utils/emailService.js";
 import {
   INDUSTRY_BUSINESS_EMAIL_REQUIRED_MESSAGE,
   hasActiveFilmIndustryProfessionalAccess,
-  isIndustryProfessionalWithPersonalEmail,
   isFilmIndustryProfessionalRole,
+  isWriterRole,
   hasBusinessEmail,
 } from "../utils/industryAccess.js";
 import {
@@ -26,6 +26,25 @@ import { getProfileCompletion } from "../utils/profileCompletion.js";
 import multer from "multer";
 import { uploadToCloudinary, deleteFromCloudinary, buildPrivateDownloadUrl } from "../config/cloudinary.js";
 import { fetchTrustedPdfAsset, getCloudinaryResourceTypeFromUrl } from "../utils/remoteAssetPolicy.js";
+import {
+  buildVisitorProfile,
+  redactMembershipProofSecrets,
+  redactOwnerProfileSecrets,
+  VISITOR_PROFILE_SCRIPT_FIELDS,
+} from "../utils/profileProjection.js";
+import { resolveProfileImageUpdate } from "../utils/profileUpdate.js";
+import { retainCurrentSession } from "../utils/accountSecurity.js";
+import { evaluateAuthenticatedProfileAccess } from "../utils/profileAccess.js";
+import {
+  normalizeProfileCollectionQuery,
+  profileCollectionMeta,
+  projectProfileActivityPost,
+} from "../utils/profileCollections.js";
+import {
+  WRITER_ROSTER_PUBLIC_FIELDS,
+  WRITER_ROSTER_SOURCE_FIELDS,
+  escapeWriterRosterSearch,
+} from "../utils/writerRosterProjection.js";
 
 const WRITER_REPRESENTATION_STATUSES = ["unrepresented", "manager", "agent", "manager_and_agent"];
 const BANK_REVIEW_WINDOW_MS = 2 * 24 * 60 * 60 * 1000;
@@ -513,7 +532,7 @@ export const getWriters = async (req, res) => {
 
     // Name search (case-insensitive)
     if (search && search.trim()) {
-      matchStage.name = { $regex: search.trim(), $options: "i" };
+      matchStage.name = { $regex: escapeWriterRosterSearch(search.trim()), $options: "i" };
     }
 
     // Genre filter early (before lookup) when writerProfile.genres exists on the user doc
@@ -523,16 +542,9 @@ export const getWriters = async (req, res) => {
 
     const pipeline = [
       { $match: matchStage },
-      // Strip sensitive / heavy fields before the lookup so less data travels
-      {
-        $project: {
-          password: 0,
-          emailVerificationToken: 0,
-          emailVerificationExpires: 0,
-          resetPasswordToken: 0,
-          resetPasswordExpires: 0,
-        },
-      },
+      // Positive projection: private account/session/contact fields never enter
+      // the roster pipeline or response.
+      { $project: WRITER_ROSTER_SOURCE_FIELDS },
       // Pipeline-form lookup: only pull the three fields we actually need from each script
       {
         $lookup: {
@@ -610,6 +622,8 @@ export const getWriters = async (req, res) => {
       pipeline.push({ $sort: { reputation: -1 } });
     }
 
+    pipeline.push({ $project: WRITER_ROSTER_PUBLIC_FIELDS });
+
     // Cap results – 100 writers is more than enough for the browse page
     pipeline.push({ $limit: 100 });
 
@@ -628,8 +642,17 @@ export const getCurrentUser = async (req, res) => {
       return res.status(404).json({ message: "User not found" });
     }
 
-    const userObj = user.toObject();
+    const userObj = redactOwnerProfileSecrets(user.toObject());
     userObj.language = normalizeLanguagePreference(userObj.language);
+    if (userObj.bankDetails?.accountNumber) {
+      userObj.bankDetails.accountNumber = maskAccountNumber(userObj.bankDetails.accountNumber);
+    }
+    userObj.bankDetailsReview = sanitizeBankReviewForResponse(userObj.bankDetailsReview);
+    userObj.bankDetailsSecurity = {
+      invalidAttempts: Number(userObj.bankDetailsSecurity?.invalidAttempts || 0),
+      isLocked: Boolean(userObj.bankDetailsSecurity?.isLocked),
+      lockedAt: userObj.bankDetailsSecurity?.lockedAt,
+    };
     userObj.profileCompletion = getProfileCompletion(userObj);
 
     res.json(userObj);
@@ -800,46 +823,17 @@ export const getUserProfile = async (req, res) => {
 
     if (!isOwnProfile) {
       const currentUser = await User.findById(req.user._id).select("blockedUsers role email name subscription");
-      blockedByCurrent = currentUser?.blockedUsers?.some((uid) => uid.toString() === targetUserId) || false;
-      blockedByProfile = user?.blockedUsers?.some((uid) => {
-        const blockedId = uid?._id?.toString?.() || uid?.toString?.();
-        return blockedId === req.user._id.toString();
-      }) || false;
-
-      if (blockedByProfile) {
-        return res.status(403).json({
-          message: "This user has blocked you.",
-          blocked: true,
-          blockedByCurrent,
-          blockedByProfile,
-        });
-      }
-
-      if (user?.isDeactivated && String(currentUser?.role || "").toLowerCase() !== "admin") {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      const viewerId = req.user?._id?.toString();
-      const isFollower = (user?.followers || []).some((follower) => {
-        const followerId = follower?._id?.toString?.() || follower?.toString?.();
-        return followerId === viewerId;
+      const access = evaluateAuthenticatedProfileAccess({
+        profile: user,
+        viewer: currentUser || req.user,
+        viewerId: req.user?._id,
+        own: false,
       });
-      const isAdminViewer = String(currentUser?.role || "").toLowerCase() === "admin";
+      blockedByCurrent = access.blockedByCurrent;
+      blockedByProfile = access.blockedByProfile;
+      if (!access.allowed) return res.status(access.status).json(access.body);
 
-      if (
-        user?.role === "writer" &&
-        hasActiveFilmIndustryProfessionalAccess(currentUser)
-      ) {
-        const plan = currentUser.subscription?.plan || "free";
-        if (plan === "free" && !hasBusinessEmail(currentUser.email)) {
-          return res.status(403).json({
-            message: "Viewing writer profiles requires a company email. Upgrade your plan or update your email.",
-            personalEmailFipRestricted: true,
-          });
-        }
-      }
-
-      if (user?.role === "writer" && hasActiveFilmIndustryProfessionalAccess(currentUser)) {
+      if (isWriterRole(user) && hasActiveFilmIndustryProfessionalAccess(currentUser)) {
         const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
         const recentNotif = await Notification.findOne({
           user: targetUserId,
@@ -857,39 +851,11 @@ export const getUserProfile = async (req, res) => {
         }
       }
 
-      if (user?.isPrivate && !isFollower && !isAdminViewer) {
-        const followRequestPending = (user?.followRequests || []).some(
-          (entry) => entry?.from?.toString() === req.user._id.toString()
-        );
-        return res.status(403).json({
-          message: "This account is private.",
-          privateAccount: true,
-          blockedByCurrent,
-          blockedByProfile,
-          followRequestPending,
-        });
-      }
-
-      const isWriterProfile = ["writer", "creator"].includes(String(user?.role || "").toLowerCase());
-      if (
-        isWriterProfile &&
-        isIndustryProfessionalWithPersonalEmail(currentUser || req.user) &&
-        !hasActiveFilmIndustryProfessionalAccess(currentUser || req.user)
-      ) {
-        return res.status(403).json({
-            message: "To view scripts and writer profiles, sign up with a business email. To access writer contact details, purchase a Film Industry Professional plan.",
-            requiresBusinessEmail: true,
-          });
-      }
-      if (isWriterProfile) {
+      if (isWriterRole(user)) {
         await User.updateOne({ _id: user._id }, { $inc: { profileViews: 1 } });
         user.profileViews = Number(user.profileViews || 0) + 1;
       }
     }
-
-    const posts = await Post.find({ user: user._id })
-      .populate("user", "name profileImage role")
-      .sort({ createdAt: -1 });
 
     const scriptQuery = isOwnProfile
       ? { creator: user._id, isDeleted: { $ne: true } }
@@ -900,9 +866,13 @@ export const getUserProfile = async (req, res) => {
           isDeleted: { $ne: true },
         };
 
-    const scripts = await Script.find(scriptQuery)
-      .populate("creator", "name profileImage role")
+    let scriptsQuery = Script.find(scriptQuery)
+      .populate("creator", "name profileImage role writerProfile.username")
       .sort({ createdAt: -1 });
+    if (!isOwnProfile) {
+      scriptsQuery = scriptsQuery.select(VISITOR_PROFILE_SCRIPT_FIELDS.join(" "));
+    }
+    const scripts = await scriptsQuery;
 
     const isWriterUser = ["writer", "creator"].includes(user.role);
 
@@ -914,8 +884,9 @@ export const getUserProfile = async (req, res) => {
         .sort({ deletedAt: -1, updatedAt: -1 });
     }
 
-    // Fetch scripts purchased by this user (only for own profile or investor/producer viewing)
-    const isPro = ["investor", "producer", "director"].includes(user.role);
+    // Fetch purchases only on the owner's profile, for the shared five-role
+    // film-professional audience that can buy or option projects.
+    const isPro = isFilmIndustryProfessionalRole(user);
     let purchasedScripts = [];
     if (isOwnProfile && isPro) {
       const [approvedPurchaseScriptIds, convertedOptionScriptIds] = await Promise.all([
@@ -949,50 +920,23 @@ export const getUserProfile = async (req, res) => {
         .sort({ createdAt: -1 });
     }
 
-    let bookmarkedScripts = [];
-    if (isOwnProfile && Array.isArray(user.favoriteScripts) && user.favoriteScripts.length > 0) {
-      bookmarkedScripts = await Script.find({
-        _id: { $in: user.favoriteScripts },
-        status: "published",
-        isSold: { $ne: true },
-        isDeleted: { $ne: true },
-      })
-        .populate("creator", "name profileImage role")
-        .sort({ updatedAt: -1 });
-    }
-
     // Sanitize bank details - only show to own profile
-    const userObj = user.toObject();
+    let userObj = user.toObject();
     userObj.language = normalizeLanguagePreference(userObj.language);
     if (!isOwnProfile) {
-      if (userObj.bankDetails) {
-        delete userObj.bankDetails;
+      userObj = buildVisitorProfile(userObj);
+    } else if (isOwnProfile) {
+      userObj = redactOwnerProfileSecrets(userObj);
+      if (userObj.bankDetails?.accountNumber) {
+        // Sanitize account number even for own profile (for security)
+        userObj.bankDetails.accountNumber = '****' + userObj.bankDetails.accountNumber.slice(-4);
       }
-      delete userObj.pendingEmail;
-
-      if (userObj.allowIndustryContact === false && ["writer", "creator"].includes(userObj.role)) {
-        delete userObj.email;
-        delete userObj.phone;
-        if (userObj.writerProfile) {
-          delete userObj.writerProfile.links;
-        }
-      }
-
-      if (userObj.writerProfile?.membershipVerification) {
-        const hideProofDetails = (entry) => {
-          if (!entry) return;
-          delete entry.proofUrl;
-          delete entry.proofPublicId;
-          delete entry.proofFileName;
-          delete entry.proofMimeType;
-          delete entry.reviewedBy;
-        };
-        hideProofDetails(userObj.writerProfile.membershipVerification.wga);
-        hideProofDetails(userObj.writerProfile.membershipVerification.swa);
-      }
-    } else if (isOwnProfile && userObj.bankDetails && userObj.bankDetails.accountNumber) {
-      // Sanitize account number even for own profile (for security)
-      userObj.bankDetails.accountNumber = '****' + userObj.bankDetails.accountNumber.slice(-4);
+      userObj.bankDetailsReview = sanitizeBankReviewForResponse(userObj.bankDetailsReview);
+      userObj.bankDetailsSecurity = {
+        invalidAttempts: Number(userObj.bankDetailsSecurity?.invalidAttempts || 0),
+        isLocked: Boolean(userObj.bankDetailsSecurity?.isLocked),
+        lockedAt: userObj.bankDetailsSecurity?.lockedAt,
+      };
     }
 
     userObj.blockedByCurrent = blockedByCurrent;
@@ -1006,7 +950,13 @@ export const getUserProfile = async (req, res) => {
     }
     userObj.shareMeta = buildUserShareMeta(req, userObj);
     userObj.canonicalPath = buildUserCanonicalPath(userObj);
-    userObj.profileCompletion = getProfileCompletion(userObj);
+    if (isOwnProfile) userObj.profileCompletion = getProfileCompletion(userObj);
+    delete userObj.favoriteScripts;
+    delete userObj.scriptsRead;
+    if (userObj.industryProfile) {
+      userObj.industryProfile = { ...userObj.industryProfile };
+      delete userObj.industryProfile.savedScripts;
+    }
 
     const attachScriptShareMeta = (list = []) => list.map((scriptDoc) => {
       if (!scriptDoc) return scriptDoc;
@@ -1029,14 +979,125 @@ export const getUserProfile = async (req, res) => {
 
     res.json({
       user: userObj,
-      posts,
       scripts: attachScriptShareMeta(scripts),
       deletedScripts: attachScriptShareMeta(deletedScripts),
       purchasedScripts: attachScriptShareMeta(purchasedScripts),
-      bookmarkedScripts: attachScriptShareMeta(bookmarkedScripts),
     });
   } catch (error) {
     res.status(500).json({ message: error.message });
+  }
+};
+const escapeRegex = (value) => String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export const getProfileCollections = async (req, res) => {
+  try {
+    const profileKey = normalizeProfileLookupKey(req.params.id);
+    const profileLookupQuery = buildUserProfileLookupQuery(profileKey);
+    if (!profileLookupQuery) return res.status(400).json({ message: "Invalid profile id" });
+
+    const profile = await User.findOne(profileLookupQuery)
+      .select("_id name role writerProfile.username isPrivate isDeactivated followers followRequests blockedUsers favoriteScripts industryProfile.savedScripts")
+      .lean();
+    if (!profile || String(profile.role || "").toLowerCase() === "reader") {
+      return res.status(404).json({ message: "General profile collections not found" });
+    }
+
+    const viewerId = req.user?._id;
+    const own = String(viewerId || "") === String(profile._id || "");
+    const viewer = own
+      ? profile
+      : await User.findById(viewerId).select("_id role email subscription blockedUsers").lean();
+    const access = evaluateAuthenticatedProfileAccess({ profile, viewer, viewerId, own });
+    if (!access.allowed) return res.status(access.status).json(access.body);
+
+    const query = normalizeProfileCollectionQuery(req.query);
+    if (query.section === "saved" && !own) {
+      return res.status(403).json({
+        message: "Saved projects are private to the profile owner.",
+        privateCollection: true,
+      });
+    }
+
+    const savedSource = isFilmIndustryProfessionalRole(profile) ? "watchlist" : "favorites";
+    const savedIds = own
+      ? savedSource === "watchlist"
+        ? (Array.isArray(profile.industryProfile?.savedScripts) ? profile.industryProfile.savedScripts : [])
+        : (Array.isArray(profile.favoriteScripts) ? profile.favoriteScripts : [])
+      : [];
+    const publicSavedFilter = {
+      _id: { $in: savedIds },
+      status: "published",
+      isSold: { $ne: true },
+      isDeleted: { $ne: true },
+    };
+    const savedFilter = query.query ? {
+      ...publicSavedFilter,
+      $or: ["title", "logline", "synopsis", "genre", "primaryGenre"].map((field) => ({
+        [field]: { $regex: escapeRegex(query.query), $options: "i" },
+      })),
+    } : publicSavedFilter;
+    const [activityTotal, savedTotal] = await Promise.all([
+      Post.countDocuments({ user: profile._id }),
+      own ? Script.countDocuments(publicSavedFilter) : Promise.resolve(null),
+    ]);
+
+    let items = [];
+    let total = activityTotal;
+    if (query.section === "activity") {
+      const posts = await Post.aggregate([
+        { $match: { user: profile._id } },
+        { $sort: { createdAt: -1, _id: 1 } },
+        { $skip: (query.page - 1) * query.limit },
+        { $limit: query.limit },
+        {
+          $project: {
+            content: 1,
+            image: 1,
+            video: 1,
+            createdAt: 1,
+            updatedAt: 1,
+            likesCount: { $size: { $ifNull: ["$likes", []] } },
+            commentsCount: { $size: { $ifNull: ["$comments", []] } },
+            savesCount: { $size: { $ifNull: ["$saves", []] } },
+          },
+        },
+      ]);
+      items = posts.map(projectProfileActivityPost);
+    } else {
+      total = query.query ? await Script.countDocuments(savedFilter) : savedTotal;
+      const savedSort = query.sort === "views"
+        ? { views: -1, _id: 1 }
+        : query.sort === "title"
+          ? { title: 1, _id: 1 }
+          : { updatedAt: -1, _id: 1 };
+      const scripts = await Script.find(savedFilter)
+        .select(VISITOR_PROFILE_SCRIPT_FIELDS.join(" "))
+        .populate("creator", "name profileImage role writerProfile.username")
+        .sort(savedSort)
+        .skip((query.page - 1) * query.limit)
+        .limit(query.limit)
+        .lean();
+      items = scripts.map((script) => {
+        const writerUsername = String(script?.creator?.writerProfile?.username || "").trim();
+        return {
+          ...script,
+          writerUsername,
+          canonicalPath: buildScriptCanonicalPath({ ...script, writerUsername }),
+          shareMeta: buildScriptShareMeta(req, script),
+        };
+      });
+    }
+
+    return res.json({
+      profileId: profile._id,
+      own,
+      savedSource,
+      counts: { activity: activityTotal, saved: own ? savedTotal : null },
+      items,
+      pagination: profileCollectionMeta({ ...query, total, own }),
+    });
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Failed to load profile collections" });
   }
 };
 
@@ -1070,7 +1131,7 @@ export const updateUserProfile = async (req, res) => {
     if (skills !== undefined) {
       user.skills = normalizeStringArray(skills, 25);
     }
-    user.profileImage = normalizeString(profileImage) || user.profileImage;
+    user.profileImage = resolveProfileImageUpdate(user.profileImage, profileImage);
 
     if (phone !== undefined) {
       user.phone = normalizeString(phone) || "";
@@ -1267,6 +1328,12 @@ export const updateUserProfile = async (req, res) => {
 
     // Bank details
     if (bankDetails) {
+      // Writer payout credentials have their own review, masking, and lock
+      // boundary. Keeping a second writer mutation here previously let the
+      // profile editor and payout screen drift independently.
+      if (["writer", "creator"].includes(user.role)) {
+        return res.status(400).json({ message: "Submit writer payout details through the payout account endpoint" });
+      }
       const security = ensureBankDetailsSecurity(user);
       if (security.isLocked) {
         return res.status(403).json({ message: BANK_DETAILS_BLOCKED_MESSAGE });
@@ -1421,7 +1488,7 @@ export const updateUserProfile = async (req, res) => {
       bio: user.bio,
       skills: user.skills,
       profileImage: user.profileImage,
-      writerProfile: user.writerProfile,
+      writerProfile: redactMembershipProofSecrets(user.writerProfile?.toObject ? user.writerProfile.toObject() : user.writerProfile),
       industryProfile: user.industryProfile,
       preferences: user.preferences,
       notificationPrefs: user.notificationPrefs,
@@ -1438,9 +1505,6 @@ export const updateUserProfile = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
-
-const isWriterRole = (role) =>
-  ["writer", "creator"].includes(String(role || "").toLowerCase());
 
 export const followUser = async (req, res) => {
   try {
@@ -1590,10 +1654,11 @@ export const getFollowRequests = async (req, res) => {
 
 export const acceptFollowRequest = async (req, res) => {
   try {
-    const fromUserId = String(req.body.fromUserId || "").trim();
-    if (!fromUserId) {
-      return res.status(400).json({ message: "fromUserId is required" });
+    const requesterId = asObjectId(req.body.fromUserId);
+    if (!requesterId) {
+      return res.status(400).json({ message: "A valid fromUserId is required" });
     }
+    const fromUserId = requesterId.toString();
 
     const me = await User.findById(req.user._id);
     if (!me) return res.status(404).json({ message: "User not found" });
@@ -1605,7 +1670,7 @@ export const acceptFollowRequest = async (req, res) => {
       return res.status(404).json({ message: "No pending follow request from this user" });
     }
 
-    const requester = await User.findById(fromUserId);
+    const requester = await User.findById(requesterId);
     if (!requester) {
       // Cleanup stale request
       me.followRequests.splice(pendingIndex, 1);
@@ -1623,6 +1688,12 @@ export const acceptFollowRequest = async (req, res) => {
     await me.save();
     await requester.save();
 
+    await Notification.deleteMany({
+      user: me._id,
+      type: "follow_request",
+      from: requester._id,
+    });
+
     await Notification.create({
       user: requester._id,
       type: "follow_request_accepted",
@@ -1638,10 +1709,11 @@ export const acceptFollowRequest = async (req, res) => {
 
 export const rejectFollowRequest = async (req, res) => {
   try {
-    const fromUserId = String(req.body.fromUserId || "").trim();
-    if (!fromUserId) {
-      return res.status(400).json({ message: "fromUserId is required" });
+    const requesterId = asObjectId(req.body.fromUserId);
+    if (!requesterId) {
+      return res.status(400).json({ message: "A valid fromUserId is required" });
     }
+    const fromUserId = requesterId.toString();
 
     const me = await User.findById(req.user._id);
     if (!me) return res.status(404).json({ message: "User not found" });
@@ -1659,7 +1731,7 @@ export const rejectFollowRequest = async (req, res) => {
 
     // The requester is no longer allowed to follow, so remove me from their `following` array.
     await User.updateOne(
-      { _id: fromUserId },
+      { _id: requesterId },
       { 
         $pull: { 
           sentFollowRequests: { to: req.user._id },
@@ -2085,7 +2157,11 @@ export const getBlockedUsers = async (req, res) => {
 
 export const getWatchlist = async (req, res) => {
   try {
-    const user = await User.findById(req.user._id);
+    if (!isFilmIndustryProfessionalRole(req.user)) {
+      return res.status(403).json({ message: "Only film industry professionals can access a project watchlist." });
+    }
+
+    const user = await User.findById(req.user._id).select("industryProfile.savedScripts");
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
@@ -2095,9 +2171,19 @@ export const getWatchlist = async (req, res) => {
     const savedScriptIds = user.industryProfile?.savedScripts || [];
 
     // Populate the script details
-    const scripts = await Script.find({ _id: { $in: savedScriptIds }, isDeleted: { $ne: true } })
-      .populate("creator", "name profileImage")
-      .sort({ createdAt: -1 });
+    const requestedLimit = Number.parseInt(req.query?.limit, 10);
+    const limit = Number.isFinite(requestedLimit) ? Math.min(24, Math.max(1, requestedLimit)) : 24;
+    const scripts = await Script.find({
+      _id: { $in: savedScriptIds },
+      status: "published",
+      isSold: { $ne: true },
+      isDeleted: { $ne: true },
+    })
+      .select("_id title sid coverImage thumbnailUrl genre primaryGenre contentType format logline price budget status isSold holdStatus createdAt creator")
+      .populate("creator", "name profileImage role username writerProfile.username")
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
 
     res.json(scripts);
   } catch (error) {
@@ -2107,7 +2193,20 @@ export const getWatchlist = async (req, res) => {
 
 export const addToWatchlist = async (req, res) => {
   try {
-    const { scriptId } = req.body;
+    if (!isFilmIndustryProfessionalRole(req.user)) {
+      return res.status(403).json({ message: "Only film industry professionals can save projects to a watchlist." });
+    }
+
+    const scriptId = asObjectId(req.body?.scriptId);
+    if (!scriptId) return res.status(400).json({ message: "A valid project id is required." });
+    const scriptExists = await Script.exists({
+      _id: scriptId,
+      status: "published",
+      isSold: { $ne: true },
+      isDeleted: { $ne: true },
+    });
+    if (!scriptExists) return res.status(404).json({ message: "Project not found or no longer available." });
+
     const user = await User.findById(req.user._id);
 
     if (!user) {
@@ -2123,14 +2222,14 @@ export const addToWatchlist = async (req, res) => {
     }
 
     // Check if already in watchlist
-    if (user.industryProfile.savedScripts.includes(scriptId)) {
-      return res.status(400).json({ message: "Script already in watchlist" });
+    if (user.industryProfile.savedScripts.some((id) => String(id) === String(scriptId))) {
+      return res.json({ message: "Project is already in your watchlist.", saved: true, projectId: scriptId });
     }
 
     user.industryProfile.savedScripts.push(scriptId);
     await user.save();
 
-    res.json({ message: "Script added to watchlist" });
+    res.json({ message: "Project added to watchlist.", saved: true, projectId: scriptId });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -2138,23 +2237,28 @@ export const addToWatchlist = async (req, res) => {
 
 export const removeFromWatchlist = async (req, res) => {
   try {
-    const { scriptId } = req.body;
+    if (!isFilmIndustryProfessionalRole(req.user)) {
+      return res.status(403).json({ message: "Only film industry professionals can change a project watchlist." });
+    }
+
+    const scriptId = asObjectId(req.body?.scriptId);
+    if (!scriptId) return res.status(400).json({ message: "A valid project id is required." });
     const user = await User.findById(req.user._id);
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
 
-    if (!user.industryProfile?.savedScripts) {
-      return res.status(400).json({ message: "Watchlist is empty" });
-    }
-
-    user.industryProfile.savedScripts = user.industryProfile.savedScripts.filter(
-      (id) => id.toString() !== scriptId
+    const savedScripts = Array.isArray(user.industryProfile?.savedScripts)
+      ? user.industryProfile.savedScripts
+      : [];
+    user.industryProfile = user.industryProfile || {};
+    user.industryProfile.savedScripts = savedScripts.filter(
+      (id) => String(id) !== String(scriptId)
     );
     await user.save();
 
-    res.json({ message: "Script removed from watchlist" });
+    res.json({ message: "Project removed from watchlist.", saved: false, projectId: scriptId });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -2206,8 +2310,9 @@ export const changePassword = async (req, res) => {
     if (!isMatch) return res.status(401).json({ message: "Current password is incorrect" });
 
     user.password = newPassword;
+    user.activeSessions = retainCurrentSession(user.activeSessions, req.sessionId);
     await user.save();
-    res.json({ message: "Password changed successfully" });
+    res.json({ message: "Password changed successfully. Other devices were signed out." });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

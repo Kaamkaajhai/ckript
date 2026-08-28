@@ -1,109 +1,30 @@
 import { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import api from "../services/api";
+import { motion as Motion, AnimatePresence } from "framer-motion";
 import { AlertCircle, Building2, Linkedin, IndianRupee, Film, TrendingUp, User, CreditCard, Briefcase, Globe, Target, Heart, BadgeCheck, Sparkles, Clapperboard, Link as LinkIcon } from "lucide-react";
 import { useDarkMode } from "../context/DarkModeContext";
+import { isFilmIndustryProfessionalRole } from "../utils/industryAccess";
+import {
+  checkProfileUsername,
+  INDUSTRY_GENRE_OPTIONS as INVESTOR_GENRE_OPTIONS,
+  INDUSTRY_ROLE_OPTIONS,
+  normalizePreferredProfileFormat as normalizePreferredFormat,
+  PROFILE_FORMAT_OPTIONS as FORMAT_OPTIONS,
+  PROFILE_GENRE_OPTIONS as GENRE_OPTIONS,
+  PROFILE_TAG_OPTIONS as NUANCED_TAGS,
+  PROFILE_USERNAME_PATTERN as USERNAME_PATTERN,
+  saveOwnProfilePayload,
+  uploadOwnProfileImage,
+} from "../pages/profile/profileEditor";
+import {
+  buildPayoutSubmission,
+  loadMembershipProofAccessUrl,
+  submitMembershipProof,
+  submitPayoutDetails,
+  validateMembershipProof,
+} from "../pages/profile/accountCredentials";
 
-const GENRE_OPTIONS = [
-  "Action", "Comedy", "Drama", "Horror", "Thriller",
-  "Romance", "Sci-Fi", "Fantasy", "Mystery", "Adventure",
-  "Crime", "Western", "Animation", "Documentary", "Historical",
-  "War", "Musical", "Biographical", "Sports", "Political",
-  "Legal", "Medical", "Supernatural", "Psychological", "Noir",
-  "Family", "Teen", "Satire", "Dark Comedy", "Mockumentary"
-];
-
-const NUANCED_TAGS = [
-  "Revenge", "Redemption", "Coming of Age", "Love Triangle", "Betrayal",
-  "Family Drama", "Social Justice", "Identity Crisis", "Survival",
-  "Power Struggle", "Forbidden Love", "Loss & Grief", "Ambition",
-  "Good vs Evil", "Man vs Nature", "Isolation", "Corruption",
-  "Second Chance", "Underdog Story", "Fish Out of Water", "Chosen One",
-  "Quest", "Transformation", "Sacrifice", "Justice", "Freedom",
-  "Urban", "Rural", "Suburban", "Space", "Historical", "Contemporary",
-  "Post-Apocalyptic", "Dystopian", "Small Town", "Big City",
-  "Wilderness", "Ocean/Sea", "Desert", "Jungle", "Medieval",
-  "Future", "Alternate Reality", "Virtual Reality", "Underground",
-  "Prison", "Hospital", "School/College", "Military Base",
-  "Dark", "Satirical", "Gritty", "Lighthearted", "Noir",
-  "Uplifting", "Tragic", "Suspenseful", "Whimsical", "Intense",
-  "Edgy", "Heartwarming", "Cynical", "Hopeful", "Melancholic",
-  "Surreal", "Cerebral", "Raw", "Poetic", "Epic"
-];
-
-const INVESTOR_GENRE_OPTIONS = [
-  "Action", "Comedy", "Drama", "Horror", "Thriller",
-  "Romance", "Sci-Fi", "Fantasy", "Mystery", "Documentary",
-  "Crime", "Animation", "Historical", "Biographical", "Sports",
-  "Family", "Musical", "War", "Western", "Adventure"
-];
-
-const FORMAT_OPTIONS = [
-  { value: "feature", label: "Feature Film" },
-  { value: "movie", label: "Movie" },
-  { value: "tv_1hour", label: "TV Pilot (1-Hour)" },
-  { value: "tv_halfhour", label: "TV Pilot (Half-Hour)" },
-  { value: "limited_series", label: "Limited Series" },
-  { value: "tv_serial", label: "TV Serial" },
-  { value: "short", label: "Short Film" },
-  { value: "web_series", label: "Web Series" },
-  { value: "documentary", label: "Documentary" },
-  { value: "anime", label: "Anime" },
-  { value: "cartoon", label: "Cartoon" },
-  { value: "drama_school", label: "Drama School" },
-  { value: "micro_drama", label: "Micro Drama" },
-  { value: "songs", label: "Songs" },
-  { value: "standup_comedy", label: "Standup Comedy" },
-  { value: "dialogues", label: "Dialogues" },
-  { value: "poet", label: "Poet" },
-  { value: "other", label: "Other" },
-];
-
-const normalizePreferredFormat = (value = "") => {
-  const raw = String(value || "").toLowerCase().trim();
-  if (!raw) return "";
-
-  const aliases = {
-    feature_film: "feature",
-    "feature film": "feature",
-    "tv pilot": "tv_1hour",
-    "tv series": "tv_serial",
-    "short film": "short",
-    "web series": "web_series",
-    "limited series": "limited_series",
-    "drama school": "drama_school",
-    "micro drama": "micro_drama",
-    "standup comedy": "standup_comedy",
-  };
-
-  if (aliases[raw]) return aliases[raw];
-  if (raw.includes("tv pilot") && (raw.includes("30") || raw.includes("half"))) return "tv_halfhour";
-  if (raw.includes("tv pilot") || raw.includes("tv 1-hour")) return "tv_1hour";
-  if (raw.includes("standup") || raw.includes("stand-up")) return "standup_comedy";
-  if (raw.includes("dialogue")) return "dialogues";
-  if (raw.includes("poet") || raw.includes("poetry")) return "poet";
-
-  return raw.replace(/[\s-]+/g, "_");
-};
-
-const ACCOUNT_NUMBER_REGEX = /^\d{8,20}$/;
-const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
-const GENERIC_ROUTING_REGEX = /^[A-Z0-9-]{4,20}$/;
-const USERNAME_PATTERN = /^[a-z0-9_]{3,30}$/;
 const INDIA_COUNTRY_NAME = "India";
-const INDUSTRY_ROLE_OPTIONS = [
-  { value: "producer", label: "Producer" },
-  { value: "director", label: "Director" },
-  { value: "executive_producer", label: "Executive Producer" },
-  { value: "line_producer", label: "Line Producer" },
-  { value: "showrunner", label: "Showrunner" },
-  { value: "development_executive", label: "Development Executive" },
-  { value: "studio_executive", label: "Studio Executive" },
-  { value: "agent", label: "Agent" },
-  { value: "actor", label: "Actor" },
-  { value: "other", label: "Other" },
-];
 
 const EMPTY_MEMBERSHIP_REVIEW = {
   requested: false,
@@ -121,7 +42,7 @@ const EMPTY_MEMBERSHIP_REVIEW = {
 const EditProfileModal = ({ profile, onClose, onUpdate }) => {
   const { isDarkMode: dark } = useDarkMode();
   const isWriter = profile.role === "creator" || profile.role === "writer";
-  const isInvestor = profile.role === "investor";
+  const isIndustryProfessional = isFilmIndustryProfessionalRole(profile);
   const wp = profile.writerProfile || {};
   const ip = profile.industryProfile || {};
   const mandates = ip.mandates || {};
@@ -243,7 +164,7 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
       { key: "diversity", label: "Diversity", icon: <Heart size={13} /> },
       { key: "bank", label: "Banking", icon: <CreditCard size={13} /> },
     ]
-    : isInvestor
+    : isIndustryProfessional
       ? [
         { key: "basic", label: "Basic", icon: <User size={13} /> },
         { key: "investor", label: "Professional", icon: <BadgeCheck size={13} /> },
@@ -312,28 +233,18 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
     }
   };
 
-  const handleOpenMembershipProof = async (event, membershipType, fallbackUrl) => {
+  const handleOpenMembershipProof = async (event, membershipType) => {
     event.preventDefault();
     const normalizedType = String(membershipType || "").toLowerCase();
     if (!["wga", "swa"].includes(normalizedType)) return;
 
     try {
-      const { data } = await api.get("/onboarding/writer-membership-proof/access-url", {
-        params: { membershipType: normalizedType },
-      });
-      const accessUrl = data?.url || fallbackUrl;
-      if (accessUrl) {
-        window.open(accessUrl, "_blank", "noopener,noreferrer");
-      } else {
-        setError("Proof link unavailable");
-      }
+      const result = await loadMembershipProofAccessUrl(normalizedType);
+      if (!result.ok) throw result.cause || new Error(result.message);
+      window.open(result.data.url, "_blank", "noopener,noreferrer");
     } catch (err) {
       console.error(err);
-      if (fallbackUrl) {
-        window.open(fallbackUrl, "_blank", "noopener,noreferrer");
-        return;
-      }
-      setError(err?.response?.data?.message || "Failed to open proof");
+      setError(err?.response?.data?.message || err.message || "Failed to open proof");
     }
   };
 
@@ -358,15 +269,13 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
     setUploading(true);
     setError("");
     try {
-      const fd = new FormData();
-      fd.append("profileImage", file);
-      const { data } = await api.post("/users/upload-image", fd, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const result = await uploadOwnProfileImage(file);
+      if (!result.ok) throw result.cause || new Error(result.message);
+      const data = result.data;
       setFormData({ ...formData, profileImage: data.profileImage });
       setImagePreview(`${(import.meta.env.VITE_API_URL || "http://localhost:5002").replace(/\/api\/?$/, "").replace(/\/$/, "")}${data.profileImage}`);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to upload image");
+      setError(err.response?.data?.message || err.message || "Failed to upload image");
       setImagePreview(profile.profileImage || "");
     } finally {
       setUploading(false);
@@ -405,14 +314,14 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
           wgaMember &&
           wgaStatus !== "approved" &&
           !membershipProofFiles.wga &&
-          !membershipVerification?.wga?.proofUrl
+          !membershipVerification?.wga?.proofFileName
         );
 
         const needsSwaProof = Boolean(
           sgaMember &&
           swaStatus !== "approved" &&
           !membershipProofFiles.swa &&
-          !membershipVerification?.swa?.proofUrl
+          !membershipVerification?.swa?.proofFileName
         );
 
         if (needsWgaProof || needsSwaProof) {
@@ -498,7 +407,7 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
         };
       }
 
-      if (isInvestor) {
+      if (isIndustryProfessional) {
         payload.subRole = investorData.subRole;
         payload.subRoleOther = investorData.subRole === "other" ? investorData.subRoleOther : "";
         payload.jobTitle = investorData.jobTitle;
@@ -535,76 +444,45 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
         normalizedBankDetails.currency !== initialBankSnapshot.currency ||
         Boolean(normalizedBankDetails.accountNumber);
 
-      if (hasBankChanges) {
-        if (!normalizedBankDetails.accountHolderName || !normalizedBankDetails.bankName) {
-          setError("Account holder name and bank name are required for bank details.");
-          setLoading(false);
-          return;
-        }
-
-        if (!normalizedBankDetails.accountNumber && !maskedAccountNumber) {
-          setError("Account number is required for bank details.");
-          setLoading(false);
-          return;
-        }
-
-        if (normalizedBankDetails.accountNumber && !ACCOUNT_NUMBER_REGEX.test(normalizedBankDetails.accountNumber)) {
-          setError("Account number must be 8-20 digits.");
-          setLoading(false);
-          return;
-        }
-
-        if (!normalizedBankDetails.routingNumber) {
-          setError("Routing / IFSC number is required for bank details.");
-          setLoading(false);
-          return;
-        }
-
-        if (normalizedBankDetails.country === "IN") {
-          if (!IFSC_REGEX.test(normalizedBankDetails.routingNumber)) {
-            setError("Please enter a valid IFSC code (example: HDFC0001234).");
-            setLoading(false);
-            return;
-          }
-        } else if (!GENERIC_ROUTING_REGEX.test(normalizedBankDetails.routingNumber)) {
-          setError("Routing number must be 4-20 letters, numbers, or hyphen.");
-          setLoading(false);
-          return;
-        }
-
-        // Keep existing account number if the user did not provide a new one.
-        if (!normalizedBankDetails.accountNumber && maskedAccountNumber) {
-          delete normalizedBankDetails.accountNumber;
-        }
-
-        payload.bankDetails = normalizedBankDetails;
+      const payoutSubmission = hasBankChanges ? buildPayoutSubmission(normalizedBankDetails) : null;
+      if (payoutSubmission && !payoutSubmission.ok) {
+        setError(Object.values(payoutSubmission.fieldErrors || {})[0] || payoutSubmission.message);
+        setLoading(false);
+        return;
       }
 
-      const { data } = await api.put("/users/update", payload);
-      let latestData = data;
+      const result = await saveOwnProfilePayload(payload);
+      if (!result.ok) throw result.cause || new Error(result.message);
+      let latestData = result.data;
+
+      if (payoutSubmission?.ok) {
+        const payoutResult = await submitPayoutDetails(payoutSubmission.data);
+        if (!payoutResult.ok) throw payoutResult.cause || new Error(payoutResult.message);
+        latestData = {
+          ...latestData,
+          bankDetails: payoutResult.data.approved,
+          bankDetailsReview: payoutResult.data.review,
+        };
+      }
 
       const uploadMembershipProof = async (membershipType, file) => {
-        const formData = new FormData();
-        formData.append("membershipType", membershipType);
-        formData.append("proof", file);
-        const proofResponse = await api.post("/onboarding/writer-membership-proof", formData, {
-          headers: { "Content-Type": "multipart/form-data" },
-        });
+        const proofResponse = await submitMembershipProof({ membershipType, file });
+        if (!proofResponse.ok) throw proofResponse.cause || new Error(proofResponse.message);
 
-        if (proofResponse?.data?.user?.writerProfile) {
+        if (proofResponse.data) {
           latestData = {
             ...latestData,
-            writerProfile: proofResponse.data.user.writerProfile,
+            writerProfile: proofResponse.data,
           };
           setMembershipVerification((prev) => ({
             ...prev,
             wga: {
               ...EMPTY_MEMBERSHIP_REVIEW,
-              ...(proofResponse.data.user.writerProfile?.membershipVerification?.wga || prev.wga),
+              ...(proofResponse.data?.membershipVerification?.wga || prev.wga),
             },
             swa: {
               ...EMPTY_MEMBERSHIP_REVIEW,
-              ...(proofResponse.data.user.writerProfile?.membershipVerification?.swa || prev.swa),
+              ...(proofResponse.data?.membershipVerification?.swa || prev.swa),
             },
           }));
         }
@@ -621,7 +499,7 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
       setMembershipProofFiles({ wga: null, swa: null });
       onUpdate(latestData);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to update profile");
+      setError(err.response?.data?.message || err.message || "Failed to update profile");
     } finally {
       setLoading(false);
     }
@@ -680,13 +558,12 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
     let isActive = true;
     const timeoutId = setTimeout(async () => {
       try {
-        const { data } = await api.get("/onboarding/check-username", {
-          params: { username: normalizedUsername },
-        });
+        const result = await checkProfileUsername(normalizedUsername);
+        if (!result.ok) throw result.cause || new Error(result.message);
 
         if (!isActive || usernameCheckRequestRef.current !== requestId) return;
 
-        if (data?.available) {
+        if (result.data.available) {
           setUsernameStatus({
             state: "available",
             message: "Username is available.",
@@ -717,13 +594,13 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
       className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-start sm:items-center justify-center z-[1200] p-2 sm:p-4 overflow-y-auto"
       onClick={onClose}
     >
-      <motion.div
+      <Motion.div
         initial={{ opacity: 0, scale: 0.96, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.2 }}
         onClick={(e) => e.stopPropagation()}
         className={`rounded-xl border w-full overflow-hidden flex flex-col my-2 ${dark ? 'bg-[#101e30] border-[#444]' : 'bg-white border-gray-200/80'}`}
-        style={{ maxWidth: isInvestor ? "580px" : "520px", maxHeight: "calc(100dvh - 16px)" }}
+        style={{ maxWidth: isIndustryProfessional ? "580px" : "520px", maxHeight: "calc(100dvh - 16px)" }}
       >
         {/* Header */}
         <div className={`sticky top-0 z-20 flex items-center justify-between px-4 sm:px-5 py-3 sm:py-4 border-b ${dark ? 'bg-[#101e30] border-[#333]' : 'bg-white border-gray-100'}`}>
@@ -768,7 +645,7 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
         <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 overflow-y-auto min-h-0" style={{ maxHeight: "calc(100dvh - 150px)" }}>
           {/* === BASIC SECTION === */}
           {activeSection === "basic" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+            <Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
               {/* Profile Image Upload */}
               <div>
                 <label className={labelClass}>Profile Photo</label>
@@ -975,12 +852,12 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                 />
                 <p className="text-[11px] text-gray-400 mt-1">Separate skills with commas</p>
               </div>
-            </motion.div>
+            </Motion.div>
           )}
 
           {/* === WRITER DETAILS SECTION === */}
           {activeSection === "writer" && isWriter && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+            <Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
               <div>
                 <h3 className={`text-sm font-bold mb-1 ${dark ? 'text-gray-100' : 'text-gray-900'}`}>Writer Details</h3>
                 <p className={`text-xs mb-4 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Professional information visible to industry contacts</p>
@@ -1039,6 +916,14 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                       accept=".pdf,.jpg,.jpeg,.png,.webp"
                       onChange={(e) => {
                         const file = e.target.files?.[0] || null;
+                        const validation = validateMembershipProof(file);
+                        if (!validation.ok) {
+                          setError(validation.message);
+                          e.target.value = "";
+                          setMembershipProofFiles((prev) => ({ ...prev, wga: null }));
+                          return;
+                        }
+                        setError("");
                         setMembershipProofFiles((prev) => ({ ...prev, wga: file }));
                       }}
                       className="block w-full text-xs"
@@ -1046,12 +931,12 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                     {membershipProofFiles.wga && (
                       <p className="text-xs text-emerald-500 font-semibold">Selected: {membershipProofFiles.wga.name}</p>
                     )}
-                    {!membershipProofFiles.wga && membershipVerification?.wga?.proofUrl && (
+                    {!membershipProofFiles.wga && membershipVerification?.wga?.proofFileName && (
                       <a
-                        href={membershipVerification.wga.proofUrl}
+                        href="#wga-proof"
                         target="_blank"
                         rel="noopener noreferrer"
-                        onClick={(event) => handleOpenMembershipProof(event, "wga", membershipVerification.wga.proofUrl)}
+                        onClick={(event) => handleOpenMembershipProof(event, "wga")}
                         className="text-xs font-semibold text-blue-500 hover:underline"
                       >
                         View latest uploaded proof
@@ -1090,6 +975,14 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                       accept=".pdf,.jpg,.jpeg,.png,.webp"
                       onChange={(e) => {
                         const file = e.target.files?.[0] || null;
+                        const validation = validateMembershipProof(file);
+                        if (!validation.ok) {
+                          setError(validation.message);
+                          e.target.value = "";
+                          setMembershipProofFiles((prev) => ({ ...prev, swa: null }));
+                          return;
+                        }
+                        setError("");
                         setMembershipProofFiles((prev) => ({ ...prev, swa: file }));
                       }}
                       className="block w-full text-xs"
@@ -1097,12 +990,12 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                     {membershipProofFiles.swa && (
                       <p className="text-xs text-emerald-500 font-semibold">Selected: {membershipProofFiles.swa.name}</p>
                     )}
-                    {!membershipProofFiles.swa && membershipVerification?.swa?.proofUrl && (
+                    {!membershipProofFiles.swa && membershipVerification?.swa?.proofFileName && (
                       <a
-                        href={membershipVerification.swa.proofUrl}
+                        href="#swa-proof"
                         target="_blank"
                         rel="noopener noreferrer"
-                        onClick={(event) => handleOpenMembershipProof(event, "swa", membershipVerification.swa.proofUrl)}
+                        onClick={(event) => handleOpenMembershipProof(event, "swa")}
                         className="text-xs font-semibold text-blue-500 hover:underline"
                       >
                         View latest uploaded proof
@@ -1114,12 +1007,12 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                   </div>
                 )}
               </div>
-            </motion.div>
+            </Motion.div>
           )}
 
           {/* === GENRES SECTION === */}
           {activeSection === "genres" && isWriter && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+            <Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
               <div>
                 <h3 className={`text-sm font-bold mb-1 ${dark ? 'text-gray-100' : 'text-gray-900'}`}>Primary Genres</h3>
                 <p className={`text-xs mb-3 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>Select all genres that apply to your work</p>
@@ -1144,12 +1037,12 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                   <span className={`font-semibold ${dark ? 'text-white/80' : 'text-[#0f2544]'}`}>{selectedGenres.length}</span> genre{selectedGenres.length !== 1 ? "s" : ""} selected
                 </p>
               )}
-            </motion.div>
+            </Motion.div>
           )}
 
           {/* === SPECIALIZED TAGS SECTION === */}
           {activeSection === "tags" && isWriter && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+            <Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
               <div>
                 <h3 className={`text-sm font-bold mb-1 ${dark ? 'text-gray-100' : 'text-gray-900'}`}>Specialized Tags</h3>
                 <p className="text-xs text-gray-400 mb-3">
@@ -1159,7 +1052,7 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
 
               <AnimatePresence>
                 {showTagError && (
-                  <motion.div
+                  <Motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
@@ -1167,7 +1060,7 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                   >
                     <AlertCircle size={14} />
                     <span>Please choose your top 5 only.</span>
-                  </motion.div>
+                  </Motion.div>
                 )}
               </AnimatePresence>
 
@@ -1193,12 +1086,12 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                   <span className={`font-medium ${dark ? 'text-white/80' : 'text-[#0f2544]'}`}>{specializedTags.join(", ")}</span>
                 )}
               </p>
-            </motion.div>
+            </Motion.div>
           )}
 
           {/* === DIVERSITY SECTION === */}
           {activeSection === "diversity" && isWriter && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+            <Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
               <div>
                 <h3 className={`text-sm font-bold mb-1 ${dark ? 'text-gray-100' : 'text-gray-900'}`}>Diversity Information</h3>
                 <p className="text-xs text-gray-400 mb-4">
@@ -1227,14 +1120,14 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                   placeholder="Optional"
                 />
               </div>
-            </motion.div>
+            </Motion.div>
           )}
 
-          {/* === INVESTOR DETAILS SECTION === */}
-          {activeSection === "investor" && isInvestor && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+          {/* === INDUSTRY PROFESSIONAL DETAILS SECTION === */}
+          {activeSection === "investor" && isIndustryProfessional && (
+            <Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
               <div>
-                <h3 className={`text-sm font-bold mb-1 ${dark ? 'text-gray-100' : 'text-gray-900'}`}>Investor Professional Profile</h3>
+                <h3 className={`text-sm font-bold mb-1 ${dark ? 'text-gray-100' : 'text-gray-900'}`}>Industry Professional Profile</h3>
                 <p className={`text-xs mb-4 ${dark ? 'text-gray-500' : 'text-gray-400'}`}>These details help writers and readers understand your domain, credibility, and investment fit.</p>
               </div>
 
@@ -1360,12 +1253,12 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                 </div>
               </div>
 
-            </motion.div>
+            </Motion.div>
           )}
 
-          {/* === INVESTOR PREFERENCES SECTION === */}
-          {activeSection === "preferences" && isInvestor && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
+          {/* === INDUSTRY PROFESSIONAL PREFERENCES SECTION === */}
+          {activeSection === "preferences" && isIndustryProfessional && (
+            <Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5">
               <div className={`rounded-xl border p-3.5 ${dark ? 'bg-white/[0.03] border-[#333]' : 'bg-gray-50 border-gray-200'}`}>
                 <div className="flex items-start gap-2.5">
                   <Sparkles size={15} className={`mt-0.5 ${dark ? 'text-blue-300' : 'text-[#1e3a5f]'}`} />
@@ -1421,12 +1314,12 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                   ))}
                 </div>
               </div>
-            </motion.div>
+            </Motion.div>
           )}
 
           {/* === BANK DETAILS SECTION === */}
           {activeSection === "bank" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+            <Motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
               <div>
                 <h3 className={`text-sm font-bold mb-1 ${dark ? 'text-gray-100' : 'text-gray-900'}`}>Bank Account Details</h3>
                 <p className="text-xs text-gray-400 mb-4">
@@ -1548,10 +1441,10 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
                 </svg>
                 <p className={`text-xs ${dark ? 'text-blue-300' : 'text-blue-700'}`}>
-                  All bank details are encrypted and stored securely. This information is used only for payment processing.
+                  Account numbers are masked after submission. Payout changes require administrator review before they become active.
                 </p>
               </div>
-            </motion.div>
+            </Motion.div>
           )}
 
           {/* Action Buttons - always visible */}
@@ -1579,7 +1472,7 @@ const EditProfileModal = ({ profile, onClose, onUpdate }) => {
             </button>
           </div>
         </form>
-      </motion.div>
+      </Motion.div>
     </div>
   );
 

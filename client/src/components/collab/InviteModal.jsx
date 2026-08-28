@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
-import api from "../../services/api";
 import { useDarkMode } from "../../context/DarkModeContext";
+import { getCollabErrorMessage, sendCollabInvite } from "./collaborationRequests";
 
 import { COLLAB_ROLES as ROLES } from "../../constants/collabRoles";
 
@@ -17,16 +17,16 @@ export default function InviteModal({ scriptId, onClose, onSuccess, dark: darkPr
 
   const handleSubmit = async (event) => {
     event.preventDefault();
+    if (success) return;
     if (!scriptId) { setError("Save the project once before inviting collaborators."); return; }
     try {
       setLoading(true);
       setError("");
-      const { data } = await api.post(`/collab/${scriptId}/invite`, form);
-      setSuccess(data?.message || "Invite sent!");
+      const result = await sendCollabInvite(scriptId, form);
+      setSuccess(result.message);
       onSuccess?.();
-      setTimeout(() => onClose?.(), 700);
     } catch (err) {
-      setError(err.response?.data?.error || err.response?.data?.message || "Failed to send invite");
+      setError(getCollabErrorMessage(err, "Failed to send invite"));
     } finally {
       setLoading(false);
     }
@@ -55,7 +55,7 @@ export default function InviteModal({ scriptId, onClose, onSuccess, dark: darkPr
               <h3 className={`text-[19px] font-bold font-serif ${title}`}>Invite a co-writer</h3>
               <p className={`mt-0.5 text-[12.5px] leading-relaxed ${bodyText}`}>They'll get an email invite to write on this script with you, live.</p>
             </div>
-            <button type="button" onClick={onClose} className={`ml-auto -mr-1 w-8 h-8 rounded-lg inline-flex items-center justify-center shrink-0 transition ${dark ? "text-white/40 hover:bg-white/[0.06]" : "text-gray-400 hover:bg-gray-100"}`}>
+            <button type="button" aria-label="Close invitation" onClick={onClose} className={`ml-auto -mr-1 w-8 h-8 rounded-lg inline-flex items-center justify-center shrink-0 transition ${dark ? "text-white/40 hover:bg-white/[0.06]" : "text-gray-400 hover:bg-gray-100"}`}>
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </div>
@@ -134,9 +134,9 @@ export default function InviteModal({ scriptId, onClose, onSuccess, dark: darkPr
             className={`rounded-xl px-4 py-2.5 text-[13px] font-semibold transition ${dark ? "text-white/50 hover:bg-white/[0.06]" : "text-gray-500 hover:bg-gray-100"}`}>
             Cancel
           </button>
-          <button type="submit" disabled={loading || !form.email.trim()}
+          <button type={success ? "button" : "submit"} onClick={success ? onClose : undefined} disabled={loading || (!success && !form.email.trim())}
             className="rounded-xl bg-[#D14D37] px-5 py-2.5 text-[13px] font-bold text-white hover:bg-[#b53c29] transition disabled:opacity-50">
-            {loading ? "Sending…" : "Send invite"}
+            {loading ? "Sending…" : success ? "Done" : "Send invite"}
           </button>
         </div>
       </form>

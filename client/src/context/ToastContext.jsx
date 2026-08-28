@@ -8,7 +8,14 @@ import {
   useState,
 } from "react";
 import { createPortal } from "react-dom";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+// Aliased to `Motion` because this project's ESLint counts no JSX member
+// expression as a use, so a bare `motion` is reported as an unused import here.
+// That warning is a trap rather than a nuisance: deleting the import to satisfy
+// it leaves the `<Motion.div>` below referencing nothing, and this file is the
+// app-wide toast host. It is exactly what happened to AuthModal.jsx on
+// 2026-08-23 (DEF-33), where it took sign-in down on both platforms for three
+// days. Renamed here so the error cannot come back and invite the same fix.
+import { AnimatePresence, motion as Motion, useReducedMotion } from "framer-motion";
 import "../components/Toast.css";
 
 /* ─────────────────────────────────────────────────────────────
@@ -189,7 +196,7 @@ function ToastItem({ toast, onDismiss }) {
     : { opacity: 0, scale: 0.96, transition: { duration: 0.18 } };
 
   return (
-    <motion.li
+    <Motion.li
       layout
       className={`ckt ckt--${type}`}
       role={role}
@@ -223,7 +230,7 @@ function ToastItem({ toast, onDismiss }) {
           style={{ animationDuration: `${duration}ms` }}
         />
       )}
-    </motion.li>
+    </Motion.li>
   );
 }
 

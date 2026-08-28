@@ -30,6 +30,9 @@ import {
   CONTENT_VARIANT,
 } from "./layouts/app-shell/shellPolicy";
 import { MOBILE_EXPERIENCE, resolveMobileExperience } from "./mobile/routes/mobileRoutePolicy";
+import { MOBILE_ROUTE_DISPOSITION } from "./mobile/routes/mobileRouteManifest";
+import AudienceTransitionBoundary from "./routing/AudienceTransitionBoundary";
+import { getDefaultAuthenticatedPath } from "./routing/audienceTransitions";
 
 const Landing = lazy(() => import("./pages/landing/Landing"));
 const About = lazy(() => import("./pages/About"));
@@ -85,6 +88,7 @@ const AdminCompetitionsEditor = lazy(() => import("./pages/admin/competitions/Ad
 const AdminScriptView = lazy(() => import("./pages/AdminScriptView"));
 const AdminAgreements = lazy(() => import("./pages/AdminAgreements"));
 const FollowRequests = lazy(() => import("./pages/FollowRequests"));
+const Collaborations = lazy(() => import("./pages/Collaborations"));
 const MainLayout = lazy(() => import("./layouts/MainLayout"));
 const AppShell = lazy(() => import("./layouts/app-shell/AppShell"));
 const MobileApp = lazy(() => import("./mobile/MobileApp"));
@@ -116,7 +120,7 @@ function AdminLoginHandler({ children }) {
         localStorage.setItem("user", JSON.stringify(userData));
         setUser(userData);
         // Clean URL by navigating without the query param
-        navigate("/dashboard", { replace: true });
+        navigate(getDefaultAuthenticatedPath(userData), { replace: true });
       } catch (err) {
         console.error("Failed to parse admin login data:", err);
       }
@@ -409,9 +413,26 @@ function RootExperience({ children }) {
     isDev: import.meta.env.DEV,
   });
 
-  if (decision.experience === MOBILE_EXPERIENCE.MOBILE) return <MobileApp />;
+  if (decision.experience === MOBILE_EXPERIENCE.MOBILE) {
+    // The boot skeleton introduces the *app*, and it is a dashboard-shaped
+    // drawing. That is right for a member opening their workspace and wrong for
+    // a visitor with no account who arrived cold at a public page: someone who
+    // followed a share link or tapped "Sign in" is waiting on a form, and 650ms
+    // of someone else's dashboard loading is a stall wearing a costume.
+    //
+    // `shared-public-screen` already skipped it. The added clause is deliberately
+    // narrow — public protection AND no user — so it covers the D59 account-entry
+    // routes (ordinary SCREEN entries that happen to be public) without changing
+    // what a signed-in cold load does on any existing route.
+    const visitorArrivedCold = decision.protection === "public" && !user;
+    return (
+      <MobileApp
+        skipBoot={decision.disposition === MOBILE_ROUTE_DISPOSITION.SHARED_PUBLIC_SCREEN || visitorArrivedCold}
+      />
+    );
+  }
 
-  return children;
+  return <><CookieConsentBanner />{children}</>;
 }
 
 function App() {
@@ -448,7 +469,6 @@ function App() {
           <LanguagePreferenceSync />
           <ScrollToTopOnRouteChange />
           <SeoManager />
-          <CookieConsentBanner />
           <AnalyticsBootstrap />
           <AdminLoginHandler>
             <Suspense
@@ -458,6 +478,7 @@ function App() {
                 </div>
               }
             >
+            <AudienceTransitionBoundary>
             <RootExperience>
             <Routes>
               <Route path="/" element={<Landing />} />
@@ -535,6 +556,7 @@ function App() {
                 <Route path="/trending" element={<Navigate to="/top-script" replace />} />
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/follow-requests" element={<FollowRequests />} />
+                <Route path="/collaborations" element={<Collaborations />} />
                 <Route path="/new-project" element={<NewProject />} />
                 <Route path="/create-project" element={<CreateProject />} />
                 <Route path="/create-project/:draftId" element={<CreateProject />} />
@@ -731,9 +753,109 @@ function App() {
                   }
                 />
               )}
+              {import.meta.env.DEV && (
+                /* Phase 6 challenge-hub harness (D47). The live route spans two
+                   public endpoints, an owner-only endpoint and the wall clock;
+                   this fixture makes all four tabs and public/member chrome
+                   deterministic for narrow-width accessibility sweeps. */
+                <Route
+                  path="/__mobile-challenges"
+                  element={
+                    <AuthContext.Provider value={{ user: { _id: "preview-writer", name: "Mira Sen", role: "writer", token: "preview", favoriteScripts: [] }, loading: false, logout: () => {}, setUser: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="challenges" />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
+              )}
+              {import.meta.env.DEV && (
+                /* Phase 6 challenge-detail harness (D48). Keeps every phase,
+                   owner-summary state, direct-link result and failure surface
+                   deterministic for narrow-width browser sweeps. */
+                <Route
+                  path="/__mobile-challenge-detail"
+                  element={
+                    <AuthContext.Provider value={{ user: { _id: "preview-writer", name: "Mira Sen", role: "writer", token: "preview", favoriteScripts: [] }, loading: false, logout: () => {}, setUser: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="challenge-detail" />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
+              )}
+              {import.meta.env.DEV && (
+                <>
+                {/* Phase 6 challenge-registration harness (D49). The live flow
+                   crosses Razorpay and a manual external-provider review queue;
+                   this fixture keeps every local standing deterministic. */}
+                <Route
+                  path="/__mobile-challenge-register"
+                  element={
+                    <AuthContext.Provider value={{ user: { _id: "preview-writer", name: "Aditi Rao", role: "writer", email: "aditi@example.com", token: "preview", favoriteScripts: [] }, loading: false, logout: () => {}, setUser: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="challenge-register" />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
+                {/* Phase 6 participant-dashboard harness (D50). The live route
+                   polls and mutates editor/community state; this keeps phase,
+                   result, bounded-list, and refusal standings deterministic. */}
+                <Route
+                  path="/__mobile-challenge-dashboard"
+                  element={
+                    <AuthContext.Provider value={{ user: { _id: "preview-writer", name: "Aditi Rao", role: "writer", token: "preview", favoriteScripts: [] }, loading: false, logout: () => {}, setUser: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="challenge-dashboard" />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
+                {/* Phase 6 Hall-of-Fame harness (D51). The live archive is
+                   paged and dynamic; this fixture keeps record states stable. */}
+                <Route
+                  path="/__mobile-hall-of-fame"
+                  element={
+                    <AuthContext.Provider value={{ user: { _id: "preview-writer", name: "Aditi Rao", role: "writer", token: "preview", favoriteScripts: [] }, loading: false, logout: () => {}, setUser: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="hall-of-fame" />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
+                {/* Phase 7 industry workspace harness (D52). Both live routes
+                   depend on personalised, role-specific account data; this
+                   fixture keeps home/dashboard and their failures stable. */}
+                <Route
+                  path="/__mobile-industry"
+                  element={
+                    <AuthContext.Provider value={{ user: { _id: "preview-industry", name: "Naina Kapoor", role: "producer", token: "preview", favoriteScripts: [] }, loading: false, logout: () => {}, setUser: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="industry-workspace" />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
+                {/* Phase 7 reader workspace harness (D55). The live reader
+                   routes depend on private history, favourites, and a changing
+                   public catalogue; this fixture keeps every state stable. */}
+                <Route
+                  path="/__mobile-reader"
+                  element={
+                    <AuthContext.Provider value={{ user: { _id: "preview-reader", name: "Leela Thomas", role: "reader", token: "preview", favoriteScripts: [] }, loading: false, logout: () => {}, setUser: () => {} }}>
+                      <Suspense fallback={null}>
+                        <MobileApp devScreen="reader-workspace" />
+                      </Suspense>
+                    </AuthContext.Provider>
+                  }
+                />
+                </>
+              )}
               <Route path="/:id" element={<SingleSegmentProfileOrReferralRoute />} />
             </Routes>
             </RootExperience>
+            </AudienceTransitionBoundary>
             </Suspense>
 
           <EventPosterModal />

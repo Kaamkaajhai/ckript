@@ -512,8 +512,20 @@ export const consumeMessageWriterSlot = async (req, res) => {
       return res.status(400).json({ message: "Invalid writer ID" });
     }
 
-    const user = await User.findById(req.user._id).select("subscription role isPremium").lean();
+    const user = await User.findById(req.user._id).select("subscription role email isPremium").lean();
     if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (!hasAnyFipAccess(user)) {
+      return res.status(403).json({
+        message: "Film Industry Professional access is required to message writers.",
+        requiresUpgrade: true,
+      });
+    }
+
+    const writer = await User.findById(writerId).select("role").lean();
+    if (!writer || !isWriterRole(writer.role)) {
+      return res.status(404).json({ message: "Writer not found" });
+    }
 
     const alreadyMessaged = hasMessagedWriter(user, writerId);
     

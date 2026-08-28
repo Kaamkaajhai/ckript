@@ -1,0 +1,276 @@
+/* Native challenge detail (prefix: ckm-challenge-detail). */
+
+.ckm .ckm-challenge-detail__scroll {
+  padding: 0 var(--ckm-space-4-5) var(--ckm-space-8);
+}
+
+.ckm .ckm-challenge-detail__loading {
+  display: grid;
+  gap: var(--ckm-space-4);
+  padding-top: var(--ckm-space-4-5);
+}
+
+.ckm .ckm-challenge-detail__hero {
+  margin-inline: calc(var(--ckm-space-4-5) * -1);
+  background: var(--ckm-surface);
+  border-bottom: 1px solid var(--ckm-line);
+}
+
+.ckm .ckm-challenge-detail__hero > img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 8;
+  object-fit: cover;
+}
+
+.ckm .ckm-challenge-detail__hero-copy {
+  display: grid;
+  gap: var(--ckm-space-3);
+  padding: var(--ckm-space-4-5);
+}
+
+.ckm .ckm-challenge-detail__hero-copy > p {
+  margin: 0;
+  color: var(--ckm-text-2);
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+  white-space: pre-line;
+}
+
+.ckm .ckm-challenge-detail__countdown {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--ckm-space-3);
+  padding: var(--ckm-space-3);
+  border-radius: var(--ckm-r-lg);
+  background: var(--ckm-accent-soft);
+  color: var(--ckm-accent-ink);
+  font: var(--ckm-weight-semibold) var(--ckm-text-caption) / var(--ckm-leading-caption) var(--ckm-body);
+}
+
+.ckm .ckm-challenge-detail__countdown strong {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ckm .ckm-challenge-detail__action-note {
+  color: var(--ckm-text-3) !important;
+  font-size: var(--ckm-text-caption) !important;
+}
+
+.ckm .ckm-challenge-detail__section {
+  scroll-margin-top: calc(var(--ckm-app-bar-h) + var(--ckm-space-3));
+  padding-top: var(--ckm-space-7);
+}
+
+.ckm .ckm-challenge-detail__section > header {
+  margin-bottom: var(--ckm-space-3);
+}
+
+.ckm .ckm-challenge-detail__section > header h2,
+.ckm .ckm-challenge-detail__section > header p {
+  margin: 0;
+}
+
+.ckm .ckm-challenge-detail__section > header h2 {
+  color: var(--ckm-text);
+  font: var(--ckm-weight-semibold) var(--ckm-text-title-sm) / var(--ckm-leading-title-sm) var(--ckm-display);
+}
+
+.ckm .ckm-challenge-detail__section > header p {
+  margin-top: var(--ckm-space-1);
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+}
+
+.ckm .ckm-challenge-detail__grid,
+.ckm .ckm-challenge-detail__resource-links {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--ckm-space-3);
+}
+
+.ckm .ckm-challenge-detail__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--ckm-space-4);
+  margin: 0;
+}
+
+.ckm .ckm-challenge-detail__facts div {
+  min-width: 0;
+}
+
+.ckm .ckm-challenge-detail__facts dt,
+.ckm .ckm-challenge-detail__criteria {
+  margin: 0;
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-semibold) var(--ckm-text-micro) / var(--ckm-leading-micro) var(--ckm-body);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.ckm .ckm-challenge-detail__facts dd {
+  margin: 4px 0 0;
+  color: var(--ckm-text);
+  font: var(--ckm-weight-medium) var(--ckm-text-caption) / var(--ckm-leading-caption) var(--ckm-body);
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-challenge-detail__theme {
+  margin: 0;
+  color: var(--ckm-text);
+  font: italic var(--ckm-weight-medium) var(--ckm-text-title) / var(--ckm-leading-title) var(--ckm-display);
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-challenge-detail__chips,
+.ckm .ckm-challenge-detail__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ckm-space-2);
+  margin-top: var(--ckm-space-3);
+}
+
+.ckm .ckm-challenge-detail__criteria {
+  margin-top: var(--ckm-space-4);
+}
+
+.ckm .ckm-challenge-detail__timeline {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ckm .ckm-challenge-detail__timeline li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: var(--ckm-space-3);
+  min-height: var(--ckm-touch-target);
+  padding-bottom: var(--ckm-space-3);
+}
+
+.ckm .ckm-challenge-detail__timeline li > span {
+  width: 12px;
+  height: 12px;
+  margin-top: 4px;
+  border: 2px solid var(--ckm-line-strong);
+  border-radius: 50%;
+  background: var(--ckm-surface);
+}
+
+.ckm .ckm-challenge-detail__timeline li:not(:last-child)::after {
+  position: absolute;
+  top: 17px;
+  bottom: -1px;
+  left: 5px;
+  width: 2px;
+  background: var(--ckm-line);
+  content: "";
+}
+
+.ckm .ckm-challenge-detail__timeline li.is-done > span,
+.ckm .ckm-challenge-detail__timeline li.is-current > span {
+  border-color: var(--ckm-accent);
+  background: var(--ckm-accent);
+}
+
+.ckm .ckm-challenge-detail__timeline strong,
+.ckm .ckm-challenge-detail__timeline time {
+  display: block;
+}
+
+.ckm .ckm-challenge-detail__timeline strong {
+  color: var(--ckm-text);
+  font: var(--ckm-weight-semibold) var(--ckm-text-caption) / var(--ckm-leading-caption) var(--ckm-body);
+}
+
+.ckm .ckm-challenge-detail__timeline time {
+  margin-top: 2px;
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-regular) var(--ckm-text-micro) / var(--ckm-leading-micro) var(--ckm-body);
+}
+
+.ckm .ckm-challenge-detail__plain-list {
+  display: grid;
+  gap: var(--ckm-space-2);
+  margin: var(--ckm-space-3) 0 0;
+  padding-left: 1.2rem;
+  color: var(--ckm-text-2);
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+}
+
+.ckm .ckm-challenge-detail__plain-list.is-numbered {
+  list-style: decimal;
+}
+
+.ckm .ckm-challenge-detail__person {
+  display: flex;
+  align-items: center;
+  gap: var(--ckm-space-3);
+}
+
+.ckm .ckm-challenge-detail__person > span {
+  display: grid;
+  flex: 0 0 52px;
+  width: 52px;
+  height: 52px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--ckm-surface-2);
+  color: var(--ckm-text-3);
+  font-weight: var(--ckm-weight-bold);
+}
+
+.ckm .ckm-challenge-detail__person img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ckm .ckm-challenge-detail__person p {
+  margin: 3px 0 0;
+  color: var(--ckm-text-3);
+  font: var(--ckm-weight-regular) var(--ckm-text-caption) / var(--ckm-leading-caption) var(--ckm-body);
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-challenge-detail__faq {
+  overflow: hidden;
+  border: 1px solid var(--ckm-line);
+  border-radius: var(--ckm-r-xl);
+  background: var(--ckm-surface);
+}
+
+.ckm .ckm-challenge-detail__faq details + details {
+  border-top: 1px solid var(--ckm-line);
+}
+
+.ckm .ckm-challenge-detail__faq summary {
+  display: flex;
+  min-height: var(--ckm-touch-target);
+  align-items: center;
+  padding: var(--ckm-space-3) var(--ckm-space-4);
+  color: var(--ckm-text);
+  font: var(--ckm-weight-semibold) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+  cursor: pointer;
+}
+
+.ckm .ckm-challenge-detail__faq p {
+  margin: 0;
+  padding: 0 var(--ckm-space-4) var(--ckm-space-4);
+  color: var(--ckm-text-2);
+  font: var(--ckm-weight-regular) var(--ckm-text-support) / var(--ckm-leading-support) var(--ckm-body);
+  white-space: pre-line;
+}
+
+@media (min-width: 640px) {
+  .ckm .ckm-challenge-detail__grid,
+  .ckm .ckm-challenge-detail__resource-links {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

@@ -15,8 +15,33 @@ const desktopDecision = (route, reason, disposition = route?.disposition) => ({
   routeId: route?.id ?? null,
   screenId: null,
   disposition: disposition ?? null,
+  shell: null,
+  protection: route?.protection ?? null,
   reason,
 });
+
+const normalizeProfileKey = (value) => String(value || "").trim().toLowerCase();
+
+export function isOwnProfileKey(profileKey, user) {
+  if (!user) return false;
+  const target = normalizeProfileKey(profileKey);
+  if (!target) return true;
+  const ownKeys = [
+    user?._id,
+    user?.id,
+    user?.sid,
+    user?.username,
+    user?.writerProfile?.username,
+  ].map(normalizeProfileKey).filter(Boolean);
+  return ownKeys.includes(target);
+}
+
+function isOwnProfileTarget(route, pathname, user) {
+  if (!route?.visitorOnly || !user) return false;
+  const match = matchPath({ path: route.pattern, end: true, caseSensitive: false }, pathname);
+  const target = match?.params?.id;
+  return target || route.id === "profile" ? isOwnProfileKey(target, user) : false;
+}
 
 export function findMobileRoute(pathname = "") {
   const normalizedPath = String(pathname || "/").split(/[?#]/, 1)[0] || "/";
@@ -35,8 +60,8 @@ export function findMobileRoute(pathname = "") {
  * Whether a route's declared query exclusion applies to the current URL.
  *
  * A route can be implemented for mobile in general and deliberately NOT
- * implemented for one query-defined entry mode. There are no current query
- * exclusions, but the generic policy stays available for future partial ports.
+ * implemented for one query-defined entry mode. D37 removed the last current
+ * exclusion, but the policy remains here for future partial route ports.
  *
  * It lives in the manifest rather than inside the screen because the manifest is
  * the file that answers "what does mobile cover?", and an exception hidden in a
@@ -84,16 +109,43 @@ export function resolveMobileExperience({
     return desktopDecision(route, "authentication-required", route.fallbackDisposition);
   }
 
+  // Some canonical share URLs branch by authentication in App.jsx. Their
+  // public mobile presentation must not replace the richer authenticated page
+  // when an account opens the same copied link.
+  if (route.signedOutOnly && user) {
+    return desktopDecision(route, "authenticated-variant-pending", route.fallbackDisposition);
+  }
+
+  const ownProfileTarget = isOwnProfileTarget(route, pathname, user);
+  if (ownProfileTarget && !route.ownScreenId) {
+    return desktopDecision(route, "own-profile-variant-pending", route.fallbackDisposition);
+  }
+
   const audience = getAudience(user?.role);
   if (route.audiences?.length && !route.audiences.includes(audience)) {
     return desktopDecision(route, "audience-not-implemented", route.fallbackDisposition);
   }
 
+  const role = String(user?.role || "").trim().toLowerCase();
+  if (route.roles?.length && !route.roles.includes(role)) {
+    return desktopDecision(route, "role-not-implemented", route.fallbackDisposition);
+  }
+
   return {
     experience: MOBILE_EXPERIENCE.MOBILE,
     routeId: route.id,
-    screenId: route.screenId,
+    screenId: ownProfileTarget
+      ? route.ownScreenId
+      : user && route.authenticatedScreenId ? route.authenticatedScreenId : route.screenId,
     disposition: route.disposition,
+    // The declared shell mode and protection travel with the decision so a
+    // caller can act on them without re-reading the manifest. RootExperience
+    // uses `protection` to answer one question the disposition alone could not:
+    // is this a public surface that a visitor with no account arrived at cold,
+    // and therefore is the app-boot skeleton honest chrome or a stall in front
+    // of a sign-in form?
+    shell: route.shell ?? null,
+    protection: route.protection ?? null,
     reason: "implemented-screen",
   };
 }

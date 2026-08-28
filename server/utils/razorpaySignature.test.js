@@ -89,18 +89,38 @@ describe("it fails closed", () => {
   });
 });
 
-describe("every controller uses the shared verifier", () => {
-  test("no inline Razorpay HMAC survives", async () => {
-    // Six copies had already drifted in their error messages. A seventh would drift again, and
-    // nothing would fail loudly if it were written without the constant-time compare.
+describe("no controller compares a signature with ===", () => {
+  test("every Razorpay HMAC in a controller is compared in constant time", async () => {
+    // This guards the DEFECT, not the technique. Comparing with `===` returns the moment two bytes
+    // differ, which leaks through timing how much of a guessed signature was right. Verifying inline
+    // is fine as long as the comparison is constant-time — competitionController does exactly that,
+    // binding the check to the order id the server stored rather than the one the client sent.
     const fs = await import("node:fs");
     const path = await import("node:path");
     const dir = path.join(import.meta.dirname, "..", "controllers");
+
+    // `expectedSignature === razorpay_signature` and friends, in either order.
+    const NAIVE = /(expected|generated)[_a-zA-Z]*\s*[!=]==\s*razorpay_signature|razorpay_signature\s*[!=]==\s*(expected|generated)/;
+
     const offenders = [];
     for (const file of fs.readdirSync(dir).filter((f) => f.endsWith(".js") && !f.includes(".test."))) {
       const src = fs.readFileSync(path.join(dir, file), "utf8");
-      if (src.includes('createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)')) offenders.push(file);
+      if (NAIVE.test(src)) offenders.push(file);
     }
-    assert.deepEqual(offenders, [], `these still verify inline: ${offenders.join(", ")}`);
+    assert.deepEqual(offenders, [], `compare these in constant time: ${offenders.join(", ")}`);
+  });
+
+  test("a controller that builds a Razorpay HMAC also uses timingSafeEqual", async () => {
+    const fs = await import("node:fs");
+    const path = await import("node:path");
+    const dir = path.join(import.meta.dirname, "..", "controllers");
+
+    const offenders = [];
+    for (const file of fs.readdirSync(dir).filter((f) => f.endsWith(".js") && !f.includes(".test."))) {
+      const src = fs.readFileSync(path.join(dir, file), "utf8");
+      const buildsHmac = src.includes('createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)');
+      if (buildsHmac && !src.includes("timingSafeEqual")) offenders.push(file);
+    }
+    assert.deepEqual(offenders, [], `these build a signature but never compare it safely: ${offenders.join(", ")}`);
   });
 });

@@ -41,7 +41,13 @@ const hold = (overrides = {}) => ({
 });
 
 const get = vi.fn();
-vi.mock("../../services/api", () => ({ default: { get: (...args) => get(...args) } }));
+const post = vi.fn();
+vi.mock("../../services/api", () => ({
+  default: {
+    get: (...args) => get(...args),
+    post: (...args) => post(...args),
+  },
+}));
 
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -52,6 +58,7 @@ const user = { _id: "u1", role: "producer", name: "Nadia Rahman" };
 
 beforeEach(() => {
   get.mockReset();
+  post.mockReset();
   // The screen's whole subject is a countdown, so the clock is pinned. Without
   // this the "expiring" assertions would start failing 20 days after they were
   // written, which is the kind of test rot that gets suites deleted.
@@ -141,6 +148,22 @@ describe("Holds — success", () => {
     const section = container.querySelector("section.ckm-holds__group");
     expect(heading.id).toBeTruthy();
     expect(section.getAttribute("aria-labelledby")).toBe(heading.id);
+  });
+
+  it("asks before releasing, states the no-refund rule, and updates the row only after success", async () => {
+    post.mockResolvedValue({ data: { option: { id: "opt1", status: "cancelled" } } });
+    await mount();
+    const release = [...container.querySelectorAll("button")].find((button) => button.textContent === "Release option");
+    await act(async () => { release.click(); });
+    expect(document.body.textContent).toContain("not refunded");
+    expect(post).not.toHaveBeenCalled();
+
+    const confirm = [...document.body.querySelectorAll("button")]
+      .find((button) => button.textContent === "Release option" && button !== release);
+    await act(async () => { confirm.click(); await Promise.resolve(); });
+    expect(post).toHaveBeenCalledWith("/scripts/release-hold", { optionId: "opt1", scriptId: "s1" });
+    expect(container.textContent).toContain("Released");
+    expect(container.querySelector(".ckm-holds__release")).toBeNull();
   });
 });
 

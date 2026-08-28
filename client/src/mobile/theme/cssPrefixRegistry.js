@@ -195,6 +195,11 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     owner: "components/media/Media.css",
     note: "MediaSlot (slot, drop target, preview, per-file upload progress), CoverCropDialog's stage and sliders, PreviewDialog's page list.",
   },
+  "ckm-meeting": {
+    kind: SHARED_COMPONENT,
+    owner: "components/meetings/MeetingSheet.css",
+    note: "Shared native meeting and Calendar-connect task used by project detail and message context (D41).",
+  },
 
   "ckm-gallery": {
     kind: PAGE_FAMILY,
@@ -263,10 +268,50 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     owner: "screens/discovery/components/FeaturedLeadCard.css",
     note: "The editorial lead and the sentence explaining why it leads. Its own prefix because it is a different composition from the shared discovery card, not a variant of it.",
   },
+
+  // --- Industry workspace (Phase 7, D52) -------------------------------
+  "ckm-industry-home": {
+    kind: PAGE_FAMILY,
+    owner: "screens/industry/IndustryHomeMobile.css",
+    family: "industry",
+    note: "Personalised, URL-filtered project discovery desk at /home.",
+  },
+  "ckm-industry-dashboard": {
+    kind: PAGE_FAMILY,
+    owner: "screens/industry/IndustryDashboardMobile.css",
+    family: "industry",
+    note: "Role-aware overview, deals, matches, finance, and market workspace at /dashboard.",
+  },
+  "ckm-writers": {
+    kind: PAGE_FAMILY,
+    owner: "screens/industry/WriterRosterMobile.css",
+    family: "industry",
+    note: "URL-filtered writer roster and compact comparison cards at /writers.",
+  },
+  "ckm-mandates": {
+    kind: PAGE_FAMILY,
+    owner: "screens/industry/MandatesMobile.css",
+    family: "industry",
+    note: "Professional-only format, genre, exclusion, and story-signal brief editor at /mandates.",
+  },
   "ckm-trailer": {
     kind: SHARED_COMPONENT,
     owner: "components/media/TrailerDialog.css",
     note: "Full-screen trailer playback with source fallback and the narrated-summary alternative. Promoted out of screens/discovery/components in D28, when project detail became its second caller — §6 reserves a family's components/ folder for components exclusive to that family.",
+  },
+
+  // --- Public marketing (Phase 8, D57) ---------------------------------
+  "ckm-landing": {
+    kind: PAGE_FAMILY,
+    owner: "marketing/LandingMobile.css",
+    family: "marketing",
+    note: "The native public homepage at `/`: one scroll surface containing every canonical landing beat plus its menu, trailer, and partner dialogs.",
+  },
+  "ckm-seo-page": {
+    kind: PAGE_FAMILY,
+    owner: "marketing/SeoContentMobile.css",
+    family: "marketing",
+    note: "The shared native renderer for registered feature, audience, industry, resource, blog, tool, FAQ, genre, and long-form guide routes (D58).",
   },
 
   // --- Authenticated project detail (Phase 4, D28) ----------------------
@@ -289,6 +334,148 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     owner: "screens/projects/checkout/ProjectCheckoutMobile.css",
     family: "projects",
     note: "The payment route at /script/:id/pay. Its own prefix rather than part of ckm-project: it is a single-purpose transactional surface — an amount, a set of acceptances and one docked action — and it is the only mobile screen whose primary control hands the viewer to a third-party overlay outside our DOM.",
+  },
+
+  // --- Public project preview (Phase 4, D31) ----------------------------
+  "ckm-public-project": {
+    kind: PAGE_FAMILY,
+    owner: "screens/projects/public-project/ProjectPublicMobile.css",
+    family: "projects",
+    note: "The unauthenticated project share at /share/project/:id. It consumes only the server's public projection and never derives signed-in marketplace capabilities.",
+  },
+
+  // --- Public profile (Phase 5, D34) -----------------------------------
+  "ckm-public-profile": {
+    kind: PAGE_FAMILY,
+    owner: "screens/profiles/public-profile/PublicProfileMobile.css",
+    family: "profiles",
+    note: "The signed-out public profile at /share/profile/:id: identity, public professional facts, safe links and published-project summaries over the sanitized public endpoint.",
+  },
+
+  "ckm-visitor-profile": {
+    kind: PAGE_FAMILY,
+    owner: "screens/profiles/visitor-profile/ProfileVisitorMobile.css",
+    family: "profiles",
+    note: "The authenticated visitor profile across id, share and canonical username routes, including relationship, messaging, pitch, block and metered contact actions.",
+  },
+
+  "ckm-owner-profile": {
+    kind: PAGE_FAMILY,
+    owner: "screens/profiles/owner-profile/ProfileOwnerMobile.css",
+    family: "profiles",
+    note: "The authenticated account's native identity and professional overview, including the shared profile editor.",
+  },
+
+  "ckm-profile-collection": {
+    kind: PAGE_FAMILY,
+    owner: "screens/profiles/profile-collections/ProfileCollectionsMobile.css",
+    family: "profiles",
+    note: "The shared native general-profile activity and owner-only saved-project collection with bounded URL-owned paging.",
+  },
+
+  "ckm-account-settings": {
+    kind: PAGE_FAMILY,
+    owner: "screens/profiles/owner-profile/AccountSettingsMobile.css",
+    family: "profiles",
+    note: "The native own-account settings tab: privacy, email, password, notifications, sessions, localization, integrations, blocks, deleted projects, and deletion.",
+  },
+
+  "ckm-follow-requests": {
+    kind: PAGE_FAMILY,
+    owner: "screens/profiles/follow-requests/FollowRequestsMobile.css",
+    family: "profiles",
+    note: "The native inbound follow-request queue with profile links and shared accept/reject mutations.",
+  },
+
+  "ckm-collaboration": {
+    kind: PAGE_FAMILY,
+    owner: "screens/collaboration/CollaborationRequestsMobile.css",
+    family: "collaboration",
+    note: "The native incoming and sent collaboration-request queue with shared paged decisions at /collaborations.",
+  },
+
+  "ckm-reader-profile": {
+    kind: PAGE_FAMILY,
+    owner: "screens/reader/reader-profile/ReaderProfileMobile.css",
+    family: "reader",
+    note: "Reader identity, private own collections, public reviews, follow relationship, and URL-backed paging at /reader/profile/:id?.",
+  },
+
+  "ckm-reader-home": {
+    kind: PAGE_FAMILY,
+    owner: "screens/reader/ReaderHomeMobile.css",
+    family: "reader",
+    note: "Reader-only private library home and URL-owned project discovery at /reader and /reader/search (D55).",
+  },
+
+  "ckm-messages": {
+    kind: PAGE_FAMILY,
+    owner: "screens/messages/MessagesMobile.css",
+    family: "messages",
+    note: "The native conversation inbox, text thread, attachment display and keyboard-aware composer.",
+  },
+
+  // --- Challenges and Hall of Fame (Phase 6) ---------------------------
+  "ckm-challenge-hub": {
+    kind: PAGE_FAMILY,
+    owner: "screens/challenges/ChallengeHubMobile.css",
+    family: "challenges",
+    note: "The public/authenticated four-section challenge index at /challenge: live, previous, Hall of Fame, and the owner's entry history (D47).",
+  },
+  "ckm-challenge-detail": {
+    kind: PAGE_FAMILY,
+    owner: "screens/challenges/ChallengeDetailMobile.css",
+    family: "challenges",
+    note: "The public/authenticated canonical challenge record, phase, rules, prizes, judges, partners, and owner-safe registration state (D48).",
+  },
+  "ckm-challenge-register": {
+    kind: PAGE_FAMILY,
+    owner: "screens/challenges/ChallengeRegisterMobile.css",
+    family: "challenges",
+    note: "The authenticated free, Razorpay, recovery, external-claim, and receipt flow at /challenge/register (D49).",
+  },
+  "ckm-challenge-dashboard": {
+    kind: PAGE_FAMILY,
+    owner: "screens/challenges/ChallengeDashboardMobile.css",
+    family: "challenges",
+    note: "The authenticated participant status, studio, community, achievements, results, and certificate workspace at /challenge/dashboard (D50).",
+  },
+  "ckm-hall": {
+    kind: PAGE_FAMILY,
+    owner: "screens/challenges/HallOfFameMobile.css",
+    family: "challenges",
+    note: "The bounded public Hall of Fame archive and permanent competition record at /hall-of-fame/:slug (D51).",
+  },
+
+  // --- Account entry (Phase 8, D59) -------------------------------------
+  "ckm-auth": {
+    kind: PAGE_FAMILY,
+    owner: "screens/auth/Auth.css",
+    family: "auth",
+    note: "The dark account-entry chrome shared by /login, /join and /forgot-password, plus the frame all five auth screens mount in. "
+      + "One prefix and one stylesheet for the three because they are the same surface asking for different fields; the reserved "
+      + "`ckm-forgot-password` is retired unused rather than owning a second copy of every rule (§7.2, 2026-08-26). "
+      + "Its `__otp*` elements belong to `components/OtpInput.jsx`, which is a member of this family and is also mounted by the "
+      + "stepper — so `SignUp.css` re-skins `.ckm-auth__otp-box` for its own ground rather than declaring a second six-box control. "
+      + "That is a family component being reused inside the family, not `ckm-signup` reaching into another prefix.",
+  },
+  "ckm-signup": {
+    kind: PAGE_FAMILY,
+    owner: "screens/auth/SignUp.css",
+    family: "auth",
+    note: "The role-parameterised sign-up stepper at /signup?as=<role>. Reallocated from the three reserved but never-used prefixes "
+      + "`ckm-writer-onboarding`, `ckm-producer-onboarding` and `ckm-industry-onboarding`: mobile implements all three flows as ONE "
+      + "screen, so three prefixes would have been three names for one stylesheet. The role is a data attribute on the host, not a "
+      + "prefix. Separate from `ckm-auth` for the reason `ckm-editor` is separate from `ckm-create-project` — a flow-shell surface "
+      + "with a step rail, per-step panels and a keyboard-aware docked footer shares nothing but tokens with a sign-in form.",
+  },
+  "ckm-invite": {
+    kind: PAGE_FAMILY,
+    owner: "screens/auth/AcceptInviteMobile.css",
+    family: "auth",
+    note: "Collaboration invite acceptance at /invite/:token. Its own family: a token-resolution RESULT surface (resolving, accepted, "
+      + "expired, already used, signed-out) rather than a form, and the only auth route that renders for signed-in and signed-out "
+      + "viewers alike.",
   },
 
   // --- Project creation (Phase 3) ---------------------------------------

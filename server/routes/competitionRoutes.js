@@ -16,6 +16,7 @@ import {
   getMyCompetitionReferrals,
   createRegistrationOrder,
   verifyRegistrationPayment,
+  reconcileRegistrationPayment,
 } from "../controllers/competitionController.js";
 import {
   listExternalProviders,
@@ -40,6 +41,7 @@ router.get("/mine", protect, getMyCompetitions);
 router.post("/:id/register", protect, registerForCompetition);
 router.post("/:id/create-registration-order", protect, createRegistrationOrder);
 router.post("/:id/verify-registration-payment", protect, verifyRegistrationPayment);
+router.post("/:id/reconcile-registration-payment", protect, reconcileRegistrationPayment);
 router.get("/:id/me", protect, getMyEntry);
 router.get("/:id/participants", protect, getCompetitionParticipants);
 router.get("/:id/referrals", protect, getMyCompetitionReferrals);

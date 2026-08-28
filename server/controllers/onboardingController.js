@@ -5,6 +5,11 @@ import multer from "multer";
 import { uploadToCloudinary, buildPrivateDownloadUrl } from "../config/cloudinary.js";
 import { sendOTPEmail } from "../utils/emailService.js";
 import { getProfileCompletion } from "../utils/profileCompletion.js";
+import { redactMembershipProofSecrets } from "../utils/profileProjection.js";
+import {
+  MEMBERSHIP_PROOF_DELIVERY_TYPE,
+  describeMembershipProofAsset,
+} from "../utils/membershipProofAsset.js";
 import {
   generateOTP,
   generateOTPExpiry,
@@ -13,6 +18,8 @@ import {
   isOTPExpired,
   verifyHashedOTP,
 } from "../utils/otpHelper.js";
+import { isFilmIndustryProfessionalRole } from "../utils/industryAccess.js";
+import { normalizeMandatesInput } from "../utils/mandates.js";
 
 const normalizeString = (value) =>
   value === undefined || value === null ? "" : String(value).trim();
@@ -36,14 +43,6 @@ const MEMBERSHIP_FILE_MIME_TYPES = new Set([
   "image/png",
   "image/webp",
 ]);
-const getCloudinaryResourceTypeFromUrl = (url = "") => {
-  const normalized = String(url || "");
-  if (normalized.includes("/image/upload/")) return "image";
-  if (normalized.includes("/video/upload/")) return "video";
-  if (normalized.includes("/raw/upload/")) return "raw";
-  return "";
-};
-
 const normalizeOtpInput = (otp) => String(otp || "").trim();
 const isValidOtpInput = (otp) => /^\d{6}$/.test(otp);
 
@@ -252,6 +251,7 @@ export const submitWriterMembershipProof = async (req, res) => {
     const uploadResult = await uploadToCloudinary(req.file.buffer, {
       folder: `scriptbridge/membership-proofs/${membershipType}`,
       resource_type: "auto",
+      type: MEMBERSHIP_PROOF_DELIVERY_TYPE,
       public_id: `${membershipType}-${user._id}-${Date.now()}`,
       originalFilename: req.file.originalname,
       mimeType: req.file.mimetype,
@@ -282,7 +282,7 @@ export const submitWriterMembershipProof = async (req, res) => {
       message: `${membershipType.toUpperCase()} proof submitted for admin review`,
       user: {
         _id: user._id,
-        writerProfile: user.writerProfile,
+        writerProfile: redactMembershipProofSecrets(user.writerProfile?.toObject ? user.writerProfile.toObject() : user.writerProfile),
       },
     });
   } catch (error) {
@@ -307,27 +307,29 @@ export const getWriterMembershipProofAccessUrl = async (req, res) => {
     }
 
     const entry = user?.writerProfile?.membershipVerification?.[membershipType] || {};
-    const proofUrl = normalizeString(entry?.proofUrl);
-    const proofPublicId = normalizeString(entry?.proofPublicId);
-    const proofMimeType = normalizeString(entry?.proofMimeType).toLowerCase();
+    const asset = describeMembershipProofAsset(entry);
 
-    if (!proofUrl && !proofPublicId) {
+    if (!asset.fallbackUrl && !asset.publicId) {
       return res.status(404).json({ message: "Proof file not found" });
     }
 
-    if (proofMimeType !== "application/pdf" || !proofPublicId) {
-      return res.json({ url: proofUrl });
+    // Records created before private proof delivery may not have a Cloudinary
+    // public id. Keep those readable by their owner while every new upload
+    // below is authenticated and can use a time-limited URL.
+    if (!asset.publicId) {
+      res.set("Cache-Control", "private, no-store");
+      return res.json({ url: asset.fallbackUrl });
     }
 
     const expiresAt = Math.floor(Date.now() / 1000) + 10 * 60;
-    const resourceType = getCloudinaryResourceTypeFromUrl(proofUrl) || "raw";
-    const signedUrl = buildPrivateDownloadUrl(proofPublicId, "pdf", {
-      resource_type: resourceType,
-      type: "upload",
+    const signedUrl = buildPrivateDownloadUrl(asset.publicId, asset.format, {
+      resource_type: asset.resourceType,
+      type: asset.deliveryType,
       expires_at: expiresAt,
       attachment: false,
     });
 
+    res.set("Cache-Control", "private, no-store");
     return res.json({ url: signedUrl });
   } catch (error) {
     console.error(error);
@@ -542,7 +544,7 @@ export const updateWriterProfile = async (req, res) => {
         name: user.name,
         email: user.email,
         bio: user.bio,
-        writerProfile: user.writerProfile
+        writerProfile: redactMembershipProofSecrets(user.writerProfile?.toObject ? user.writerProfile.toObject() : user.writerProfile)
       }
     });
   } catch (error) {
@@ -729,7 +731,7 @@ export const completeOnboarding = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        writerProfile: user.writerProfile
+        writerProfile: redactMembershipProofSecrets(user.writerProfile?.toObject ? user.writerProfile.toObject() : user.writerProfile)
       }
     });
   } catch (error) {
@@ -975,7 +977,11 @@ export const updateMandates = async (req, res) => {
   try {
     const { mandates } = req.body;
 
-    if (!mandates) {
+    if (!isFilmIndustryProfessionalRole(req.user)) {
+      return res.status(403).json({ success: false, message: "Mandates are available to film industry professionals only" });
+    }
+
+    if (!mandates || typeof mandates !== "object" || Array.isArray(mandates)) {
       return res.status(400).json({ success: false, message: "Mandates data is required" });
     }
 
@@ -988,12 +994,7 @@ export const updateMandates = async (req, res) => {
       user.industryProfile = {};
     }
 
-    user.industryProfile.mandates = {
-      formats: normalizeFormatArray(mandates.formats),
-      genres: mandates.genres || [],
-      excludeGenres: mandates.excludeGenres || [],
-      specificHooks: mandates.specificHooks || [],
-    };
+    user.industryProfile.mandates = normalizeMandatesInput(mandates);
 
     await user.save();
 
@@ -1093,7 +1094,7 @@ export const getOnboardingStatus = async (req, res) => {
         emailVerified: user.emailVerified,
         currentStep: user.writerProfile.onboardingStep,
         complete: user.writerProfile.onboardingComplete,
-        writerProfile: user.writerProfile,
+        writerProfile: redactMembershipProofSecrets(user.writerProfile?.toObject ? user.writerProfile.toObject() : user.writerProfile),
         profileCompletion: getProfileCompletion(user)
       }
     });

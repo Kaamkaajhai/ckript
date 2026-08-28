@@ -1,0 +1,43 @@
+/* Native participant dashboard (prefix: ckm-challenge-dashboard). */
+.ckm .ckm-challenge-dashboard__scroll { display:flex; flex-direction:column; gap:var(--ckm-space-4); padding:var(--ckm-space-4) var(--ckm-space-4-5) var(--ckm-space-8); }
+.ckm .ckm-challenge-dashboard__masthead,.ckm .ckm-challenge-dashboard__stack { display:grid; gap:var(--ckm-space-3); }
+.ckm .ckm-challenge-dashboard .ckm-tabbar__tab { min-width:var(--ckm-touch-target); }
+.ckm .ckm-challenge-dashboard__masthead { padding:var(--ckm-space-4); border:1px solid var(--ckm-line); border-radius:var(--ckm-r-xl); background:var(--ckm-surface); }
+.ckm .ckm-challenge-dashboard__masthead>div:first-child,.ckm .ckm-challenge-dashboard__badges,.ckm .ckm-challenge-dashboard__actions,.ckm .ckm-challenge-dashboard__rewards { display:flex; flex-wrap:wrap; gap:var(--ckm-space-2); }
+.ckm .ckm-challenge-dashboard__masthead h2,.ckm .ckm-challenge-dashboard__section h2 { margin:0; color:var(--ckm-text); font:var(--ckm-weight-semibold) var(--ckm-text-title-sm)/var(--ckm-leading-title-sm) var(--ckm-display); overflow-wrap:anywhere; }
+.ckm .ckm-challenge-dashboard__event,.ckm .ckm-challenge-dashboard__copy { display:flex; min-width:0; align-items:center; gap:var(--ckm-space-2); padding:var(--ckm-space-2) var(--ckm-space-3); border-radius:var(--ckm-r-lg); background:var(--ckm-bg-soft); }
+.ckm .ckm-challenge-dashboard__event span,.ckm .ckm-challenge-dashboard__label { color:var(--ckm-text-3); font:var(--ckm-weight-semibold) var(--ckm-text-micro)/var(--ckm-leading-micro) var(--ckm-body); letter-spacing:.06em; text-transform:uppercase; }
+.ckm .ckm-challenge-dashboard__event code,.ckm .ckm-challenge-dashboard__copy code { min-width:0; flex:1; overflow:hidden; color:var(--ckm-text); font:var(--ckm-weight-semibold) var(--ckm-text-caption)/var(--ckm-leading-caption) var(--ckm-mono); text-overflow:ellipsis; white-space:nowrap; }
+.ckm .ckm-challenge-dashboard__countdown { display:flex; align-items:baseline; justify-content:space-between; gap:var(--ckm-space-3); padding:var(--ckm-space-3); border-radius:var(--ckm-r-lg); background:var(--ckm-accent-soft); color:var(--ckm-accent-ink); font:var(--ckm-weight-semibold) var(--ckm-text-caption)/var(--ckm-leading-caption) var(--ckm-body); }
+.ckm .ckm-challenge-dashboard__countdown strong { font-variant-numeric:tabular-nums; white-space:nowrap; }
+.ckm .ckm-challenge-dashboard__section { display:grid; gap:var(--ckm-space-3); }
+.ckm .ckm-challenge-dashboard__section header p,.ckm .ckm-challenge-dashboard__muted { margin:var(--ckm-space-1) 0 0; color:var(--ckm-text-3); font:var(--ckm-weight-regular) var(--ckm-text-support)/var(--ckm-leading-support) var(--ckm-body); }
+.ckm .ckm-challenge-dashboard__theme { margin:var(--ckm-space-3) 0 0; color:var(--ckm-text); font:italic var(--ckm-weight-semibold) var(--ckm-text-title)/var(--ckm-leading-title) var(--ckm-display); overflow-wrap:anywhere; }
+.ckm .ckm-challenge-dashboard blockquote { margin:var(--ckm-space-3) 0 0; padding-left:var(--ckm-space-3); border-left:3px solid var(--ckm-accent); color:var(--ckm-text-2); white-space:pre-line; }
+.ckm .ckm-challenge-dashboard__plain-list { display:grid; gap:var(--ckm-space-2); margin:var(--ckm-space-3) 0 0; padding-left:1.25rem; color:var(--ckm-text-2); font:var(--ckm-weight-regular) var(--ckm-text-support)/var(--ckm-leading-support) var(--ckm-body); }
+.ckm .ckm-challenge-dashboard__timeline { display:grid; margin:var(--ckm-space-3) 0 0; padding:0; list-style:none; }
+.ckm .ckm-challenge-dashboard__timeline li { position:relative; display:grid; grid-template-columns:16px minmax(0,1fr); gap:var(--ckm-space-2); min-height:var(--ckm-touch-target); padding-bottom:var(--ckm-space-3); }
+.ckm .ckm-challenge-dashboard__timeline li>span { z-index:1; width:12px; height:12px; margin-top:4px; border:2px solid var(--ckm-line-strong); border-radius:50%; background:var(--ckm-surface); }
+.ckm .ckm-challenge-dashboard__timeline li:not(:last-child)::after { position:absolute; top:16px; bottom:0; left:5px; width:2px; background:var(--ckm-line); content:""; }
+.ckm .ckm-challenge-dashboard__timeline li.is-done>span,.ckm .ckm-challenge-dashboard__timeline li.is-current>span { border-color:var(--ckm-accent); background:var(--ckm-accent); }
+.ckm .ckm-challenge-dashboard__timeline strong,.ckm .ckm-challenge-dashboard__timeline time { display:block; }
+.ckm .ckm-challenge-dashboard__timeline strong { color:var(--ckm-text); font:var(--ckm-weight-semibold) var(--ckm-text-caption)/var(--ckm-leading-caption) var(--ckm-body); }
+.ckm .ckm-challenge-dashboard__timeline time { margin-top:2px; color:var(--ckm-text-3); font-size:var(--ckm-text-micro); }
+.ckm .ckm-challenge-dashboard__stats,.ckm .ckm-challenge-dashboard__evaluation { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--ckm-space-3); margin:var(--ckm-space-4) 0 0; }
+.ckm .ckm-challenge-dashboard__stats dt,.ckm .ckm-challenge-dashboard__evaluation dt { color:var(--ckm-text-3); font-size:var(--ckm-text-micro); text-transform:capitalize; }
+.ckm .ckm-challenge-dashboard__stats dd,.ckm .ckm-challenge-dashboard__evaluation dd { margin:2px 0 0; color:var(--ckm-text); font:var(--ckm-weight-semibold) var(--ckm-text-section)/var(--ckm-leading-section) var(--ckm-display); font-variant-numeric:tabular-nums; }
+.ckm .ckm-challenge-dashboard__referral-progress { display:grid; grid-template-columns:auto 1fr; align-items:baseline; gap:0 var(--ckm-space-2); margin-top:var(--ckm-space-4); }
+.ckm .ckm-challenge-dashboard__referral-progress strong { color:var(--ckm-text); font:var(--ckm-weight-bold) var(--ckm-text-title)/var(--ckm-leading-title) var(--ckm-display); }
+.ckm .ckm-challenge-dashboard__referral-progress span,.ckm .ckm-challenge-dashboard__referral-progress p { color:var(--ckm-text-3); font-size:var(--ckm-text-caption); }
+.ckm .ckm-challenge-dashboard__referral-progress p { grid-column:1/-1; margin:var(--ckm-space-1) 0 0; }
+.ckm .ckm-challenge-dashboard__referrals,.ckm .ckm-challenge-dashboard__participants,.ckm .ckm-challenge-dashboard__rewards { margin:var(--ckm-space-4) 0 0; padding:0; list-style:none; }
+.ckm .ckm-challenge-dashboard__referrals li { display:flex; min-height:var(--ckm-touch-target); align-items:center; justify-content:space-between; gap:var(--ckm-space-2); padding:var(--ckm-space-2) 0; border-top:1px solid var(--ckm-line); }
+.ckm .ckm-challenge-dashboard__referrals strong,.ckm .ckm-challenge-dashboard__referrals small { display:block; color:var(--ckm-text); }
+.ckm .ckm-challenge-dashboard__referrals small { color:var(--ckm-text-3); }
+.ckm .ckm-challenge-dashboard__participants { display:grid; gap:var(--ckm-space-2); }
+.ckm .ckm-challenge-dashboard__participants li { display:grid; grid-template-columns:44px minmax(0,1fr) auto; align-items:center; gap:var(--ckm-space-3); padding:var(--ckm-space-3); border:1px solid var(--ckm-line); border-radius:var(--ckm-r-lg); background:var(--ckm-surface); }
+.ckm .ckm-challenge-dashboard__participants img,.ckm .ckm-challenge-dashboard__avatar { display:grid; width:44px; height:44px; place-items:center; border-radius:50%; object-fit:cover; background:var(--ckm-surface-2); color:var(--ckm-text-2); font-weight:var(--ckm-weight-bold); }
+.ckm .ckm-challenge-dashboard__participants a { display:inline-flex; min-height:var(--ckm-touch-target); align-items:center; color:var(--ckm-text); font-weight:var(--ckm-weight-semibold); text-decoration:none; }
+.ckm .ckm-challenge-dashboard__participants small,.ckm .ckm-challenge-dashboard__participants p { display:block; margin:2px 0 0; color:var(--ckm-text-3); font-size:var(--ckm-text-micro); overflow-wrap:anywhere; }
+@media(max-width:359px){.ckm .ckm-challenge-dashboard__participants li{grid-template-columns:40px minmax(0,1fr)}.ckm .ckm-challenge-dashboard__participants li>.ckm-button,.ckm .ckm-challenge-dashboard__participants li>.ckm-badge{grid-column:2;justify-self:start}}
+@media(prefers-reduced-motion:reduce){.ckm .ckm-challenge-dashboard *{scroll-behavior:auto!important}}

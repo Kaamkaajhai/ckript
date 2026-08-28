@@ -66,6 +66,26 @@ mobile/
                        rather than copied — both routes ask for the same three
                        files against the same three ceilings.
   screens/
+    auth/              Account entry (D59). FIVE routes, THREE prefixes.
+                       `ckm-auth` (Auth.css): SignInMobile (/login),
+                       RoleChooserMobile (/join) and ForgotPasswordMobile
+                       (/forgot-password) — the same dark entry chrome asking
+                       for different fields, plus AuthScreenFrame and the shared
+                       OtpInput/PasswordField the stepper reuses.
+                       `ckm-signup` (SignUp.css): SignUpMobile (/signup?as=) —
+                       ONE stepper for writer, producer and industry. The role
+                       picks the step list (authModel.stepsForRole), the step
+                       picks the panel (components/SignUpPanels.jsx).
+                       `ckm-invite` (AcceptInviteMobile.css): /invite/:token.
+                       Logic is headless and beside the screens: authModel.js
+                       (roles, steps, server-rule mirrors, one refusal shape),
+                       authDraft.js (a resume point that never writes the
+                       password or the special-category fields), authChrome.js,
+                       useMobileSignIn/useMobileOtp/useMobileSignUp.
+                       THE STEP LIVES IN THE URL. That is the architecture, not
+                       a detail: it is what makes browser/Android back mean
+                       "previous step" and lets the OTP leg survive the trip to
+                       the mail app that a modal could not.
     create/            /create-project, two surfaces on one route.
                        `ckm-editor`: Editor.jsx (immersive shell + top bar +
                        overflow + exit flow), EditorDock.jsx (the one docked

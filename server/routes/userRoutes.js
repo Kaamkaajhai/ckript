@@ -1,6 +1,7 @@
 import express from "express";
 import protect from "../middleware/authMiddleware.js";
-import { getWriters, getBlockedUsers, blockUser,getCurrentUser,unblockUser, getUserProfile, getPublicUserProfile, updateUserProfile, followUser, unfollowUser, getFollowRequests, acceptFollowRequest, rejectFollowRequest, cancelFollowRequest, getWatchlist, addToWatchlist, removeFromWatchlist, uploadProfileImage, upload, uploadNotableCreditAttachmentsFile, uploadNotableCreditAttachments, getNotableCreditAttachmentAccessUrl, getNotableCreditAttachmentFile, removeNotableCreditAttachment, updateSettings, changePassword, changeEmail, sendEmailVerificationCode, verifyEmailVerificationCode, deleteAccount } from "../controllers/userController.js";
+import { getWriters, getBlockedUsers, blockUser,getCurrentUser,unblockUser, getUserProfile, getProfileCollections, getPublicUserProfile, updateUserProfile, followUser, unfollowUser, getFollowRequests, acceptFollowRequest, rejectFollowRequest, cancelFollowRequest, getWatchlist, addToWatchlist, removeFromWatchlist, uploadProfileImage, upload, uploadNotableCreditAttachmentsFile, uploadNotableCreditAttachments, getNotableCreditAttachmentAccessUrl, getNotableCreditAttachmentFile, removeNotableCreditAttachment, updateSettings, changePassword, changeEmail, sendEmailVerificationCode, verifyEmailVerificationCode, deleteAccount } from "../controllers/userController.js";
+import { getReaderProfile } from "../controllers/readerProfileController.js";
 
 const router = express.Router();
 
@@ -34,6 +35,8 @@ router.delete("/account", protect, deleteAccount);
 router.get("/public/:id", getPublicUserProfile);
 router.get("/industry-credit-attachments/file", protect, getNotableCreditAttachmentFile);
 router.get("/industry-credit-attachments/access-url", protect, getNotableCreditAttachmentAccessUrl);
+router.get("/reader-profile/:id", protect, getReaderProfile);
+router.get("/:id/profile-collections", protect, getProfileCollections);
 router.get("/:id", protect, getUserProfile);
 router.put("/update", protect, updateUserProfile);
 router.post("/upload-image", protect, upload.single("profileImage"), uploadProfileImage);

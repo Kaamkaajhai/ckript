@@ -1,7 +1,7 @@
 import ProducerRating from "../models/ProducerRating.js";
 import Script from "../models/Script.js";
 import { isFilmIndustryProfessionalRole } from "../utils/industryAccess.js";
-import { asObjectId } from "../utils/requestValue.js";
+import { asInt, asObjectId, asTrimmedString } from "../utils/requestValue.js";
 
 // Industry professionals (producer / director / professional / industry / investor) may give a producer
 // rating — the credibility signal. Reuses the shared role list so it stays in lockstep with the rest of
@@ -42,10 +42,10 @@ export const rateScript = async (req, res) => {
     let doc = await ProducerRating.findOne({ producer: req.user._id, script: scriptId });
     if (doc) {
       doc.rating = score;
-      doc.review = String(review || "").slice(0, 2000);
+      doc.review = asTrimmedString(review, 2000);
       await doc.save();
     } else {
-      doc = await ProducerRating.create({ producer: req.user._id, script: scriptId, rating: score, review: String(review || "").slice(0, 2000) });
+      doc = await ProducerRating.create({ producer: req.user._id, script: scriptId, rating: score, review: asTrimmedString(review, 2000) });
     }
     const populated = await doc.populate("producer", PRODUCER_FIELDS);
     const fresh = await Script.findById(scriptId).select("producerRating");
@@ -62,9 +62,10 @@ export const rateScript = async (req, res) => {
  */
 export const getProducerRatings = async (req, res) => {
   try {
-    const { scriptId } = req.params;
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 10;
+    const scriptId = asObjectId(req.params.scriptId);
+    if (!scriptId) return res.status(400).json({ message: "A valid script id is required." });
+    const page = asInt(req.query.page, { min: 1, max: 100000, fallback: 1 });
+    const limit = asInt(req.query.limit, { min: 1, max: 50, fallback: 10 });
 
     const [total, ratings, myRating, scriptDoc] = await Promise.all([
       ProducerRating.countDocuments({ script: scriptId }),
@@ -99,7 +100,12 @@ export const getProducerRatings = async (req, res) => {
  */
 export const deleteProducerRating = async (req, res) => {
   try {
-    const doc = await ProducerRating.findById(req.params.id);
+    if (!isProducerRole(req.user?.role)) {
+      return res.status(403).json({ message: "Only producers and industry professionals can remove ratings." });
+    }
+    const ratingId = asObjectId(req.params.id);
+    if (!ratingId) return res.status(400).json({ message: "A valid rating id is required." });
+    const doc = await ProducerRating.findById(ratingId);
     if (!doc) return res.status(404).json({ message: "Rating not found." });
     if (doc.producer.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "Not authorized." });

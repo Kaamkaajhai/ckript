@@ -1,32 +1,14 @@
 import { useRef, useState } from "react";
-import Button from "../../../../components/buttons/Button";
-import InlineMessage from "../../../../components/feedback/InlineMessage";
-import TextArea from "../../../../components/forms/TextArea";
-import TextField from "../../../../components/forms/TextField";
-import SelectField from "../../../../components/forms/SelectField";
-import Sheet from "../../../../components/overlays/Sheet";
-import { assertMeeting, detectTimeZone } from "../../../../../pages/script-detail/projectActions";
-import { emptyMeetingDraft } from "../projectDetailModel";
+import { assertMeeting, detectTimeZone } from "../../../pages/script-detail/projectActions";
+import Button from "../buttons/Button";
+import InlineMessage from "../feedback/InlineMessage";
+import SelectField from "../forms/SelectField";
+import TextArea from "../forms/TextArea";
+import TextField from "../forms/TextField";
+import Sheet from "../overlays/Sheet";
+import { emptyMeetingDraft } from "./meetingModel";
+import "./MeetingSheet.css";
 
-/*
- * MeetingSheet — asking a writer for a meeting, including the leg where that is impossible yet
- * (D29).
- *
- * The form is the easy half. The half worth writing down is that this action can fail for a reason
- * that is not about the form at all: a meeting is a Google Calendar event on the INDUSTRY member's
- * own calendar, so an account with no connected calendar — or one whose stored token has died —
- * cannot schedule anything until they reconnect. The server says so with a 428, and the desktop
- * modal already flips to a connect view when it sees one.
- *
- * That flip is kept, and it is reachable in both directions: the sheet opens in connect mode when
- * the account is known to be disconnected, and falls back to it when a submitted request comes
- * back needing a calendar. Connecting is a full-page redirect to Google, so anything typed here is
- * lost — which is why the connect view is shown BEFORE the form whenever we already know, rather
- * than letting someone fill in three fields and then throwing them out of the app.
- *
- * The timezone is detected, shown, and never asked for. Google localizes the invite per attendee
- * from it, so the writer sees their own local time whatever the producer's phone says.
- */
 const DURATIONS = [
   { value: "15", label: "15 minutes" },
   { value: "30", label: "30 minutes" },
@@ -34,7 +16,6 @@ const DURATIONS = [
   { value: "60", label: "1 hour" },
 ];
 
-/** Today, in the phone's own date, as the `min` a date input understands. */
 const todayValue = () => {
   const now = new Date();
   const month = String(now.getMonth() + 1).padStart(2, "0");
@@ -42,6 +23,7 @@ const todayValue = () => {
   return `${now.getFullYear()}-${month}-${day}`;
 };
 
+/** One native meeting form shared by project detail and message-thread context. */
 export default function MeetingSheet({
   open = false,
   writerName = "the writer",
@@ -50,6 +32,7 @@ export default function MeetingSheet({
   onDraftChange = null,
   pending = false,
   connecting = false,
+  connectionError = "",
   onSubmit = null,
   onConnect = null,
   onClose = null,
@@ -66,41 +49,13 @@ export default function MeetingSheet({
   const submit = async (event) => {
     event?.preventDefault?.();
     const invalid = assertMeeting(draft);
-    if (invalid) {
-      setError(invalid);
-      return;
-    }
+    if (invalid) return setError(invalid);
     setError("");
     const result = await onSubmit?.({ ...draft, timeZone });
-    if (result?.ok) {
-      onClose?.();
-      return;
-    }
-    if (result?.flags?.needsCalendar) {
-      update({ needsCalendar: true });
-      return;
-    }
-    setError(result?.message || "Failed to request meeting.");
+    if (result?.ok) return onClose?.();
+    if (result?.flags?.needsCalendar) return update({ needsCalendar: true });
+    return setError(result?.message || "Failed to request meeting.");
   };
-
-  const connectView = (
-    <div className="ckm-project__meeting-connect">
-      <InlineMessage variant="inline" tone="info" title="Connect Google Calendar first">
-        Ckript books the meeting on your own calendar and emails {writerName} the invite, so it needs
-        permission to create the event. You will come back here after Google asks you.
-      </InlineMessage>
-      <Button
-        variant="primary"
-        fullWidth
-        icon="calendar_add_on"
-        pending={connecting}
-        pendingLabel="Opening Google…"
-        onClick={onConnect}
-      >
-        Connect Google Calendar
-      </Button>
-    </div>
-  );
 
   return (
     <Sheet
@@ -115,8 +70,26 @@ export default function MeetingSheet({
         </Button>
       )}
     >
-      {draft.needsCalendar ? connectView : (
-        <form className="ckm-project__meeting-form" onSubmit={submit}>
+      {draft.needsCalendar ? (
+        <div className="ckm-meeting__connect">
+          <InlineMessage variant="inline" tone="info" title="Connect Google Calendar first">
+            Ckript books the meeting on your calendar and emails {writerName} the invite. You will
+            return to this screen after Google asks for permission.
+          </InlineMessage>
+          {connectionError ? <InlineMessage>{connectionError}</InlineMessage> : null}
+          <Button
+            variant="primary"
+            fullWidth
+            icon="calendar_add_on"
+            pending={connecting}
+            pendingLabel="Opening Google…"
+            onClick={onConnect}
+          >
+            Connect Google Calendar
+          </Button>
+        </div>
+      ) : (
+        <form className="ckm-meeting__form" onSubmit={submit}>
           <TextField
             ref={firstFieldRef}
             label="What is it about"
@@ -156,12 +129,12 @@ export default function MeetingSheet({
             maxLength={500}
             optional
           />
-          {error && (
-            <p className="ckm-project__form-error" role="alert">
+          {error ? (
+            <p className="ckm-meeting__error" role="alert">
               <span className="material-symbols-outlined" aria-hidden="true">error</span>
               {error}
             </p>
-          )}
+          ) : null}
         </form>
       )}
     </Sheet>

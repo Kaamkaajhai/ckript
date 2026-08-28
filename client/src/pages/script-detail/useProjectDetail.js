@@ -165,7 +165,7 @@ export function useProjectDetail({
         setLoadedStatus(PROJECT_DETAIL_STATUS.READY);
 
         const canonicalPath = getScriptCanonicalPath(data || {});
-        if (canonicalPath && canonicalPath !== pathnameRef.current) {
+        if (canonicalRef.current && canonicalPath && canonicalPath !== pathnameRef.current) {
           canonicalRef.current?.(canonicalPath);
         }
 

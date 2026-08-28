@@ -1,31 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import useIsMobile from '../mobile/hooks/useIsMobile';
 
 export default function EventPosterModal() {
-  const [isOpen, setIsOpen] = useState(false);
-  const [liveEventId, setLiveEventId] = useState(null);
   const isMobile = useIsMobile();
   const navigate = useNavigate();
-
   const location = useLocation();
+  const [isOpen, setIsOpen] = useState(() => location.pathname === '/');
+  const liveEventId = 'the-final-draft';
 
-  useEffect(() => {
-    // Only show on the very first mount if we are on the homepage
-    if (location.pathname === '/') {
-      setLiveEventId('the-final-draft');
-      setIsOpen(true);
-    }
-  }, []); // Intentionally only run on mount
-
-  useEffect(() => {
-    // If they navigate away while it's open, close it
-    if (location.pathname !== '/') {
-      setIsOpen(false);
-    }
-  }, [location.pathname]);
-
-  if (!isOpen || !liveEventId || location.pathname !== '/') return null;
+  // The native landing already carries the current challenge as an inline,
+  // route-aware deadline section. The legacy desktop poster is hard-coded and
+  // otherwise paints above the entire native frame, including its dialogs.
+  if (isMobile || !isOpen || location.pathname !== '/') return null;
 
   const handleImageClick = () => {
     setIsOpen(false);
@@ -81,8 +68,8 @@ export default function EventPosterModal() {
             color: 'black',
             border: 'none',
             borderRadius: '50%',
-            width: '30px',
-            height: '30px',
+            width: '44px',
+            height: '44px',
             fontSize: '18px',
             cursor: 'pointer',
             boxShadow: '0 2px 4px rgba(0,0,0,0.2)',

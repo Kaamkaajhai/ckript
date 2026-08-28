@@ -1,9 +1,10 @@
-import { useContext, useMemo, useState } from "react";
-import { AuthContext } from "../../../context/AuthContext";
+import { useMemo, useState } from "react";
 import api from "../../../services/api";
 import SocialShareButton from "../../../components/SocialShareButton";
+import useScriptBookmark from "../../../hooks/useScriptBookmark";
 import { hasActiveFilmIndustryProfessionalAccess } from "../../../utils/industryAccess";
 import { getScriptCanonicalPath } from "../../../utils/scriptPath";
+import { safeMediaSrc } from "../../../utils/safeMediaSrc";
 
 const getMembershipStatusDisplay = (status) => {
   switch (status) {
@@ -446,13 +447,28 @@ export function ProfileWorkspaceCredentials({ profile }) {
   );
 }
 
+function ProfileProjectBookmark({ script, isOwnProfile }) {
+  const { isBookmarked, canBookmark, pending, toggleBookmark } = useScriptBookmark(script);
+  if (isOwnProfile || !canBookmark) return null;
+  return (
+    <button
+      type="button"
+      className="profile-workspace-icon-btn"
+      aria-label={isBookmarked ? `Remove ${script.title} from bookmarks` : `Bookmark ${script.title}`}
+      aria-pressed={isBookmarked}
+      disabled={pending}
+      onClick={toggleBookmark}
+    >
+      <svg width="15" height="15" viewBox="0 0 24 24" fill={isBookmarked ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 4.5h13.5a.75.75 0 01.75.75v15.69a.75.75 0 01-1.219.594L12 16.34l-6.281 5.194a.75.75 0 01-1.219-.594V5.25a.75.75 0 01.75-.75z" />
+      </svg>
+    </button>
+  );
+}
+
 export function ProfileWorkspaceProjects({ scripts, profile, isOwnProfile, navigate, renderDelete, limit, showToolbar = true, onViewAll }) {
-  const { user, setUser } = useContext(AuthContext);
   const [genre, setGenre] = useState("All");
   const [sort, setSort] = useState("Recent");
-  const [bookmarkOverrides, setBookmarkOverrides] = useState(() => new Map());
-  const favoriteIds = Array.isArray(user?.favoriteScripts) ? user.favoriteScripts : [];
-  const bookmarks = new Set(favoriteIds.map((item) => typeof item === "string" ? item : item?._id).filter(Boolean));
 
   const genres = useMemo(() => ["All", ...Array.from(new Set(scripts.map(projectGenre))).sort()], [scripts]);
   const rows = useMemo(() => {
@@ -475,33 +491,6 @@ export function ProfileWorkspaceProjects({ scripts, profile, isOwnProfile, navig
     if (!["approved", "published"].includes(script?.status)) return;
     api.post(`/scripts/${script._id}/interactions`, { type: "click", source: "profile_workspace", metadata: { from: "profile" } }).catch(() => null);
     navigate(getScriptCanonicalPath(script));
-  };
-
-  const toggleBookmark = async (event, script) => {
-    event.stopPropagation();
-    if (!user?._id || !script?._id || script?.creator?._id === user._id) return;
-    try {
-      const { data } = await api.post(`/scripts/${script._id}/favorite`);
-      const favorited = Boolean(data?.favorited);
-      setBookmarkOverrides((previous) => {
-        const next = new Map(previous);
-        next.set(script._id, favorited);
-        return next;
-      });
-      setUser((previous) => {
-        if (!previous) return previous;
-        const ids = Array.isArray(previous.favoriteScripts)
-          ? previous.favoriteScripts.map((item) => typeof item === "string" ? item : item?._id).filter(Boolean)
-          : [];
-        const favoriteScripts = favorited ? Array.from(new Set([...ids, script._id])) : ids.filter((id) => id !== script._id);
-        const updated = { ...previous, favoriteScripts };
-        localStorage.setItem("user", JSON.stringify(updated));
-        return updated;
-      });
-      window.dispatchEvent(new CustomEvent("bookmarkUpdated", { detail: { scriptId: script._id, bookmarked: favorited } }));
-    } catch {
-      // Keep the existing card behavior: a failed bookmark leaves the previous state intact.
-    }
   };
 
   return (
@@ -539,10 +528,6 @@ export function ProfileWorkspaceProjects({ scripts, profile, isOwnProfile, navig
           </div>
           {visibleRows.map((script) => {
             const clickable = ["approved", "published"].includes(script.status);
-            const saved = bookmarkOverrides.has(script._id)
-              ? bookmarkOverrides.get(script._id)
-              : bookmarks.has(script._id);
-            const canBookmark = Boolean(!isOwnProfile && user?._id && script?.creator?._id !== user._id);
             return (
               <div
                 key={script._id}
@@ -567,19 +552,7 @@ export function ProfileWorkspaceProjects({ scripts, profile, isOwnProfile, navig
                 <span className="profile-workspace-project-row__meta">{new Intl.NumberFormat("en-IN", { notation: Number(script.views || 0) >= 1000 ? "compact" : "standard" }).format(Number(script.views || 0))}</span>
                 <span className="profile-workspace-project-row__status" data-status={script.status}>{projectStatus(script)}</span>
                 <span className="profile-workspace-project-row__actions">
-                  {canBookmark && (
-                    <button
-                      type="button"
-                      className="profile-workspace-icon-btn"
-                      aria-label={saved ? `Remove ${script.title} from bookmarks` : `Bookmark ${script.title}`}
-                      aria-pressed={saved}
-                      onClick={(event) => toggleBookmark(event, script)}
-                    >
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill={saved ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2">
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 4.5h13.5a.75.75 0 01.75.75v15.69a.75.75 0 01-1.219.594L12 16.34l-6.281 5.194a.75.75 0 01-1.219-.594V5.25a.75.75 0 01.75-.75z" />
-                      </svg>
-                    </button>
-                  )}
+                  <ProfileProjectBookmark script={script} isOwnProfile={isOwnProfile} />
                   {isOwnProfile && renderDelete?.(script)}
                 </span>
               </div>
@@ -591,34 +564,54 @@ export function ProfileWorkspaceProjects({ scripts, profile, isOwnProfile, navig
   );
 }
 
-export function ProfileWorkspaceBookmarks({ scripts, navigate, onRemoved }) {
-  const { user, setUser } = useContext(AuthContext);
-  const [query, setQuery] = useState("");
-  const [sort, setSort] = useState("Recently updated");
-  const [removingId, setRemovingId] = useState("");
-  const [removeError, setRemoveError] = useState("");
+const PROFILE_POST_MEDIA = { media: ["image", "video"] };
 
-  const rows = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-    const next = scripts.filter((script) => {
-      if (!normalizedQuery) return true;
-      return [
-        script?.title,
-        script?.logline,
-        script?.synopsis,
-        script?.creator?.name,
-        projectGenre(script),
-        projectFormat(script),
-      ].some((value) => String(value || "").toLowerCase().includes(normalizedQuery));
-    });
+export function ProfileWorkspaceActivity({ posts = [], loading = false, error = "", onRetry, pagination, onPageChange }) {
+  return (
+    <section className="profile-workspace-activity" aria-labelledby="profile-activity-heading">
+      <header><h2 id="profile-activity-heading">Activity</h2><p>Posts and updates shared on Ckript.</p></header>
+      {loading ? <div className="profile-workspace-activity__state" role="status">Loading activity…</div> : error ? (
+        <div className="profile-workspace-activity__state" role="alert"><strong>Could not load activity</strong><span>{error}</span><button type="button" onClick={onRetry}>Try again</button></div>
+      ) : posts.length ? (
+        <div className="profile-workspace-activity__list">
+          {posts.map((post) => {
+            const image = safeMediaSrc(post.image, PROFILE_POST_MEDIA);
+            const video = safeMediaSrc(post.video, PROFILE_POST_MEDIA);
+            return (
+              <article key={post._id} className="profile-workspace-activity__post">
+                {post.content ? <p>{post.content}</p> : null}
+                {image ? <img src={image} alt={post.content ? "" : "Image shared with this post"} loading="lazy" /> : null}
+                {video ? <video src={video} controls preload="metadata" aria-label="Video shared with this post">Your browser cannot play this video.</video> : null}
+                <footer><time dateTime={post.createdAt || undefined}>{post.createdAt ? new Date(post.createdAt).toLocaleDateString() : ""}</time><span>{post.counts?.likes || 0} likes</span><span>{post.counts?.comments || 0} comments</span><span>{post.counts?.saves || 0} saves</span></footer>
+              </article>
+            );
+          })}
+        </div>
+      ) : <div className="profile-workspace-activity__state"><strong>No activity yet</strong><span>Posts shared on Ckript will appear here.</span></div>}
+      {pagination?.totalPages > 1 ? <nav className="profile-workspace-activity__pagination" aria-label="Activity pages"><button type="button" disabled={!pagination.hasPrevious} onClick={() => onPageChange(pagination.page - 1)}>Previous</button><span>Page {pagination.page} of {pagination.totalPages}</span><button type="button" disabled={!pagination.hasNext} onClick={() => onPageChange(pagination.page + 1)}>Next</button></nav> : null}
+    </section>
+  );
+}
 
-    next.sort((a, b) => {
-      if (sort === "Most viewed") return Number(b?.views || 0) - Number(a?.views || 0);
-      if (sort === "A–Z") return String(a?.title || "").localeCompare(String(b?.title || ""));
-      return new Date(b?.updatedAt || b?.publishedAt || b?.createdAt || 0) - new Date(a?.updatedAt || a?.publishedAt || a?.createdAt || 0);
-    });
-    return next;
-  }, [query, scripts, sort]);
+export function ProfileWorkspaceBookmarks({
+  scripts,
+  navigate,
+  query = "",
+  sort = "recent",
+  loading = false,
+  error = "",
+  removingId = "",
+  removeError = "",
+  pagination,
+  onQueryChange,
+  onSortChange,
+  onPageChange,
+  onRetry,
+  onRemove,
+}) {
+
+  const rows = scripts;
+  const savedTotal = pagination?.savedTotal ?? scripts.length;
 
   const openProject = (script) => {
     if (!["approved", "published"].includes(script?.status)) return;
@@ -630,32 +623,9 @@ export function ProfileWorkspaceBookmarks({ scripts, navigate, onRemoved }) {
     navigate(getScriptCanonicalPath(script));
   };
 
-  const removeBookmark = async (script) => {
-    if (!user?._id || !script?._id || removingId) return;
-    setRemoveError("");
-    setRemovingId(script._id);
-    try {
-      const { data } = await api.post(`/scripts/${script._id}/favorite`);
-      const favorited = Boolean(data?.favorited);
-      setUser((previous) => {
-        if (!previous) return previous;
-        const ids = Array.isArray(previous.favoriteScripts)
-          ? previous.favoriteScripts.map((item) => typeof item === "string" ? item : item?._id).filter(Boolean)
-          : [];
-        const favoriteScripts = favorited
-          ? Array.from(new Set([...ids, script._id]))
-          : ids.filter((id) => id !== script._id);
-        const updated = { ...previous, favoriteScripts };
-        localStorage.setItem("user", JSON.stringify(updated));
-        return updated;
-      });
-      if (!favorited) onRemoved?.(script._id);
-      window.dispatchEvent(new CustomEvent("bookmarkUpdated", { detail: { scriptId: script._id, bookmarked: favorited } }));
-    } catch (error) {
-      setRemoveError(error?.response?.data?.message || "Could not remove that bookmark. Try again.");
-    } finally {
-      setRemovingId("");
-    }
+  const removeBookmark = (script) => {
+    if (!script?._id || removingId) return;
+    onRemove?.(script._id);
   };
 
   return (
@@ -667,21 +637,21 @@ export function ProfileWorkspaceBookmarks({ scripts, navigate, onRemoved }) {
           </span>
           <div>
             <h2 id="profile-bookmarks-heading">Saved projects</h2>
-            <p>{scripts.length === 1 ? "1 project saved for later" : `${scripts.length} projects saved for later`}</p>
+            <p>{pagination?.total === 1 ? "1 matching project" : `${pagination?.total ?? scripts.length} matching projects`} · {pagination?.total === pagination?.savedTotal ? "all saved" : `${pagination?.savedTotal ?? scripts.length} saved total`}</p>
           </div>
         </div>
 
-        {scripts.length > 0 && (
+        {(savedTotal > 0 || query) && (
           <div className="profile-workspace-bookmarks__tools">
             <label className="profile-workspace-bookmarks__search">
               <span className="profile-workspace-bookmarks__sr">Search saved projects</span>
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m21 21-4.35-4.35m1.35-5.15a6.5 6.5 0 11-13 0 6.5 6.5 0 0113 0z" /></svg>
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search saved projects" />
+              <input value={query} onChange={(event) => onQueryChange?.(event.target.value)} placeholder="Search saved projects" />
             </label>
             <label>
               <span className="profile-workspace-bookmarks__sr">Sort saved projects</span>
-              <select className="profile-workspace-select" value={sort} onChange={(event) => setSort(event.target.value)}>
-                {["Recently updated", "Most viewed", "A–Z"].map((item) => <option key={item}>{item}</option>)}
+              <select className="profile-workspace-select" value={sort} onChange={(event) => onSortChange?.(event.target.value)}>
+                <option value="recent">Recently updated</option><option value="views">Most viewed</option><option value="title">A–Z</option>
               </select>
             </label>
           </div>
@@ -690,7 +660,9 @@ export function ProfileWorkspaceBookmarks({ scripts, navigate, onRemoved }) {
 
       {removeError && <p className="profile-workspace-bookmarks__error" role="alert">{removeError}</p>}
 
-      {scripts.length === 0 ? (
+      {loading ? <div className="profile-workspace-activity__state" role="status">Loading saved projects…</div> : error ? (
+        <div className="profile-workspace-activity__state" role="alert"><strong>Could not load saved projects</strong><span>{error}</span><button type="button" onClick={onRetry}>Try again</button></div>
+      ) : scripts.length === 0 && !query ? (
         <div className="profile-workspace-bookmarks__empty">
           <span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3.75h12a1 1 0 011 1v15.18a.75.75 0 01-1.2.6L12 16.18l-5.8 4.35a.75.75 0 01-1.2-.6V4.75a1 1 0 011-1z" /></svg></span>
           <strong>Build your saved library</strong>
@@ -701,7 +673,7 @@ export function ProfileWorkspaceBookmarks({ scripts, navigate, onRemoved }) {
         <div className="profile-workspace-bookmarks__empty profile-workspace-bookmarks__empty--compact">
           <strong>No saved projects match “{query}”</strong>
           <p>Try a title, writer, genre, or format.</p>
-          <button type="button" onClick={() => setQuery("")}>Clear search</button>
+          <button type="button" onClick={() => onQueryChange?.("")}>Clear search</button>
         </div>
       ) : (
         <div className="profile-workspace-bookmarks__list" role="list">
@@ -752,6 +724,7 @@ export function ProfileWorkspaceBookmarks({ scripts, navigate, onRemoved }) {
           })}
         </div>
       )}
+      {pagination?.totalPages > 1 ? <nav className="profile-workspace-activity__pagination" aria-label="Saved project pages"><button type="button" disabled={!pagination.hasPrevious} onClick={() => onPageChange?.(pagination.page - 1)}>Previous</button><span>Page {pagination.page} of {pagination.totalPages}</span><button type="button" disabled={!pagination.hasNext} onClick={() => onPageChange?.(pagination.page + 1)}>Next</button></nav> : null}
     </section>
   );
 }

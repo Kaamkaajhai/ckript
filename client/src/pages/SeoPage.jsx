@@ -1,82 +1,10 @@
 import { Link, useLocation } from "react-router-dom";
-import { blogPosts, genrePages, guidePages, homepageFaqs, marketingPages } from "../seo/seoContent";
-import { getSeoForPath } from "../seo/seoRoutes";
-import { getInternalLinksForSeoPage } from "../seo/internalLinks";
-
-function titleFromPath(pathname) {
-  const last = pathname.split("/").filter(Boolean).pop() || "Ckript";
-  return last
-    .split("-")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function getPageContent(pathname) {
-  const marketing = marketingPages.find((page) => page.path === pathname);
-  if (marketing) return marketing;
-
-  const blogMatch = pathname.match(/^\/resources\/blog\/([^/]+)$/);
-  if (blogMatch) {
-    const post = blogPosts.find((item) => item.slug === blogMatch[1]);
-    if (post) {
-      return {
-        h1: post.title,
-        eyebrow: "Ckript Blog",
-        sections: [
-          post.description,
-          "Ckript helps entertainment teams connect article insights to practical workflows across AI script analysis, marketplace discovery, producer matching, and investor readiness.",
-          "Use this topic cluster to move from learning into action with relevant tools, guides, and marketplace pages.",
-        ],
-        links: ["/features/ai-script-analysis", "/features/script-marketplace", "/tools/screenplay-analyzer"],
-      };
-    }
-  }
-
-  const genreMatch = pathname.match(/^\/genre\/([^/]+)$/);
-  if (genreMatch) {
-    const genre = genrePages[genreMatch[1]];
-    if (genre) {
-      return {
-        h1: titleFromPath(pathname),
-        eyebrow: "Genre",
-        sections: [
-          genre.description,
-          "Ckript supports genre-aware script discovery with metadata, AI analysis, pitch context, and connections across writers, producers, directors, and investors.",
-        ],
-        links: ["/features/script-marketplace", "/features/ai-concept-trailer", "/for/producers"],
-      };
-    }
-  }
-
-  const guide = guidePages[pathname];
-  if (guide) {
-    return {
-      h1: guide.title.replace(" | Ckript", ""),
-      eyebrow: "Guide",
-      sections: [
-        guide.description,
-        "Ckript turns script education into execution by connecting writing, analysis, pitching, discovery, and deal workflows.",
-      ],
-      links: ["/resources/screenplay-guide", "/features/producer-matching", "/tools/screenplay-analyzer"],
-    };
-  }
-
-  return {
-    h1: "Ckript",
-    eyebrow: "AI Entertainment Marketplace",
-    sections: [
-      "Ckript is an AI-powered entertainment-tech marketplace connecting script writers, producers, investors, directors, and production houses.",
-      "Upload scripts, analyze screenplays, generate AI concept trailers, match with producers and investors, and execute entertainment deals in a trusted ecosystem.",
-    ],
-    links: ["/features", "/for", "/industries", "/resources", "/tools"],
-  };
-}
+import { homepageFaqs } from "../seo/seoContent";
+import { resolveSeoPageContent, titleFromPath } from "../seo/seoPageContent";
 
 export default function SeoPage() {
   const { pathname } = useLocation();
-  const seo = getSeoForPath(pathname);
-  const content = getPageContent(seo.canonicalPath || pathname);
-  const smartLinks = [...new Set([...(content.links || []), ...getInternalLinksForSeoPage(seo)])].slice(0, 8);
+  const { content, found, seo, smartLinks } = resolveSeoPageContent(pathname);
 
   return (
     <main className="min-h-screen bg-[#f8fafc] text-slate-950">
@@ -103,18 +31,20 @@ export default function SeoPage() {
             {content.h1 || seo.title}
           </h1>
           <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-700">
-            {seo.description}
+            {found ? seo.description : content.description}
           </p>
         </section>
 
-        <section className="mt-12 grid gap-5 md:grid-cols-3" aria-label="Ckript capabilities">
-          {(content.sections || []).map((section) => (
-            <article key={section} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-base font-semibold text-slate-950">{titleFromPath(section.split(" ").slice(0, 4).join("-"))}</h2>
-              <p className="mt-3 text-sm leading-6 text-slate-700">{section}</p>
-            </article>
-          ))}
-        </section>
+        {content.eyebrow !== "FAQ" && content.sections.length ? (
+          <section className="mt-12 grid gap-5 md:grid-cols-3" aria-label="Ckript capabilities">
+            {(content.sections || []).map((section) => (
+              <article key={section} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+                <h2 className="text-base font-semibold text-slate-950">{titleFromPath(section.split(" ").slice(0, 4).join("-"))}</h2>
+                <p className="mt-3 text-sm leading-6 text-slate-700">{section}</p>
+              </article>
+            ))}
+          </section>
+        ) : null}
 
         {content.eyebrow === "FAQ" ? (
           <section className="mt-12" aria-labelledby="faq-heading">

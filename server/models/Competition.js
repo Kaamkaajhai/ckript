@@ -93,6 +93,15 @@ const competitionSchema = new mongoose.Schema({
 
   prizePool: { type: String, trim: true, maxlength: 200, default: "" },
 
+  // Paid is the backwards-compatible default: every shipped registration screen charged the fixed
+  // ₹98/$2 fee. Free events must be explicit so the direct registration endpoint can never become a
+  // payment bypass merely because an old client knows that route.
+  entryFee: {
+    mode: { type: String, enum: ["paid", "free"], default: "paid" },
+    inrMinor: { type: Number, min: 1, default: 9800 },
+    usdMinor: { type: Number, min: 1, default: 200 },
+  },
+
   prizes: {
     winner: [{ type: String }],
     runnerUp: [{ type: String }],

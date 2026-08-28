@@ -10,6 +10,9 @@ const MAX_BANK_INVALID_ATTEMPTS = 5;
 const ACCOUNT_NUMBER_REGEX = /^\d{8,20}$/;
 const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 const GENERIC_ROUTING_REGEX = /^[A-Z0-9-]{4,20}$/;
+const COUNTRY_REGEX = /^[A-Z]{2}$/;
+const CURRENCY_REGEX = /^[A-Z]{3}$/;
+const BANK_ACCOUNT_TYPES = new Set(["checking", "savings", "business"]);
 const BANK_DETAILS_BLOCKED_MESSAGE = "Too many invalid attempts. Bank detail updates are blocked. Please contact support team.";
 
 const maskAccountNumber = (accountNumber = "") => {
@@ -61,7 +64,7 @@ const normalizeIncomingBankDetails = (payload = {}) => ({
   bankName: String(payload.bankName || "").trim(),
   accountNumber: String(payload.accountNumber || "").replace(/\s+/g, ""),
   routingNumber: String(payload.routingNumber || "").replace(/\s+/g, "").toUpperCase(),
-  accountType: payload.accountType || "checking",
+  accountType: String(payload.accountType || "checking").trim().toLowerCase(),
   swiftCode: String(payload.swiftCode || "").trim().toUpperCase(),
   iban: String(payload.iban || "").trim().toUpperCase(),
   country: String(payload.country || "IN").trim().toUpperCase(),
@@ -69,6 +72,18 @@ const normalizeIncomingBankDetails = (payload = {}) => ({
 });
 
 const getInvalidBankDetailsMessage = (bankDetails) => {
+  if (!BANK_ACCOUNT_TYPES.has(bankDetails.accountType)) {
+    return "Account type must be checking, savings, or business";
+  }
+
+  if (!COUNTRY_REGEX.test(bankDetails.country)) {
+    return "Country must be a two-letter code";
+  }
+
+  if (!CURRENCY_REGEX.test(bankDetails.currency)) {
+    return "Currency must be a three-letter code";
+  }
+
   if (!ACCOUNT_NUMBER_REGEX.test(bankDetails.accountNumber || "")) {
     return "Account number must be 8-20 digits";
   }
@@ -121,11 +136,26 @@ const recordInvalidBankAttempt = async (user, reason = "Invalid bank details") =
   return security;
 };
 
-const serializeTransaction = (transaction) => {
+export const serializeTransaction = (transaction) => {
   const plainTransaction = transaction?.toObject ? transaction.toObject() : transaction;
+  const currency = String(plainTransaction?.currency || "").trim().toUpperCase();
+  const baseCurrency = String(plainTransaction?.baseCurrency || "").trim().toUpperCase();
   return {
-    ...plainTransaction,
-    currency: normalizedCurrency,
+    _id: plainTransaction?._id,
+    type: plainTransaction?.type,
+    amount: Number(plainTransaction?.amount || 0),
+    currency: /^[A-Z]{3}$/.test(currency) ? currency : normalizedCurrency,
+    baseCurrency: /^[A-Z]{3}$/.test(baseCurrency) ? baseCurrency : normalizedCurrency,
+    baseAmount: plainTransaction?.baseAmount,
+    fxRate: plainTransaction?.fxRate,
+    status: plainTransaction?.status,
+    description: plainTransaction?.description || "",
+    reference: plainTransaction?.reference || "",
+    paymentMethod: plainTransaction?.paymentMethod || "",
+    relatedScript: plainTransaction?.relatedScript || null,
+    relatedProject: plainTransaction?.relatedProject || null,
+    createdAt: plainTransaction?.createdAt,
+    updatedAt: plainTransaction?.updatedAt,
   };
 };
 

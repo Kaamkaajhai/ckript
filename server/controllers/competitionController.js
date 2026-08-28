@@ -1,7 +1,9 @@
 import mongoose from "mongoose";
-import { verifyRazorpaySignature } from "../utils/razorpaySignature.js";
+import crypto from "crypto";
 import Competition from "../models/Competition.js";
 import CompetitionEntry from "../models/CompetitionEntry.js";
+import CompetitionRegistrationIntent from "../models/CompetitionRegistrationIntent.js";
+import ExternalRegistration from "../models/ExternalRegistration.js";
 import Script from "../models/Script.js";
 import Invoice from "../models/Invoice.js";
 import { issueInvoice, totalRow, gatewayRow } from "../utils/invoiceIssue.js";
@@ -25,6 +27,32 @@ import {
   buildTimeline,
   canSubmitNow,
 } from "../utils/competitionPhase.js";
+import {
+  COMPETITION_ENTRY_SUMMARY_FIELDS,
+  competitionEntrySummary,
+} from "../utils/competitionEntrySummary.js";
+import {
+  COMPETITION_DASHBOARD_ENTRY_FIELDS,
+  competitionDashboardEntry,
+} from "../utils/competitionDashboardEntry.js";
+import {
+  competitionPageInfo,
+  parseCompetitionCommunityPaging,
+} from "../utils/competitionCommunityPaging.js";
+import {
+  HALL_OF_FAME_DETAIL_FIELDS,
+  HALL_OF_FAME_LIST_FIELDS,
+  hallOfFamePageInfo,
+  parseHallOfFameFeaturedPaging,
+  parseHallOfFamePaging,
+} from "../utils/competitionHallOfFamePaging.js";
+import {
+  COMPETITION_REGISTRATION_MODE,
+  competitionRegistrationCharge,
+  competitionRegistrationMode,
+  normalizeCompetitionRegistration,
+  registrationOrderStanding,
+} from "../utils/competitionRegistration.js";
 
 // ── Shared helpers ──────────────────────────────────────────────────────────
 
@@ -296,9 +324,34 @@ export const listCompetitions = async (req, res) => {
 // GET /api/competitions/completed  (public) — the Hall of Fame index
 export const getCompletedCompetitions = async (req, res) => {
   try {
-    const competitions = await Competition.find(HALL_OF_FAME_FILTER)
-      .sort({ resultsDeclaredAt: -1 })
-      .lean();
+    const paging = parseHallOfFamePaging(req.query);
+    const filter = { ...HALL_OF_FAME_FILTER };
+    if (paging.competition) filter.name = paging.competition;
+    if (paging.year) {
+      filter.$expr = {
+        $eq: [
+          { $year: { $ifNull: ["$dates.startsAt", "$resultsDeclaredAt"] } },
+          paging.year,
+        ],
+      };
+    }
+
+    const [competitions, total, yearRows, competitionNames] = await Promise.all([
+      Competition.find(filter)
+        .select(HALL_OF_FAME_LIST_FIELDS)
+        .sort({ resultsDeclaredAt: -1, _id: -1 })
+        .skip((paging.page - 1) * paging.limit)
+        .limit(paging.limit)
+        .lean(),
+      Competition.countDocuments(filter),
+      Competition.aggregate([
+        { $match: HALL_OF_FAME_FILTER },
+        { $project: { year: { $year: { $ifNull: ["$dates.startsAt", "$resultsDeclaredAt"] } } } },
+        { $group: { _id: "$year" } },
+        { $sort: { _id: -1 } },
+      ]),
+      Competition.distinct("name", HALL_OF_FAME_FILTER),
+    ]);
 
     const items = await Promise.all(competitions.map(async (competition) => {
       const [results, stats] = await Promise.all([
@@ -327,7 +380,9 @@ export const getCompletedCompetitions = async (req, res) => {
 
     return res.json({
       items,
-      years: [...new Set(items.map((i) => i.year))].sort((a, b) => b - a),
+      years: yearRows.map((row) => row._id).filter(Boolean),
+      competitions: competitionNames.filter(Boolean).sort((a, b) => a.localeCompare(b)),
+      pageInfo: hallOfFamePageInfo({ ...paging, total }),
     });
   } catch (error) {
     console.error("[competition] completed list failed:", error?.message || error);
@@ -339,8 +394,11 @@ export const getCompletedCompetitions = async (req, res) => {
 export const getHallOfFameEntry = async (req, res) => {
   try {
     const slug = String(req.params.slug || "").trim().toLowerCase();
-    const competition = await Competition.findOne({ ...HALL_OF_FAME_FILTER, slug }).lean();
+    const competition = await Competition.findOne({ ...HALL_OF_FAME_FILTER, slug })
+      .select(HALL_OF_FAME_DETAIL_FIELDS)
+      .lean();
     if (!competition) return res.status(404).json({ message: "Competition not found." });
+    const featuredPaging = parseHallOfFameFeaturedPaging(req.query);
 
     const [results, stats] = await Promise.all([
       buildPublicResults(competition._id),
@@ -349,15 +407,22 @@ export const getHallOfFameEntry = async (req, res) => {
 
     // Scripts from this competition that the writer has since chosen to publish. Empty until then —
     // winning entries are NOT auto-published, so this section simply stays hidden.
-    const featuredScripts = await Script.find({
+    const featuredFilter = {
       competitionId: competition._id,
       isFeatured: true,
       status: { $in: ["published", "approved"] },
       isDeleted: { $ne: true },
-    })
+    };
+    const [featuredScripts, featuredTotal] = await Promise.all([
+      Script.find(featuredFilter)
       .select("title coverImage genre primaryGenre logline creator")
       .populate("creator", "name profileImage writerProfile.username")
-      .lean();
+      .sort({ _id: -1 })
+      .skip((featuredPaging.page - 1) * featuredPaging.limit)
+      .limit(featuredPaging.limit)
+      .lean(),
+      Script.countDocuments(featuredFilter),
+    ]);
 
     return res.json({
       competition: {
@@ -390,6 +455,7 @@ export const getHallOfFameEntry = async (req, res) => {
           profileImage: script.creator?.profileImage || "",
         },
       })),
+      featuredScriptsPageInfo: hallOfFamePageInfo({ ...featuredPaging, total: featuredTotal }),
     });
   } catch (error) {
     console.error("[competition] hall of fame entry failed:", error?.message || error);
@@ -416,8 +482,11 @@ export const getActiveCompetition = async (req, res) => {
 
     const now = new Date();
     const phase = getCompetitionPhase(competition, now);
+    // The detail hero states participation as a fact. The previous raw document has no such field,
+    // so both desktop and native silently rendered zero even with real entrants in the collection.
+    const stats = await buildCompetitionStats(competition._id);
     const payload = {
-      competition: publicCompetition(competition, phase),
+      competition: { ...publicCompetition(competition, phase), ...stats },
       phase,
       timeline: buildTimeline(competition, null, now),
       // Lets the client correct for a skewed device clock so countdowns are honest.
@@ -463,43 +532,23 @@ export const registerForCompetition = async (req, res) => {
       return res.status(409).json({ message: "Registration is not open." });
     }
 
-    const {
-      country, language, genres, experienceLevel, portfolioUrl,
-      acceptRules, acceptCopyright,
-    } = req.body || {};
+    // This endpoint predates checkout. Once paid registration shipped it remained callable and
+    // silently admitted anybody who posted the form by hand. Paid is the schema default; only an
+    // explicitly free competition may use this path.
+    if (competitionRegistrationMode(competition) !== COMPETITION_REGISTRATION_MODE.FREE) {
+      return res.status(402).json({
+        message: "This challenge requires payment. Start registration from the challenge page.",
+        paymentRequired: true,
+      });
+    }
 
-    const cleanCountry = String(country || "").trim();
-    const cleanLanguage = String(language || "").trim();
-    const cleanGenres = (Array.isArray(genres) ? genres : []).map((g) => String(g || "").trim()).filter(Boolean);
-    const cleanExperience = String(experienceLevel || "").trim().toLowerCase();
-    const cleanPortfolio = String(portfolioUrl || "").trim();
-
-    // Membership-checked, not just non-empty. The form is a fixed dropdown, so a value outside the
-    // list means a hand-crafted request — and one bad spelling permanently skews the "N countries
-    // represented" figure the Hall of Fame publishes.
-    if (!isKnownCountry(cleanCountry)) {
-      return res.status(400).json({ message: "Select a country from the list." });
-    }
-    if (!cleanLanguage) return res.status(400).json({ message: "Preferred language is required." });
-    if (cleanGenres.length < 1 || cleanGenres.length > 3) {
-      return res.status(400).json({ message: "Select between 1 and 3 preferred genres." });
-    }
-    if (!["beginner", "intermediate", "professional"].includes(cleanExperience)) {
-      return res.status(400).json({ message: "Select a valid experience level." });
-    }
-    if (!acceptRules) return res.status(400).json({ message: "You must accept the competition rules." });
-    if (!acceptCopyright) return res.status(400).json({ message: "You must accept the copyright policy." });
+    const normalized = normalizeCompetitionRegistration(req.body, { isKnownCountry });
+    if (!normalized.ok) return res.status(400).json({ message: normalized.message });
 
     const entry = new CompetitionEntry({
       competitionId: competition._id,
       userId: req.user._id,
-      registration: {
-        country: cleanCountry,
-        language: cleanLanguage,
-        genres: cleanGenres,
-        experienceLevel: cleanExperience,
-        portfolioUrl: cleanPortfolio,
-      },
+      registration: normalized.registration,
       acceptedRulesAt: now,
       acceptedCopyrightAt: now,
       status: "registered",
@@ -515,6 +564,13 @@ export const registerForCompetition = async (req, res) => {
       timeline: buildTimeline(competition, entry, now),
     });
   } catch (error) {
+    if (error?.code === 11000) {
+      const existing = await CompetitionEntry.findOne({
+        competitionId: req.params.id,
+        userId: req.user._id,
+      });
+      if (existing) return res.json({ entry: existing, alreadyRegistered: true, registrationComplete: true });
+    }
     console.error("[competition] register failed:", error?.message || error);
     return res.status(500).json({ message: "Failed to register for the competition." });
   }
@@ -527,10 +583,6 @@ export const registerForCompetition = async (req, res) => {
 // signature was valid — never what was paid, in which currency, or against which order. A signature
 // is only proof that SOME payment on this merchant account succeeded, so any captured payment in
 // the app satisfied it, and the amount an invoice would have to state was never established at all.
-const REGISTRATION_FEE = {
-  INR: { minor: 9800, major: 98 },   // paise
-  USD: { minor: 200, major: 2 },     // cents
-};
 const REGISTRATION_RECEIPT_PREFIX = "reg_";
 
 
@@ -559,7 +611,7 @@ const issueRegistrationInvoice = async ({ user, competition, entry, paymentId, a
     user: user._id,
     amountMinor: Math.round(Number(amountMajor) * 100),
     currency,
-    listPriceMinor: REGISTRATION_FEE[currency]?.minor || 0,
+    listPriceMinor: competitionRegistrationCharge(competition, currency).amountMinor,
     providerPaymentId: paymentReference,
     subjectType: "Competition",
     subjectId: competition._id,
@@ -605,7 +657,114 @@ const getRazorpayClient = async () => {
   });
 };
 
+const invoiceShape = (invoice) => (
+  invoice?._id ? { _id: invoice._id, invoiceNumber: invoice.invoiceNumber } : null
+);
+
+const findCapturedOrderPayment = async (razorpay, orderId, paymentId = "") => {
+  const response = await razorpay.orders.fetchPayments(orderId);
+  const payments = Array.isArray(response?.items) ? response.items : [];
+  if (paymentId) {
+    const exact = payments.find((payment) => String(payment?.id) === String(paymentId));
+    return exact?.status === "captured" ? exact : null;
+  }
+  return payments.find((payment) => payment?.status === "captured") || null;
+};
+
+/** Finish a provider-paid registration from either Checkout's callback or a later S2S recovery. */
+const finalizeRegistrationPayment = async ({ competition, user, intent, order, razorpay, paymentId = "" }) => {
+  const standing = registrationOrderStanding({
+    order,
+    intent,
+    competitionId: competition._id,
+    userId: user._id,
+  });
+  if (!standing.ok) return standing;
+
+  const captured = await findCapturedOrderPayment(razorpay, order.id, paymentId);
+  if (!captured) {
+    return { ok: false, pending: true, message: "The payment has not been captured yet." };
+  }
+
+  let entry = await CompetitionEntry.findOne({ competitionId: competition._id, userId: user._id });
+  if (entry && String(entry.payment?.orderId || "") !== String(intent.orderId)) {
+    // This can only happen if a free/external admission won a race with an already-open checkout.
+    // Do not rewrite its audit trail or issue a second kind of admission; support must reconcile the
+    // captured charge explicitly.
+    return {
+      ok: false,
+      conflict: true,
+      message: `Your entry already exists through another registration path. Contact support with payment ${captured.id}.`,
+    };
+  }
+
+  const now = new Date();
+  if (!entry) {
+    entry = new CompetitionEntry({
+      competitionId: competition._id,
+      userId: user._id,
+      registration: intent.registration,
+      acceptedRulesAt: intent.acceptedRulesAt,
+      acceptedCopyrightAt: intent.acceptedCopyrightAt,
+      status: "registered",
+      payment: {
+        orderId: intent.orderId,
+        paymentId: captured.id,
+        amount: standing.amountMajor,
+        currency: standing.currency,
+        paidAt: now,
+      },
+    });
+    try {
+      await entry.save();
+      await ensureReferralCode(user._id);
+    } catch (error) {
+      if (error?.code !== 11000) throw error;
+      entry = await CompetitionEntry.findOne({ competitionId: competition._id, userId: user._id });
+      if (!entry || String(entry.payment?.orderId || "") !== String(intent.orderId)) throw error;
+    }
+  }
+
+  const invoice = await issueRegistrationInvoice({
+    user,
+    competition,
+    entry,
+    paymentId: captured.id,
+    amountMajor: standing.amountMajor,
+    currency: standing.currency,
+  });
+  if (invoice?._id && String(entry.payment?.invoice || "") !== String(invoice._id)) {
+    entry.payment.invoice = invoice._id;
+    await entry.save();
+  }
+
+  await CompetitionRegistrationIntent.updateOne(
+    { _id: intent._id },
+    {
+      $set: {
+        state: "verified",
+        paymentId: captured.id,
+        entry: entry._id,
+        verifiedAt: now,
+        lockToken: "",
+        lockExpiresAt: null,
+      },
+    },
+  );
+
+  return {
+    ok: true,
+    data: {
+      entry,
+      timeline: buildTimeline(competition, entry, now),
+      invoice: invoiceShape(invoice),
+      registrationComplete: true,
+    },
+  };
+};
+
 export const createRegistrationOrder = async (req, res) => {
+  let claimedIntent = null;
   try {
     const competition = await loadOpenCompetitionById(req.params.id);
     if (!competition) return res.status(404).json({ message: "Competition not found." });
@@ -619,31 +778,145 @@ export const createRegistrationOrder = async (req, res) => {
 
     const existing = await CompetitionEntry.findOne({ competitionId: competition._id, userId: req.user._id });
     if (existing) {
-      return res.status(400).json({ message: "Already registered for this competition." });
+      return res.json({
+        entry: existing,
+        alreadyRegistered: true,
+        registrationComplete: true,
+        timeline: buildTimeline(competition, existing, now),
+      });
     }
 
     if (phase !== "registration_open") {
       return res.status(409).json({ message: "Registration is not open." });
     }
 
-    const { country, language, genres, experienceLevel, acceptRules, acceptCopyright } = req.body || {};
-    const cleanCountry = String(country || "").trim();
-    if (!isKnownCountry(cleanCountry)) return res.status(400).json({ message: "Select a country from the list." });
-    if (!String(language || "").trim()) return res.status(400).json({ message: "Preferred language is required." });
-    if (!acceptRules || !acceptCopyright) return res.status(400).json({ message: "You must accept the rules and copyright." });
+    if (competitionRegistrationMode(competition) !== COMPETITION_REGISTRATION_MODE.PAID) {
+      return res.status(409).json({ message: "This challenge is free to enter. No payment order is needed.", freeRegistration: true });
+    }
+
+    const normalized = normalizeCompetitionRegistration(req.body, { isKnownCountry });
+    if (!normalized.ok) return res.status(400).json({ message: normalized.message });
+
+    const pendingClaim = await ExternalRegistration.findOne({
+      competition: competition._id,
+      user: req.user._id,
+      status: "pending",
+    }).select("_id");
+    if (pendingClaim) {
+      return res.status(409).json({
+        message: "Your third-party registration is already with our team. Wait for that decision before paying here.",
+        externalPending: true,
+      });
+    }
 
     const razorpay = await getRazorpayClient();
 
     const { resolveCurrency } = await import("../utils/currencyFx.js");
     const { createOrderWithUsdFallback } = await import("../utils/razorpayOrder.js");
 
-    const currency = resolveCurrency(req.body?.currency, req.user.preferredCurrency);
-    const inrAmount = REGISTRATION_FEE.INR.minor;
-    const finalAmount = currency === "USD" ? REGISTRATION_FEE.USD.minor : inrAmount;
+    const requestedCurrency = resolveCurrency(req.body?.currency, req.user.preferredCurrency);
+    const requestedCharge = competitionRegistrationCharge(competition, requestedCurrency);
+    const nowAccepted = new Date();
+
+    let intent;
+    try {
+      intent = await CompetitionRegistrationIntent.findOneAndUpdate(
+        { competition: competition._id, user: req.user._id },
+        {
+          $setOnInsert: {
+            registration: normalized.registration,
+            acceptedRulesAt: nowAccepted,
+            acceptedCopyrightAt: nowAccepted,
+            currency: requestedCharge.currency,
+            amountMinor: requestedCharge.amountMinor,
+            state: "draft",
+          },
+        },
+        { upsert: true, new: true },
+      );
+    } catch (error) {
+      // Two first taps can race the unique (competition,user) upsert. The other request owns the
+      // intent; join it instead of turning an expected retry into a 500.
+      if (error?.code !== 11000) throw error;
+      intent = await CompetitionRegistrationIntent.findOne({
+        competition: competition._id,
+        user: req.user._id,
+      });
+      if (!intent) throw error;
+    }
+
+    if (intent.state === "verified" && intent.entry) {
+      const entry = await CompetitionEntry.findById(intent.entry);
+      if (entry) {
+        const invoice = intent.paymentId
+          ? await Invoice.findOne({ paymentReference: intent.paymentId }).select("_id invoiceNumber")
+          : null;
+        return res.json({
+          entry,
+          timeline: buildTimeline(competition, entry, new Date()),
+          invoice: invoiceShape(invoice),
+          registrationComplete: true,
+        });
+      }
+    }
+
+    if (intent.orderId) {
+      // One order owns all attempts. The form answers may be corrected before payment, but currency
+      // and amount remain those printed on that already-created order.
+      intent.registration = normalized.registration;
+      intent.acceptedRulesAt = nowAccepted;
+      intent.acceptedCopyrightAt = nowAccepted;
+      await intent.save();
+
+      const order = await razorpay.orders.fetch(intent.orderId);
+      if (order?.status === "paid") {
+        const completed = await finalizeRegistrationPayment({ competition, user: req.user, intent, order, razorpay });
+        if (completed.ok) return res.json(completed.data);
+        return res.status(completed.pending ? 409 : 400).json({ message: completed.message });
+      }
+      return res.json({
+        orderId: intent.orderId,
+        amount: intent.amountMinor,
+        currency: intent.currency,
+        key: process.env.RAZORPAY_KEY_ID,
+        reusedOrder: true,
+      });
+    }
+
+    const lockToken = crypto.randomUUID();
+    const lockNow = new Date();
+    claimedIntent = await CompetitionRegistrationIntent.findOneAndUpdate(
+      {
+        _id: intent._id,
+        $or: [{ orderId: { $exists: false } }, { orderId: "" }],
+        $and: [{ $or: [
+          { state: { $in: ["draft", "failed"] } },
+          { state: "creating", lockExpiresAt: { $lte: lockNow } },
+        ] }],
+      },
+      {
+        $set: {
+          registration: normalized.registration,
+          acceptedRulesAt: nowAccepted,
+          acceptedCopyrightAt: nowAccepted,
+          currency: requestedCharge.currency,
+          amountMinor: requestedCharge.amountMinor,
+          state: "creating",
+          lockToken,
+          lockExpiresAt: new Date(lockNow.getTime() + 60_000),
+        },
+      },
+      { new: true },
+    );
+    if (!claimedIntent) {
+      return res.status(409).json({ message: "Your payment order is already being prepared. Try again in a moment." });
+    }
+
+    const inrAmount = competitionRegistrationCharge(competition, "INR").amountMinor;
 
     const { order, fellBackToINR } = await createOrderWithUsdFallback(razorpay, {
-      amount: finalAmount,
-      currency,
+      amount: requestedCharge.amountMinor,
+      currency: requestedCharge.currency,
       inrAmount,
       receipt: `${REGISTRATION_RECEIPT_PREFIX}${req.user._id.toString().substring(18)}_${Date.now()}`,
       // Stamped so verification can prove this order was created HERE, for THIS competition, by
@@ -658,14 +931,36 @@ export const createRegistrationOrder = async (req, res) => {
 
     if (!order) return res.status(500).json({ message: "Failed to create Razorpay order" });
 
+    intent = await CompetitionRegistrationIntent.findOneAndUpdate(
+      { _id: claimedIntent._id, lockToken },
+      {
+        $set: {
+          orderId: order.id,
+          amountMinor: Number(order.amount),
+          currency: String(order.currency).toUpperCase(),
+          state: "created",
+          lockToken: "",
+          lockExpiresAt: null,
+        },
+      },
+      { new: true },
+    );
+    if (!intent) return res.status(409).json({ message: "The payment order was created but could not be attached. Contact support before paying." });
+
     return res.status(200).json({
-      orderId: order.id,
-      amount: order.amount,
-      currency: order.currency,
+      orderId: intent.orderId,
+      amount: intent.amountMinor,
+      currency: intent.currency,
       key: process.env.RAZORPAY_KEY_ID,
       fellBackToINR,
     });
   } catch (error) {
+    if (claimedIntent?._id) {
+      await CompetitionRegistrationIntent.updateOne(
+        { _id: claimedIntent._id, state: "creating" },
+        { $set: { state: "failed", lockToken: "", lockExpiresAt: null } },
+      ).catch(() => {});
+    }
     console.error("[competition] createRegistrationOrder failed:", error);
     return res.status(500).json({ message: "Failed to create payment order." });
   }
@@ -678,23 +973,36 @@ export const verifyRegistrationPayment = async (req, res) => {
       return res.status(400).json({ message: "Missing required payment details" });
     }
 
-    if (!verifyRazorpaySignature({
-      orderId: razorpay_order_id,
-      paymentId: razorpay_payment_id,
-      signature: razorpay_signature,
-    })) {
-      return res.status(400).json({ message: "Payment verification failed: Invalid signature" });
-    }
-
     const competition = await loadOpenCompetitionById(req.params.id);
     if (!competition) return res.status(404).json({ message: "Competition not found." });
+
+    const intent = await CompetitionRegistrationIntent.findOne({
+      competition: competition._id,
+      user: req.user._id,
+    });
+    if (!intent?.orderId || String(intent.orderId) !== String(razorpay_order_id)) {
+      return res.status(400).json({ message: "This payment does not belong to this registration." });
+    }
+
+    // Razorpay requires the SERVER'S order id for verification. Compare fixed-size buffers so a
+    // bad signature does not leak a prefix through timing.
+    const generatedSignature = crypto
+      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
+      .update(`${intent.orderId}|${razorpay_payment_id}`)
+      .digest();
+    const receivedSignature = Buffer.from(String(razorpay_signature), "hex");
+    if (receivedSignature.length !== generatedSignature.length
+      || !crypto.timingSafeEqual(generatedSignature, receivedSignature)) {
+      return res.status(400).json({ message: "Payment verification failed: Invalid signature" });
+    }
 
     // Read back what was ACTUALLY charged, rather than trusting the client or re-deriving it from
     // our own price table. Two things depend on this being real: the entry fee we claim to have
     // collected, and the amount printed on a tax document the buyer keeps.
     let order = null;
+    let razorpay = null;
     try {
-      const razorpay = await getRazorpayClient();
+      razorpay = await getRazorpayClient();
       order = await razorpay.orders.fetch(razorpay_order_id);
     } catch (fetchError) {
       console.error("[competition] order fetch failed:", fetchError?.message || fetchError);
@@ -702,114 +1010,50 @@ export const verifyRegistrationPayment = async (req, res) => {
     }
     if (!order) return res.status(400).json({ message: "Payment order could not be found." });
 
-    // Bind the order to THIS registration. The signature alone proves only that some payment on our
-    // merchant account succeeded — without these checks a cheaper payment made elsewhere in the app
-    // could be replayed here to enter for free.
-    const notes = order.notes || {};
-    const boundToThisFlow = notes.purpose === "competition_registration"
-      && String(notes.competitionId) === String(competition._id)
-      && String(notes.userId) === String(req.user._id);
-    if (!boundToThisFlow) {
-      return res.status(400).json({ message: "This payment does not belong to this registration." });
-    }
-
-    const paidCurrency = String(order.currency || "INR").toUpperCase();
-    const expected = REGISTRATION_FEE[paidCurrency];
-    // `amount_paid` rather than `amount`: the former is what Razorpay actually captured.
-    const paidMinor = Number(order.amount_paid ?? order.amount) || 0;
-    if (!expected || paidMinor < expected.minor) {
-      return res.status(400).json({ message: "The amount paid does not match the entry fee." });
-    }
-    const paidMajor = paidMinor / 100;
-
-    const {
-      country, language, genres, experienceLevel, portfolioUrl,
-      acceptRules, acceptCopyright,
-    } = req.body || {};
-
-    const cleanCountry = String(country || "").trim();
-    const cleanLanguage = String(language || "").trim();
-    const cleanGenres = (Array.isArray(genres) ? genres : []).map((g) => String(g || "").trim()).filter(Boolean);
-    const cleanExperience = String(experienceLevel || "").trim().toLowerCase();
-    const cleanPortfolio = String(portfolioUrl || "").trim();
-
-    if (!isKnownCountry(cleanCountry)) return res.status(400).json({ message: "Select a country from the list." });
-    if (!cleanLanguage) return res.status(400).json({ message: "Preferred language is required." });
-    if (cleanGenres.length < 1 || cleanGenres.length > 3) return res.status(400).json({ message: "Select 1 to 3 genres." });
-    if (!["beginner", "intermediate", "professional"].includes(cleanExperience)) return res.status(400).json({ message: "Select a valid experience level." });
-    if (!acceptRules) return res.status(400).json({ message: "You must accept the competition rules." });
-    if (!acceptCopyright) return res.status(400).json({ message: "You must accept the copyright policy." });
-
-    const now = new Date();
-    
-    // Safety check in case it's double-submitted. Razorpay's handler can fire twice, so this path
-    // is reached in normal operation — it re-issues (never duplicates) the invoice and returns the
-    // same entry, so a retried callback is indistinguishable from the first for the buyer.
-    const existing = await CompetitionEntry.findOne({ competitionId: competition._id, userId: req.user._id });
-    if (existing) {
-      const invoice = await issueRegistrationInvoice({
-        user: req.user,
-        competition,
-        entry: existing,
-        paymentId: razorpay_payment_id,
-        amountMajor: paidMajor,
-        currency: paidCurrency,
-      });
-      return res.json({
-        entry: existing,
-        timeline: buildTimeline(competition, existing, now),
-        invoice: invoice ? { _id: invoice._id, invoiceNumber: invoice.invoiceNumber } : null,
-      });
-    }
-
-    const entry = new CompetitionEntry({
-      competitionId: competition._id,
-      userId: req.user._id,
-      registration: {
-        country: cleanCountry,
-        language: cleanLanguage,
-        genres: cleanGenres,
-        experienceLevel: cleanExperience,
-        portfolioUrl: cleanPortfolio,
-      },
-      acceptedRulesAt: now,
-      acceptedCopyrightAt: now,
-      status: "registered",
-      payment: {
-        orderId: razorpay_order_id,
-        paymentId: razorpay_payment_id,
-        amount: paidMajor,
-        currency: paidCurrency,
-        paidAt: now,
-      },
-    });
-
-    await entry.save();
-    await ensureReferralCode(req.user._id);
-
-    // After the entry is saved, never before: the invoice references the entry's eventId, and an
-    // invoice for a registration that failed to persist would be a receipt for nothing.
-    const invoice = await issueRegistrationInvoice({
-      user: req.user,
+    const completed = await finalizeRegistrationPayment({
       competition,
-      entry,
+      user: req.user,
+      intent,
+      order,
+      razorpay,
       paymentId: razorpay_payment_id,
-      amountMajor: paidMajor,
-      currency: paidCurrency,
     });
-    if (invoice?._id) {
-      entry.payment.invoice = invoice._id;
-      await entry.save();
+    if (!completed.ok) {
+      const status = completed.pending ? 409 : (completed.conflict ? 409 : 400);
+      return res.status(status).json({ message: completed.message, paymentPending: Boolean(completed.pending) });
     }
-
-    return res.json({
-      entry,
-      timeline: buildTimeline(competition, entry, now),
-      invoice: invoice ? { _id: invoice._id, invoiceNumber: invoice.invoiceNumber } : null,
-    });
+    return res.json(completed.data);
   } catch (error) {
     console.error("[competition] verifyRegistrationPayment failed:", error);
     return res.status(500).json({ message: "Registration payment verification failed." });
+  }
+};
+
+// POST /api/competitions/:id/reconcile-registration-payment (protect)
+// A successful Checkout callback can be lost to a reload, browser kill or dead connection. This
+// route asks Razorpay directly and finishes a captured order without trusting browser-held fields.
+export const reconcileRegistrationPayment = async (req, res) => {
+  try {
+    const competition = await loadOpenCompetitionById(req.params.id);
+    if (!competition) return res.status(404).json({ message: "Competition not found." });
+
+    const intent = await CompetitionRegistrationIntent.findOne({
+      competition: competition._id,
+      user: req.user._id,
+    });
+    if (!intent?.orderId) return res.status(404).json({ message: "No payment is waiting to be confirmed." });
+
+    const razorpay = await getRazorpayClient();
+    const order = await razorpay.orders.fetch(intent.orderId);
+    const completed = await finalizeRegistrationPayment({ competition, user: req.user, intent, order, razorpay });
+    if (!completed.ok) {
+      const status = completed.pending ? 409 : (completed.conflict ? 409 : 400);
+      return res.status(status).json({ message: completed.message, paymentPending: Boolean(completed.pending) });
+    }
+    return res.json(completed.data);
+  } catch (error) {
+    console.error("[competition] reconcileRegistrationPayment failed:", error);
+    return res.status(500).json({ message: "Could not confirm the registration payment yet." });
   }
 };
 
@@ -822,20 +1066,34 @@ export const getMyEntry = async (req, res) => {
     const competition = await loadCompetitionById(req.params.id);
     if (!competition) return res.status(404).json({ message: "Competition not found." });
 
-    const entry = await CompetitionEntry.findOne({ competitionId: competition._id, userId: req.user._id });
+    // Challenge detail and dashboard are explicit projections. Only the editor retains the complete
+    // owner record: it needs the script id but is also the one place whose save/submit contract owns
+    // the full entry. Neither read-only route may pull bodies, answers or payment evidence into memory.
+    const summaryView = req.query.view === "summary";
+    const dashboardView = req.query.view === "dashboard";
+    const entryQuery = CompetitionEntry.findOne({ competitionId: competition._id, userId: req.user._id });
+    if (summaryView) entryQuery.select(COMPETITION_ENTRY_SUMMARY_FIELDS);
+    if (dashboardView) entryQuery.select(COMPETITION_DASHBOARD_ENTRY_FIELDS);
+    const entry = await entryQuery;
     if (!entry) return res.status(404).json({ message: "You are not registered for this competition." });
 
     const now = new Date();
     const phase = getCompetitionPhase(competition, now);
     const payload = {
       competition: publicCompetition(competition, phase),
-      entry,
+      entry: summaryView
+        ? competitionEntrySummary(entry)
+        : dashboardView
+          ? competitionDashboardEntry(entry)
+          : entry,
       phase,
       timeline: buildTimeline(competition, entry, now),
-      referrals: await getReferralProgress(req.user._id, competition),
-      referralCode: await ensureReferralCode(req.user),
       serverNow: now.toISOString(),
     };
+    if (!summaryView) {
+      payload.referrals = await getReferralProgress(req.user._id, competition);
+      payload.referralCode = await ensureReferralCode(req.user);
+    }
     if (phase === "results") payload.results = await buildPublicResults(competition._id);
     return res.json(payload);
   } catch (error) {
@@ -1036,41 +1294,61 @@ export const getCompetitionParticipants = async (req, res) => {
     const competition = await loadCompetitionById(req.params.id);
     if (!competition) return res.status(404).json({ message: "Competition not found." });
 
-    const mine = await CompetitionEntry.findOne({ competitionId: competition._id, userId: req.user._id }).lean();
+    const mine = await CompetitionEntry.findOne({ competitionId: competition._id, userId: req.user._id }).select("_id").lean();
     if (!mine) return res.status(403).json({ message: "Only entrants can see who else is competing." });
-
-    const entries = await CompetitionEntry.find({ competitionId: competition._id })
-      .populate({
-        path: "userId",
-        select: "name profileImage role bio writerProfile.username writerProfile.genres isPrivate isDeactivated isFrozen followers followRequests",
-      })
-      .lean();
-
+    const paging = parseCompetitionCommunityPaging(req.query);
     const meId = String(req.user._id);
-    const participants = entries
-      .map((entry) => entry.userId)
-      // A deleted or suspended account is not part of the room. A PRIVATE account still is — being
-      // private hides your work, not your presence — but see the field list above: nothing about
-      // their entry is included either way.
-      .filter((user) => user && !user.isDeactivated && !user.isFrozen)
-      .map((user) => ({
-        _id: user._id,
-        name: user.name,
-        username: user.writerProfile?.username || "",
-        profileImage: user.profileImage || "",
-        role: user.role,
-        bio: user.isPrivate ? "" : String(user.bio || "").slice(0, 240),
-        genres: user.isPrivate ? [] : (user.writerProfile?.genres || []).slice(0, 5),
-        isPrivate: Boolean(user.isPrivate),
-        isSelf: String(user._id) === meId,
-        isFollowing: (user.followers || []).some((f) => String(f) === meId),
-        // followUser always creates a request (it never consults isPrivate), so the button has three
-        // states, not two. Without this the UI would offer "Follow" to someone you already asked.
-        followRequestPending: (user.followRequests || []).some((r) => String(r?.from) === meId),
-      }))
-      .sort((a, b) => (a.isSelf ? -1 : b.isSelf ? 1 : a.name.localeCompare(b.name)));
-
-    return res.json({ participants, total: participants.length });
+    // Join only the requested page and facet the filtered total in the database. The old populate
+    // loaded every entrant plus every follower/request id for every account into application memory.
+    const [result = {}] = await CompetitionEntry.aggregate([
+      { $match: { competitionId: competition._id } },
+      { $lookup: { from: User.collection.name, localField: "userId", foreignField: "_id", as: "user" } },
+      { $unwind: "$user" },
+      { $match: { "user.isDeactivated": { $ne: true }, "user.isFrozen": { $ne: true } } },
+      { $addFields: { isSelf: { $eq: [{ $toString: "$user._id" }, meId] } } },
+      { $sort: { isSelf: -1, "user.name": 1, "user._id": 1 } },
+      { $facet: {
+        rows: [
+          { $skip: (paging.page - 1) * paging.limit },
+          { $limit: paging.limit },
+          { $project: {
+            _id: "$user._id",
+            name: "$user.name",
+            username: "$user.writerProfile.username",
+            profileImage: "$user.profileImage",
+            role: "$user.role",
+            bio: "$user.bio",
+            genres: "$user.writerProfile.genres",
+            isPrivate: "$user.isPrivate",
+            isSelf: 1,
+          } },
+        ],
+        meta: [{ $count: "total" }],
+      } },
+    ]);
+    const rows = result.rows || [];
+    const ids = rows.map((user) => user._id);
+    const [followed, pending] = ids.length ? await Promise.all([
+      User.find({ _id: { $in: ids }, followers: req.user._id }).select("_id").lean(),
+      User.find({ _id: { $in: ids }, "followRequests.from": req.user._id }).select("_id").lean(),
+    ]) : [[], []];
+    const followedIds = new Set(followed.map((user) => String(user._id)));
+    const pendingIds = new Set(pending.map((user) => String(user._id)));
+    const participants = rows.map((user) => ({
+      _id: user._id,
+      name: user.name || "Writer",
+      username: user.username || "",
+      profileImage: user.profileImage || "",
+      role: user.role,
+      bio: user.isPrivate ? "" : String(user.bio || "").slice(0, 240),
+      genres: user.isPrivate ? [] : (user.genres || []).slice(0, 5),
+      isPrivate: Boolean(user.isPrivate),
+      isSelf: Boolean(user.isSelf),
+      isFollowing: followedIds.has(String(user._id)),
+      followRequestPending: pendingIds.has(String(user._id)),
+    }));
+    const total = Number(result.meta?.[0]?.total || 0);
+    return res.json({ participants, ...competitionPageInfo({ ...paging, total }) });
   } catch (error) {
     console.error("[competition] participants failed:", error?.message || error);
     return res.status(500).json({ message: "Failed to load participants." });
@@ -1130,14 +1408,16 @@ export const getMyCompetitionReferrals = async (req, res) => {
     const competition = await loadCompetitionById(req.params.id);
     if (!competition) return res.status(404).json({ message: "Competition not found." });
 
-    const [progress, referrals] = await Promise.all([
+    const paging = parseCompetitionCommunityPaging(req.query);
+    const [progress, history] = await Promise.all([
       getReferralProgress(req.user._id, competition),
-      listCompetitionReferrals(req.user._id, competition),
+      listCompetitionReferrals(req.user._id, competition, paging),
     ]);
 
     return res.json({
       progress,
-      referrals,
+      referrals: history.items,
+      pageInfo: competitionPageInfo({ ...paging, total: history.total }),
       referralCode: await ensureReferralCode(req.user),
       window: referralWindow(competition),
     });
@@ -1151,6 +1431,7 @@ export const getMyCompetitionReferrals = async (req, res) => {
 export const getMyCompetitions = async (req, res) => {
   try {
     const entries = await CompetitionEntry.find({ userId: req.user._id })
+      .select(COMPETITION_ENTRY_SUMMARY_FIELDS)
       .populate("competitionId", "name slug theme.title dates resultsDeclaredAt lifecycle")
       .sort({ createdAt: -1 })
       .lean();
@@ -1161,7 +1442,7 @@ export const getMyCompetitions = async (req, res) => {
       .map((entry) => {
         const phase = getCompetitionPhase(entry.competitionId, now);
         return {
-          entry,
+          entry: competitionEntrySummary(entry),
           // Through publicCompetition like every other read path. `theme.title` is populated for the
           // record card, and returning the competition raw would have handed a registrant the theme
           // the moment they signed up — the seal has to hold on THIS door too, not just the

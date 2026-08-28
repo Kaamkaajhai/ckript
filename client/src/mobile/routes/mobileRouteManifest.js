@@ -26,16 +26,24 @@ const redirect = (id, pattern) => ({
   reason: "The existing canonical redirect is shared by desktop and mobile.",
 });
 
+const seoContent = (id, pattern) => ({
+  id,
+  pattern,
+  disposition: MOBILE_ROUTE_DISPOSITION.SHARED_PUBLIC_SCREEN,
+  reason: "Shared native content renderer over the canonical SEO registry, content source, and internal-link model (Phase 8, D58).",
+  screenId: "seo-content",
+  shell: MOBILE_SHELL_MODE.PUBLIC,
+});
+
 /*
  * Route order is deliberate. Specific routes precede the two catch-all
  * patterns at the end, so matching cannot mistake a product route for a
  * username/referral or canonical project URL.
  *
  * This is a migration manifest, not a second product router. Every App.jsx
- * route has a disposition. Only entries marked SCREEN may replace the desktop
- * branch; every migration fallback continues through the existing route tree.
- *
- * Any entry that mounts a mobile screen must also declare its shell mode
+ * route has a disposition. Entries marked SCREEN or SHARED_PUBLIC_SCREEN may
+ * replace the desktop branch; every migration fallback continues through the
+ * existing route tree. Any entry that mounts a mobile screen must declare its shell mode
  * (§8.1). The shell mode — not the screen's JSX — decides which chrome the
  * route gets; mobileRouteCoverage.test.js enforces that every such entry has a
  * valid one.
@@ -141,42 +149,105 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     shell: MOBILE_SHELL_MODE.FLOW,
   },
   {
+    id: "mobile-challenge-hub-harness",
+    pattern: "/__mobile-challenges",
+    disposition: MOBILE_ROUTE_DISPOSITION.DEV_ONLY,
+    reason: "Development-only deterministic four-tab fixture for the native public/authenticated Challenge hub (plan §11 Phase 6, D47).",
+    screenId: "challenge-hub-harness",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+  },
+  {
+    id: "mobile-challenge-detail-harness",
+    pattern: "/__mobile-challenge-detail",
+    disposition: MOBILE_ROUTE_DISPOSITION.DEV_ONLY,
+    reason: "Development-only deterministic phase, entry, result, failure, and direct-link fixture for native challenge detail (plan §11 Phase 6, D48).",
+    screenId: "challenge-detail-harness",
+    shell: MOBILE_SHELL_MODE.DETAIL,
+  },
+  {
+    id: "mobile-challenge-register-harness",
+    pattern: "/__mobile-challenge-register",
+    disposition: MOBILE_ROUTE_DISPOSITION.DEV_ONLY,
+    reason: "Development-only deterministic free, paid, recovery, external-claim, receipt, and refusal fixture for native challenge registration (plan §11 Phase 6, D49).",
+    screenId: "challenge-register-harness",
+    shell: MOBILE_SHELL_MODE.FLOW,
+  },
+  {
+    id: "mobile-challenge-dashboard-harness",
+    pattern: "/__mobile-challenge-dashboard",
+    disposition: MOBILE_ROUTE_DISPOSITION.DEV_ONLY,
+    reason: "Development-only deterministic phase, community, result, and refusal fixture for the native participant dashboard (plan §11 Phase 6, D50).",
+    screenId: "challenge-dashboard-harness",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+  },
+  {
+    id: "mobile-hall-of-fame-harness",
+    pattern: "/__mobile-hall-of-fame",
+    disposition: MOBILE_ROUTE_DISPOSITION.DEV_ONLY,
+    reason: "Development-only deterministic list, detail, empty, failure, and not-found fixture for native Hall of Fame records (plan §11 Phase 6, D51).",
+    screenId: "hall-of-fame-harness",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+  },
+  {
+    id: "mobile-industry-workspace-harness",
+    pattern: "/__mobile-industry",
+    disposition: MOBILE_ROUTE_DISPOSITION.DEV_ONLY,
+    reason: "Development-only deterministic discovery, role, partial-failure, empty, loading, and failure fixture for the native industry workspace (plan §11 Phase 7, D52).",
+    screenId: "industry-workspace-harness",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+  },
+  {
+    id: "mobile-reader-workspace-harness",
+    pattern: "/__mobile-reader",
+    disposition: MOBILE_ROUTE_DISPOSITION.DEV_ONLY,
+    reason: "Development-only deterministic home, discovery, partial-failure, empty, loading, and failure fixture for the native reader workspace (plan §11 Phase 7, D55).",
+    screenId: "reader-workspace-harness",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+  },
+  {
     id: "writer-dashboard",
     pattern: "/dashboard",
     disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
-    reason: "The writer dashboard already has a separate mobile implementation.",
-    audiences: [AUDIENCE.WRITER],
+    reason: "Audience-routed native dashboard: writer studio for writers, compact deal-flow workspace for industry roles (plan §11 Phase 7, D52).",
+    audiences: [AUDIENCE.WRITER, AUDIENCE.INDUSTRY],
     protection: "authenticated",
     screenId: "dashboard",
     shell: MOBILE_SHELL_MODE.STANDARD,
     fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
   },
 
-  migration("landing", "/"),
+  {
+    id: "landing",
+    pattern: "/",
+    disposition: MOBILE_ROUTE_DISPOSITION.SHARED_PUBLIC_SCREEN,
+    reason: "Canonical mobile marketing presentation shared by signed-out visitors and authenticated members (Phase 8, D57).",
+    screenId: "landing",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+  },
   migration("about", "/about"),
   migration("contact", "/contact"),
-  migration("features-index", "/features"),
-  migration("features-detail", "/features/:slug"),
-  migration("audience-index", "/for"),
-  migration("audience-detail", "/for/:slug"),
-  migration("industries-index", "/industries"),
-  migration("industries-detail", "/industries/:slug"),
-  migration("resources-blog-detail", "/resources/blog/:slug"),
-  migration("resources-blog", "/resources/blog"),
-  migration("resources-index", "/resources"),
-  migration("resources-detail", "/resources/:slug"),
-  migration("tools-index", "/tools"),
-  migration("tools-detail", "/tools/:slug"),
+  seoContent("features-index", "/features"),
+  seoContent("features-detail", "/features/:slug"),
+  seoContent("audience-index", "/for"),
+  seoContent("audience-detail", "/for/:slug"),
+  seoContent("industries-index", "/industries"),
+  seoContent("industries-detail", "/industries/:slug"),
+  seoContent("resources-blog-detail", "/resources/blog/:slug"),
+  seoContent("resources-blog", "/resources/blog"),
+  seoContent("resources-index", "/resources"),
+  seoContent("resources-detail", "/resources/:slug"),
+  seoContent("tools-index", "/tools"),
+  seoContent("tools-detail", "/tools/:slug"),
   migration("pricing", "/pricing"),
-  migration("faq", "/faq"),
-  migration("genre", "/genre/:slug"),
-  migration("sell-script-guide", "/how-to-sell-a-script"),
-  migration("find-producers-guide", "/how-to-find-producers"),
-  migration("pitch-screenplay-guide", "/how-to-pitch-screenplay"),
-  migration("find-investors-guide", "/how-to-find-film-investors"),
-  migration("film-investment-india", "/film-investment-india"),
-  migration("bollywood-submission", "/bollywood-script-submission"),
-  migration("web-series-guide", "/web-series-screenplay-guide"),
+  seoContent("faq", "/faq"),
+  seoContent("genre", "/genre/:slug"),
+  seoContent("sell-script-guide", "/how-to-sell-a-script"),
+  seoContent("find-producers-guide", "/how-to-find-producers"),
+  seoContent("pitch-screenplay-guide", "/how-to-pitch-screenplay"),
+  seoContent("find-investors-guide", "/how-to-find-film-investors"),
+  seoContent("film-investment-india", "/film-investment-india"),
+  seoContent("bollywood-submission", "/bollywood-script-submission"),
+  seoContent("web-series-guide", "/web-series-screenplay-guide"),
 
   redirect("privacy-alias", "/privacy"),
   redirect("registration-privacy-alias", "/registration-privacy-policy"),
@@ -189,27 +260,216 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
   redirect("investor-terms-alias", "/investor-terms"),
   migration("script-upload-terms", "/script-upload-terms"),
 
-  redirect("login-alias", "/login"),
-  redirect("join-alias", "/join"),
-  redirect("signup-alias", "/signup"),
-  migration("forgot-password", "/forgot-password"),
-  migration("accept-invite", "/invite/:token"),
-  migration("shared-profile", "/share/profile/:id"),
-  migration("shared-project", "/share/project/:id"),
+  /*
+   * Account entry (Phase 8, D59) — the first entries whose disposition
+   * deliberately differs by platform, which is what this manifest is for.
+   *
+   * Desktop presents auth as a modal over the page the visitor was reading, and
+   * App.jsx keeps `<Navigate to="/">` for all three paths. A phone cannot use
+   * that shape: a modal has no URL, so a refresh loses a half-filled form,
+   * Android back closes the surface instead of stepping back, and the OTP step
+   * routinely outlives a trip to the mail app. On mobile, auth is a
+   * destination.
+   *
+   * None of these are `signedOutOnly`, and that is deliberate rather than an
+   * omission. The obvious reading — "auth screens are for signed-out people" —
+   * breaks the stepper: /signup creates the real account at step 3 and the
+   * writer then fills in five more steps while signed in. A policy that bounced
+   * an authenticated viewer off /signup would destroy the flow at the exact
+   * moment it succeeded. The policy cannot tell "signed in because they
+   * finished step 3 four seconds ago" from "signed in and typed /signup", so
+   * each screen makes that call itself, which is the only place that knows.
+   *
+   * They carry no `fallbackDisposition` for the same reason: with
+   * `protection: "public"` and no audience, role or signed-out restriction,
+   * there is no branch left that could decline them, and a fallback that can
+   * never fire is configuration that lies.
+   *
+   * No new App.jsx route is added — every pattern below already exists there
+   * and in mobileRouteCoverage.test.js.
+   */
+  {
+    id: "sign-in",
+    pattern: "/login",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native sign in: email/password, Google, the OTP step a `requiresVerification` refusal advances into, password "
+      + "recovery, and `?redirect=` carried through to resolvePostAuthPath (plan §9.1, D59).",
+    protection: "public",
+    screenId: "sign-in",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+  },
+  {
+    id: "role-chooser",
+    pattern: "/join",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native role chooser — writer, producer/director, industry professional — and the one auth screen that is a choice "
+      + "rather than a form (plan §9.1, D59).",
+    protection: "public",
+    screenId: "role-chooser",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+  },
+  {
+    id: "sign-up",
+    pattern: "/signup",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "The native sign-up stepper. One screen for all three roles, parameterised by `?as=`; `?step=` is a real history entry "
+      + "so browser/Android back is step-back and a return from the mail app resumes where it left off; `?ref=` and `?redirect=` "
+      + "survive the whole flow including OTP. Its three query forms need no entries of their own — the screen reads them itself, "
+      + "the same arrangement /upload has for `?draft=` / `?edit=` (plan §9.1/§9.3, D59).",
+    protection: "public",
+    screenId: "sign-up",
+    shell: MOBILE_SHELL_MODE.FLOW,
+  },
+  {
+    id: "forgot-password",
+    pattern: "/forgot-password",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native password recovery over the already-headless useForgotPasswordFlow — request a code, then verify and set a new "
+      + "password — in the same entry chrome as sign in (plan §9.1, D59).",
+    protection: "public",
+    screenId: "forgot-password",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+  },
+  {
+    id: "accept-invite",
+    pattern: "/invite/:token",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native collaboration-invite acceptance. Deliberately NOT `signedOutOnly`: this is the one auth route that has work to "
+      + "do for both audiences — a signed-out invitee is told what the invite is and sent to sign in with this URL as the return "
+      + "path, and a signed-in one has it accepted (plan §9.1, D59).",
+    protection: "public",
+    screenId: "accept-invite",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+  },
+  {
+    id: "shared-profile",
+    pattern: "/share/profile/:id",
+    disposition: MOBILE_ROUTE_DISPOSITION.SHARED_PUBLIC_SCREEN,
+    reason: "The signed-out public profile uses the sanitized public projection (D34), authenticated visitors use the relationship-aware profile (D35), and the account owner gets the native workspace/editor/settings surfaces (D36-D37).",
+    protection: "public",
+    visitorOnly: true,
+    screenId: "public-profile",
+    authenticatedScreenId: "profile-visitor",
+    ownScreenId: "profile-owner",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
+  {
+    id: "shared-project",
+    pattern: "/share/project/:id",
+    disposition: MOBILE_ROUTE_DISPOSITION.SHARED_PUBLIC_SCREEN,
+    reason: "Native public project preview over the server's deliberately projected unauthenticated payload (plan §11 Phase 4, D31).",
+    protection: "public",
+    screenId: "public-project",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+  },
 
-  migration("challenge-hub", "/challenge"),
-  migration("challenge-detail", "/challenge/c/:slug"),
-  migration("challenge-register", "/challenge/register"),
-  migration("challenge-dashboard", "/challenge/dashboard"),
+  {
+    id: "challenge-hub",
+    pattern: "/challenge",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native public/authenticated four-section challenge index over one shared desktop/mobile loader and an owner-safe My Challenges summary (plan §11 Phase 6, D47).",
+    protection: "public",
+    screenId: "challenge-hub-public",
+    authenticatedScreenId: "challenge-hub",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
+  {
+    id: "challenge-detail",
+    pattern: "/challenge/c/:slug",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native public/authenticated challenge record over the shared detail loader and owner-safe entry summary (plan §11 Phase 6, D48).",
+    protection: "public",
+    screenId: "challenge-detail",
+    shell: MOBILE_SHELL_MODE.DETAIL,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
+  {
+    id: "challenge-register",
+    pattern: "/challenge/register",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native challenge registration over one shared free/Razorpay/external-claim contract with captured-payment recovery (plan §11 Phase 6, D49).",
+    protection: "authenticated",
+    screenId: "challenge-register",
+    shell: MOBILE_SHELL_MODE.FLOW,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
+  {
+    id: "challenge-dashboard",
+    pattern: "/challenge/dashboard",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native participant status, studio, bounded community, achievements, results, and certificate workspace (plan §11 Phase 6, D50).",
+    protection: "authenticated",
+    screenId: "challenge-dashboard",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
   migration("challenges-marketing", "/challenges"),
   redirect("my-competitions-alias", "/my-competitions"),
-  migration("hall-of-fame", "/hall-of-fame"),
-  migration("hall-of-fame-detail", "/hall-of-fame/:slug"),
+  {
+    id: "hall-of-fame",
+    pattern: "/hall-of-fame",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native bounded public archive with URL-owned competition/year/page filters and permanent-record links (plan §11 Phase 6, D51).",
+    protection: "public",
+    screenId: "hall-of-fame",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
+  {
+    id: "hall-of-fame-detail",
+    pattern: "/hall-of-fame/:slug",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native permanent result record with honourees, bounded featured scripts, judges, partners, stats, sharing, and dynamic SEO (plan §11 Phase 6, D51).",
+    protection: "public",
+    screenId: "hall-of-fame-detail",
+    shell: MOBILE_SHELL_MODE.DETAIL,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
 
-  migration("writer-onboarding", "/writer-onboarding"),
-  migration("producer-onboarding", "/producer-director-onboarding"),
+  /*
+   * The three onboarding deep links (Phase 8, D59).
+   *
+   * Desktop mounts a dedicated 1000-1400 line modal at each. Mobile does not,
+   * because all three ask for the same first three steps, create the account at
+   * the same point, run the same OTP leg, and diverge only in the profile
+   * fields that follow — so native implements one stepper and these three
+   * resolve into it. They keep working for SEO, the sidebar "Become a Writer"
+   * entry, the Terms page and the landing CTAs exactly as before.
+   *
+   * SCREEN rather than REDIRECT because the redirect is ours, not App.jsx's:
+   * the mobile screen decides the destination, and marking it REDIRECT would
+   * claim the existing desktop redirect is shared when there isn't one.
+   */
+  {
+    id: "writer-onboarding",
+    pattern: "/writer-onboarding",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Resolves to the native stepper at /signup?as=writer, preserving `?ref=` and `?redirect=` (plan §9.3, D59).",
+    protection: "public",
+    screenId: "signup-writer",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+  },
+  {
+    id: "producer-onboarding",
+    pattern: "/producer-director-onboarding",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Resolves to the native stepper at /signup?as=producer, preserving `?ref=` and `?redirect=` (plan §9.3, D59).",
+    protection: "public",
+    screenId: "signup-producer",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+  },
   redirect("investor-onboarding-alias", "/investor-onboarding"),
-  migration("industry-onboarding", "/industry-onboarding"),
+  {
+    id: "industry-onboarding",
+    pattern: "/industry-onboarding",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Resolves to the native stepper at /signup?as=industry, preserving `?ref=` and `?redirect=` (plan §9.3, D59).",
+    protection: "public",
+    screenId: "signup-industry",
+    shell: MOBILE_SHELL_MODE.PUBLIC,
+  },
 
   redirect("trending-alias", "/trending"),
   {
@@ -218,13 +478,33 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
     reason: "Native paid-placement collection: lead with its stated reason, spotlight, ranked and "
       + "mandate-match sections over two bounded, URL-backed sources (plan §11 Phase 4).",
-    audiences: [AUDIENCE.WRITER, AUDIENCE.INDUSTRY],
+    audiences: [AUDIENCE.WRITER, AUDIENCE.INDUSTRY, AUDIENCE.READER],
     protection: "authenticated",
     screenId: "featured",
     shell: MOBILE_SHELL_MODE.STANDARD,
     fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
   },
-  migration("follow-requests", "/follow-requests"),
+  {
+    id: "follow-requests",
+    pattern: "/follow-requests",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native inbound-network queue with shared desktop/shell list, accept, and reject operations (plan §11 Phase 5, D38).",
+    protection: "authenticated",
+    screenId: "follow-requests",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
+  {
+    id: "collaborations",
+    pattern: "/collaborations",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native request, invitation, and cross-project activity queues over shared paged collaboration contracts (plan §11 Phase 5, D43-D44).",
+    audiences: [AUDIENCE.WRITER],
+    protection: "authenticated",
+    screenId: "collaborations",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
   /*
    * The chooser that opens the creation flow. A `flow` shell, not `standard`:
    * this is step zero of creating a project, and leaving the tab bar up invites
@@ -334,7 +614,7 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     pattern: "/top-script",
     disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
     reason: "Native five-mode ranked discovery with URL-backed facets and bounded paging (plan §11 Phase 4).",
-    audiences: [AUDIENCE.WRITER, AUDIENCE.INDUSTRY],
+    audiences: [AUDIENCE.WRITER, AUDIENCE.INDUSTRY, AUDIENCE.READER],
     protection: "authenticated",
     screenId: "top-scripts",
     shell: MOBILE_SHELL_MODE.STANDARD,
@@ -398,8 +678,28 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     shell: MOBILE_SHELL_MODE.DETAIL,
     fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
   },
-  migration("messages", "/messages"),
-  migration("profile", "/profile/:id?"),
+  {
+    id: "messages",
+    pattern: "/messages",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native inbox and URL-backed text thread over the shared messaging contract (plan §11 Phase 5, D39).",
+    protection: "authenticated",
+    screenId: "messages",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
+  {
+    id: "profile",
+    pattern: "/profile/:id?",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Authenticated visitor profile plus the native own-profile workspace/editor and complete account/settings tab (plan §11 Phase 5, D37).",
+    protection: "authenticated",
+    visitorOnly: true,
+    screenId: "profile-visitor",
+    ownScreenId: "profile-owner",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
   /*
    * /ai-tools is an ALIAS OF THE DASHBOARD, not a screen of its own — and that
    * is desktop's behaviour, not a mobile shortcut. App.jsx mounts /dashboard,
@@ -431,12 +731,9 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
   },
 
   /*
-   * /offer-holds is an INDUSTRY screen, despite living in the plan's writer
-   * phase. The audience is decided by the server, not by preference:
-   * holdScript() 403s any role that is not investor/producer/director
-   * (scriptController.js:4770) and getMyHolds() queries { holder: req.user._id }
-   * (scriptController.js:4856). A writer can never be a holder, so this route's
-   * only endpoint returns [] for a writer unconditionally, forever.
+   * /offer-holds is a FILM-PROFESSIONAL screen. The server uses the shared
+   * five-role vocabulary for quote/order/verify/read/release, and holder reads
+   * are always scoped to req.user._id. A writer can never be a holder.
    *
    * Writers keep the existing desktop route via fallbackDisposition — the same
    * mechanism that keeps /dashboard writer-only.
@@ -453,14 +750,87 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
   },
 
-  migration("industry-home", "/home"),
-  migration("mandates", "/mandates"),
-  migration("writers", "/writers"),
+  {
+    id: "industry-home",
+    pattern: "/home",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native personalised industry discovery desk over the shared bounded home loader (plan §11 Phase 7, D52).",
+    audiences: [AUDIENCE.INDUSTRY],
+    protection: "authenticated",
+    screenId: "industry-home",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
+  {
+    id: "mandates",
+    pattern: "/mandates",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native mandate editor over the shared bounded read/write contract (plan §11 Phase 7, D53).",
+    audiences: [AUDIENCE.INDUSTRY],
+    roles: ["investor", "producer", "director", "industry", "professional"],
+    protection: "authenticated",
+    screenId: "mandates",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
+  {
+    id: "writers",
+    pattern: "/writers",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native industry writer discovery over the shared bounded, projection-safe roster contract (plan §11 Phase 7, D53).",
+    audiences: [AUDIENCE.INDUSTRY],
+    protection: "authenticated",
+    screenId: "writers",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
 
-  migration("reader-home", "/reader"),
-  migration("reader-search", "/reader/search"),
-  migration("reader-script", "/reader/script/:id"),
-  migration("reader-profile", "/reader/profile/:id?"),
+  {
+    id: "reader-home",
+    pattern: "/reader",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Reader-only native home with private read/favorite shelves and a bounded fresh-project feed over the shared reader contract (D55).",
+    audiences: [AUDIENCE.READER],
+    roles: ["reader"],
+    protection: "authenticated",
+    screenId: "reader-home",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
+  {
+    id: "reader-search",
+    pattern: "/reader/search",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Reader-only project discovery with URL-owned query, format, genre, and page over a projected bounded endpoint (D55).",
+    audiences: [AUDIENCE.READER],
+    roles: ["reader"],
+    protection: "authenticated",
+    screenId: "reader-discover",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
+  {
+    id: "reader-script",
+    pattern: "/reader/script/:id",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Reader-account project consumption reuses the native detail/reader surface with reader-specific back navigation and no canonical URL rewrite (plan §11 Phase 4, D32).",
+    audiences: [AUDIENCE.READER],
+    protection: "authenticated",
+    screenId: "reader-project",
+    shell: MOBILE_SHELL_MODE.DETAIL,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
+  {
+    id: "reader-profile",
+    pattern: "/reader/profile/:id?",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "Native own/visitor reader identity with explicit private collections, public reviews, follow state, and URL-backed paging over one desktop/mobile contract (plan §11 Phase 5, D42).",
+    audiences: [AUDIENCE.READER],
+    protection: "authenticated",
+    screenId: "reader-profile",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
   redirect("reader-featured-alias", "/reader/featured"),
 
   migration("admin", "/admin"),
@@ -481,6 +851,17 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
     shell: MOBILE_SHELL_MODE.DETAIL,
     fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
   },
-  migration("profile-or-referral-catchall", "/:id"),
+  {
+    id: "profile-or-referral-catchall",
+    pattern: "/:id",
+    disposition: MOBILE_ROUTE_DISPOSITION.SCREEN,
+    reason: "The authenticated canonical username form selects the D35 visitor profile or D36-D37 owner workspace/settings. Signed-out referral/profile branching remains owned by App.jsx.",
+    protection: "authenticated",
+    visitorOnly: true,
+    screenId: "profile-visitor",
+    ownScreenId: "profile-owner",
+    shell: MOBILE_SHELL_MODE.STANDARD,
+    fallbackDisposition: MOBILE_ROUTE_DISPOSITION.DESKTOP_MIGRATION_FALLBACK,
+  },
 ]);
 

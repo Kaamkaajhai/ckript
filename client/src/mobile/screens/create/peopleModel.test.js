@@ -35,10 +35,10 @@ describe("buildAccessRows — who may manage whom", () => {
     expect(me.canManage).toBe(false);
   });
 
-  it("identifies a pending invite by its email, because it has no user record yet", () => {
+  it("identifies a pending invite by its embedded row, even when it has no user record yet", () => {
     const rows = buildAccessRows(entries, { isOwner: true, myUserId: "u1", pending: true });
     const invited = rows.find((r) => r.name === "new@example.com");
-    expect(invited.key).toBe("new@example.com");
+    expect(invited.key).toBe("e3");
     expect(invited.canManage).toBe(true);
     expect(invited.pending).toBe(true);
   });

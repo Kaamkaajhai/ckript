@@ -1,5 +1,4 @@
 import mongoose from "mongoose";
-import { DateTime } from "luxon";
 import Meeting from "../models/Meeting.js";
 import User from "../models/User.js";
 import Script from "../models/Script.js";
@@ -15,7 +14,9 @@ import {
   getRemainingMeetings,
   getMeetingsLimit,
   getScheduledMeetingsCount,
+  isWriterRole,
 } from "../utils/industryAccess.js";
+import { normalizeMeetingRequest } from "../utils/meetingRequest.js";
 import {
   sendMeetingInvitationEmail,
   sendMeetingAcceptedEmail,
@@ -26,11 +27,12 @@ import {
 export const requestMeeting = async (req, res) => {
   try {
     const producerId = req.user._id;
-    const { writerId, scriptId, title, scheduledDate, scheduledTime, duration, message, timeZone } = req.body;
-
-    if (!writerId || !scriptId || !title || !scheduledDate || !scheduledTime || !duration || !timeZone) {
-      return res.status(400).json({ message: "All fields except message are required." });
-    }
+    const normalized = normalizeMeetingRequest(req.body);
+    if (!normalized.ok) return res.status(400).json({ message: normalized.message });
+    const {
+      writerId, scriptId, title, scheduledDate, scheduledTime, duration, message, timeZone,
+      startAt, startISO, endISO,
+    } = normalized.value;
 
     if (!mongoose.Types.ObjectId.isValid(writerId) || !mongoose.Types.ObjectId.isValid(scriptId)) {
       return res.status(400).json({ message: "Invalid writer or script ID format." });
@@ -55,19 +57,6 @@ export const requestMeeting = async (req, res) => {
       });
     }
 
-    // Resolve the meeting instant from the producer's wall-clock date/time + their IANA timezone.
-    // startAt is the canonical UTC instant; startISO/endISO are naive local strings that Google pairs
-    // with `timeZone` to localize + apply DST for every attendee.
-    const datePart = String(scheduledDate).slice(0, 10);
-    const start = DateTime.fromISO(`${datePart}T${scheduledTime}`, { zone: timeZone });
-    if (!start.isValid) {
-      return res.status(400).json({ message: "Invalid date, time, or timezone." });
-    }
-    const end = start.plus({ minutes: Number(duration) });
-    const startAt = start.toUTC().toJSDate();
-    const startISO = start.toISO({ includeOffset: false });
-    const endISO = end.toISO({ includeOffset: false });
-
     if (hasReachedMeetingsLimit(producer)) {
       return res.status(403).json({
         message: "You have reached your scheduled meetings limit for this subscription period.",
@@ -78,11 +67,25 @@ export const requestMeeting = async (req, res) => {
       });
     }
 
-    const writer = await User.findById(writerId).select("name email").lean();
+    const writer = await User.findById(writerId).select("name email role").lean();
     if (!writer) return res.status(404).json({ message: "Writer not found." });
+    if (!isWriterRole(writer)) {
+      return res.status(400).json({ message: "Meetings can only be requested with a writer." });
+    }
 
-    const script = await Script.findById(scriptId).select("title").lean();
+    const script = await Script.findById(scriptId)
+      .select("title creator status isDeleted isSold unlockedBy purchasedBy")
+      .lean();
     if (!script) return res.status(404).json({ message: "Script not found." });
+    if (String(script.creator) !== String(writerId)) {
+      return res.status(403).json({ message: "This project does not belong to that writer." });
+    }
+    const requesterHasProject = [...(script.unlockedBy || []), ...(script.purchasedBy || [])]
+      .some((id) => String(id) === String(producerId));
+    const projectIsPublic = script.status === "published" && !script.isDeleted && !script.isSold;
+    if (!projectIsPublic && !requesterHasProject) {
+      return res.status(403).json({ message: "This project is not available for a meeting request." });
+    }
 
     // Create the Google Calendar event (with a Meet link) on the producer's calendar. Google emails
     // both attendees the invite and localizes the time per-attendee via `timeZone`.

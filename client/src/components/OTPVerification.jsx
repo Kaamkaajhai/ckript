@@ -1,7 +1,11 @@
-import { useState, useEffect, useRef } from 'react';
-import { motion } from 'framer-motion';
+import { useContext, useState, useEffect, useRef } from 'react';
+// Aliased for the same reason as AuthModal.jsx: a bare `motion` reads as an
+// unused import to this project's ESLint, and deleting it while the JSX stays
+// is what caused DEF-33 next door.
+import { motion as Motion } from 'framer-motion';
 import { Mail, Shield, ArrowLeft, Loader } from 'lucide-react';
 import api from '../services/api';
+import { AuthContext } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 
 const DEFAULT_RESEND_COOLDOWN_SECONDS = 30;
@@ -50,6 +54,7 @@ const OTPVerification = ({
   darkBackground = false,
 }) => {
   const toast = useToast();
+  const { adoptSession } = useContext(AuthContext);
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
   const [loading, setLoading] = useState(false);
   const [resending, setResending] = useState(false);
@@ -172,11 +177,19 @@ const OTPVerification = ({
         otp: otpString,
       });
 
-      // Store user session in the same shape consumed by AuthContext.
-      localStorage.setItem('user', JSON.stringify(response.data));
+      // Adopt the verified payload as the live session through the one function
+      // that knows what that entails — in-memory user, persisted copy, expiry
+      // timer, anonymous-session link and the auth event.
+      //
+      // This used to be a bare `localStorage.setItem('user', ...)` here, with
+      // every caller left to call `setUser` afterwards. None of them scheduled
+      // the auto-logout timer or linked the anonymous session, so a session
+      // created by OTP — the primary sign-up path — never expired client-side
+      // and lost its attribution, while a password login kept both (DEF-34).
+      const session = adoptSession(response.data, { reason: 'signup_success' });
 
       // Call success callback
-      onSuccess(response.data);
+      onSuccess(session || response.data);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Verification failed. Please try again.');
     } finally {
@@ -235,7 +248,7 @@ const OTPVerification = ({
           <div className="absolute bottom-0 right-0 w-[360px] h-[360px] bg-white/[0.02] rounded-full blur-3xl translate-x-1/4 translate-y-1/4 pointer-events-none" />
         </>
       )}
-      <motion.div
+      <Motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         className="w-full max-w-md relative z-10"
@@ -335,7 +348,7 @@ const OTPVerification = ({
              Tip: Check your spam folder if you don't see the email
           </p>
         </div>
-      </motion.div>
+      </Motion.div>
     </div>
   );
 };

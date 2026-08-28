@@ -7,6 +7,24 @@ import path from "path";
 import { uploadToCloudinary } from "../config/cloudinary.js";
 import { sendAdminMessageEmail, sendNewMessageEmail } from "../utils/emailService.js";
 import { asObjectId } from "../utils/requestValue.js";
+import {
+  getMessageWritersLimit,
+  hasAnyFipAccess,
+  hasMessagedWriter,
+  hasReachedMessageWritersLimit,
+} from "../utils/industryAccess.js";
+import { resolveDirectMessagePair } from "../utils/messageAccess.js";
+import {
+  createRemoteAssetGrant,
+  RemoteAssetPolicyError,
+  verifyRemoteAssetGrant,
+} from "../utils/remoteAssetPolicy.js";
+
+const MESSAGE_ATTACHMENT_MAX_BYTES = 250 * 1024 * 1024;
+const MESSAGE_ATTACHMENT_GRANT_TTL_SECONDS = 60 * 60;
+const MESSAGE_REACTIONS = new Set(["👍", "❤️", "😂", "😮", "😢", "🙏"]);
+const MESSAGE_FILE_TYPES = new Set(["image", "video", "audio", "document"]);
+const messageAttachmentPurpose = (receiverId) => `message-attachment:${String(receiverId || "")}`;
 
 const detectFileType = (mimetype = "") => {
   if (mimetype.startsWith("image/")) return "image";
@@ -17,6 +35,10 @@ const detectFileType = (mimetype = "") => {
 
 const isAllowedAttachmentMime = (mimetype = "") => {
   if (!mimetype) return false;
+  // SVG is active XML content rather than a passive image. It is intentionally
+  // excluded from direct messages, where attachments can be opened by another
+  // account without an editorial review step.
+  if (mimetype === "image/svg+xml") return false;
   if (mimetype.startsWith("image/")) return true;
   if (mimetype.startsWith("video/")) return true;
   if (mimetype.startsWith("audio/")) return true;
@@ -40,7 +62,7 @@ const isAllowedAttachmentMime = (mimetype = "") => {
 
 const rawUploadMessageAttachment = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 250 * 1024 * 1024 },
+  limits: { fileSize: MESSAGE_ATTACHMENT_MAX_BYTES },
   fileFilter: (req, file, cb) => {
     if (isAllowedAttachmentMime(file?.mimetype)) return cb(null, true);
     return cb(new Error("Unsupported file type. Please upload image, video, audio, PDF, Office, text, CSV, or ZIP files."));
@@ -86,10 +108,76 @@ const resolveClientOriginFromRequest = (req) => {
 const hasBlockedUser = (blockedUsers = [], userId) =>
   blockedUsers?.some((id) => id?.toString() === userId?.toString());
 
+const getAttachmentUploadAccess = async (senderId, receiverId) => {
+  const receiverObjectId = asObjectId(receiverId);
+  if (!receiverObjectId) {
+    return { status: 400, message: "receiverId is not a valid user id." };
+  }
+
+  const sender = await User.findById(senderId).select("_id role blockedUsers subscription");
+  if (!sender) return { status: 404, message: "Sender not found." };
+  const receiver = await User.findById(receiverObjectId).select("_id role blockedUsers");
+  if (!receiver) return { status: 404, message: "Recipient not found." };
+  if (hasBlockedUser(sender.blockedUsers, receiver._id) || hasBlockedUser(receiver.blockedUsers, sender._id)) {
+    return { status: 403, message: "Messaging is unavailable because one of you has blocked the other.", code: "USER_BLOCKED" };
+  }
+
+  const chatId = buildChatId(sender._id, receiver._id);
+  // A fully deleted thread is still an established participant relationship;
+  // deletion removes content, not the right to continue the conversation.
+  if (await Message.exists({ chatId })) {
+    return { sender, receiver, chatId };
+  }
+
+  const pair = resolveDirectMessagePair(sender, receiver);
+  if (!pair.allowed) {
+    return { status: 403, message: "Conversations can only be started between writers and film industry professionals." };
+  }
+  if (pair.adminWriter) return { sender, receiver, chatId };
+
+  const hasPurchased = await Script.exists({ creator: pair.writerId, unlockedBy: pair.industryId });
+  if (hasPurchased) return { sender, receiver, chatId };
+  if (pair.senderIsIndustry && hasAnyFipAccess(sender)) {
+    const alreadyMessaged = hasMessagedWriter(sender, pair.writerId);
+    if (alreadyMessaged || !hasReachedMessageWritersLimit(sender)) return { sender, receiver, chatId };
+    return {
+      status: 403,
+      message: `You have reached your limit of ${getMessageWritersLimit(sender)} direct messages.`,
+      code: "QUOTA_EXCEEDED",
+    };
+  }
+  return {
+    status: 403,
+    message: pair.senderIsIndustry
+      ? "Messaging is locked until you purchase a script or upgrade to a Film Industry Professional plan."
+      : "You cannot initiate a conversation until an industry professional purchases your script or messages you first.",
+    code: "PURCHASE_REQUIRED",
+  };
+};
+
+export const authorizeMessageAttachmentTarget = async (req, res, next) => {
+  try {
+    const receiverId = String(req.query?.receiverId || "").trim();
+    if (!receiverId) {
+      if (String(req.user?.role || "").toLowerCase() === "admin") return next();
+      return res.status(400).json({ message: "receiverId is required for message attachments." });
+    }
+
+    const access = await getAttachmentUploadAccess(req.user._id, receiverId);
+    if (access.status) {
+      return res.status(access.status).json({ message: access.message, code: access.code });
+    }
+    req.messageAttachmentAccess = access;
+    return next();
+  } catch (error) {
+    return res.status(500).json({ message: error.message || "Could not authorize this attachment." });
+  }
+};
+
 /* ── Send a message ─────────────────────────────────────────── */
 export const sendMessage = async (req, res) => {
   try {
-    const { receiverId, text, fileUrl, fileType, fileName, fileSize, scriptId } = req.body;
+    const { receiverId, text, fileUrl, fileGrant, fileName, fileSize, scriptId } = req.body;
     if (!receiverId) return res.status(400).json({ message: "receiverId is required." });
     if (!text?.trim() && !fileUrl) return res.status(400).json({ message: "Message cannot be empty." });
 
@@ -98,7 +186,28 @@ export const sendMessage = async (req, res) => {
     const receiverObjectId = asObjectId(receiverId);
     if (!receiverObjectId) return res.status(400).json({ message: "receiverId is not a valid user id." });
 
-    const sender = await User.findById(req.user._id).select("_id role name blockedUsers subscription");
+    let verifiedFileUrl = "";
+    let verifiedFileType = "";
+    if (fileUrl) {
+      try {
+        const grant = verifyRemoteAssetGrant(fileGrant, {
+          url: fileUrl,
+          ownerId: req.user._id,
+          purpose: messageAttachmentPurpose(receiverObjectId),
+        });
+        verifiedFileUrl = grant.url;
+        verifiedFileType = MESSAGE_FILE_TYPES.has(grant.format)
+          ? grant.format
+          : "document";
+      } catch (error) {
+        if (error instanceof RemoteAssetPolicyError) {
+          return res.status(400).json({ message: error.message, code: error.code });
+        }
+        throw error;
+      }
+    }
+
+    const sender = await User.findById(req.user._id).select("_id role name email blockedUsers subscription");
     if (!sender) return res.status(404).json({ message: "Sender not found." });
 
     const receiver = await User.findById(receiverObjectId).select("_id role name email blockedUsers");
@@ -117,47 +226,35 @@ export const sendMessage = async (req, res) => {
     const existingMessageCount = await Message.countDocuments({ chatId });
 
     if (existingMessageCount === 0) {
-      const isInvestor = sender.role === "investor";
-      const isWriter = ["writer", "creator"].includes(sender.role);
-      const isAdmin = sender.role === "admin";
-      const isReceiverInvestor = receiver.role === "investor";
-      const isReceiverWriter = ["writer", "creator"].includes(receiver.role);
-      const isReceiverAdmin = receiver.role === "admin";
+      const pair = resolveDirectMessagePair(sender, receiver);
 
-      const isAdminWriterConversation =
-        (isAdmin && isReceiverWriter) ||
-        (isReceiverAdmin && isWriter);
-
-      if (isAdminWriterConversation) {
+      if (pair.adminWriter) {
         // Admin can initiate direct discussions with writers for workflow coordination.
       } else {
-        if (!((isInvestor && isReceiverWriter) || (isWriter && isReceiverInvestor))) {
-          return res.status(403).json({ message: "Conversations can only be started between writers and investors." });
+        if (!pair.marketplacePair) {
+          return res.status(403).json({ message: "Conversations can only be started between writers and film industry professionals." });
         }
 
-        const investorId = isInvestor ? sender._id : receiverObjectId;
-        const writerId = isWriter ? sender._id : receiverObjectId;
+        const industryId = pair.industryId;
+        const writerId = pair.writerId;
 
-        const hasPurchased = await Script.exists({ creator: writerId, unlockedBy: investorId });
+        const hasPurchased = await Script.exists({ creator: writerId, unlockedBy: industryId });
         if (!hasPurchased) {
-          if (isInvestor) {
+          if (pair.senderIsIndustry) {
             const subscription = sender.subscription || {};
-            const accessTier = String(subscription.accessTier || "").trim().toLowerCase();
-            const accessStatus = String(subscription.accessStatus || "").trim().toLowerCase();
-            
-            if (accessTier === "film_industry_professional" && accessStatus === "active") {
-              const messageWritersLimit = subscription.messageWritersLimit || 10;
-              const messagedWriters = subscription.messagedWriters || [];
-              const writerAlreadyMessaged = messagedWriters.some(c => c.writerId && c.writerId.toString() === writerId.toString());
+            if (hasAnyFipAccess(sender)) {
+              const messageWritersLimit = getMessageWritersLimit(sender);
+              const writerAlreadyMessaged = hasMessagedWriter(sender, writerId);
               
               if (!writerAlreadyMessaged) {
-                if (messagedWriters.length >= messageWritersLimit) {
+                if (hasReachedMessageWritersLimit(sender)) {
                   return res.status(403).json({
                     message: `You have reached your limit of ${messageWritersLimit} direct messages.`,
                     code: "QUOTA_EXCEEDED",
                   });
                 } else {
                   // Consume a quota slot
+                  if (!Array.isArray(subscription.messagedWriters)) subscription.messagedWriters = [];
                   sender.subscription.messagedWriters.push({
                     writerId: writerId,
                     messagedAt: new Date()
@@ -173,7 +270,7 @@ export const sendMessage = async (req, res) => {
             }
           } else {
             return res.status(403).json({
-              message: "You cannot initiate a conversation until an investor purchases your script or messages you first.",
+              message: "You cannot initiate a conversation until an industry professional purchases your script or messages you first.",
               code: "PURCHASE_REQUIRED",
             });
           }
@@ -187,10 +284,15 @@ export const sendMessage = async (req, res) => {
       receiver: receiverObjectId,
       text: text?.trim() || "",
     };
-    if (fileUrl) messageData.fileUrl = fileUrl;
-    if (fileType) messageData.fileType = fileType;
-    if (fileName) messageData.fileName = fileName;
-    if (fileSize) messageData.fileSize = Number(fileSize) || undefined;
+    if (verifiedFileUrl) messageData.fileUrl = verifiedFileUrl;
+    if (verifiedFileType) messageData.fileType = verifiedFileType;
+    if (fileName) messageData.fileName = String(fileName).trim().slice(0, 255);
+    if (fileSize) {
+      const normalizedFileSize = Number(fileSize);
+      if (Number.isFinite(normalizedFileSize) && normalizedFileSize > 0 && normalizedFileSize <= MESSAGE_ATTACHMENT_MAX_BYTES) {
+        messageData.fileSize = normalizedFileSize;
+      }
+    }
     if (scriptId) messageData.script = scriptId;
 
     const message = await Message.create(messageData);
@@ -218,7 +320,8 @@ export const sendMessage = async (req, res) => {
       });
     }
 
-    if (existingMessageCount === 0 && sender.role === "investor" && ["writer", "creator"].includes(receiver.role)) {
+    const newPair = resolveDirectMessagePair(sender, receiver);
+    if (existingMessageCount === 0 && newPair.senderIsIndustry && newPair.receiverIsWriter) {
       sendNewMessageEmail(receiver.email, receiver.name, sender.name, {
         clientBaseUrl: resolveClientOriginFromRequest(req),
       }).catch((err) => {
@@ -230,6 +333,10 @@ export const sendMessage = async (req, res) => {
       { path: "sender", select: "name profileImage role" },
       { path: "script", select: "title" },
     ]);
+    // Broadcast only the document that Mongo accepted. The previous socket
+    // relay trusted a participant-supplied payload, which let either side put
+    // messages in the live thread that did not exist in the database.
+    req.app?.get?.("io")?.to(chatId).emit("receive-message", populated);
     res.status(201).json(populated);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -242,6 +349,8 @@ export const uploadAttachment = async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ message: "No file uploaded." });
     }
+
+    const access = req.messageAttachmentAccess || null;
 
     const ext = path.extname(req.file.originalname || "") || ".bin";
     const baseName = path
@@ -259,13 +368,25 @@ export const uploadAttachment = async (req, res) => {
       mimeType: req.file.mimetype,
     });
 
-    return res.status(201).json({
+    const fileType = detectFileType(req.file.mimetype);
+    const response = {
       fileUrl: uploadResult.secure_url,
-      fileType: detectFileType(req.file.mimetype),
+      fileType,
       fileName: req.file.originalname,
       fileSize: req.file.size,
       mimeType: req.file.mimetype,
-    });
+    };
+    if (access) {
+      response.fileGrant = createRemoteAssetGrant({
+        url: uploadResult.secure_url,
+        ownerId: access.sender._id,
+        publicId: uploadResult.public_id,
+        purpose: messageAttachmentPurpose(access.receiver._id),
+        format: fileType,
+        expiresInSeconds: MESSAGE_ATTACHMENT_GRANT_TTL_SECONDS,
+      });
+    }
+    return res.status(201).json(response);
   } catch (error) {
     return res.status(500).json({ message: error.message || "Failed to upload file." });
   }
@@ -309,40 +430,47 @@ export const getConversations = async (req, res) => {
   try {
     const userId = req.user._id;
 
-    // Fast indexed BSON dump
-    // Fix massive performance bottleneck: Mongoose $or query with a sort causes slow in-memory sorts.
-    // Instead, query sender and receiver separately utilizing their explicit indexes, then merge.
-    const [sentMsgs, receivedMsgs] = await Promise.all([
-      Message.find({ sender: userId, deleted: { $ne: true } })
-        .sort({ createdAt: -1 })
-        .limit(50)
-        .populate("sender", "name profileImage role")
-        .populate("receiver", "name profileImage role")
-        .lean(),
-      Message.find({ receiver: userId, deleted: { $ne: true } })
-        .sort({ createdAt: -1 })
-        .limit(50)
-        .populate("sender", "name profileImage role")
-        .populate("receiver", "name profileImage role")
-        .lean()
+    // Group in Mongo before limiting. Limiting raw messages lets one busy thread
+    // crowd every older conversation out of the inbox and cannot produce honest
+    // per-thread unread counts. The participant indexes bound the match; the
+    // group returns only the newest message and unread total for each chat.
+    const threads = await Message.aggregate([
+      {
+        $match: {
+          $or: [{ sender: userId }, { receiver: userId }],
+          deleted: { $ne: true },
+        },
+      },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: "$chatId",
+          latest: { $first: "$$ROOT" },
+          unreadCount: {
+            $sum: {
+              $cond: [
+                { $and: [{ $eq: ["$receiver", userId] }, { $eq: ["$read", false] }] },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
+      { $sort: { "latest.createdAt": -1 } },
+      { $limit: 50 },
     ]);
 
-    // Merge, sort descending, and cap at 50
-    const msgs = [...sentMsgs, ...receivedMsgs]
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .slice(0, 50);
+    await Message.populate(threads, [
+      { path: "latest.sender", select: "name profileImage role" },
+      { path: "latest.receiver", select: "name profileImage role" },
+    ]);
 
-    const seen = new Set();
-    const conversations = [];
-
-    for (const msg of msgs) {
-      if (seen.has(msg.chatId)) continue;
-      seen.add(msg.chatId);
-
-      const otherUser =
-        msg.sender._id.toString() === userId.toString() ? msg.receiver : msg.sender;
-
-      conversations.push({
+    const conversations = threads.flatMap(({ latest: msg, unreadCount }) => {
+      if (!msg?.sender || !msg?.receiver) return [];
+      const senderId = msg.sender._id || msg.sender;
+      const otherUser = senderId.toString() === userId.toString() ? msg.receiver : msg.sender;
+      return [{
         chatId: msg.chatId,
         user: otherUser,
         lastMessage:
@@ -353,9 +481,9 @@ export const getConversations = async (req, res) => {
               ? "🎬 Trailer Video"
               : "📎 File"),
         timestamp: msg.createdAt,
-        unreadCount: 0, // Dropped dynamic mathematical calc. Offload to Redis in a production architecture!
-      });
-    }
+        unreadCount: Number(unreadCount) || 0,
+      }];
+    });
 
     res.json(conversations);
   } catch (error) {
@@ -368,11 +496,13 @@ export const checkCanMessage = async (req, res) => {
   try {
     const user = req.user;
     const { targetId } = req.params;
+    const targetObjectId = asObjectId(targetId);
+    if (!targetObjectId) return res.status(400).json({ message: "targetId is not a valid user id." });
 
     const currentUser = await User.findById(user._id).select("_id role blockedUsers");
     if (!currentUser) return res.status(404).json({ message: "User not found." });
 
-    const targetUser = await User.findById(targetId).select("_id role blockedUsers");
+    const targetUser = await User.findById(targetObjectId).select("_id role blockedUsers");
     if (!targetUser) return res.status(404).json({ message: "User not found." });
 
     const blockedByCurrent = hasBlockedUser(currentUser.blockedUsers, targetUser._id);
@@ -446,10 +576,21 @@ export const toggleReaction = async (req, res) => {
     const { messageId } = req.params;
     const { emoji } = req.body;
 
-    if (!emoji) return res.status(400).json({ message: "Emoji is required." });
+    if (!MESSAGE_REACTIONS.has(String(emoji || ""))) {
+      return res.status(400).json({ message: "Unsupported reaction." });
+    }
 
-    const message = await Message.findById(messageId);
+    const messageObjectId = asObjectId(messageId);
+    if (!messageObjectId) return res.status(400).json({ message: "messageId is not a valid message id." });
+
+    const message = await Message.findById(messageObjectId);
     if (!message) return res.status(404).json({ message: "Message not found." });
+    if (message.deleted) return res.status(404).json({ message: "Message not found." });
+
+    const participantIds = [message.sender, message.receiver].map((id) => id?.toString());
+    if (!participantIds.includes(userId.toString())) {
+      return res.status(403).json({ message: "Access denied." });
+    }
 
     const existingIdx = message.reactions.findIndex(
       (r) => r.userId.toString() === userId.toString() && r.emoji === emoji
@@ -462,6 +603,11 @@ export const toggleReaction = async (req, res) => {
     }
 
     await message.save();
+    req.app?.get?.("io")?.to(message.chatId).emit("message-reaction", {
+      chatId: message.chatId,
+      messageId: message._id,
+      reactions: message.reactions,
+    });
     res.json(message.reactions);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -474,8 +620,12 @@ export const deleteMessage = async (req, res) => {
     const userId = req.user._id;
     const { messageId } = req.params;
 
-    const message = await Message.findById(messageId);
+    const messageObjectId = asObjectId(messageId);
+    if (!messageObjectId) return res.status(400).json({ message: "messageId is not a valid message id." });
+
+    const message = await Message.findById(messageObjectId);
     if (!message) return res.status(404).json({ message: "Message not found." });
+    if (message.deleted) return res.status(404).json({ message: "Message not found." });
 
     if (message.sender.toString() !== userId.toString()) {
       return res.status(403).json({ message: "You can only delete your own messages." });
@@ -483,9 +633,16 @@ export const deleteMessage = async (req, res) => {
 
     message.deleted = true;
     message.text = "";
+    message.fileUrl = undefined;
+    message.fileType = undefined;
+    message.fileName = undefined;
+    message.fileSize = undefined;
+    message.reactions = [];
     await message.save();
 
-    res.json({ success: true });
+    const deletion = { success: true, chatId: message.chatId, messageId: message._id };
+    req.app?.get?.("io")?.to(message.chatId).emit("message-deleted", deletion);
+    res.json(deletion);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

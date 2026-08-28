@@ -96,6 +96,7 @@ export default function AdminCompetitionsEditor() {
       // Mock new competition payload
       setCompetition({
         name: "",
+        entryFee: { mode: "paid", inrMinor: 9800, usdMinor: 200 },
         dates: { regOpensAt: "", regClosesAt: "", startsAt: "", endsAt: "" },
         prizes: { winner: [], runnerUp: [], special: [] },
         detailedPrizes: [],

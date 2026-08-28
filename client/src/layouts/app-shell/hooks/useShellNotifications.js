@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import api from "../../../services/api";
+import { decideIncomingFollowRequest } from "../../../pages/profile/authenticatedProfile";
 import { getApiOrigin, isSocketSupported } from "../../../utils/apiOrigin";
 import { getNotificationTarget } from "./notificationTargets";
 
@@ -24,6 +25,16 @@ const POLL_INTERVAL_MS = 30000;
 const REFRESH_DEBOUNCE_MS = 350;
 /* One toast at a time — a stack of them buries the page. */
 const TOAST_LIMIT = 1;
+
+export const loadSeenToastIds = (userId, storage = globalThis.localStorage) => {
+  if (!userId || !storage) return new Set();
+  try {
+    const saved = JSON.parse(storage.getItem(`ck_seen_toasts_${userId}`) || "[]");
+    return new Set(Array.isArray(saved) ? saved : []);
+  } catch {
+    return new Set();
+  }
+};
 
 /**
  * @param {Object} options
@@ -47,15 +58,8 @@ export function useShellNotifications({ user, navigate }) {
    */
   const seenToastIds = useRef(null);
   const refreshTimer = useRef(null);
-  
+
   const [renderedUserId, setRenderedUserId] = useState(userId);
-  if (renderedUserId !== userId || !seenToastIds.current) {
-    let saved = [];
-    try {
-      if (userId) saved = JSON.parse(localStorage.getItem(`ck_seen_toasts_${userId}`) || "[]");
-    } catch { /* ignore parse errors */ }
-    seenToastIds.current = new Set(saved);
-  }
 
   // ── Reads ─────────────────────────────────────────────────────────────────
   const fetchNotifications = useCallback(async () => {
@@ -67,7 +71,7 @@ export function useShellNotifications({ user, navigate }) {
       const unread = list.filter((n) => !n.read);
       setUnreadCount(unread.length);
 
-      const fresh = unread.filter((n) => n._id && !seenToastIds.current.has(n._id));
+      const fresh = unread.filter((n) => n._id && !seenToastIds.current?.has(n._id));
       if (fresh.length) {
         setToasts((prev) => {
           const existing = new Set(prev.map((t) => t._id));
@@ -108,7 +112,7 @@ export function useShellNotifications({ user, navigate }) {
      * render) so the ref mutation stays outside render; this runs before the
      * deferred first fetch below, so nothing is wrongly suppressed.
      */
-    seenToastIds.current = new Set();
+    seenToastIds.current = loadSeenToastIds(userId);
 
     /*
      * Defer the first fetch past paint. Firing it synchronously on mount makes
@@ -175,6 +179,7 @@ export function useShellNotifications({ user, navigate }) {
   // ── Toasts ────────────────────────────────────────────────────────────────
   const dismissToast = useCallback((id) => {
     if (id) {
+      if (!seenToastIds.current) seenToastIds.current = new Set();
       seenToastIds.current.add(id);
       try {
         localStorage.setItem(`ck_seen_toasts_${userId}`, JSON.stringify(Array.from(seenToastIds.current)));
@@ -185,6 +190,7 @@ export function useShellNotifications({ user, navigate }) {
 
   const dismissAllToasts = useCallback(() => {
     setToasts((prev) => {
+      if (!seenToastIds.current) seenToastIds.current = new Set();
       prev.forEach((t) => t?._id && seenToastIds.current.add(t._id));
       try {
         localStorage.setItem(`ck_seen_toasts_${userId}`, JSON.stringify(Array.from(seenToastIds.current)));
@@ -243,7 +249,9 @@ export function useShellNotifications({ user, navigate }) {
     if (!id) return;
     try {
       await api.put(`/notifications/${id}/read`);
-    } catch {}
+    } catch {
+      // Marking read is best-effort; keep the local bell usable offline.
+    }
     setNotifications((prev) => {
       const target = prev.find((n) => n._id === id);
       if (target && !target.read) setUnreadCount((c) => Math.max(0, c - 1));
@@ -257,17 +265,19 @@ export function useShellNotifications({ user, navigate }) {
     if (!fromUserId) return;
 
     try {
-      await api.post(
-        decision === "accept"
-          ? "/users/follow-requests/accept"
-          : "/users/follow-requests/reject",
-        { fromUserId },
-      );
-      await deleteNotification(notification._id);
+      const result = await decideIncomingFollowRequest({ fromUserId, decision });
+      if (!result.ok) return result;
+      setNotifications((prev) => {
+        const removed = prev.find((item) => item._id === notification._id);
+        if (removed && !removed.read) setUnreadCount((count) => Math.max(0, count - 1));
+        return prev.filter((item) => item._id !== notification._id);
+      });
+      dismissToast(notification._id);
+      return result;
     } catch {
       /* ignore — the request stays actionable */
     }
-  }, [deleteNotification]);
+  }, [dismissToast]);
 
   /*
    * Opening the bell is also an acknowledgement, so it marks everything read and

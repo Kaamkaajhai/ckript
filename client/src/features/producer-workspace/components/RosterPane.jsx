@@ -7,9 +7,8 @@
  * fetch, so there is nothing here that can drift out of step with a profile,
  * and nothing here that the profile gate is protecting.
  *
- * (The endpoint currently over-ships a good deal more than that — see the note
- * at the top of WriterRosterPage.jsx. Binding only the listed fields is why
- * that leak does not reach the screen, but it is not a fix for it.)
+ * D53A also made the endpoint itself a positive allowlist, so this presentation
+ * rule is backed by the response boundary rather than merely containing it.
  *
  * It holds the page's single primary action. One "Open full profile" for the
  * whole register rather than one button per row is what lets the row be 44px.

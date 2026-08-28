@@ -460,17 +460,14 @@
   margin: 0;
 }
 
-.ckm .ckm-project__feedback-form,
-.ckm .ckm-project__meeting-form,
-.ckm .ckm-project__meeting-connect {
+.ckm .ckm-project__feedback-form {
   display: grid;
   gap: var(--ckm-space-3);
 }
 
 /* The form container takes initial focus, so it must not draw a ring of its
    own — the first control inside it is where the visible focus belongs. */
-.ckm .ckm-project__feedback-form:focus,
-.ckm .ckm-project__meeting-form:focus {
+.ckm .ckm-project__feedback-form:focus {
   outline: none;
 }
 

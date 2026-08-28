@@ -19,6 +19,7 @@ import { notifyAdminWorkflowEvent } from "../utils/adminWorkflowAlerts.js";
 import { getProfileCompletion } from "../utils/profileCompletion.js";
 import { getAdminBranchAccessStatus } from "../utils/adminBranchAccess.js";
 import { hasBusinessEmail, isFilmIndustryProfessionalRole } from "../utils/industryAccess.js";
+import { canRevokeRemoteSession } from "../utils/accountSecurity.js";
 
 const DEFAULT_LANGUAGE = "en";
 const DEFAULT_TIMEZONE = "Asia/Kolkata";
@@ -1877,6 +1878,9 @@ export const getSessions = async (req, res) => {
 export const removeSession = async (req, res) => {
   try {
     const { sessionId } = req.params;
+    if (!canRevokeRemoteSession(sessionId, req.sessionId)) {
+      return res.status(400).json({ message: "Use logout to end the current session" });
+    }
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: "User not found" });
 

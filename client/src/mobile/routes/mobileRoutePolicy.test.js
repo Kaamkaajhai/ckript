@@ -4,6 +4,9 @@ import { resolveMobileExperience } from "./mobileRoutePolicy";
 const writer = { id: "writer-1", role: "writer" };
 const creator = { id: "creator-1", role: "creator" };
 const producer = { id: "producer-1", role: "producer" };
+const reader = { id: "reader-1", role: "reader" };
+const industryProfessionals = ["investor", "producer", "director", "industry", "professional"]
+  .map((role) => ({ id: `${role}-1`, role }));
 
 describe("mobileRoutePolicy — experience selection", () => {
   it.each([writer, creator])("mounts the mobile dashboard for $role on a phone", (user) => {
@@ -18,21 +21,6 @@ describe("mobileRoutePolicy — experience selection", () => {
       screenId: "dashboard",
     });
   });
-
-  it.each(["/messages", "/profile/writer-1"])(
-    "keeps the canonical desktop route during migration instead of swallowing %s",
-    (pathname) => {
-      expect(resolveMobileExperience({
-        isMobile: true,
-        authLoading: false,
-        user: writer,
-        pathname,
-      })).toMatchObject({
-        experience: "desktop",
-        disposition: "desktop-migration-fallback",
-      });
-    },
-  );
 
   /*
    * The checkout was one of those migration fallbacks until D30 promoted it. It is asserted
@@ -53,7 +41,7 @@ describe("mobileRoutePolicy — experience selection", () => {
     });
   });
 
-  it.each([writer, creator, producer])("mounts native search for authenticated $role users", (user) => {
+  it.each([writer, creator, ...industryProfessionals])("mounts native search for authenticated $role users", (user) => {
     expect(resolveMobileExperience({
       isMobile: true,
       authLoading: false,
@@ -76,7 +64,7 @@ describe("mobileRoutePolicy — experience selection", () => {
     })).toMatchObject({ experience: "desktop", reason: "authentication-required" });
   });
 
-  it.each([writer, creator, producer])("mounts native top scripts for authenticated $role users", (user) => {
+  it.each([writer, creator, producer, reader])("mounts native top scripts for authenticated $role users", (user) => {
     expect(resolveMobileExperience({
       isMobile: true,
       authLoading: false,
@@ -99,7 +87,7 @@ describe("mobileRoutePolicy — experience selection", () => {
     })).toMatchObject({ experience: "desktop", reason: "authentication-required" });
   });
 
-  it.each([writer, creator, producer])("mounts native featured for authenticated $role users", (user) => {
+  it.each([writer, creator, reader, ...industryProfessionals])("mounts native featured for authenticated $role users", (user) => {
     expect(resolveMobileExperience({
       isMobile: true,
       authLoading: false,
@@ -122,28 +110,108 @@ describe("mobileRoutePolicy — experience selection", () => {
     })).toMatchObject({ experience: "desktop", reason: "authentication-required" });
   });
 
-  it("does not hand the writer dashboard to an industry audience", () => {
+  it("mounts the role-specific native dashboard for an industry audience", () => {
     expect(resolveMobileExperience({
       isMobile: true,
       authLoading: false,
       user: producer,
       pathname: "/dashboard",
     })).toMatchObject({
-      experience: "desktop",
-      reason: "audience-not-implemented",
+      experience: "mobile",
+      routeId: "writer-dashboard",
+      screenId: "dashboard",
     });
   });
 
-  it("keeps public and signed-out routes on their existing branch until implemented", () => {
+  it("mounts the native writer roster for industry audiences only", () => {
     expect(resolveMobileExperience({
       isMobile: true,
       authLoading: false,
-      user: null,
-      pathname: "/",
-    })).toMatchObject({
-      experience: "desktop",
-      disposition: "desktop-migration-fallback",
-    });
+      user: producer,
+      pathname: "/writers",
+    })).toMatchObject({ experience: "mobile", routeId: "writers", screenId: "writers" });
+
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: writer,
+      pathname: "/writers",
+    })).toMatchObject({ experience: "desktop", reason: "audience-not-implemented" });
+  });
+
+  it("mounts mandates only for exact film-professional roles", () => {
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: producer, pathname: "/mandates",
+    })).toMatchObject({ experience: "mobile", routeId: "mandates", screenId: "mandates" });
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: { id: "actor-1", role: "actor" }, pathname: "/mandates",
+    })).toMatchObject({ experience: "desktop", reason: "role-not-implemented" });
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: writer, pathname: "/mandates",
+    })).toMatchObject({ experience: "desktop", reason: "audience-not-implemented" });
+  });
+
+  it("mounts native industry home only for the industry audience", () => {
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: producer, pathname: "/home",
+    })).toMatchObject({ experience: "mobile", routeId: "industry-home", screenId: "industry-home" });
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: writer, pathname: "/home",
+    })).toMatchObject({ experience: "desktop", reason: "audience-not-implemented" });
+  });
+
+  it("mounts reader home and discover only for the exact reader role", () => {
+    expect(resolveMobileExperience({ isMobile: true, authLoading: false, user: reader, pathname: "/reader" }))
+      .toMatchObject({ experience: "mobile", routeId: "reader-home", screenId: "reader-home" });
+    expect(resolveMobileExperience({ isMobile: true, authLoading: false, user: reader, pathname: "/reader/search", search: "?q=night" }))
+      .toMatchObject({ experience: "mobile", routeId: "reader-search", screenId: "reader-discover" });
+    for (const user of [writer, producer, { id: "unknown-1", role: "unknown" }]) {
+      expect(resolveMobileExperience({ isMobile: true, authLoading: false, user, pathname: "/reader" }))
+        .toMatchObject({ experience: "desktop" });
+    }
+    expect(resolveMobileExperience({ isMobile: true, authLoading: false, user: reader, pathname: "/dashboard" }))
+      .toMatchObject({ experience: "desktop", reason: "audience-not-implemented" });
+  });
+
+  it("mounts the canonical native landing for signed-out visitors and authenticated members", () => {
+    for (const user of [null, writer, producer, reader]) {
+      expect(resolveMobileExperience({
+        isMobile: true,
+        authLoading: false,
+        user,
+        pathname: "/",
+      })).toMatchObject({
+        experience: "mobile",
+        routeId: "landing",
+        screenId: "landing",
+        disposition: "shared-public-screen",
+      });
+    }
+  });
+
+  it.each([
+    "/features",
+    "/features/ai-script-analysis",
+    "/for/producers",
+    "/industries/films",
+    "/resources/blog/ai-script-analysis-for-screenwriters",
+    "/tools/screenplay-analyzer",
+    "/faq",
+    "/genre/thriller",
+    "/how-to-sell-a-script",
+  ])("mounts the shared native SEO content screen at %s for every viewer", (pathname) => {
+    for (const user of [null, writer, producer, reader]) {
+      expect(resolveMobileExperience({
+        isMobile: true,
+        authLoading: false,
+        user,
+        pathname,
+      })).toMatchObject({
+        experience: "mobile",
+        screenId: "seo-content",
+        disposition: "shared-public-screen",
+      });
+    }
   });
 
   it("does not switch experience while authentication is restoring", () => {
@@ -360,6 +428,203 @@ describe("mobileRoutePolicy — experience selection", () => {
     });
   });
 
+  it("mounts the native challenge hub for public and authenticated phone viewers", () => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: null,
+      pathname: "/challenge",
+      search: "?tab=hall-of-fame",
+    })).toMatchObject({
+      experience: "mobile",
+      routeId: "challenge-hub",
+      screenId: "challenge-hub-public",
+    });
+
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: writer,
+      pathname: "/challenge",
+      search: "?tab=mine",
+    })).toMatchObject({
+      experience: "mobile",
+      routeId: "challenge-hub",
+      screenId: "challenge-hub",
+    });
+  });
+
+  it("mounts canonical challenge detail for public and authenticated phone viewers", () => {
+    for (const user of [null, writer, { id: "p1", role: "producer" }]) {
+      expect(resolveMobileExperience({
+        isMobile: true,
+        authLoading: false,
+        user,
+        pathname: "/challenge/c/forty-eight-hours",
+      })).toMatchObject({
+        experience: "mobile",
+        routeId: "challenge-detail",
+        screenId: "challenge-detail",
+      });
+    }
+  });
+
+  it("mounts native challenge registration for every authenticated role and keeps signed-out visitors behind auth", () => {
+    for (const user of [writer, { id: "p1", role: "producer" }]) {
+      expect(resolveMobileExperience({
+        isMobile: true,
+        authLoading: false,
+        user,
+        pathname: "/challenge/register",
+        search: "?c=forty-eight-hours",
+      })).toMatchObject({
+        experience: "mobile",
+        routeId: "challenge-register",
+        screenId: "challenge-register",
+      });
+    }
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: null,
+      pathname: "/challenge/register",
+      search: "?c=forty-eight-hours",
+    })).toMatchObject({ experience: "desktop", reason: "authentication-required" });
+  });
+
+  it("mounts the public project screen without an account (D31)", () => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: null,
+      pathname: "/share/project/project-1",
+    })).toMatchObject({
+      experience: "mobile",
+      routeId: "shared-project",
+      screenId: "public-project",
+      disposition: "shared-public-screen",
+    });
+  });
+
+  it("selects the public, authenticated visitor, or own profile variant (D34-D37)", () => {
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: null, pathname: "/share/profile/mira",
+    })).toMatchObject({ experience: "mobile", routeId: "shared-profile", screenId: "public-profile" });
+
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: writer, pathname: "/share/profile/mira",
+    })).toMatchObject({ experience: "mobile", routeId: "shared-profile", screenId: "profile-visitor" });
+
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: writer, pathname: "/share/profile/writer-1",
+    })).toMatchObject({ experience: "mobile", routeId: "shared-profile", screenId: "profile-owner" });
+  });
+
+  it("mounts visitor and own id/canonical profile forms", () => {
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: writer, pathname: "/profile/other-writer",
+    })).toMatchObject({ experience: "mobile", routeId: "profile", screenId: "profile-visitor" });
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: writer, pathname: "/mira",
+    })).toMatchObject({ experience: "mobile", routeId: "profile-or-referral-catchall", screenId: "profile-visitor" });
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: writer, pathname: "/profile",
+    })).toMatchObject({ experience: "mobile", routeId: "profile", screenId: "profile-owner" });
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: { ...writer, writerProfile: { username: "mira_writer" } },
+      pathname: "/mira_writer",
+    })).toMatchObject({ experience: "mobile", routeId: "profile-or-referral-catchall", screenId: "profile-owner" });
+  });
+
+  it("mounts account-security settings through the native owner route", () => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: writer,
+      pathname: "/profile",
+      search: "?tab=settings",
+    })).toMatchObject({ experience: "mobile", routeId: "profile", screenId: "profile-owner" });
+  });
+
+  it("mounts incoming follow requests through the native network route", () => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: writer,
+      pathname: "/follow-requests",
+    })).toMatchObject({ experience: "mobile", routeId: "follow-requests", screenId: "follow-requests" });
+  });
+
+  it.each([writer, creator])("mounts collaboration requests through the native $role queue", (user) => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user,
+      pathname: "/collaborations",
+    })).toMatchObject({ experience: "mobile", routeId: "collaborations", screenId: "collaborations" });
+  });
+
+  it("does not expose the writer collaboration queue as a native producer screen", () => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: producer,
+      pathname: "/collaborations",
+    })).toMatchObject({ experience: "desktop", reason: "audience-not-implemented" });
+  });
+
+  it.each([writer, reader, ...industryProfessionals])("mounts the canonical messages route through the native $role inbox", (user) => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user,
+      pathname: "/messages",
+    })).toMatchObject({ experience: "mobile", routeId: "messages", screenId: "messages" });
+  });
+
+  it.each(industryProfessionals)("keeps the native owner profile and saved query for $role", (user) => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user,
+      pathname: "/profile",
+      search: "?tab=bookmarks",
+    })).toMatchObject({ experience: "mobile", routeId: "profile", screenId: "profile-owner" });
+  });
+
+  it("mounts the shared native project surface for a reader without rewriting its route (D32)", () => {
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: { id: "reader-1", role: "reader" },
+      pathname: "/reader/script/project-1",
+    })).toMatchObject({
+      experience: "mobile",
+      routeId: "reader-script",
+      screenId: "reader-project",
+    });
+  });
+
+  it("promotes both own and visitor reader-profile deep links only for the reader audience (D42)", () => {
+    const reader = { id: "reader-1", role: "reader" };
+    for (const pathname of ["/reader/profile", "/reader/profile/reader-2"]) {
+      expect(resolveMobileExperience({
+        isMobile: true,
+        authLoading: false,
+        user: reader,
+        pathname,
+      })).toMatchObject({ experience: "mobile", routeId: "reader-profile", screenId: "reader-profile" });
+    }
+    expect(resolveMobileExperience({
+      isMobile: true,
+      authLoading: false,
+      user: writer,
+      pathname: "/reader/profile/reader-2",
+    })).toMatchObject({ experience: "desktop", reason: "audience-not-implemented" });
+  });
+
   it("leaves the preview route to its deterministic App.jsx fixture", () => {
     expect(resolveMobileExperience({
       isMobile: true,
@@ -376,5 +641,90 @@ describe("mobileRoutePolicy — experience selection", () => {
       pathname: "/__mobile-preview",
       isDev: false,
     })).toMatchObject({ experience: "desktop", reason: "dev-only" });
+  });
+});
+
+/*
+ * Account entry (D59). These are the first entries whose disposition deliberately
+ * differs by platform, so the cases below pin BOTH halves of that: a phone gets a
+ * native screen, and everything else continues through the desktop route tree
+ * exactly as before.
+ */
+describe("mobileRoutePolicy — account entry (D59)", () => {
+  const AUTH_ROUTES = [
+    ["/login", "sign-in", "sign-in", "public"],
+    ["/join", "role-chooser", "role-chooser", "public"],
+    ["/signup", "sign-up", "sign-up", "flow"],
+    ["/forgot-password", "forgot-password", "forgot-password", "public"],
+    ["/invite/tok-123", "accept-invite", "accept-invite", "public"],
+  ];
+
+  it.each(AUTH_ROUTES)("mounts a native screen at %s for a signed-out visitor", (pathname, routeId, screenId, shell) => {
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: null, pathname,
+    })).toMatchObject({ experience: "mobile", routeId, screenId, shell, protection: "public" });
+  });
+
+  /*
+   * The one that would have broken the product: /signup creates the real account
+   * at step 3, and the writer then fills in five more steps while signed in. A
+   * `signedOutOnly` entry would have bounced them out at the exact moment the
+   * flow succeeded, so the screen — which can tell "just signed up" from "typed
+   * the URL" — owns that decision instead of the policy.
+   */
+  it.each(AUTH_ROUTES)("keeps %s mounted for a signed-in viewer rather than bouncing them", (pathname, routeId, screenId) => {
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: creator, pathname,
+    })).toMatchObject({ experience: "mobile", routeId, screenId });
+  });
+
+  it.each(AUTH_ROUTES)("leaves %s to the desktop tree on a wide viewport", (pathname, routeId) => {
+    expect(resolveMobileExperience({
+      isMobile: false, authLoading: false, user: null, pathname,
+    })).toMatchObject({ experience: "desktop", routeId, reason: "viewport" });
+  });
+
+  it.each(AUTH_ROUTES)("does not decide %s while the session is still restoring", (pathname) => {
+    // Deciding here would flash a sign-in screen at someone who is signed in.
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: true, user: null, pathname,
+    })).toMatchObject({ experience: "desktop", reason: "auth-loading" });
+  });
+
+  it("gives every audience the same account-entry screens", () => {
+    // Auth precedes audience: there is no writer sign-in and no producer one.
+    for (const user of [writer, creator, producer, reader, ...industryProfessionals]) {
+      expect(resolveMobileExperience({
+        isMobile: true, authLoading: false, user, pathname: "/login",
+      })).toMatchObject({ experience: "mobile", screenId: "sign-in" });
+    }
+  });
+
+  it.each([
+    ["/writer-onboarding", "writer-onboarding", "signup-writer"],
+    ["/producer-director-onboarding", "producer-onboarding", "signup-producer"],
+    ["/industry-onboarding", "industry-onboarding", "signup-industry"],
+  ])("resolves the %s deep link into the one native stepper", (pathname, routeId, screenId) => {
+    expect(resolveMobileExperience({
+      isMobile: true, authLoading: false, user: null, pathname,
+    })).toMatchObject({ experience: "mobile", routeId, screenId });
+  });
+
+  it("reports the shell mode so RootExperience can skip the boot skeleton", () => {
+    // A visitor tapping "Sign in" must not watch 650ms of someone else's
+    // dashboard loading first.
+    const decision = resolveMobileExperience({
+      isMobile: true, authLoading: false, user: null, pathname: "/login",
+    });
+    expect(decision.protection).toBe("public");
+    expect(decision.shell).toBe("public");
+  });
+
+  it("reports no shell or protection on a decision that mounts nothing", () => {
+    const decision = resolveMobileExperience({
+      isMobile: false, authLoading: false, user: null, pathname: "/login",
+    });
+    expect(decision.shell).toBeNull();
+    expect(decision.screenId).toBeNull();
   });
 });

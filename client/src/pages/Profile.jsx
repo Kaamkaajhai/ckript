@@ -1,8 +1,7 @@
-import { useEffect, useState, useContext, useRef, useCallback } from "react";
+import { useDeferredValue, useEffect, useState, useContext, useRef, useCallback } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { motion as Motion } from "framer-motion";
 import api from "../services/api";
-import { sendPitch } from "../services/scriptPitchService";
 import { AuthContext } from "../context/AuthContext";
 import { useAuthModal } from "../context/AuthModalContext";
 import { useDarkMode } from "../context/DarkModeContext";
@@ -32,6 +31,7 @@ import WriterModelBadge from "../components/WriterModelBadge";
 import {
   ProfilePcPage,
   ProfilePcSkeleton,
+  ProfileWorkspaceActivity,
   ProfileWorkspaceBookmarks,
   ProfileWorkspaceMeetings,
   ProfileWorkspaceCredentials,
@@ -42,6 +42,34 @@ import {
   isSameProfile,
   isWriterProfileRole,
 } from "../features/profile-pc";
+import {
+  getAuthenticatedProfile,
+  getPitchableScripts,
+  revealProfileContact,
+  sendProfilePitch,
+  sendProfileMessage,
+  toggleProfileBlock,
+  updateProfileFollow,
+} from "./profile/authenticatedProfile";
+import {
+  changeAccountEmail,
+  changeAccountPassword,
+  deleteOwnAccount,
+  loadAccountSessions,
+  revokeAccountSession,
+  revokeOtherAccountSessions,
+  sendAccountEmailVerification,
+  unblockAccountUser,
+  updateAccountSettings,
+  verifyAccountEmail,
+} from "./profile/accountSecurity";
+import {
+  PROFILE_COLLECTION_STATUS,
+  readProfileCollectionLocation,
+  removeSavedProjectFromViewer,
+  writeProfileCollectionLocation,
+} from "./profile/profileCollections";
+import { useProfileCollections } from "./profile/useProfileCollections";
 
 /* â”€â”€ Helper components â”€â”€ */
 
@@ -79,6 +107,26 @@ const SectionCard = ({ title, icon, badge, dark, noBox, children }) => (
     {children}
   </div>
 );
+
+const resolveProfileTab = ({ search = "", profile, viewer, scripts = [], purchasedScripts = [] } = {}) => {
+  const requested = new URLSearchParams(search).get("tab");
+  if (!profile) return requested || "projects";
+  const role = String(profile.role || "").toLowerCase();
+  const writer = ["writer", "creator"].includes(role);
+  const own = isSameProfile(viewer, profile);
+  const allowed = new Set([
+    "about",
+    "activity",
+    ...(role !== "investor" ? ["projects"] : []),
+    ...(writer ? ["credentials"] : []),
+    ...(writer && Array.isArray(profile.badges) && profile.badges.length ? ["achievements"] : []),
+    ...(own ? ["bookmarks", "meetings", "settings"] : []),
+    ...(own && purchasedScripts.length ? ["purchases"] : []),
+    ...(own && profile.featureFlags?.financialAnalytics ? ["performance"] : []),
+  ]);
+  if (allowed.has(requested)) return requested;
+  return role === "investor" || writer ? "about" : scripts.length ? "projects" : "about";
+};
 
 const InfoRow = ({ label, value, dark }) => (
   <div className="flex items-start justify-between gap-3 max-[640px]:flex-col max-[640px]:items-start">
@@ -220,13 +268,14 @@ const Profile = () => {
   const [deletedScripts, setDeletedScripts] = useState([]);
   const [purchasedScripts, setPurchasedScripts] = useState([]);
   const [bookmarkedScripts, setBookmarkedScripts] = useState([]);
+  const [savedQuery, setSavedQuery] = useState("");
+  const [savedSort, setSavedSort] = useState("recent");
   const [loading, setLoading] = useState(true);
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowsMe, setIsFollowsMe] = useState(false);
   const [followLoading, setFollowLoading] = useState(false);
   const [followRequestPending, setFollowRequestPending] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [activeTab, setActiveTab] = useState("projects");
   const [showMessageRequestModal, setShowMessageRequestModal] = useState(false);
   const [messageRequestText, setMessageRequestText] = useState("");
   const [sendingRequest, setSendingRequest] = useState(false);
@@ -271,13 +320,33 @@ const Profile = () => {
   const [meetings, setMeetings] = useState([]);
   const [meetingsLoading, setMeetingsLoading] = useState(false);
   const [profileAccessMessage, setProfileAccessMessage] = useState("");
+  const [profileAccessId, setProfileAccessId] = useState("");
   const [profileRequiresBusinessEmail, setProfileRequiresBusinessEmail] = useState(false);
   const profileRequestRef = useRef(null);
   if (!profileRequestRef.current) {
     profileRequestRef.current = createLatestProfileRequestCoordinator();
   }
+  const profileSearchRef = useRef(location.search);
+  profileSearchRef.current = location.search;
   const bookmarkRefreshTimerRef = useRef(null);
-  const tabInitializedForProfileRef = useRef(null);
+  const ownLoadedProfile = isSameProfile(currentUser, profile);
+  const activeTab = resolveProfileTab({ search: location.search, profile, viewer: currentUser, scripts, purchasedScripts });
+  const collectionLocation = readProfileCollectionLocation(location.search, { own: ownLoadedProfile });
+  const urlTab = new URLSearchParams(location.search).get("tab");
+  const collectionSection = activeTab === "bookmarks" ? "bookmarks" : "activity";
+  const collectionPage = urlTab === activeTab && ["activity", "bookmarks"].includes(activeTab)
+    ? collectionLocation.page
+    : 1;
+  const deferredSavedQuery = useDeferredValue(savedQuery);
+  const profileCollections = useProfileCollections({
+    profileId: profile?._id,
+    section: collectionSection,
+    page: collectionPage,
+    query: collectionSection === "bookmarks" ? deferredSavedQuery : "",
+    sort: collectionSection === "bookmarks" ? savedSort : "recent",
+    enabled: Boolean(profile?._id),
+  });
+  const reloadProfileCollections = profileCollections.reload;
 
   const fetchProfile = useCallback(async ({ silent = false } = {}) => {
     const profileId = id || currentUser?._id;
@@ -292,16 +361,27 @@ const Profile = () => {
         setProfileRequiresBusinessEmail(false);
       }
 
-      const { data } = await api.get(`/users/${profileId}`, { signal: controller.signal });
-      if (!profileRequestRef.current.isCurrent(requestId)) return;
-      const canonicalProfilePath = getProfileCanonicalPath(data?.user, {
-        viewerId: currentUser?._id,
-        viewerRole: currentUser?.role,
+      const result = await getAuthenticatedProfile({
+        profileKey: profileId,
+        viewer: { _id: currentUser?._id, role: currentUser?.role },
+        signal: controller.signal,
       });
+      if (result.cancelled) return;
+      if (!result.ok) throw result.cause || new Error(result.message);
+      const data = {
+        user: result.data.profile,
+        scripts: result.data.scripts,
+        deletedScripts: result.data.deletedScripts,
+        purchasedScripts: result.data.purchasedScripts,
+        bookmarkedScripts: result.data.bookmarkedScripts,
+      };
+      if (!profileRequestRef.current.isCurrent(requestId)) return;
+      const canonicalProfilePath = result.data.canonicalPath;
       if (canonicalProfilePath && canonicalProfilePath !== location.pathname) {
-        navigate(canonicalProfilePath, { replace: true });
+        navigate(`${canonicalProfilePath}${profileSearchRef.current}`, { replace: true });
       }
       setProfileAccessMessage("");
+      setProfileAccessId("");
       setProfile(data.user);
       setScripts((data.scripts || []).filter((s) => s.status !== "draft" && !s.isDeleted));
       setDeletedScripts(data.deletedScripts || []);
@@ -316,28 +396,6 @@ const Profile = () => {
       setIsFollowsMe(following.some((f) => (f?._id || f) === currentUser?._id));
       setFollowRequestPending(Boolean(data.user?.followRequestPending));
 
-      const tabInitializationKey = `${data.user._id}:${location.search}`;
-      if (tabInitializedForProfileRef.current !== tabInitializationKey) {
-        const role = String(data.user.role || "").toLowerCase();
-        const isInvestorProfile = role === "investor";
-        const nextScripts = (data.scripts || []).filter((s) => s.status !== "draft" && !s.isDeleted);
-        // A valid, role-permitted ?tab= deep-link wins over the computed default.
-        const urlTab = new URLSearchParams(location.search).get("tab");
-        const isWriterProfile = role === "writer" || role === "creator";
-        const ownsProfile = Boolean(currentUser?._id && String(currentUser._id) === String(data.user?._id));
-        const allowedTabs = new Set([
-          "about",
-          ...(role !== "investor" ? ["projects"] : []),
-          ...(isWriterProfile ? ["credentials"] : []),
-          ...(isWriterProfile && Array.isArray(data.user?.badges) && data.user.badges.length > 0 ? ["achievements"] : []),
-          ...(ownsProfile ? ["bookmarks", "meetings", "settings"] : []),
-          ...(ownsProfile && (data.purchasedScripts || []).length > 0 ? ["purchases"] : []),
-          ...(ownsProfile && data.user?.featureFlags?.financialAnalytics ? ["performance"] : []),
-        ]);
-        const requestedTab = allowedTabs.has(urlTab) ? urlTab : null;
-        setActiveTab(requestedTab || (isInvestorProfile || isWriterProfile ? "about" : (nextScripts.length > 0 ? "projects" : "about")));
-        tabInitializedForProfileRef.current = tabInitializationKey;
-      }
     } catch (error) {
       if (controller.signal.aborted || error?.code === "ERR_CANCELED") return;
       if (!profileRequestRef.current.isCurrent(requestId)) return;
@@ -346,6 +404,7 @@ const Profile = () => {
       const isPrivateAccount = Boolean(error?.response?.data?.privateAccount);
       const isBlockedView = Boolean(error?.response?.data?.blockedByProfile);
       const requiresBusinessEmail = Boolean(error?.response?.data?.requiresBusinessEmail);
+      setProfileAccessId(String(error?.response?.data?.profileId || ""));
 
       if (status === 403 && requiresBusinessEmail) {
         setProfile(null);
@@ -372,7 +431,7 @@ const Profile = () => {
         if (!silent) setLoading(false);
       }
     }
-  }, [id, currentUser?._id, currentUser?.role, location.pathname, location.search, navigate]);
+  }, [id, currentUser?._id, currentUser?.role, location.pathname, navigate]);
 
   useEffect(() => {
     fetchProfile();
@@ -393,7 +452,7 @@ const Profile = () => {
         clearTimeout(bookmarkRefreshTimerRef.current);
       }
       bookmarkRefreshTimerRef.current = setTimeout(() => {
-        fetchProfile({ silent: true });
+        reloadProfileCollections();
       }, 250);
     };
 
@@ -404,7 +463,7 @@ const Profile = () => {
         clearTimeout(bookmarkRefreshTimerRef.current);
       }
     };
-  }, [id, currentUser?._id, currentUser?.writerProfile?.username, fetchProfile]);
+  }, [id, currentUser?._id, currentUser?.writerProfile?.username, reloadProfileCollections]);
 
 
   const handleDeleteScript = async (scriptId) => {
@@ -430,32 +489,28 @@ const Profile = () => {
     if (isBlockedByCurrent || blockedByProfile || followLoading) return;
     try {
       setFollowLoading(true);
-      if (isFollowing) {
-        await api.post("/users/unfollow", { userId: profile._id });
-        setIsFollowing(false);
+      const result = await updateProfileFollow({
+        profileId: profile._id,
+        relationship: { isFollowing, followRequestPending, isFollowsMe },
+      });
+      if (!result.ok) throw result.cause || new Error(result.message);
+      setIsFollowing(result.data.isFollowing);
+      setFollowRequestPending(result.data.followRequestPending);
+      if (isFollowing && !result.data.isFollowing) {
         setProfile({
           ...profile,
           followers: profile.followers.filter(
             (f) => f._id !== currentUser._id
           ),
         });
-      } else if (followRequestPending) {
-        await api.post("/users/follow-requests/cancel", { userId: profile._id });
-        setFollowRequestPending(false);
-      } else {
-        const { data } = await api.post("/users/follow", { userId: profile._id });
-        if (data?.status === "pending") {
-          setFollowRequestPending(true);
-        } else {
-          setIsFollowing(true);
-          setProfile({
-            ...profile,
-            followers: [
-              ...profile.followers,
-              { _id: currentUser._id, name: currentUser.name },
-            ],
-          });
-        }
+      } else if (!isFollowing && result.data.isFollowing) {
+        setProfile({
+          ...profile,
+          followers: [
+            ...profile.followers,
+            { _id: currentUser._id, name: currentUser.name },
+          ],
+        });
       }
     } catch (error) {
       console.error("Error following/unfollowing:", error);
@@ -468,19 +523,21 @@ const Profile = () => {
     if (!profile?._id || blockingAction) return;
     try {
       setBlockingAction(true);
-      if (isBlockedByCurrent) {
-        await api.post("/users/unblock", { userId: profile._id });
-        setIsBlockedByCurrent(false);
+      const result = await toggleProfileBlock({
+        profileId: profile._id,
+        blocked: isBlockedByCurrent,
+      });
+      if (!result.ok) throw result.cause || new Error(result.message);
+      setIsBlockedByCurrent(result.data.blocked);
+      if (!result.data.blocked) {
         setSettingsMsg("User unblocked");
       } else {
-        await api.post("/users/block", { userId: profile._id });
-        setIsBlockedByCurrent(true);
         setIsFollowing(false);
         setSettingsMsg("User blocked");
       }
       setTimeout(() => setSettingsMsg(""), 2500);
     } catch (error) {
-      setSettingsErr(error.response?.data?.message || "Failed to update block status");
+      setSettingsErr(error.response?.data?.message || error.message || "Failed to update block status");
     } finally {
       setBlockingAction(false);
     }
@@ -489,7 +546,8 @@ const Profile = () => {
   const handleUnblockFromSettings = async (userId) => {
     try {
       setSavingSettings(true);
-      await api.post("/users/unblock", { userId });
+      const result = await unblockAccountUser(userId);
+      if (!result.ok) throw result.cause || new Error(result.message);
       setBlockedUsers((prev) => prev.filter((u) => u._id !== userId));
       setSettingsMsg("User unblocked");
       setTimeout(() => setSettingsMsg(""), 2500);
@@ -502,14 +560,14 @@ const Profile = () => {
 
   const handleOpenPitchModal = async () => {
     setShowPitchModal(true);
-    try {
-      const { data } = await api.get("/scripts/mine");
-      setMyScripts(data);
-      if (data.length > 0) {
-        setPitchData(prev => ({ ...prev, scriptId: data[0]._id }));
-      }
-    } catch (err) {
-      console.error("Error fetching user scripts:", err);
+    const result = await getPitchableScripts();
+    if (!result.ok) {
+      console.error("Error fetching user scripts:", result.cause || result.message);
+      return;
+    }
+    setMyScripts(result.data);
+    if (result.data.length > 0) {
+      setPitchData(prev => ({ ...prev, scriptId: result.data[0]._id }));
     }
   };
 
@@ -517,11 +575,12 @@ const Profile = () => {
     if (!pitchData.scriptId) return alert("Please select a script");
     try {
       setSendingPitch(true);
-      await sendPitch({
+      const result = await sendProfilePitch({
         scriptId: pitchData.scriptId,
-        investorId: profile._id,
+        profileId: profile._id,
         note: pitchData.note
       });
+      if (!result.ok) throw result.cause || new Error(result.message);
       setPitchSuccess(true);
       setTimeout(() => {
         setShowPitchModal(false);
@@ -530,7 +589,7 @@ const Profile = () => {
       }, 2000);
     } catch (error) {
       console.error("Error sending pitch:", error);
-      alert(error.response?.data?.message || "Failed to send pitch");
+      alert(error.response?.data?.message || error.message || "Failed to send pitch");
     } finally {
       setSendingPitch(false);
     }
@@ -541,10 +600,11 @@ const Profile = () => {
 
     try {
       setSendingRequest(true);
-      await api.post("/users/message-request", {
-        recipientId: profile._id,
-        message: messageRequestText
+      const result = await sendProfileMessage({
+        profileId: profile._id,
+        message: messageRequestText,
       });
+      if (!result.ok) throw result.cause || new Error(result.message);
       setRequestSuccess(true);
       setTimeout(() => {
         setShowMessageRequestModal(false);
@@ -553,7 +613,7 @@ const Profile = () => {
       }, 2000);
     } catch (error) {
       console.error("Error sending message request:", error);
-      alert(error.response?.data?.message || "Failed to send message request");
+      alert(error.response?.data?.message || error.message || "Failed to send message request");
     } finally {
       setSendingRequest(false);
     }
@@ -565,7 +625,8 @@ const Profile = () => {
     try {
       setDeletingAccount(true);
       setSettingsErr("");
-      await api.delete("/users/account", { data: { reason } });
+      const result = await deleteOwnAccount(reason);
+      if (!result.ok) throw result.cause || new Error(result.message);
       setShowDeleteAccountModal(false);
       setDeleteAccountReason("");
       setSettingsMsg("Account deleted successfully");
@@ -597,13 +658,43 @@ const Profile = () => {
     navigate(getProfilePath(userRef));
   };
 
-  const isOwnProfile = isSameProfile(currentUser, profile);
+  const isOwnProfile = ownLoadedProfile;
+
+  const selectProfileTab = useCallback((tab, page = 1) => {
+    let params = new URLSearchParams(location.search);
+    if (["activity", "bookmarks"].includes(tab)) {
+      params = writeProfileCollectionLocation(params, { section: tab, page });
+    } else {
+      params.set("tab", tab);
+      params.delete("page");
+    }
+    const search = params.toString();
+    const target = `${location.pathname}${search ? `?${search}` : ""}`;
+    if (target !== `${location.pathname}${location.search}`) navigate(target);
+  }, [location.pathname, location.search, navigate]);
+
+  const removeSavedProject = useCallback(async (projectId) => {
+    const result = await profileCollections.removeSaved(projectId);
+    if (!result.ok) return;
+    setBookmarkedScripts((previous) => previous.filter((script) => String(script?._id) !== String(projectId)));
+    setUser((current) => {
+      if (!current) return current;
+      const next = removeSavedProjectFromViewer(current, projectId, result.data?.source);
+      try { localStorage.setItem("user", JSON.stringify(next)); } catch { /* memory state remains authoritative */ }
+      return next;
+    });
+    window.dispatchEvent(new CustomEvent("bookmarkUpdated", {
+      detail: { scriptId: projectId, bookmarked: false, source: result.data?.source },
+    }));
+    if (result.pageBecameEmpty) selectProfileTab("bookmarks", collectionPage - 1);
+  }, [collectionPage, profileCollections, selectProfileTab, setUser]);
 
   const fetchSessions = useCallback(async () => {
     try {
       setLoadingSessions(true);
-      const { data } = await api.get("/auth/sessions");
-      setSessions(data);
+      const result = await loadAccountSessions();
+      if (!result.ok) throw result.cause || new Error(result.message);
+      setSessions(result.data);
     } catch (error) {
       console.error("Failed to fetch sessions:", error);
     } finally {
@@ -619,7 +710,8 @@ const Profile = () => {
 
   const handleRemoveSession = async (sessionId) => {
     try {
-      await api.delete(`/auth/sessions/${sessionId}`);
+      const result = await revokeAccountSession(sessionId);
+      if (!result.ok) throw result.cause || new Error(result.message);
       fetchSessions();
     } catch (error) {
       console.error("Failed to remove session:", error);
@@ -628,7 +720,8 @@ const Profile = () => {
 
   const handleRemoveAllOtherSessions = async () => {
     try {
-      await api.delete("/auth/sessions/all-others");
+      const result = await revokeOtherAccountSessions();
+      if (!result.ok) throw result.cause || new Error(result.message);
       fetchSessions();
     } catch (error) {
       console.error("Failed to remove all other sessions:", error);
@@ -695,7 +788,7 @@ const Profile = () => {
     title: profile?.shareMeta?.title || `${profile?.name || "Profile"} | Ckript`,
     text: profile?.shareMeta?.text || `Check out ${profile?.name || "this creator"}'s profile on Ckript.`,
   };
-  const profileContactLinks = profile?.writerProfile?.links || {};
+  const profileContactLinks = revealedProfileContact?.links || profile?.writerProfile?.links || {};
   const profileContactLinkItems = [
     { key: "portfolio", label: "Portfolio", href: profileContactLinks.portfolio },
     { key: "linkedin", label: "LinkedIn", href: profileContactLinks.linkedin },
@@ -716,7 +809,9 @@ const Profile = () => {
     setContactRevealError("");
     setContactRevealLoading(true);
     try {
-      const { data } = await api.post(`/payment/reveal-contact/${profileWriterId}`);
+      const result = await revealProfileContact({ profileId: profileWriterId });
+      if (!result.ok) throw result.cause || new Error(result.message);
+      const data = result.data;
       setRevealedProfileContact(data.contact);
       setContactRevealStats({
         contactsUsed: data.contactsUsed,
@@ -747,7 +842,7 @@ const Profile = () => {
         });
       }
     } catch (err) {
-      setContactRevealError(err?.response?.data?.message || "Failed to reveal contact.");
+      setContactRevealError(err?.response?.data?.message || err.message || "Failed to reveal contact.");
     } finally {
       setContactRevealLoading(false);
     }
@@ -892,13 +987,12 @@ const Profile = () => {
           <button
             onClick={async () => {
               try {
-                if (followRequestPending) {
-                  await api.post("/users/follow-requests/cancel", { userId: id });
-                  setFollowRequestPending(false);
-                } else {
-                  const { data } = await api.post("/users/follow", { userId: id });
-                  setFollowRequestPending(data?.status === "pending");
-                }
+                const result = await updateProfileFollow({
+                  profileId: profileAccessId || id,
+                  relationship: { followRequestPending },
+                });
+                if (!result.ok) throw result.cause || new Error(result.message);
+                setFollowRequestPending(result.data.followRequestPending);
               } catch (err) {
                 console.error("Follow request action failed:", err);
               }
@@ -1047,6 +1141,7 @@ const Profile = () => {
       label: "Profile",
       tabs: [
         { key: "about", label: "Overview", icon: "article" },
+        { key: "activity", label: "Activity", icon: "dynamic_feed", count: profileCollections.data?.counts?.activity },
         ...(isWriterUser ? [{ key: "projects", label: "Projects", icon: "movie", count: scripts.length }] : []),
         ...(isWriterUser ? [{ key: "credentials", label: "Guilds & skills", icon: "workspace_premium" }] : []),
         ...(isWriterUser && Array.isArray(profile.badges) && profile.badges.length > 0
@@ -1058,7 +1153,7 @@ const Profile = () => {
       label: "Work",
       tabs: [
         { key: "meetings", label: "Meetings", icon: "calendar_month", count: meetings.filter((meeting) => meeting?.status === "pending").length || undefined },
-        { key: "bookmarks", label: "Saved", icon: "bookmark", count: profile.favoriteScripts?.length || bookmarkedScripts.length },
+        { key: "bookmarks", label: "Saved", icon: "bookmark", count: profileCollections.data?.counts?.bookmarks ?? bookmarkedScripts.length },
         ...(purchasedScripts.length > 0 ? [{ key: "purchases", label: "Purchases", icon: "receipt_long", count: purchasedScripts.length }] : []),
       ],
     }] : []),
@@ -1393,7 +1488,7 @@ const Profile = () => {
                 type="button"
                 role="tab"
                 aria-selected={activeTab === tab.key}
-                onClick={() => setActiveTab(tab.key)}
+                onClick={() => selectProfileTab(tab.key)}
                 className="profile-workspace-tab"
               >
                 <span className="material-symbols-outlined profile-workspace-tab__icon" aria-hidden="true">{tab.icon}</span>
@@ -1404,17 +1499,31 @@ const Profile = () => {
           </div>
         )) : [
           { key: "about", label: "About" },
+          { key: "activity", label: "Activity", count: profileCollections.data?.counts?.activity },
           ...(profile.role !== "investor" ? [{ key: "projects", label: "Projects", count: scripts.length }] : []),
-          ...(isOwnProfile ? [{ key: "bookmarks", label: "Bookmarks", count: profile.favoriteScripts?.length || bookmarkedScripts.length }] : []),
+          ...(isOwnProfile ? [{ key: "bookmarks", label: "Bookmarks", count: profileCollections.data?.counts?.bookmarks ?? bookmarkedScripts.length }] : []),
           ...(isOwnProfile && purchasedScripts.length > 0 ? [{ key: "purchases", label: "Purchases", count: purchasedScripts.length }] : []),
           ...(isOwnProfile ? [{ key: "meetings", label: "Meetings" }, { key: "settings", label: "Settings" }] : []),
         ].map((tab) => (
-          <button key={tab.key} type="button" onClick={() => setActiveTab(tab.key)} className={`px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-200 border shrink-0 ${activeTab === tab.key ? dark ? "bg-[#1c2b42] text-white border-[#314765]" : "bg-[#1e3a5f] text-white border-[#1e3a5f]" : dark ? "bg-[#121d2f] text-white/75 border-white/[0.12]" : "bg-white text-gray-600 border-gray-200"}`}>
+          <button key={tab.key} type="button" onClick={() => selectProfileTab(tab.key)} className={`px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-200 border shrink-0 ${activeTab === tab.key ? dark ? "bg-[#1c2b42] text-white border-[#314765]" : "bg-[#1e3a5f] text-white border-[#1e3a5f]" : dark ? "bg-[#121d2f] text-white/75 border-white/[0.12]" : "bg-white text-gray-600 border-gray-200"}`}>
             {tab.label}{tab.count !== undefined && <span className="ml-1.5 text-[11px]">{tab.count}</span>}
           </button>
         ))}
         </div>
       </div>
+
+      {activeTab === "activity" && (
+        <Motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2 }} className={usesWorkspaceProfile ? "profile-workspace-panel" : ""}>
+          <ProfileWorkspaceActivity
+            posts={profileCollections.data?.items || []}
+            loading={profileCollections.status === PROFILE_COLLECTION_STATUS.LOADING}
+            error={profileCollections.status === PROFILE_COLLECTION_STATUS.FAILED ? profileCollections.failure?.message : ""}
+            onRetry={profileCollections.reload}
+            pagination={profileCollections.data?.pagination}
+            onPageChange={(page) => selectProfileTab("activity", page)}
+          />
+        </Motion.div>
+      )}
 
       {/* ──────── MEETINGS TAB ──────── */}
       {activeTab === "meetings" && isOwnProfile && (
@@ -1638,11 +1747,26 @@ const Profile = () => {
         >
           {usesWorkspaceProfile ? (
             <ProfileWorkspaceBookmarks
-              scripts={bookmarkedScripts}
+              scripts={profileCollections.data?.items || []}
               navigate={navigate}
-              onRemoved={(scriptId) => setBookmarkedScripts((previous) => previous.filter((script) => script._id !== scriptId))}
+              query={savedQuery}
+              sort={savedSort}
+              loading={profileCollections.status === PROFILE_COLLECTION_STATUS.LOADING}
+              error={profileCollections.status === PROFILE_COLLECTION_STATUS.FAILED ? profileCollections.failure?.message : ""}
+              removingId={profileCollections.removingId}
+              removeError={profileCollections.actionError}
+              pagination={profileCollections.data ? { ...profileCollections.data.pagination, savedTotal: profileCollections.data.counts.bookmarks } : null}
+              onQueryChange={(value) => { setSavedQuery(value); selectProfileTab("bookmarks", 1); }}
+              onSortChange={(value) => { setSavedSort(value); selectProfileTab("bookmarks", 1); }}
+              onPageChange={(page) => selectProfileTab("bookmarks", page)}
+              onRetry={profileCollections.reload}
+              onRemove={removeSavedProject}
             />
-          ) : bookmarkedScripts.length === 0 ? (
+          ) : profileCollections.status === PROFILE_COLLECTION_STATUS.LOADING ? (
+            <div className="py-20 text-center" role="status">Loading saved projects…</div>
+          ) : profileCollections.status === PROFILE_COLLECTION_STATUS.FAILED ? (
+            <div className="py-20 text-center" role="alert"><p>{profileCollections.failure?.message}</p><button type="button" onClick={profileCollections.reload}>Try again</button></div>
+          ) : (profileCollections.data?.items || []).length === 0 ? (
             <div className={`py-20 text-center transition-colors`}>
               <div className={`w-14 h-14 mx-auto rounded-2xl flex items-center justify-center mb-4 ${t.emptyBg}`}>
                 <svg className={`w-6 h-6 ${t.emptyIcon}`} fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
@@ -1654,7 +1778,7 @@ const Profile = () => {
             </div>
           ) : (
             <div className={`grid grid-cols-1 min-[460px]:grid-cols-2 ${isWriterUser ? "lg:grid-cols-3" : ""} gap-4`}>
-              {bookmarkedScripts.map((script, idx) => (
+              {(profileCollections.data?.items || []).map((script, idx) => (
                 <Motion.div
                   key={script._id}
                   initial={{ opacity: 0, y: 8 }}
@@ -1667,6 +1791,7 @@ const Profile = () => {
               ))}
             </div>
           )}
+          {!usesWorkspaceProfile && profileCollections.data?.pagination?.totalPages > 1 ? <nav className="profile-workspace-activity__pagination" aria-label="Bookmark pages"><button type="button" disabled={!profileCollections.data.pagination.hasPrevious} onClick={() => selectProfileTab("bookmarks", collectionPage - 1)}>Previous</button><span>Page {collectionPage} of {profileCollections.data.pagination.totalPages}</span><button type="button" disabled={!profileCollections.data.pagination.hasNext} onClick={() => selectProfileTab("bookmarks", collectionPage + 1)}>Next</button></nav> : null}
         </Motion.div>
       )}
 
@@ -1705,7 +1830,7 @@ const Profile = () => {
             scripts={scripts}
             isOwnProfile={isOwnProfile}
             navigate={navigate}
-            onViewAll={() => setActiveTab("projects")}
+            onViewAll={() => selectProfileTab("projects")}
             renderDelete={(script) => (
               <DeleteProjectButton
                 dark={dark}
@@ -2460,7 +2585,7 @@ const Profile = () => {
                   <p className={`text-[13px] font-semibold ${dark ? "text-white/70" : "text-gray-700"}`}>Private Account</p>
                   <p className={`text-[11px] ${dark ? "text-white/25" : "text-gray-400"}`}>Only approved followers can see your profile</p>
                 </div>
-                <button aria-label="Toggle private account" aria-pressed={Boolean(profile.isPrivate)} onClick={async () => { try { setSavingSettings(true); await api.put("/users/settings", { isPrivate: !profile.isPrivate }); setProfile({ ...profile, isPrivate: !profile.isPrivate }); setSettingsMsg("Privacy updated"); setTimeout(() => setSettingsMsg(""), 3000); } catch { setSettingsErr("Failed"); } finally { setSavingSettings(false); } }}
+                <button aria-label="Toggle private account" aria-pressed={Boolean(profile.isPrivate)} onClick={async () => { try { setSavingSettings(true); const result = await updateAccountSettings({ isPrivate: !profile.isPrivate }); if (!result.ok) throw result.cause || new Error(result.message); setProfile({ ...profile, isPrivate: !profile.isPrivate }); setSettingsMsg("Privacy updated"); setTimeout(() => setSettingsMsg(""), 3000); } catch { setSettingsErr("Failed"); } finally { setSavingSettings(false); } }}
                   className={`profile-workspace-settings__switch w-10 h-[22px] rounded-full flex items-center px-0.5 transition-colors cursor-pointer ${profile.isPrivate ? dark ? "bg-emerald-500/30" : "bg-emerald-100" : dark ? "bg-white/[0.06]" : "bg-gray-200"}`}>
                   <div className={`w-[18px] h-[18px] rounded-full transition-all ${profile.isPrivate ? `${dark ? "bg-emerald-400" : "bg-emerald-500"} translate-x-[18px]` : `${dark ? "bg-white/30" : "bg-white"}`}`} />
                 </button>
@@ -2481,7 +2606,8 @@ const Profile = () => {
                       try {
                         setSavingSettings(true);
                         setSettingsErr("");
-                        await api.put("/users/settings", { allowIndustryContact });
+                        const result = await updateAccountSettings({ allowIndustryContact });
+                        if (!result.ok) throw result.cause || new Error(result.message);
                         setProfile({ ...profile, allowIndustryContact });
                         setSettingsMsg("Contact preference updated");
                         setTimeout(() => setSettingsMsg(""), 3000);
@@ -2516,7 +2642,8 @@ const Profile = () => {
                         try {
                           setSendingVerificationCode(true);
                           setSettingsErr("");
-                          await api.post("/users/email-verification/send");
+                          const result = await sendAccountEmailVerification();
+                          if (!result.ok) throw result.cause || new Error(result.message);
                           setVerificationCodeSent(true);
                           setSettingsMsg("Verification code sent to your email");
                           setTimeout(() => setSettingsMsg(""), 3000);
@@ -2554,7 +2681,8 @@ const Profile = () => {
                           try {
                             setVerifyingEmailCode(true);
                             setSettingsErr("");
-                            await api.post("/users/email-verification/verify", { otp: emailVerificationCode });
+                            const result = await verifyAccountEmail(emailVerificationCode);
+                            if (!result.ok) throw result.cause || new Error(result.message);
                             const verifiedEmail = profile.pendingEmail || profile.email;
                             setProfile({ ...profile, email: verifiedEmail, emailVerified: true, pendingEmail: undefined });
                             setEmailVerificationCode("");
@@ -2577,7 +2705,8 @@ const Profile = () => {
                           try {
                             setSendingVerificationCode(true);
                             setSettingsErr("");
-                            await api.post("/users/email-verification/send");
+                            const result = await sendAccountEmailVerification();
+                            if (!result.ok) throw result.cause || new Error(result.message);
                             setVerificationCodeSent(true);
                             setSettingsMsg("Verification code resent");
                             setTimeout(() => setSettingsMsg(""), 3000);
@@ -2605,7 +2734,7 @@ const Profile = () => {
                 <div className="space-y-2.5">
                   <input id="change-email-input" type="email" placeholder="New email address" value={emailForm.newEmail} onChange={e => setEmailForm({ ...emailForm, newEmail: e.target.value })} className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] border outline-none transition-colors ${dark ? "bg-white/[0.03] border-white/[0.08] text-white/80 placeholder:text-white/15 focus:border-white/20" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-300 focus:border-gray-400"}`} />
                   <PasswordInput placeholder="Current password" value={emailForm.password} onChange={e => setEmailForm({ ...emailForm, password: e.target.value })} className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] border outline-none transition-colors ${dark ? "bg-white/[0.03] border-white/[0.08] text-white/80 placeholder:text-white/15 focus:border-white/20" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-300 focus:border-gray-400"}`} />
-                  <button disabled={savingSettings || !emailForm.newEmail || !emailForm.password} onClick={async () => { try { setSavingSettings(true); setSettingsErr(""); const { data } = await api.put("/users/change-email", emailForm); setProfile({ ...profile, email: data.email, pendingEmail: data.pendingEmail, emailVerified: true }); setEmailForm({ password: "", newEmail: "" }); setEmailVerificationCode(""); setVerificationCodeSent(true); setSettingsMsg(data.message || "Verification code sent to new email."); setTimeout(() => setSettingsMsg(""), 3000); } catch (e) { setSettingsErr(e.response?.data?.message || "Failed"); } finally { setSavingSettings(false); } }}
+                  <button disabled={savingSettings || !emailForm.newEmail || !emailForm.password} onClick={async () => { try { setSavingSettings(true); setSettingsErr(""); const result = await changeAccountEmail(emailForm, profile.email); if (!result.ok) throw result.cause || new Error(result.message); const data = result.data; setProfile({ ...profile, email: data.email, pendingEmail: data.pendingEmail, emailVerified: profile.emailVerified }); setEmailForm({ password: "", newEmail: "" }); setEmailVerificationCode(""); setVerificationCodeSent(true); setSettingsMsg(data.message || "Verification code sent to new email."); setTimeout(() => setSettingsMsg(""), 3000); } catch (e) { setSettingsErr(e.response?.data?.message || e.message || "Failed"); } finally { setSavingSettings(false); } }}
                     className={`px-4 py-2 rounded-xl text-[12px] font-bold transition-colors ${dark ? "bg-[#1e3a5f] text-white hover:bg-[#254a75] disabled:opacity-30" : "bg-[#1e3a5f] text-white hover:bg-[#254a75] disabled:opacity-40"}`}>{savingSettings ? "Saving..." : "Update Email"}</button>
                 </div>
               </div>
@@ -2615,7 +2744,7 @@ const Profile = () => {
                   <PasswordInput placeholder="Current password" value={pwForm.currentPassword} onChange={e => setPwForm({ ...pwForm, currentPassword: e.target.value })} className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] border outline-none transition-colors ${dark ? "bg-white/[0.03] border-white/[0.08] text-white/80 placeholder:text-white/15 focus:border-white/20" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-300 focus:border-gray-400"}`} />
                   <PasswordInput placeholder="New password (min 6 chars)" value={pwForm.newPassword} onChange={e => setPwForm({ ...pwForm, newPassword: e.target.value })} className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] border outline-none transition-colors ${dark ? "bg-white/[0.03] border-white/[0.08] text-white/80 placeholder:text-white/15 focus:border-white/20" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-300 focus:border-gray-400"}`} />
                   <PasswordInput placeholder="Confirm new password" value={pwForm.confirmPassword} onChange={e => setPwForm({ ...pwForm, confirmPassword: e.target.value })} className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] border outline-none transition-colors ${dark ? "bg-white/[0.03] border-white/[0.08] text-white/80 placeholder:text-white/15 focus:border-white/20" : "bg-white border-gray-200 text-gray-800 placeholder:text-gray-300 focus:border-gray-400"}`} />
-                  <button disabled={savingSettings || !pwForm.currentPassword || !pwForm.newPassword || pwForm.newPassword !== pwForm.confirmPassword} onClick={async () => { try { setSavingSettings(true); setSettingsErr(""); await api.put("/users/change-password", { currentPassword: pwForm.currentPassword, newPassword: pwForm.newPassword }); setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" }); setSettingsMsg("Password changed"); setTimeout(() => setSettingsMsg(""), 3000); } catch (e) { setSettingsErr(e.response?.data?.message || "Failed"); } finally { setSavingSettings(false); } }}
+                  <button disabled={savingSettings || !pwForm.currentPassword || !pwForm.newPassword || pwForm.newPassword !== pwForm.confirmPassword} onClick={async () => { try { setSavingSettings(true); setSettingsErr(""); const result = await changeAccountPassword(pwForm); if (!result.ok) throw result.cause || new Error(result.message); setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" }); setSettingsMsg("Password changed"); setTimeout(() => setSettingsMsg(""), 3000); } catch (e) { setSettingsErr(e.response?.data?.message || e.message || "Failed"); } finally { setSavingSettings(false); } }}
                     className={`px-4 py-2 rounded-xl text-[12px] font-bold transition-colors ${dark ? "bg-[#1e3a5f] text-white hover:bg-[#254a75] disabled:opacity-30" : "bg-[#1e3a5f] text-white hover:bg-[#254a75] disabled:opacity-40"}`}>{savingSettings ? "Saving..." : "Change Password"}</button>
                 </div>
               </div>
@@ -2630,7 +2759,7 @@ const Profile = () => {
               {[{ key: "smartMatchAlerts", label: "Smart Match Alerts", desc: "When a new script matches your mandates" }, { key: "holdAlerts", label: "Hold Alerts", desc: "Option hold status updates" }, { key: "viewAlerts", label: "View Alerts", desc: "When someone views your profile" }].map((pref) => (
                 <div key={pref.key} className={`profile-workspace-settings__preference flex items-center justify-between py-2.5 px-3 rounded-xl ${dark ? "bg-white/[0.02]" : "bg-gray-50/60"}`}>
                   <div><p className={`text-[13px] font-semibold ${dark ? "text-white/65" : "text-gray-700"}`}>{pref.label}</p><p className={`text-[11px] ${dark ? "text-white/25" : "text-gray-400"}`}>{pref.desc}</p></div>
-                  <button aria-label={`Toggle ${pref.label}`} aria-pressed={Boolean(profile.notificationPrefs?.[pref.key])} onClick={async () => { const nv = !profile.notificationPrefs?.[pref.key]; try { await api.put("/users/settings", { notificationPrefs: { [pref.key]: nv } }); setProfile({ ...profile, notificationPrefs: { ...profile.notificationPrefs, [pref.key]: nv } }); } catch { setSettingsErr("Failed"); } }}
+                  <button aria-label={`Toggle ${pref.label}`} aria-pressed={Boolean(profile.notificationPrefs?.[pref.key])} onClick={async () => { const nv = !profile.notificationPrefs?.[pref.key]; try { const result = await updateAccountSettings({ notificationPrefs: { [pref.key]: nv } }); if (!result.ok) throw result.cause || new Error(result.message); setProfile({ ...profile, notificationPrefs: { ...profile.notificationPrefs, [pref.key]: nv } }); } catch { setSettingsErr("Failed"); } }}
                     className={`profile-workspace-settings__switch w-10 h-[22px] rounded-full flex items-center px-0.5 transition-colors cursor-pointer ${profile.notificationPrefs?.[pref.key] ? dark ? "bg-emerald-500/30" : "bg-emerald-100" : dark ? "bg-white/[0.06]" : "bg-gray-200"}`}>
                     <div className={`w-[18px] h-[18px] rounded-full transition-all ${profile.notificationPrefs?.[pref.key] ? `${dark ? "bg-emerald-400" : "bg-emerald-500"} translate-x-[18px]` : `${dark ? "bg-white/30" : "bg-white"}`}`} />
                   </button>
@@ -2692,14 +2821,14 @@ const Profile = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-white/30" : "text-gray-400"}`}>Language</p>
-                <select value={getProfileLanguageValue(profile.language)} onChange={async (e) => { const nextLanguage = getBackendLanguageValue(e.target.value); try { await api.put("/users/settings", { language: nextLanguage }); setProfile({ ...profile, language: nextLanguage }); if (currentUser) { const updatedUser = { ...currentUser, language: nextLanguage }; setUser(updatedUser); localStorage.setItem("user", JSON.stringify(updatedUser)); } await applyLanguagePreference(nextLanguage, { forceReload: true }); setSettingsMsg("Language updated"); setTimeout(() => setSettingsMsg(""), 3000); } catch { setSettingsErr("Failed"); } }}
+                <select value={getProfileLanguageValue(profile.language)} onChange={async (e) => { const nextLanguage = getBackendLanguageValue(e.target.value); try { const result = await updateAccountSettings({ language: nextLanguage }); if (!result.ok) throw result.cause || new Error(result.message); setProfile({ ...profile, language: nextLanguage }); if (currentUser) { const updatedUser = { ...currentUser, language: nextLanguage }; setUser(updatedUser); localStorage.setItem("user", JSON.stringify(updatedUser)); } await applyLanguagePreference(nextLanguage, { forceReload: true }); setSettingsMsg("Language updated"); setTimeout(() => setSettingsMsg(""), 3000); } catch { setSettingsErr("Failed"); } }}
                   className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] border outline-none cursor-pointer ${dark ? "bg-white/[0.03] border-white/[0.08] text-white/80" : "bg-white border-gray-200 text-gray-800"}`}>
                   <option value="en">English</option><option value="hi">Hindi</option><option value="es">Spanish</option><option value="fr">French</option><option value="de">German</option><option value="ja">Japanese</option><option value="ko">Korean</option><option value="zh">Chinese</option>
                 </select>
               </div>
               <div>
                 <p className={`text-[10px] font-bold uppercase tracking-[0.15em] mb-2 ${dark ? "text-white/30" : "text-gray-400"}`}>Timezone</p>
-                <select value={profile.timezone || "Asia/Kolkata"} onChange={async (e) => { try { await api.put("/users/settings", { timezone: e.target.value }); setProfile({ ...profile, timezone: e.target.value }); setSettingsMsg("Timezone updated"); setTimeout(() => setSettingsMsg(""), 3000); } catch { setSettingsErr("Failed"); } }}
+                <select value={profile.timezone || "Asia/Kolkata"} onChange={async (e) => { try { const result = await updateAccountSettings({ timezone: e.target.value }); if (!result.ok) throw result.cause || new Error(result.message); setProfile({ ...profile, timezone: e.target.value }); setSettingsMsg("Timezone updated"); setTimeout(() => setSettingsMsg(""), 3000); } catch { setSettingsErr("Failed"); } }}
                   className={`w-full px-3.5 py-2.5 rounded-xl text-[13px] border outline-none cursor-pointer ${dark ? "bg-white/[0.03] border-white/[0.08] text-white/80" : "bg-white border-gray-200 text-gray-800"}`}>
                   <option value="Asia/Kolkata">Asia/Kolkata (IST)</option><option value="America/New_York">America/New_York (EST)</option><option value="America/Los_Angeles">America/Los_Angeles (PST)</option><option value="America/Chicago">America/Chicago (CST)</option><option value="Europe/London">Europe/London (GMT)</option><option value="Europe/Paris">Europe/Paris (CET)</option><option value="Asia/Tokyo">Asia/Tokyo (JST)</option><option value="Asia/Shanghai">Asia/Shanghai (CST)</option><option value="Australia/Sydney">Australia/Sydney (AEST)</option>
                 </select>

@@ -1,13 +1,11 @@
-import { useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import api from "../../services/api";
+import { useCallback, useContext, useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { AuthContext } from "../../context/AuthContext";
 import { useAuthModal } from "../../context/AuthModalContext";
 import { usesAppShell } from "../../layouts/app-shell";
 import {
   hasActiveFilmIndustryProfessionalAccess,
   isIndustryProfessionalWithPersonalEmail,
-  isFilmIndustryProfessionalRole,
 } from "../../utils/industryAccess";
 import { getScriptCanonicalPath } from "../../utils/scriptPath";
 import LeadStory from "./components/LeadStory";
@@ -27,6 +25,13 @@ import {
   getWorkspaceLabel,
   sortProjects,
 } from "./investorDesk";
+import {
+  INDUSTRY_HOME_STATUS,
+  readIndustryHomeQuery,
+  recordIndustryHomeOpen,
+  writeIndustryHomeQuery,
+} from "./industryHome";
+import useIndustryHome from "./useIndustryHome";
 import "./InvestorDeskPage.css";
 
 const ALL_TAB = "all";
@@ -38,50 +43,18 @@ const InvestorDeskPage = () => {
   const { openPricingModal } = useAuthModal();
   const navigate = useNavigate();
 
-  const [feed, setFeed] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
-  /* `degraded` means the personalised endpoint failed and the page is showing
-     the /scripts/latest fallback the previous implementation also used. */
-  const [degraded, setDegraded] = useState(false);
-  const [tab, setTab] = useState(ALL_TAB);
-  const [sort, setSort] = useState("match");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const query = useMemo(() => readIndustryHomeQuery(searchParams), [searchParams]);
+  const home = useIndustryHome();
+  const feed = home.data?.feed || null;
+  const profile = home.data?.profile || null;
+  const loading = home.status === INDUSTRY_HOME_STATUS.LOADING;
+  const degraded = Boolean(home.data?.degraded);
   const [openIndex, setOpenIndex] = useState(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const blocked = isIndustryProfessionalWithPersonalEmail(user)
     && !hasActiveFilmIndustryProfessionalAccess(user);
-
-  const fetchFeed = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { data } = await api.get("/scripts/investor-home");
-      setFeed(data);
-      setDegraded(false);
-    } catch {
-      try {
-        const { data } = await api.get("/scripts/latest");
-        setFeed({ detectedGenres: [], genreSections: [], trending: data, newReleases: [], explore: [] });
-      } catch {
-        setFeed({ detectedGenres: [], genreSections: [], trending: [], newReleases: [], explore: [] });
-      }
-      setDegraded(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { fetchFeed(); }, [fetchFeed]);
-
-  /* The standing brief and the watchlist count live on the member record, the
-     same document MandatesPage reads and writes. */
-  useEffect(() => {
-    let active = true;
-    api.get("/users/me")
-      .then(({ data }) => { if (active) setProfile(data); })
-      .catch(() => { /* the meter simply reads 0% if the record is unavailable */ });
-    return () => { active = false; };
-  }, []);
 
   /* ── Derived ─────────────────────────────────────────────────────────── */
 
@@ -91,14 +64,14 @@ const InvestorDeskPage = () => {
   const watchlistCount = countBookmarks(profile) || countBookmarks(user);
 
   const visibleShelves = useMemo(() => {
-    const chosen = tab === ALL_TAB ? shelves : shelves.filter((shelf) => shelf.id === tab);
-    return chosen.map((shelf) => ({ ...shelf, items: sortProjects(shelf.items, sort) }));
-  }, [shelves, tab, sort]);
+    const chosen = query.shelf === ALL_TAB ? shelves : shelves.filter((shelf) => shelf.id === query.shelf);
+    return chosen.map((shelf) => ({ ...shelf, items: sortProjects(shelf.items, query.sort) }));
+  }, [shelves, query]);
 
   const lead = useMemo(() => {
-    const pool = tab === ALL_TAB ? allProjects : (visibleShelves[0]?.items || []);
-    return sortProjects(pool, sort)[0] || null;
-  }, [allProjects, visibleShelves, tab, sort]);
+    const pool = query.shelf === ALL_TAB ? allProjects : (visibleShelves[0]?.items || []);
+    return sortProjects(pool, query.sort)[0] || null;
+  }, [allProjects, visibleShelves, query]);
 
   const newReleases = feed?.newReleases || [];
   const explore = feed?.explore || [];
@@ -121,14 +94,14 @@ const InvestorDeskPage = () => {
       return;
     }
     if (project?._id) {
-      api.post(`/scripts/${project._id}/interactions`, {
-        type: "click",
-        source: "investor_desk",
-        metadata: { from: "lead" },
-      }).catch(() => null);
+      recordIndustryHomeOpen(project._id).catch(() => null);
     }
     navigate(getScriptCanonicalPath(project));
   }, [blocked, navigate]);
+
+  const setQuery = useCallback((patch) => {
+    setSearchParams(writeIndustryHomeQuery(searchParams, patch), { replace: true });
+  }, [searchParams, setSearchParams]);
 
   const handleBlockedOpen = blocked ? () => setShowUpgradeModal(true) : undefined;
 
@@ -180,9 +153,19 @@ const InvestorDeskPage = () => {
                 Your brief could not be applied to this feed. Genre shelves and match reasons return once it recovers.
               </div>
             </div>
-            <button type="button" className="idp-btn idp-btn--ghost-sm" onClick={fetchFeed} disabled={loading}>
+            <button type="button" className="idp-btn idp-btn--ghost-sm" onClick={home.retry} disabled={loading}>
               {loading ? "Retrying…" : "Retry"}
             </button>
+          </div>
+        )}
+
+        {home.status === INDUSTRY_HOME_STATUS.FAILED && (
+          <div className="idp-banner idp-banner--error" role="alert">
+            <div className="idp-banner__body">
+              <div className="idp-banner__title">The industry desk is unavailable</div>
+              <div className="idp-banner__note">{home.failure?.message}</div>
+            </div>
+            <button type="button" className="idp-btn idp-btn--ghost-sm" onClick={home.retry}>Retry</button>
           </div>
         )}
 
@@ -321,9 +304,9 @@ const InvestorDeskPage = () => {
                   <button
                     type="button"
                     role="tab"
-                    aria-selected={tab === ALL_TAB}
-                    className={`idp-btn idp-tab${tab === ALL_TAB ? " idp-tab--active" : ""}`}
-                    onClick={() => setTab(ALL_TAB)}
+                    aria-selected={query.shelf === ALL_TAB}
+                    className={`idp-btn idp-tab${query.shelf === ALL_TAB ? " idp-tab--active" : ""}`}
+                    onClick={() => setQuery({ shelf: ALL_TAB })}
                   >
                     All matches <span className="idp-tab__count">{allProjects.length}</span>
                   </button>
@@ -332,9 +315,9 @@ const InvestorDeskPage = () => {
                       key={shelf.id}
                       type="button"
                       role="tab"
-                      aria-selected={tab === shelf.id}
-                      className={`idp-btn idp-tab${tab === shelf.id ? " idp-tab--active" : ""}`}
-                      onClick={() => setTab(shelf.id)}
+                      aria-selected={query.shelf === shelf.id}
+                      className={`idp-btn idp-tab${query.shelf === shelf.id ? " idp-tab--active" : ""}`}
+                      onClick={() => setQuery({ shelf: shelf.id })}
                     >
                       {shelf.title} <span className="idp-tab__count">{shelf.items.length}</span>
                     </button>
@@ -346,8 +329,8 @@ const InvestorDeskPage = () => {
                   <select
                     id="idp-sort-select"
                     className="idp-select"
-                    value={sort}
-                    onChange={(event) => setSort(event.target.value)}
+                    value={query.sort}
+                    onChange={(event) => setQuery({ sort: event.target.value })}
                   >
                     {SORT_OPTIONS.map((option) => (
                       <option key={option.value} value={option.value}>{option.label}</option>
@@ -392,7 +375,7 @@ const InvestorDeskPage = () => {
                   {openIndex === row.key && (
                     <div className="idp-elsewhere__panel">
                       <div className="idp-rail">
-                        {sortProjects(row.items, sort).map((project, index) => (
+                        {sortProjects(row.items, query.sort).map((project, index) => (
                           <ProjectRailCard
                             key={project?._id || index}
                             project={project}

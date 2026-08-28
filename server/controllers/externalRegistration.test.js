@@ -167,7 +167,7 @@ describe("the handler contracts", () => {
     const body = handler("approveExternalRegistration");
     assert.match(body, /recordGrant\(/, "an entry is granted with no ledger record of the lost fee");
     assert.match(body, /kind: "competition_registration"/);
-    assert.match(body, /listPriceMinor: REGISTRATION_FEE_MINOR\.INR/);
+    assert.match(body, /listPriceMinor: competitionRegistrationCharge\(competition, "INR"\)\.amountMinor/);
   });
 
   test("approval creates the entry with no payment attached", () => {
@@ -215,6 +215,16 @@ describe("the handler contracts", () => {
     const write = body.indexOf("ExternalRegistration.create");
     assert.ok(entryCheck > -1 && (write === -1 || entryCheck < write),
       "the existing-entry check does not precede the write");
+  });
+
+  test("only an account that can create scripts may submit or receive an entry", () => {
+    assert.match(handler("submitExternalRegistration"), /hasProjectCreatorAccess\(req\.user\)/);
+    assert.match(handler("approveExternalRegistration"), /hasProjectCreatorAccess\(request\.user\)/);
+  });
+
+  test("a third-party claim and a live Ckript payment order cannot race", () => {
+    assert.match(handler("submitExternalRegistration"), /CompetitionRegistrationIntent\.findOne/);
+    assert.match(handler("approveExternalRegistration"), /const activePayment = await CompetitionRegistrationIntent\.findOne/);
   });
 
   test("the admin search escapes its input", () => {

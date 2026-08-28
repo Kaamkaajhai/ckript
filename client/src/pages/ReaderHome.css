@@ -1,0 +1,21 @@
+.reader-home { max-width: 1180px; margin: 0 auto; padding: 28px; color: #182438; }
+.reader-home > header { margin-bottom: 28px; }
+.reader-home > header p { margin: 0; color: #8b1e1e; font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+.reader-home > header h1 { margin: 6px 0; font-family: Georgia, serif; font-size: clamp(28px, 4vw, 46px); }
+.reader-home > header span { color: #5e6877; }
+.reader-home__shelf { margin-top: 34px; }
+.reader-home__shelf h2 { font-family: Georgia, serif; font-size: 24px; }
+.reader-home__grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 18px; }
+.reader-home__card { overflow: hidden; border: 1px solid #dfe4eb; border-radius: 16px; background: #fff; }
+.reader-home__card > img, .reader-home__placeholder { display: flex; width: 100%; height: 150px; object-fit: cover; align-items: center; justify-content: center; background: #e9eef5; color: #607089; font-weight: 800; }
+.reader-home__card > div:last-child { padding: 16px; }
+.reader-home__card p { margin: 0 0 4px; color: #687386; font-size: 12px; }
+.reader-home__card h3 { margin: 0 0 8px; font-size: 18px; }
+.reader-home__card h3 a { color: inherit; text-decoration: none; }
+.reader-home__card span { display: block; color: #586376; font-size: 14px; line-height: 1.5; }
+.reader-home__card button, .reader-home__pagination button { min-height: 44px; margin-top: 14px; padding: 0 16px; border: 1px solid #b7c1ce; border-radius: 10px; background: #fff; }
+.reader-home__controls { display: grid; grid-template-columns: minmax(220px, 2fr) repeat(2, minmax(150px, 1fr)); gap: 14px; margin-bottom: 24px; }
+.reader-home__controls label { display: grid; gap: 6px; font-size: 13px; font-weight: 700; }
+.reader-home__controls input, .reader-home__controls select { min-height: 44px; padding: 0 12px; border: 1px solid #bdc7d3; border-radius: 10px; background: #fff; }
+.reader-home__pagination { display: flex; align-items: center; justify-content: center; gap: 16px; margin-top: 22px; }
+@media (max-width: 700px) { .reader-home { padding: 18px; } .reader-home__controls { grid-template-columns: 1fr; } }

@@ -1,0 +1,16 @@
+.ckm .ckm-follow-requests__page { display: grid; gap: var(--ckm-space-4); padding: var(--ckm-space-4); padding-bottom: calc(var(--ckm-space-8) + env(safe-area-inset-bottom)); }
+.ckm .ckm-follow-requests__intro { margin: 0; color: var(--ckm-text-2); font-size: var(--ckm-text-support); line-height: var(--ckm-leading-body); }
+.ckm .ckm-follow-requests__list { display: grid; gap: var(--ckm-space-3); padding: 0; margin: 0; list-style: none; }
+.ckm .ckm-follow-requests__card { overflow: hidden; border: 1px solid var(--ckm-line); border-radius: var(--ckm-r-lg); background: var(--ckm-bg); box-shadow: var(--ckm-shadow-card); }
+.ckm .ckm-follow-requests__identity { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: var(--ckm-space-3); align-items: center; min-height: 84px; padding: var(--ckm-space-4); color: inherit; text-decoration: none; }
+.ckm .ckm-follow-requests__identity:focus-visible { outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring); outline-offset: calc(var(--ckm-focus-ring-offset) * -1); }
+.ckm .ckm-follow-requests__avatar { display: grid; width: 56px; height: 56px; place-items: center; overflow: hidden; border-radius: var(--ckm-r-md); background: var(--ckm-bg-soft); color: var(--ckm-text); font: var(--ckm-weight-bold) var(--ckm-text-section) / 1 var(--ckm-display); }
+.ckm .ckm-follow-requests__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.ckm .ckm-follow-requests__copy { display: grid; min-width: 0; gap: 2px; }
+.ckm .ckm-follow-requests__copy strong { color: var(--ckm-text); font: var(--ckm-weight-bold) var(--ckm-text-body) / var(--ckm-leading-body) var(--ckm-display); overflow-wrap: anywhere; }
+.ckm .ckm-follow-requests__copy small { color: var(--ckm-accent-ink); font-size: var(--ckm-text-caption); font-weight: var(--ckm-weight-bold); }
+.ckm .ckm-follow-requests__copy > span { color: var(--ckm-text-3); font-size: var(--ckm-text-caption); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ckm .ckm-follow-requests__actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--ckm-space-2); padding: 0 var(--ckm-space-4) var(--ckm-space-4); }
+.ckm .ckm-follow-requests__state { display: grid; gap: var(--ckm-space-3); padding: var(--ckm-space-4); }
+
+@media (max-width: 350px) { .ckm .ckm-follow-requests__actions { grid-template-columns: 1fr; } }

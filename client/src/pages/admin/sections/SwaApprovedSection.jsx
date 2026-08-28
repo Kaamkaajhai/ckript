@@ -47,10 +47,12 @@ const SwaApprovedSection = () => {
                             </thead>
                             <tbody className={`divide-y ${isDark ? "divide-[#2e2828]" : "divide-gray-100"}`}>
                                 {filteredUsers.map((user) => {
-                                    const swaProof = user.writerProfile?.membershipVerification?.swa?.proofUrl;
-                                    const wgaProof = user.writerProfile?.membershipVerification?.wga?.proofUrl;
-                                    const proofUrl = swaProof || wgaProof;
-                                    const proofType = swaProof ? "swa" : "wga";
+                                    const swaVerification = user.writerProfile?.membershipVerification?.swa || {};
+                                    const wgaVerification = user.writerProfile?.membershipVerification?.wga || {};
+                                    const hasSwaProof = Boolean(swaVerification.proofFileName || swaVerification.proofPublicId || swaVerification.proofUrl);
+                                    const hasWgaProof = Boolean(wgaVerification.proofFileName || wgaVerification.proofPublicId || wgaVerification.proofUrl);
+                                    const hasProof = hasSwaProof || hasWgaProof;
+                                    const proofType = hasSwaProof ? "swa" : "wga";
                                     
                                     return (
                                         <tr key={user._id} className={`align-top transition-colors ${isDark ? "hover:bg-white/[0.02]" : "hover:bg-gray-50/50"}`}>
@@ -79,12 +81,12 @@ const SwaApprovedSection = () => {
                                             </td>
 
                                             <td className="px-5 py-3.5 align-middle">
-                                                {proofUrl ? (
+                                                {hasProof ? (
                                                     <a
-                                                        href={proofUrl}
+                                                        href={`#${proofType}-proof`}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        onClick={(event) => handleOpenMembershipProof(event, user._id, proofType, proofUrl)}
+                                                        onClick={(event) => handleOpenMembershipProof(event, user._id, proofType)}
                                                         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors"
                                                     >
                                                         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">

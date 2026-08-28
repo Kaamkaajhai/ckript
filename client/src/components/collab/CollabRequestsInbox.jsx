@@ -1,23 +1,21 @@
-import { useCallback, useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import { io } from "socket.io-client";
-import api from "../../services/api";
+import { AuthContext } from "../../context/AuthContext";
 import { getApiBaseUrl } from "../../utils/apiOrigin";
+import {
+  COLLAB_REQUEST_ROLES,
+  getCollabErrorMessage,
+  getCollabRoleLabel,
+  respondToCollabRequest,
+  useCollabRequestPage,
+} from "./collaborationRequests";
 
-const ROLE_OPTIONS = [
-  { value: "editor", label: "Editor" },
-  { value: "merger", label: "Merger" },
-  { value: "viewer", label: "Viewer" },
-  { value: "full_admin", label: "Admin" },
-];
 const SOCKET_ORIGIN = getApiBaseUrl().replace(/\/api\/?$/, "").replace(/\/$/, "");
 
-const ACCESS_LEVEL_OPTIONS = [
-  { value: "full_access", label: "Full Access" },
-  { value: "content_only", label: "Content Only" },
-];
-
 const timeAgo = (value) => {
-  const delta = Math.max(1, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return "Recently";
+  const delta = Math.max(1, Math.floor((Date.now() - timestamp) / 1000));
   if (delta < 60) return `${delta}s ago`;
   if (delta < 3600) return `${Math.floor(delta / 60)}m ago`;
   if (delta < 86400) return `${Math.floor(delta / 3600)}h ago`;
@@ -25,125 +23,99 @@ const timeAgo = (value) => {
 };
 
 export default function CollabRequestsInbox() {
-  const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { user } = useContext(AuthContext);
+  const [page, setPage] = useState(1);
   const [actingId, setActingId] = useState("");
-  const [requestAccessLevels, setRequestAccessLevels] = useState({});
-  const loadInbox = useCallback(async () => {
-    try {
-      setLoading(true);
-      const { data } = await api.get("/collab/requests/inbox");
-      setRequests(data.requests || []);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const [error, setError] = useState("");
+  const [choices, setChoices] = useState({});
+  const inbox = useCollabRequestPage({ scope: "inbox", page });
 
   useEffect(() => {
-    loadInbox();
-  }, [loadInbox]);
-
-  useEffect(() => {
-    const stored = localStorage.getItem("user");
-    let token = "";
-
-    try {
-      token = JSON.parse(stored || "{}")?.token || "";
-    } catch {
-      token = "";
-    }
-
-    if (!token) return undefined;
-
-    const socket = io(SOCKET_ORIGIN, {
-      auth: { token },
-    });
-
-    const refreshInbox = () => {
-      loadInbox();
-    };
-
-    socket.on("collab_request", refreshInbox);
-    socket.on("collab_request_responded", refreshInbox);
-    socket.on("collab_membership_changed", refreshInbox);
-
-    return () => {
-      socket.off("collab_request", refreshInbox);
-      socket.off("collab_request_responded", refreshInbox);
-      socket.off("collab_membership_changed", refreshInbox);
-      socket.disconnect();
-    };
-  }, [loadInbox]);
+    if (!user?.token) return undefined;
+    const socket = io(SOCKET_ORIGIN, { auth: { token: user.token } });
+    ["collab_request", "collab_request_responded", "collab_membership_changed"]
+      .forEach((event) => socket.on(event, inbox.refresh));
+    return () => socket.disconnect();
+  }, [inbox.refresh, user?.token]);
 
   const respond = async (request, decision) => {
+    const role = choices[request.id]?.role || request.requestedRole;
+    const accessLevel = role === "full_admin"
+      ? (choices[request.id]?.accessLevel || "full_access")
+      : "content_only";
     try {
-      setActingId(request._id);
-      setRequests((prev) => prev.filter((entry) => entry._id !== request._id));
-      await api.post(`/collab/${request.scriptId}/request/${request._id}/respond`, {
-        decision,
-        accessLevel: request.requestedRole === "full_admin" ? (requestAccessLevels[request._id] || "full_access") : "content_only",
-      });
-      loadInbox();
+      setActingId(request.id);
+      setError("");
+      await respondToCollabRequest(request, { decision, role, accessLevel });
+      inbox.refresh();
+    } catch (requestError) {
+      setError(getCollabErrorMessage(requestError, "Could not update this request"));
     } finally {
       setActingId("");
     }
   };
 
-  if (loading) {
-    return <div className="rounded-3xl border border-gray-200 bg-white p-5 text-sm text-gray-500">Loading requests...</div>;
+  if (inbox.status === "loading" && !inbox.requests.length) {
+    return <div className="rounded-3xl border border-gray-200 bg-white p-5 text-sm text-gray-500">Loading requests…</div>;
+  }
+
+  if (inbox.status === "error" && !inbox.requests.length) {
+    return (
+      <div className="rounded-3xl border border-red-200 bg-white p-5">
+        <p className="text-sm text-red-700">{inbox.error}</p>
+        <button type="button" onClick={inbox.refresh} className="mt-3 text-sm font-semibold text-[#1e3a5f] underline">Retry</button>
+      </div>
+    );
   }
 
   return (
     <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
-      <h3 className="text-lg font-bold text-gray-900">Collaboration Requests</h3>
+      <h3 className="text-lg font-bold text-gray-900">Collaboration requests</h3>
+      {error ? <p className="mt-3 text-sm text-red-700" role="alert">{error}</p> : null}
       <div className="mt-4 space-y-4">
-        {requests.length ? requests.map((request) => (
-          <div key={request._id} className="rounded-2xl border border-gray-100 p-4">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="font-semibold text-gray-900">{request.requesterId?.name}</p>
-                <p className="text-sm text-gray-500">{request.scriptTitle}</p>
-                <p className="mt-1 text-xs uppercase tracking-wide text-gray-500">
-                  Wants to join as {(ROLE_OPTIONS.find((option) => option.value === request.requestedRole)?.label || "Editor").toLowerCase()} · {timeAgo(request.createdAt)}
-                </p>
+        {inbox.requests.length ? inbox.requests.map((request) => {
+          const role = choices[request.id]?.role || request.requestedRole;
+          return (
+            <article key={request.id} className="rounded-2xl border border-gray-100 p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="font-semibold text-gray-900">{request.requester?.name || "Writer"}</p>
+                  <p className="text-sm text-gray-600">{request.scriptTitle}</p>
+                  <p className="mt-1 text-xs uppercase tracking-wide text-gray-500">
+                    Requested {getCollabRoleLabel(request.requestedRole)} · {timeAgo(request.createdAt)}
+                  </p>
+                </div>
               </div>
-              <span className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-600">
-                {ROLE_OPTIONS.find((option) => option.value === request.requestedRole)?.label || "Editor"}
-              </span>
-            </div>
-            {request.message ? <p className="mt-3 text-sm text-gray-700">{request.message}</p> : null}
-            <div className="mt-4 flex items-center gap-3">
-              <select
-                value={request.requestedRole === "full_admin" ? (requestAccessLevels[request._id] || "full_access") : "content_only"}
-                onChange={(event) => setRequestAccessLevels((prev) => ({
-                  ...prev,
-                  [request._id]: event.target.value,
-                }))}
-                className="rounded-2xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700"
-              >
-                {request.requestedRole === "full_admin" && (
-                  <option value="full_access">Full</option>
-                )}
-                <option value="content_only">Content</option>
-              </select>
-              <button
-                onClick={() => respond(request, "accepted")}
-                disabled={actingId === request._id}
-                className="rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-              >
-                Accept
-              </button>
-              <button
-                onClick={() => respond(request, "rejected")}
-                disabled={actingId === request._id}
-                className="rounded-2xl bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 disabled:opacity-60"
-              >
-                Reject
-              </button>
-            </div>
-          </div>
-        )) : <p className="text-sm text-gray-500">No pending collaboration requests.</p>}
+              {request.legacyRequestedRole ? <p className="mt-3 text-sm text-amber-800">This older Merger request defaults to Commenter. Choose a current role before accepting.</p> : null}
+              {request.message ? <p className="mt-3 text-sm text-gray-700">{request.message}</p> : null}
+              <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-end">
+                <label className="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                  Role if accepted
+                  <select
+                    value={role}
+                    onChange={(event) => setChoices((current) => ({
+                      ...current,
+                      [request.id]: { ...current[request.id], role: event.target.value },
+                    }))}
+                    className="mt-1 block min-h-11 w-full rounded-2xl border border-gray-300 bg-white px-3 text-sm font-medium text-gray-700"
+                  >
+                    {COLLAB_REQUEST_ROLES.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+                  </select>
+                </label>
+                <button type="button" onClick={() => respond(request, "accepted")} disabled={actingId === request.id} className="min-h-11 rounded-2xl bg-emerald-700 px-4 text-sm font-semibold text-white disabled:opacity-60">Accept</button>
+                <button type="button" onClick={() => respond(request, "rejected")} disabled={actingId === request.id} className="min-h-11 rounded-2xl bg-red-50 px-4 text-sm font-semibold text-red-700 disabled:opacity-60">Decline</button>
+              </div>
+            </article>
+          );
+        }) : <p className="text-sm text-gray-500">No pending collaboration requests.</p>}
       </div>
+      {inbox.pagination.pages > 1 ? (
+        <nav className="mt-5 flex items-center justify-between" aria-label="Collaboration request pages">
+          <button type="button" disabled={!inbox.pagination.hasPrevious} onClick={() => setPage((value) => Math.max(1, value - 1))} className="min-h-11 px-3 text-sm font-semibold disabled:opacity-40">Previous</button>
+          <span className="text-sm text-gray-600">Page {inbox.pagination.page} of {inbox.pagination.pages}</span>
+          <button type="button" disabled={!inbox.pagination.hasNext} onClick={() => setPage((value) => value + 1)} className="min-h-11 px-3 text-sm font-semibold disabled:opacity-40">Next</button>
+        </nav>
+      ) : null}
     </div>
   );
 }

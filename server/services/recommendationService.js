@@ -13,6 +13,17 @@ const INTERACTION_WEIGHT = {
 
 const SECTION_SIZE = 12;
 
+// Discovery responses are summaries, never screenplay-reader payloads. Keep
+// this positive projection beside the query so adding a private Script field
+// cannot silently make it part of the personalised feed.
+export const INVESTOR_FEED_SCRIPT_FIELDS = Object.freeze([
+  "_id", "title", "status", "createdAt", "publishedAt", "coverImage", "thumbnailUrl",
+  "genre", "primaryGenre", "classification", "format", "contentType", "formatOther",
+  "tags", "budget", "views", "readsCount", "reviewCount", "rating", "platformScore",
+  "scriptScore", "verifiedBadge", "promotion", "premium", "price", "isSold", "holdStatus",
+  "sid", "logline", "synopsis", "scriptCompletion", "creator",
+]);
+
 const normalize = (v = "") => String(v || "").toLowerCase().trim();
 
 const normalizeGenre = (value = "") => {
@@ -417,7 +428,8 @@ export const buildInvestorFeed = async (userId) => {
     purchaseRequestLocked: { $ne: true },
     isDeleted: { $ne: true },
   })
-    .populate("creator", "name profileImage role")
+    .select(INVESTOR_FEED_SCRIPT_FIELDS.join(" "))
+    .populate("creator", "name profileImage role username writerProfile.username")
     .sort({ createdAt: -1 })
     .limit(600)
     .lean();
