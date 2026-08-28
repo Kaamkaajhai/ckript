@@ -39,8 +39,9 @@ describe("judge panel smoke fixtures satisfy the real schemas", () => {
   const competitionId = oid();
   const entryId = oid();
 
-  test("the three seeded accounts are valid users", () => {
+  test("the four seeded accounts are valid users", () => {
     assertValid(User, f.users.writer, "writer");
+    assertValid(User, f.users.writer2, "second writer");
     assertValid(User, f.users.judge, "judge");
     assertValid(User, f.users.otherJudge, "second judge");
   });
@@ -70,15 +71,45 @@ describe("judge panel smoke fixtures satisfy the real schemas", () => {
 
   test("every entry satisfies CompetitionEntry, required fields included", () => {
     const base = { competitionId, userId: writerId };
-    assertValid(CompetitionEntry, { ...base, ...f.entries.a("Smoke Writer", "smoke@example.com") }, "entry A");
-    assertValid(CompetitionEntry, { ...base, ...f.entries.b() }, "entry B");
-    assertValid(CompetitionEntry, { ...base, ...f.entries.draft() }, "draft entry");
-    assertValid(CompetitionEntry, { ...base, ...f.entries.foreign() }, "foreign entry");
+    assertValid(CompetitionEntry, { ...base, ...f.entries.a.build("Smoke Writer", "smoke@example.com") }, "entry A");
+    assertValid(CompetitionEntry, { ...base, ...f.entries.b.build() }, "entry B");
+    assertValid(CompetitionEntry, { ...base, ...f.entries.draft.build() }, "draft entry");
+    assertValid(CompetitionEntry, { ...base, ...f.entries.foreign.build() }, "foreign entry");
+  });
+
+  test("no two entries share a (competition, writer) slot", () => {
+    /*
+     * CompetitionEntry has a unique index on (competitionId, userId) — one entry per writer per
+     * competition. The second live run of the smoke script died on exactly this: entries A and B
+     * were both the same writer in the same competition.
+     *
+     * validateSync cannot see an index, so this asserts the declared slots instead. It is the
+     * nearest offline equivalent, and it is the check that would have saved a round trip.
+     */
+    const slots = Object.entries(f.entries).map(([name, e]) => [name, `${e.competition}:${e.user}`]);
+    const seen = new Map();
+    for (const [name, slot] of slots) {
+      assert.equal(seen.has(slot), false, `entries "${seen.get(slot)}" and "${name}" both occupy ${slot} — the unique index will reject the second`);
+      seen.set(slot, name);
+    }
+  });
+
+  test("every entry names a competition and a user that actually exist in the fixtures", () => {
+    // A typo in a slot key would otherwise seed the entry against `undefined` and fail obscurely.
+    for (const [name, e] of Object.entries(f.entries)) {
+      assert.ok(f.competitions[e.competition], `entry "${name}" references unknown competition "${e.competition}"`);
+      assert.ok(f.users[e.user], `entry "${name}" references unknown user "${e.user}"`);
+    }
+  });
+
+  test("all four entry codes are distinct, since eventId is unique", () => {
+    const codes = Object.values(f.eventIds);
+    assert.equal(new Set(codes).size, codes.length);
   });
 
   test("entry A really does carry the identity the anonymisation test needs to strip", () => {
     // A fixture that quietly lost its leak-bait would make the smoke run pass for the wrong reason.
-    const a = f.entries.a("Priya Raghunathan", "priya@example.com");
+    const a = f.entries.a.build("Priya Raghunathan", "priya@example.com");
     assert.match(a.snapshot.fountainContent, /^Title:/);
     assert.match(a.snapshot.fountainContent, /Priya Raghunathan/);
     assert.match(a.snapshot.logline, /Priya Raghunathan/);

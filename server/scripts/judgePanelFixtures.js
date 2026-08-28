@@ -34,6 +34,10 @@ export const buildFixtures = (now = Date.now()) => {
 
   const users = {
     writer: { name: "Smoke Writer", email: `${TAG}writer@example.com`, password: "Smoke!Pass9", role: "creator", emailVerified: true },
+    // A SECOND writer, because CompetitionEntry has a unique index on (competitionId, userId): one
+    // entry per writer per competition. The first live run died here — two entries for one writer in
+    // one competition — and no offline check could have caught it, since an index is not a validator.
+    writer2: { name: "Smoke Writer Two", email: `${TAG}writer2@example.com`, password: "Smoke!Pass9", role: "creator", emailVerified: true },
     judge: { name: "Smoke Judge", email: `${TAG}judge@example.com`, password: "Smoke!Pass9", role: "judge", emailVerified: true },
     otherJudge: { name: "Smoke Judge Two", email: `${TAG}judge2@example.com`, password: "Smoke!Pass9", role: "judge", emailVerified: true },
   };
@@ -77,38 +81,60 @@ export const buildFixtures = (now = Date.now()) => {
     ...overrides,
   });
 
+  /**
+   * Each entry declares WHICH competition and WHICH writer it belongs to, by key.
+   *
+   * That pairing is not decoration: CompetitionEntry has a unique index on (competitionId, userId),
+   * so two entries sharing a slot is a duplicate-key error at seed time. Declaring it here lets the
+   * offline test assert the slots are distinct — the nearest thing to checking an index without a
+   * database, and the check that would have caught the first live failure.
+   */
   const entries = {
     // Deliberately carries every identifying field the model can hold, plus a TYPED-IN Fountain
     // title page, so the anonymisation checks have something real to fail on.
-    a: (writerName, writerEmail) => entry({
-      eventId: eventIds.a,
-      registration: {
-        country: "India", language: "Malayalam", experienceLevel: "intermediate",
-        portfolioUrl: "https://smoke-writer.example.com",
-      },
-      payment: { orderId: "order_SMOKE_LEAK", paymentId: "pay_SMOKE_LEAK", amount: 499 },
-      ai: { evaluation: { overall: 91, notes: "AI thinks this is strong" } },
-      snapshot: {
-        title: "The Last Monsoon",
-        logline: `A village resurfaces. Written by ${writerName}.`,
-        synopsis: `Reach me at ${writerEmail}.`,
-        fountainContent: `Title: The Last Monsoon\nAuthor: ${writerName}\nContact: ${writerEmail}\n\nINT. FERRY JETTY - DAWN\n\nRain hammers the tin roof.`,
-        textContent: "INT. FERRY JETTY - DAWN",
-        pageCount: 12, wordCount: 2780, sceneCount: 9,
-      },
-    }),
-    b: () => entry({
-      eventId: eventIds.b,
-      snapshot: { title: "Second Script", fountainContent: "INT. KITCHEN - NIGHT", pageCount: 8, wordCount: 1900, sceneCount: 5 },
-    }),
-    draft: () => entry({
-      eventId: eventIds.d, status: "registered", submittedAt: null,
-      snapshot: { title: "Not Submitted", fountainContent: "INT. NOWHERE - DAY" },
-    }),
-    foreign: () => entry({
-      eventId: eventIds.f,
-      snapshot: { title: "Other Competition", fountainContent: "INT. ELSEWHERE - DAY" },
-    }),
+    a: {
+      competition: "main", user: "writer",
+      build: (writerName, writerEmail) => entry({
+        eventId: eventIds.a,
+        registration: {
+          country: "India", language: "Malayalam", experienceLevel: "intermediate",
+          portfolioUrl: "https://smoke-writer.example.com",
+        },
+        payment: { orderId: "order_SMOKE_LEAK", paymentId: "pay_SMOKE_LEAK", amount: 499 },
+        ai: { evaluation: { overall: 91, notes: "AI thinks this is strong" } },
+        snapshot: {
+          title: "The Last Monsoon",
+          logline: `A village resurfaces. Written by ${writerName}.`,
+          synopsis: `Reach me at ${writerEmail}.`,
+          fountainContent: `Title: The Last Monsoon\nAuthor: ${writerName}\nContact: ${writerEmail}\n\nINT. FERRY JETTY - DAWN\n\nRain hammers the tin roof.`,
+          textContent: "INT. FERRY JETTY - DAWN",
+          pageCount: 12, wordCount: 2780, sceneCount: 9,
+        },
+      }),
+    },
+    // A DIFFERENT writer from entry A, in the same competition — see the index note above.
+    b: {
+      competition: "main", user: "writer2",
+      build: () => entry({
+        eventId: eventIds.b,
+        snapshot: { title: "Second Script", fountainContent: "INT. KITCHEN - NIGHT", pageCount: 8, wordCount: 1900, sceneCount: 5 },
+      }),
+    },
+    draft: {
+      competition: "main", user: "otherJudge",
+      build: () => entry({
+        eventId: eventIds.d, status: "registered", submittedAt: null,
+        snapshot: { title: "Not Submitted", fountainContent: "INT. NOWHERE - DAY" },
+      }),
+    },
+    // Same writer as entry A, but a different competition, so the pair is still unique.
+    foreign: {
+      competition: "other", user: "writer",
+      build: () => entry({
+        eventId: eventIds.f,
+        snapshot: { title: "Other Competition", fountainContent: "INT. ELSEWHERE - DAY" },
+      }),
+    },
   };
 
   const scores = {

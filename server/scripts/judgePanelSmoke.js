@@ -117,9 +117,10 @@ const run = async () => {
   const f = buildFixtures(now);
 
   const writer = await User.create(f.users.writer);
+  const writer2 = await User.create(f.users.writer2);
   const judge = await User.create(f.users.judge);
   const otherJudge = await User.create(f.users.otherJudge);
-  created.users.push(writer._id, judge._id, otherJudge._id);
+  created.users.push(writer._id, writer2._id, judge._id, otherJudge._id);
 
   check("a judge account's password is stored hashed, never in plain text",
     judge.password !== f.users.judge.password && judge.password.startsWith("$2"),
@@ -134,12 +135,21 @@ const run = async () => {
     `criteria: ${competition.judging?.criteria?.length}, awards: ${competition.judging?.awards?.length}`);
 
   const ids = f.eventIds;
-  const owner = { competitionId: competition._id, userId: writer._id };
 
-  const entryA = await CompetitionEntry.create({ ...owner, ...f.entries.a(writer.name, writer.email) });
-  const entryB = await CompetitionEntry.create({ ...owner, ...f.entries.b() });
-  const draft = await CompetitionEntry.create({ ...owner, userId: otherJudge._id, ...f.entries.draft() });
-  const foreign = await CompetitionEntry.create({ ...owner, competitionId: secondCompetition._id, ...f.entries.foreign() });
+  // Ownership comes from the slot each entry declares, so the script cannot pair two entries with
+  // one writer in one competition — which the unique index on (competitionId, userId) rejects.
+  const competitionByKey = { main: competition._id, other: secondCompetition._id };
+  const userByKey = { writer: writer._id, writer2: writer2._id, judge: judge._id, otherJudge: otherJudge._id };
+  const seed = (spec, ...args) => CompetitionEntry.create({
+    competitionId: competitionByKey[spec.competition],
+    userId: userByKey[spec.user],
+    ...spec.build(...args),
+  });
+
+  const entryA = await seed(f.entries.a, writer.name, writer.email);
+  const entryB = await seed(f.entries.b);
+  const draft = await seed(f.entries.draft);
+  const foreign = await seed(f.entries.foreign);
   created.entries.push(entryA._id, entryB._id, draft._id, foreign._id);
 
   const assignment = await CompetitionJudge.create({
