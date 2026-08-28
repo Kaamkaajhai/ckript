@@ -9,6 +9,7 @@ import { buildJudgingLeaderboard, tallyNominations } from "../utils/judgeAggrega
 import { toJudgeEntryView, JUDGEABLE_STATUSES } from "../utils/judgeEntryView.js";
 import { asObjectId, asTrimmedString, asInt } from "../utils/requestValue.js";
 import { generateInviteToken, getInviteExpiryDate } from "../utils/inviteToken.js";
+import { createNotification, sendJudgeInviteEmail, sendJudgeAssignmentEmail } from "../utils/notify.js";
 
 /**
  * Admin side of the judge panel: creating judge logins, assigning them to competitions, defining the
@@ -88,7 +89,10 @@ export const adminListJudges = async (req, res) => {
     const judgeIds = judges.map((j) => j._id);
     const [assignments, scoreCounts] = await Promise.all([
       CompetitionJudge.find({ judge: { $in: judgeIds } })
-        .populate("competition", "name slug")
+        // judging.criteria comes along so the admin list can flag a panel with no rubric: a judge
+        // assigned to a competition with no criteria can read entries but cannot score any of them,
+        // and until now the only place that showed was on the judge's own screen.
+        .populate("competition", "name slug judging.criteria")
         .lean(),
       JudgeScore.aggregate([
         { $match: { judge: { $in: judgeIds }, status: "submitted" } },
@@ -111,6 +115,7 @@ export const adminListJudges = async (req, res) => {
           slug: a.competition?.slug || "",
           status: a.status,
           assignedAt: a.assignedAt,
+          criteriaCount: (a.competition?.judging?.criteria || []).length,
           submittedCount: submittedBy.get(`${a.judge}:${a.competition?._id || a.competition}`) || 0,
         },
       ]);
@@ -172,13 +177,20 @@ export const adminCreateJudge = async (req, res) => {
     });
 
     const token = await issueInvite(judge, req.user._id);
+    const path = invitePath(token);
+
+    // Emailed AND shown on screen. The send no-ops when SMTP is unavailable (sendEmailNotification
+    // returns {skipped:true} rather than throwing), and the admin's copy of the link is what makes
+    // that survivable — so `emailed` is reported honestly rather than assumed.
+    const mail = await sendJudgeInviteEmail({ to: judge.email, name: judge.name, invitePath: path });
 
     return res.status(201).json({
       judge: judgeAccountView(judge),
       // Shown to the admin once. The raw token is not stored anywhere — only its hash — so this
       // response is the sole copy that will ever exist.
-      invitePath: invitePath(token),
+      invitePath: path,
       inviteExpiresAt: judge.judgeInvite.expiresAt,
+      emailed: Boolean(mail?.success),
     });
   } catch (error) {
     if (error?.code === 11000) return res.status(409).json({ message: "That email already has an account." });
@@ -206,11 +218,15 @@ export const adminResendJudgeInvite = async (req, res) => {
 
     judge.password = unusablePassword();   // hashed by the pre-save hook
     const token = await issueInvite(judge, req.user._id);
+    const path = invitePath(token);
+
+    const mail = await sendJudgeInviteEmail({ to: judge.email, name: judge.name, invitePath: path });
 
     return res.json({
       judge: judgeAccountView(judge),
-      invitePath: invitePath(token),
+      invitePath: path,
       inviteExpiresAt: judge.judgeInvite.expiresAt,
+      emailed: Boolean(mail?.success),
     });
   } catch (error) {
     console.error("[judging] adminResendJudgeInvite failed:", error?.message || error);
@@ -229,7 +245,8 @@ export const adminAssignJudge = async (req, res) => {
     if (!competitionId || !judgeId) return res.status(400).json({ message: "Competition and judge are both required." });
 
     const [competition, judge] = await Promise.all([
-      Competition.exists({ _id: competitionId }),
+      // The name, not just existence — the notification and email both quote it.
+      Competition.findById(competitionId).select("name").lean(),
       User.findOne({ _id: judgeId, role: "judge" }).select("_id name email").lean(),
     ]);
     if (!competition) return res.status(404).json({ message: "Competition not found." });
@@ -249,6 +266,17 @@ export const adminAssignJudge = async (req, res) => {
       },
       { new: true, upsert: true, setDefaultsOnInsert: true, runValidators: true }
     ).lean();
+
+    // Told they are on the panel. Both are best-effort and deliberately NOT awaited into the
+    // failure path: an assignment that succeeded must not report failure because a mail server is
+    // down. createNotification and sendEmailNotification each swallow their own errors.
+    await createNotification({
+      userId: judge._id,
+      type: "competition",
+      from: req.user._id,
+      message: `You have been added to the judging panel for ${competition.name}.`,
+    });
+    await sendJudgeAssignmentEmail({ to: judge.email, name: judge.name, competitionName: competition.name });
 
     return res.status(201).json({ assignment: { ...assignment, judge } });
   } catch (error) {

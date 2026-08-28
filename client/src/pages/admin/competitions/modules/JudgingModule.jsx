@@ -295,6 +295,15 @@ export default function JudgingModule({ competitionId }) {
           </div>
         </div>
 
+        {/* The combination that silently does nothing: judges assigned, no rubric. They can open
+            entries and score none of them, and the only other place this shows is their own screen. */}
+        {panel.some((p) => p.status === "active") && !criteria.length ? (
+          <p className="mt-4 px-4 py-3 rounded-lg bg-[#f8f0e4] border border-[#e5d3b6] text-sm text-[#8a5a1c]">
+            <strong>Judges are assigned but there are no scoring criteria.</strong> They can read entries
+            but cannot score any of them until you add at least one criterion below and save.
+          </p>
+        ) : null}
+
         {panel.length ? (
           <div className="mt-6 pt-6 border-t border-[#eee]">
             <h3 className="text-sm font-bold text-[#111] mb-3">Panel</h3>

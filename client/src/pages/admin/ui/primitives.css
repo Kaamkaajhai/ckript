@@ -475,3 +475,24 @@
   word-break: break-all;
   user-select: all;   /* one click selects the whole value */
 }
+
+/* A panel with judges but no rubric: they can read entries and score none of them. Warn tone, not
+   danger — nothing is broken, something is unfinished. */
+.ckad .ckjs-warn {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  border-radius: 10px;
+  background: var(--ad-warn-soft);
+  border: 1px solid var(--ad-warn-line);
+  color: var(--ad-warn);
+  font-size: var(--ad-t-sm);
+  line-height: 1.6;
+}
+
+.ckad .ckjs-nocrit {
+  color: var(--ad-warn);
+  font-weight: 600;
+}

@@ -131,7 +131,9 @@ function JudgesWorkspace() {
             {active.map((a) => (
               <span key={String(a.competitionId)} className="ckjs-panel">
                 {a.name}
-                <b className="ckad-num">{a.submittedCount} scored</b>
+                {a.criteriaCount
+                  ? <b className="ckad-num">{a.submittedCount} scored</b>
+                  : <b className="ckjs-nocrit">no criteria</b>}
                 <button
                   type="button"
                   className="ckjs-x"
@@ -174,6 +176,15 @@ function JudgesWorkspace() {
     },
   ];
 
+  // Competitions with an active panel and no criteria, de-duplicated across judges — three judges on
+  // one rubricless competition is one problem to fix, not three warnings to read.
+  const rubricless = [...new Map(
+    judges
+      .flatMap((j) => j.assignments || [])
+      .filter((a) => a.status === "active" && !a.criteriaCount)
+      .map((a) => [String(a.competitionId), a])
+  ).values()];
+
   // Only competitions this judge is not already actively on — offering a panel they are already on
   // just produces a 409 the admin has to read.
   const assignable = assigning
@@ -189,6 +200,20 @@ function JudgesWorkspace() {
       </SectionHeader>
 
       {error ? <div className="ade" role="alert">{error}</div> : null}
+
+      {/* The failure this catches: an admin assigns a panel, never opens Judging & Scoring, and the
+          judges sit there able to read entries but unable to score any of them. Until now the only
+          place that showed was the judge's own screen — the person who can fix it never saw it. */}
+      {rubricless.length ? (
+        <div className="ckjs-warn" role="status">
+          <strong>No scoring criteria set</strong>
+          <span>
+            {rubricless.map((c) => c.name).join(", ")}
+            {rubricless.length === 1 ? " has" : " have"} judges assigned but no rubric, so nobody can score.
+            Set the criteria in Competitions → the competition → Judging &amp; Scoring.
+          </span>
+        </div>
+      ) : null}
 
       <Card flush>
         <DataTable
@@ -288,7 +313,11 @@ function JudgesWorkspace() {
               {(props) => (
                 <Select {...props} value={assignTo} onChange={(e) => setAssignTo(e.target.value)}>
                   <option value="">Choose a competition…</option>
-                  {assignable.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}
+                  {assignable.map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.name}{(c.judging?.criteria || []).length ? "" : "  (no scoring criteria yet)"}
+                    </option>
+                  ))}
                 </Select>
               )}
             </Field>
