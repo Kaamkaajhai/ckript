@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { adminApi } from "../AdminDashboard";
+import JudgingResults from "./JudgingResults";
 import ScreenplayReadOnly from "../../components/ScreenplayReadOnly";
 import TagSelect from "../../components/TagSelect";
 import { genres as GENRE_OPTIONS } from "../CreateProject/constants";
@@ -242,6 +243,24 @@ function CompetitionEntries({ dark, competitionId, onBack, onDeclared }) {
       </div>
 
       {error ? <p className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-700">{error}</p> : null}
+
+      {/* The panel's verdict, above the form it pre-fills. Renders nothing at all when a
+          competition has no judges and no scores, which is every competition predating this. */}
+      {!declared ? (
+        <JudgingResults
+          dark={dark}
+          competitionId={competitionId}
+          cls={cls}
+          canPrefill={state.phase === "judging"}
+          onPrefill={({ winnerEntryId: w, runnerUpEntryId: r, specialAwards: sp }) => {
+            // Calls the declare form's OWN setters. The admin sees the same three selects, already
+            // filled, and still has to press Declare and clear the same confirmation.
+            setWinnerEntryId(w);
+            setRunnerUpEntryId(r);
+            setSpecialAwards(sp);
+          }}
+        />
+      ) : null}
 
       {state.phase === "judging" && !declared ? (
         <div className={`${cls.card(dark)} mb-5 border-[#D14D37]/40`}>
