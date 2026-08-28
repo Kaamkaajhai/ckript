@@ -74,12 +74,16 @@ describe("the judge console cannot render a writer's identity", () => {
   });
 
   it("requests only /judge endpoints", () => {
+    // The console is allowed off /judge for exactly three shared auth calls, all of which happen
+    // before there is a session and none of which return entry data. Anything else is a mistake.
+    const SHARED_AUTH = ["/auth/login", "/auth/judge-invite/", "/auth/judge-invite/accept"];
+
     for (const file of JUDGE_SOURCES) {
-      const urls = [...read(file).matchAll(/judgeApi\.(?:get|put|post|delete)\(\s*[`"']([^`"']+)/g)].map((m) => m[1]);
+      const urls = [...read(file).matchAll(/judgeApi\.(?:get|put|post|delete)\(\s*[`"']([^`"'$]*)/g)].map((m) => m[1]);
       for (const url of urls) {
         expect(
-          url.startsWith("/judge/") || url === "/auth/login",
-          `${file} calls ${url} — the judge console may only reach /judge (plus the shared login)`
+          url.startsWith("/judge/") || SHARED_AUTH.includes(url),
+          `${file} calls ${url} — the judge console may only reach /judge, plus ${SHARED_AUTH.join(", ")}`
         ).toBe(true);
       }
     }

@@ -1,4 +1,4 @@
-import { useCallback, useContext, useState } from "react";
+import { useCallback, useContext, useEffect, useState } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import judgeApi from "../../services/judgeApi";
 import AdminShell from "../admin/shell/AdminShell";
@@ -30,6 +30,99 @@ const NAV_GROUPS = [
     ],
   },
 ];
+
+/**
+ * Setting a password from the admin's one-time invite link.
+ *
+ * The admin creates the account but never learns the secret — that is what keeps each score
+ * attributable to the judge who actually cast it, rather than to anyone holding a password the admin
+ * also had. Reached as /judge?invite=<token>, so it needs no route of its own.
+ */
+function JudgeAcceptInvite({ token, onSignedIn, onGiveUp }) {
+  const [state, setState] = useState({ checking: true, valid: false, name: "", error: "" });
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    judgeApi
+      .get(`/auth/judge-invite/${token}`)
+      .then(({ data }) => {
+        if (!cancelled) setState({ checking: false, valid: true, name: data.name || "", error: "" });
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setState({ checking: false, valid: false, name: "", error: err?.response?.data?.message || "That invite link is not valid." });
+        }
+      });
+    return () => { cancelled = true; };
+  }, [token]);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    if (password !== confirm) {
+      setError("The two passwords do not match.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const { data } = await judgeApi.post("/auth/judge-invite/accept", { token, password });
+      onSignedIn(data);
+    } catch (err) {
+      setError(err?.response?.data?.message || "Could not set your password.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (state.checking) {
+    return (
+      <div className="ckad ckjd-gate">
+        <div className="ckjd-gate-card"><Spinner /></div>
+      </div>
+    );
+  }
+
+  if (!state.valid) {
+    return (
+      <div className="ckad ckjd-gate">
+        <div className="ckjd-gate-card">
+          <h1>Ckript Judging</h1>
+          <p>{state.error}</p>
+          <Button onClick={onGiveUp}>Go to sign in</Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="ckad ckjd-gate">
+      <form className="ckjd-gate-card" onSubmit={submit}>
+        <h1>Welcome{state.name ? `, ${state.name.split(" ")[0]}` : ""}</h1>
+        <p>
+          Choose a password for your judging account. Nobody else sees it — not even the organiser who
+          invited you.
+        </p>
+
+        <Field label="New password" help="At least 8 characters, with an uppercase letter, a lowercase letter, a number and a symbol.">
+          {(props) => (
+            <Input {...props} type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+          )}
+        </Field>
+        <Field label="Confirm password" error={error}>
+          {(props) => (
+            <Input {...props} type="password" autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+          )}
+        </Field>
+
+        <Button type="submit" variant="primary" disabled={busy}>{busy ? "Setting…" : "Set password and continue"}</Button>
+      </form>
+    </div>
+  );
+}
 
 /** The sign-in card. Deliberately plain: a judge has one thing to do here. */
 function JudgeSignIn({ onSignedIn }) {
@@ -244,6 +337,36 @@ export default function JudgeHome() {
   const auth = useContext(AuthContext) || {};
   const { user, adoptSession } = auth;
   const role = String(user?.role || "");
+
+  // ?invite=<token> is the admin's one-time set-password link. Read once into state rather than kept
+  // live, so accepting it can clear the token out of the address bar without remounting the screen.
+  const [invite, setInvite] = useState(() => {
+    try {
+      return new URLSearchParams(window.location.search).get("invite") || "";
+    } catch {
+      return "";
+    }
+  });
+
+  const clearInvite = useCallback(() => {
+    setInvite("");
+    // Drop the token from the URL so it does not sit in history, or in a screenshot of the browser.
+    try {
+      window.history.replaceState({}, "", "/judge");
+    } catch { /* a blocked history write is cosmetic, not a failure */ }
+  }, []);
+
+  // Checked before the signed-in branch: a judge who accepted an invite in another tab, or who is
+  // signed in as someone else, should still be able to open the link they were sent.
+  if (invite) {
+    return (
+      <JudgeAcceptInvite
+        token={invite}
+        onSignedIn={(data) => { adoptSession?.(data); clearInvite(); }}
+        onGiveUp={clearInvite}
+      />
+    );
+  }
 
   if (!user) return <JudgeSignIn onSignedIn={(data) => adoptSession?.(data)} />;
 

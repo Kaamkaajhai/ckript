@@ -9,11 +9,16 @@ import {
  * Judge accounts and their panel assignments.
  *
  * A judge is a login the admin creates, not a platform user who applied — so this screen owns the
- * whole lifecycle: create the account, put it on a panel, watch the progress, take it off again.
+ * whole lifecycle: create the account, send the invite, put them on a panel, watch the progress,
+ * take them off again.
  *
- * The generated password is shown ONCE, in the response to the create call, and the server never
- * stores or logs the plaintext. That is why the dialog below refuses to close on a stray click: the
- * admin has one chance to copy it, and losing it means a reset.
+ * THE ADMIN NEVER SEES A JUDGE'S PASSWORD, and that is the point rather than an oversight. Creating
+ * an account issues a one-time link; the judge sets their own secret from it. If the admin chose the
+ * password they could sign in as that judge and score in their name, and "every score is
+ * attributable to a named judge" would be a convention rather than something the system enforces.
+ *
+ * The link is shown once — only its hash is stored — so the dialog says so and offers a copy button
+ * rather than implying it can be fetched again later.
  */
 
 function JudgesWorkspace() {
@@ -25,7 +30,7 @@ function JudgesWorkspace() {
 
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState({ name: "", email: "" });
-  const [issued, setIssued] = useState(null);        // { judge, password } — shown once
+  const [issued, setIssued] = useState(null);        // { judge, invitePath } — shown once
   const [assigning, setAssigning] = useState(null);  // the judge being assigned
   const [assignTo, setAssignTo] = useState("");
   const [revoking, setRevoking] = useState(null);    // { judge, competition }
@@ -69,13 +74,13 @@ function JudgesWorkspace() {
     }
   };
 
-  const resetPassword = async (judge) => {
+  const resendInvite = async (judge) => {
     setBusy(true);
     try {
-      const { data } = await adminApi.post(`/admin/judges/${judge._id}/reset-password`);
+      const { data } = await adminApi.post(`/admin/judges/${judge._id}/resend-invite`);
       setIssued(data);
     } catch (err) {
-      toast.error(err?.response?.data?.message || "Could not reset the password.");
+      toast.error(err?.response?.data?.message || "Could not re-issue the invite.");
     } finally {
       setBusy(false);
     }
@@ -145,8 +150,14 @@ function JudgesWorkspace() {
       key: "status",
       header: "Status",
       width: 120,
-      sortValue: (row) => (row.isFrozen ? "frozen" : "active"),
-      render: (row) => (row.isFrozen ? <Badge tone="danger">Frozen</Badge> : <Badge tone="success">Active</Badge>),
+      sortValue: (row) => (row.isFrozen ? "frozen" : row.inviteAccepted ? "active" : "invited"),
+      render: (row) => {
+        if (row.isFrozen) return <Badge tone="danger">Frozen</Badge>;
+        // "Invited" is not a lesser kind of active — until they accept, no password exists that
+        // opens this account at all, so the admin needs to see who has not set one yet.
+        if (!row.inviteAccepted) return <Badge tone="warn">Invite sent</Badge>;
+        return <Badge tone="success">Active</Badge>;
+      },
     },
     {
       key: "actions",
@@ -155,7 +166,9 @@ function JudgesWorkspace() {
       render: (row) => (
         <div className="ckjs-actions">
           <Button size="sm" onClick={() => { setAssigning(row); setAssignTo(""); }}>Assign</Button>
-          <Button size="sm" variant="ghost" onClick={() => resetPassword(row)} disabled={busy}>Reset password</Button>
+          <Button size="sm" variant="ghost" onClick={() => resendInvite(row)} disabled={busy}>
+            {row.inviteAccepted ? "Reset access" : "New invite link"}
+          </Button>
         </div>
       ),
     },
@@ -185,7 +198,7 @@ function JudgesWorkspace() {
           searchPlaceholder="Search judges…"
           empty={{
             title: "No judges yet",
-            body: "Create a judge account, then assign it to the competitions they will score.",
+            body: "Create a judge account, send them the invite link, then assign them to the competitions they will score.",
           }}
         />
       </Card>
@@ -205,8 +218,9 @@ function JudgesWorkspace() {
         )}
       >
         <p className="ckjs-note">
-          This creates a new login. Use an address that is not already a Ckript account — an existing
-          account keeps whatever it is being used for, so judges get their own.
+          This creates a login and a one-time link the judge uses to set their own password. Use an
+          address that is not already a Ckript account — an existing account keeps whatever it is
+          being used for, so judges get their own.
         </p>
         <Field label="Name" required>
           {(props) => <Input {...props} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} />}
@@ -220,21 +234,18 @@ function JudgesWorkspace() {
       <Dialog
         open={Boolean(issued)}
         onClose={() => setIssued(null)}
-        title="Judge credentials"
+        title="Judge invite link"
         footer={issued ? (
           <>
             <Button
               onClick={() => {
                 navigator.clipboard
-                  ?.writeText(`Ckript judging
-${window.location.origin}/judge
-Email: ${issued.judge.email}
-Password: ${issued.password}`)
-                  .then(() => toast.success("Copied."))
-                  .catch(() => toast.error("Could not copy — select the text instead."));
+                  ?.writeText(`${window.location.origin}${issued.invitePath}`)
+                  .then(() => toast.success("Link copied."))
+                  .catch(() => toast.error("Could not copy — select the link instead."));
               }}
             >
-              Copy
+              Copy link
             </Button>
             <Button variant="primary" onClick={() => setIssued(null)}>Done</Button>
           </>
@@ -243,13 +254,17 @@ Password: ${issued.password}`)
         {issued ? (
           <>
             <p className="ckjs-note">
-              <strong>This password is shown once.</strong> It is not stored in readable form and cannot
-              be retrieved — if it is lost, reset it and issue a new one.
+              Send this link to <strong>{issued.judge.email}</strong>. They choose their own password
+              from it — <strong>you never see it</strong>, which is what keeps every score attributable
+              to the judge who cast it.
+              {" "}<strong>Shown once.</strong> The link is not stored anywhere and cannot be retrieved;
+              if it is lost, issue a new one.
             </p>
             <div className="ckjs-cred">
-              <div><span>Sign-in page</span><code>{window.location.origin}/judge</code></div>
-              <div><span>Email</span><code>{issued.judge.email}</code></div>
-              <div><span>Password</span><code>{issued.password}</code></div>
+              <div><span>One-time invite link</span><code>{`${window.location.origin}${issued.invitePath}`}</code></div>
+              {issued.inviteExpiresAt ? (
+                <div><span>Expires</span><code>{new Date(issued.inviteExpiresAt).toLocaleString()}</code></div>
+              ) : null}
             </div>
           </>
         ) : null}

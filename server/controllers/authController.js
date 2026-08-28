@@ -47,6 +47,7 @@ const generateToken = (id, sessionId) => {
 };
 
 import crypto from "crypto";
+import { isInviteExpired } from "../utils/inviteToken.js";
 import { UAParser } from "ua-parser-js";
 import geoip from "geoip-lite";
 import axios from "axios";
@@ -1815,6 +1816,107 @@ export const resetPassword = async (req, res) => {
   } catch (error) {
     console.error("Reset password error:", error);
     return res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * GET /auth/judge-invite/:token — is this link still good?
+ *
+ * Answers only enough for the page to render the right thing: whether the token works, and the name
+ * to greet. Deliberately does NOT return the email address — a valid token proves possession of the
+ * link, not of the mailbox, and echoing an address would turn a leaked link into a way to learn who
+ * it belongs to.
+ */
+export const checkJudgeInvite = async (req, res) => {
+  try {
+    const token = String(req.params.token || "");
+    if (!/^[a-f0-9]{64}$/i.test(token)) return res.status(400).json({ valid: false, message: "That invite link is not valid." });
+
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const user = await User.findOne({ role: "judge", "judgeInvite.tokenHash": tokenHash })
+      .select("name judgeInvite")
+      .lean();
+
+    if (!user) return res.status(404).json({ valid: false, message: "That invite link is not valid. Ask the organiser to send a new one." });
+    if (user.judgeInvite?.acceptedAt) {
+      return res.status(409).json({ valid: false, message: "This invite has already been used. Sign in with the password you chose." });
+    }
+    if (isInviteExpired(user.judgeInvite?.expiresAt)) {
+      return res.status(410).json({ valid: false, message: "This invite has expired. Ask the organiser to send a new one." });
+    }
+
+    return res.json({ valid: true, name: user.name });
+  } catch (error) {
+    console.error("Judge invite check error:", error);
+    return res.status(500).json({ valid: false, message: "Could not check that invite." });
+  }
+};
+
+/**
+ * POST /auth/judge-invite/accept — body: { token, password }
+ *
+ * The judge sets their own password, once, from a link the admin sent.
+ *
+ * This exists so the ADMIN never learns it. If the admin chose the password they could sign in as
+ * that judge and score in their name, and "each score is attributable to a named judge" would be a
+ * convention rather than something the system enforces — which is the entire reason judges get
+ * individual accounts rather than a shared access code.
+ *
+ * Looked up by the token's HASH, never the token: the database stores only the hash, so a dump of it
+ * gives nobody a usable link.
+ *
+ * Public, and behind the same authLimiter as every other route on /api/auth. Single-use: acceptedAt
+ * is stamped and the hash is cleared, so a link that leaks after the fact opens nothing.
+ */
+export const acceptJudgeInvite = async (req, res) => {
+  try {
+    const token = String(req.body?.token || "");
+    const password = String(req.body?.password || "");
+    if (!/^[a-f0-9]{64}$/i.test(token)) return res.status(400).json({ message: "That invite link is not valid." });
+
+    const passwordCheck = isValidPassword(password);
+    if (!passwordCheck.valid) return res.status(400).json({ message: passwordCheck.message });
+
+    const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const user = await User.findOne({ role: "judge", "judgeInvite.tokenHash": tokenHash });
+
+    if (!user) return res.status(404).json({ message: "That invite link is not valid. Ask the organiser to send a new one." });
+    if (user.judgeInvite?.acceptedAt) {
+      return res.status(409).json({ message: "This invite has already been used. Sign in with the password you chose." });
+    }
+    if (isInviteExpired(user.judgeInvite?.expiresAt)) {
+      return res.status(410).json({ message: "This invite has expired. Ask the organiser to send a new one." });
+    }
+    if (user.isFrozen) return res.status(403).json({ message: "This account is not active. Contact the organiser." });
+
+    // Plaintext assignment on purpose — the pre("save") hook hashes it, and only fires on a modified
+    // `password` path.
+    user.password = password;
+    user.judgeInvite = {
+      // Cleared, so the link is single-use rather than a standing password-reset for this account.
+      tokenHash: "",
+      expiresAt: null,
+      acceptedAt: new Date(),
+      invitedBy: user.judgeInvite?.invitedBy || null,
+    };
+    await user.save();
+
+    // Signed straight in. Making someone who just proved possession of the invite AND chose the
+    // password type that password again is friction with no security behind it.
+    const sessionId = await addSessionToUser(req, user);
+    const { token: authToken, expiresAt } = generateToken(user._id, sessionId);
+
+    return res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      token: authToken,
+      expiresAt,
+    });
+  } catch (error) {
+    console.error("Judge invite accept error:", error);
+    return res.status(500).json({ message: "Could not set your password." });
   }
 };
 

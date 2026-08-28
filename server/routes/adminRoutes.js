@@ -83,7 +83,7 @@ import { getAdminAnalytics, getAdminAnalyticsAnonymousDetail, getAdminAnalyticsU
 import {
     adminListJudges,
     adminCreateJudge,
-    adminResetJudgePassword,
+    adminResendJudgeInvite,
     adminAssignJudge,
     adminRevokeJudge,
     adminGetJudging,
@@ -212,7 +212,7 @@ router.get("/referrals/analytics", adminReferralAnalytics);
 // (routes/judgeRoutes.js) behind its own role gate; nothing here is reachable by a judge.
 router.get("/judges", adminListJudges);
 router.post("/judges", adminCreateJudge);
-router.post("/judges/:judgeId/reset-password", adminResetJudgePassword);
+router.post("/judges/:judgeId/resend-invite", adminResendJudgeInvite);
 
 router.get("/competitions/:id/judging", adminGetJudging);
 router.put("/competitions/:id/judging", adminSaveJudgingConfig);

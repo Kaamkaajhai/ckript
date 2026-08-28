@@ -8,6 +8,7 @@ import JudgeNomination from "../models/JudgeNomination.js";
 import { buildJudgingLeaderboard, tallyNominations } from "../utils/judgeAggregate.js";
 import { toJudgeEntryView, JUDGEABLE_STATUSES } from "../utils/judgeEntryView.js";
 import { asObjectId, asTrimmedString, asInt } from "../utils/requestValue.js";
+import { generateInviteToken, getInviteExpiryDate } from "../utils/inviteToken.js";
 
 /**
  * Admin side of the judge panel: creating judge logins, assigning them to competitions, defining the
@@ -19,30 +20,44 @@ import { asObjectId, asTrimmedString, asInt } from "../utils/requestValue.js";
  * existing declare endpoint remains the only thing that writes an award.
  */
 
-const LOWER = "abcdefghijkmnopqrstuvwxyz";   // no l
-const UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ";    // no I, O
-const DIGIT = "23456789";                    // no 0, 1
-const SYMBOL = "!@#$%^&*-_=+";
+/**
+ * The password nobody ever sees.
+ *
+ * The account needs a `password` (the schema requires one for non-Google users) but must not have a
+ * usable one until the judge sets it themselves. 48 random bytes, hashed by the pre-save hook and
+ * then forgotten — not returned, not logged, not recoverable. Until the invite is accepted there is
+ * no secret in existence that opens this account.
+ */
+const unusablePassword = () => crypto.randomBytes(48).toString("hex");
 
 /**
- * A password the admin reads off the screen once and passes to the judge.
+ * The PATH the admin sends, not an absolute URL.
  *
- * Ambiguous glyphs are excluded because this password gets transcribed by a human at least once, and
- * an l/1/I mix-up turns into a support conversation. `crypto.randomInt` rather than Math.random —
- * this is a credential, and the difference costs nothing.
+ * Building it from CLIENT_URL would make a correct invite depend on an env var being right in every
+ * environment, and this codebase has already been bitten by exactly that (the Google Calendar
+ * redirect URI, misconfigured in production with nothing to see server-side). The admin console is
+ * served by the client app, so the browser already knows the right origin — it prefixes this and
+ * cannot get it wrong.
  *
- * Built to satisfy authController's isValidPassword (8+, upper, lower, digit, symbol) so a judge who
- * later changes it is not fighting a rule their issued password would have failed.
+ * The raw token appears here and nowhere else, ever.
  */
-const generatePassword = () => {
-  const pick = (set, n) => Array.from({ length: n }, () => set[crypto.randomInt(set.length)]).join("");
-  const chars = [...pick(UPPER, 3), ...pick(LOWER, 6), ...pick(DIGIT, 3), ...pick(SYMBOL, 2)];
-  // Shuffle so the character classes are not always in the same positions.
-  for (let i = chars.length - 1; i > 0; i -= 1) {
-    const j = crypto.randomInt(i + 1);
-    [chars[i], chars[j]] = [chars[j], chars[i]];
-  }
-  return chars.join("");
+const invitePath = (token) => `/judge?invite=${token}`;
+
+/**
+ * Issue (or re-issue) a set-password invite for a judge account.
+ *
+ * Stores the HASH and returns the raw token, so the caller can build one link and then lose it.
+ */
+const issueInvite = async (user, invitedBy) => {
+  const token = generateInviteToken();
+  user.judgeInvite = {
+    tokenHash: crypto.createHash("sha256").update(token).digest("hex"),
+    expiresAt: getInviteExpiryDate(),
+    acceptedAt: null,
+    invitedBy,
+  };
+  await user.save();
+  return token;
 };
 
 const judgeAccountView = (user) => ({
@@ -51,6 +66,10 @@ const judgeAccountView = (user) => ({
   email: user.email,
   createdAt: user.createdAt,
   isFrozen: Boolean(user.isFrozen),
+  // Whether this judge can actually sign in yet. An admin looking at the list needs to know who is
+  // still sitting on an unopened invite.
+  inviteAccepted: Boolean(user.judgeInvite?.acceptedAt),
+  inviteExpiresAt: user.judgeInvite?.acceptedAt ? null : user.judgeInvite?.expiresAt || null,
 });
 
 /**
@@ -60,7 +79,7 @@ const judgeAccountView = (user) => ({
 export const adminListJudges = async (req, res) => {
   try {
     const judges = await User.find({ role: "judge" })
-      .select("name email createdAt isFrozen")
+      .select("name email createdAt isFrozen judgeInvite.acceptedAt judgeInvite.expiresAt")
       .sort({ createdAt: -1 })
       .lean();
 
@@ -111,7 +130,10 @@ export const adminListJudges = async (req, res) => {
 
 /**
  * POST /api/admin/judges
- * Create a judge login. The generated password is returned in THIS response and never again.
+ *
+ * Create a judge account and return a one-time set-password link. The admin never learns the
+ * password — the judge chooses it — which is what keeps every score attributable to the person who
+ * actually cast it.
  */
 export const adminCreateJudge = async (req, res) => {
   try {
@@ -133,27 +155,30 @@ export const adminCreateJudge = async (req, res) => {
       });
     }
 
-    const password = generatePassword();
     const judge = await User.create({
       name,
       email,
       // Assigned in plaintext on purpose: the pre("save") hook is what hashes it, and it only fires
       // on a modified `password` path. Pre-hashing here would double-hash and lock the account out.
-      password,
+      // This particular value is random and immediately discarded — see unusablePassword.
+      password: unusablePassword(),
       role: "judge",
       // REQUIRED. login() 403s an unverified account and tells the user to check their inbox for a
       // code that was never sent — a judge created without this can never sign in, and the error
       // message points them somewhere that cannot help. The admin creating the account is the
-      // vouching step here.
+      // vouching step here, and accepting the invite proves the mailbox.
       emailVerified: true,
       authProvider: "password",
     });
 
+    const token = await issueInvite(judge, req.user._id);
+
     return res.status(201).json({
       judge: judgeAccountView(judge),
-      // Shown to the admin once. Never stored in plaintext, never logged, never returned again —
-      // the only copy after this response is whatever the admin does with it.
-      password,
+      // Shown to the admin once. The raw token is not stored anywhere — only its hash — so this
+      // response is the sole copy that will ever exist.
+      invitePath: invitePath(token),
+      inviteExpiresAt: judge.judgeInvite.expiresAt,
     });
   } catch (error) {
     if (error?.code === 11000) return res.status(409).json({ message: "That email already has an account." });
@@ -163,23 +188,33 @@ export const adminCreateJudge = async (req, res) => {
 };
 
 /**
- * POST /api/admin/judges/:judgeId/reset-password
- * A judge who lost their password. Same one-time-display rule.
+ * POST /api/admin/judges/:judgeId/resend-invite
+ *
+ * For an invite that expired, or a judge who lost their password. Issues a NEW token and, if they
+ * had already set a password, replaces it with an unusable one — so re-inviting genuinely resets
+ * access rather than leaving an old password quietly working alongside a new link.
+ *
+ * Note what this endpoint cannot do: reveal or choose the judge's password. An admin resetting an
+ * account still cannot sign in as that judge, which is the property that makes each score
+ * attributable to the person who cast it.
  */
-export const adminResetJudgePassword = async (req, res) => {
+export const adminResendJudgeInvite = async (req, res) => {
   try {
     const judgeId = asObjectId(req.params.judgeId);
     const judge = await User.findOne({ _id: judgeId, role: "judge" });
     if (!judge) return res.status(404).json({ message: "Judge not found." });
 
-    const password = generatePassword();
-    judge.password = password;   // hashed by the pre-save hook
-    await judge.save();
+    judge.password = unusablePassword();   // hashed by the pre-save hook
+    const token = await issueInvite(judge, req.user._id);
 
-    return res.json({ judge: judgeAccountView(judge), password });
+    return res.json({
+      judge: judgeAccountView(judge),
+      invitePath: invitePath(token),
+      inviteExpiresAt: judge.judgeInvite.expiresAt,
+    });
   } catch (error) {
-    console.error("[judging] adminResetJudgePassword failed:", error?.message || error);
-    return res.status(500).json({ message: "Could not reset the password." });
+    console.error("[judging] adminResendJudgeInvite failed:", error?.message || error);
+    return res.status(500).json({ message: "Could not re-issue the invite." });
   }
 };
 
