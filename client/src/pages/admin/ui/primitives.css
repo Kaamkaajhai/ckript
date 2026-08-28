@@ -404,3 +404,74 @@
   min-width: 11ch;
   text-align: center;
 }
+
+/* ── Judges section (admin → Judges) ─────────────────────────────────────
+   Tokens only, so the section follows the shell's light/dark switch. */
+.ckad .ckjs-muted { color: var(--ad-ink-4); }
+
+.ckad .ckjs-panels { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.ckad .ckjs-panel {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 10px;
+  border-radius: 999px;
+  background: var(--ad-surface-2);
+  border: 1px solid var(--ad-line);
+  font-size: var(--ad-t-sm);
+  color: var(--ad-ink);
+}
+.ckad .ckjs-panel b { color: var(--ad-ink-3); font-weight: 600; }
+
+.ckad .ckjs-x {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ad-ink-3);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+}
+.ckad .ckjs-x:hover { background: var(--ad-danger-soft); color: var(--ad-danger); }
+
+.ckad .ckjs-actions { display: flex; gap: 6px; }
+
+.ckad .ckjs-note {
+  margin: 0 0 16px;
+  font-size: var(--ad-t-sm);
+  color: var(--ad-ink-3);
+  line-height: 1.6;
+}
+
+/* The one-time credential block. Monospace and generously spaced because it is transcribed by a
+   human under mild pressure — this is the only time the password is ever visible. */
+.ckad .ckjs-cred {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 16px 0;
+  padding: 16px;
+  border-radius: 12px;
+  background: var(--ad-surface-2);
+  border: 1px solid var(--ad-line);
+}
+.ckad .ckjs-cred > div { display: flex; flex-direction: column; gap: 3px; }
+.ckad .ckjs-cred span {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ad-ink-3);
+}
+.ckad .ckjs-cred code {
+  font-family: var(--ad-font-mono);
+  font-size: 15px;
+  color: var(--ad-ink);
+  word-break: break-all;
+  user-select: all;   /* one click selects the whole value */
+}
