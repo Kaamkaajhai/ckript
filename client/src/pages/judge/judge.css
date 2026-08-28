@@ -1,0 +1,183 @@
+/**
+ * /judge — the judge console.
+ *
+ * Every colour is an --ad-* token from the admin UI kit, so the console follows the shell's own
+ * light/dark switch with no second theme to keep in step. Nothing here hardcodes a hex: a pinned
+ * colour is exactly how a panel ends up as dark-on-dark the first time someone toggles the theme.
+ *
+ * Selectors are scoped under .ckad (the class the shell puts on its root) so these rules cannot
+ * reach the consumer app if a class name is ever reused.
+ */
+
+/* ── The sign-in / refusal gate ─────────────────────────────────────────── */
+.ckjd-gate {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: var(--ad-canvas);
+  color: var(--ad-ink);
+  font-family: var(--ad-font);
+}
+
+.ckjd-gate-card {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 32px;
+  background: var(--ad-surface);
+  border: 1px solid var(--ad-line);
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(28, 22, 21, 0.06);
+}
+
+.ckjd-gate-card h1 { margin: 0; font-size: var(--ad-t-display); letter-spacing: -0.02em; }
+.ckjd-gate-card p { margin: 0; color: var(--ad-ink-3); font-size: var(--ad-t-body); line-height: 1.6; }
+
+/* ── Shared bits ────────────────────────────────────────────────────────── */
+.ckad .ckjd-loading { padding: 64px; display: grid; place-items: center; }
+
+.ckad .ckjd-code {
+  font-family: var(--ad-font-mono);
+  font-size: var(--ad-t-sm);
+  color: var(--ad-ink-3);
+  letter-spacing: 0.02em;
+}
+
+.ckad .ckjd-note {
+  margin: 8px 0 0;
+  font-size: var(--ad-t-sm);
+  color: var(--ad-ink-3);
+  line-height: 1.5;
+}
+
+.ckad .ckjd-closed {
+  margin: 12px 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: var(--ad-warn-soft);
+  border: 1px solid var(--ad-warn-line);
+  color: var(--ad-warn);
+  font-size: var(--ad-t-sm);
+}
+
+.ckad .ckjd-strip { margin: 0 0 16px; color: var(--ad-ink-3); font-size: var(--ad-t-body); }
+
+/* ── Competition picker ─────────────────────────────────────────────────── */
+.ckad .ckjd-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.ckad .ckjd-progress { margin-bottom: 14px; }
+.ckad .ckjd-progress p { margin: 8px 0 0; font-size: var(--ad-t-sm); color: var(--ad-ink-3); }
+
+.ckad .ckjd-bar {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--ad-surface-3);
+  overflow: hidden;
+}
+.ckad .ckjd-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--ad-accent);
+  border-radius: 999px;
+  transition: width 220ms ease;
+}
+
+/* ── The reading + scoring workspace ────────────────────────────────────── */
+.ckad .ckjd-sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ckad .ckjd-position { font-size: var(--ad-t-sm); color: var(--ad-ink-3); }
+
+/* Two panes: the script scrolls with the page, the score sheet sticks beside it. A judge must be
+   able to mark a criterion the moment they form the opinion, not after scrolling back up. */
+.ckad .ckjd-panes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 24px;
+  align-items: start;
+}
+
+.ckad .ckjd-form {
+  position: sticky;
+  top: 88px;               /* clears the shell's sticky header */
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  max-height: calc(100vh - 110px);
+  overflow-y: auto;
+}
+
+/* One column under 1100px. Side by side, the screenplay would be narrower than its own 60-character
+   measure, which is the one thing a script must not be. */
+@media (max-width: 1100px) {
+  .ckad .ckjd-panes { grid-template-columns: minmax(0, 1fr); }
+  .ckad .ckjd-form { position: static; max-height: none; }
+}
+
+.ckad .ckjd-script-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.ckad .ckjd-title { margin: 4px 0 0; font-size: var(--ad-t-title); color: var(--ad-ink); }
+
+.ckad .ckjd-counts {
+  display: flex;
+  gap: 14px;
+  font-size: var(--ad-t-sm);
+  color: var(--ad-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.ckad .ckjd-total {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--ad-accent-soft);
+  border: 1px solid var(--ad-accent-line);
+}
+.ckad .ckjd-total span { font-size: var(--ad-t-sm); color: var(--ad-ink-2); }
+.ckad .ckjd-total strong { font-size: 20px; color: var(--ad-accent-ink); }
+
+.ckad .ckjd-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 16px;
+}
+.ckad .ckjd-actions > * { flex: 1; }
+
+/* ── Nominations ────────────────────────────────────────────────────────── */
+.ckad .ckjd-noms { list-style: none; margin: 0 0 16px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+
+.ckad .ckjd-noms li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--ad-surface-2);
+  border: 1px solid var(--ad-line);
+}
+
+.ckad .ckjd-noms strong { display: block; font-size: var(--ad-t-body); color: var(--ad-ink); }
+.ckad .ckjd-noms span { display: block; margin-top: 4px; font-size: var(--ad-t-sm); color: var(--ad-ink-3); line-height: 1.5; }

@@ -34,11 +34,19 @@ export const AUDIENCE_ROUTE_RULES = Object.freeze([
 
   { id: "admin", patterns: ["/admin", "/admin/competitions/:id", "/admin/scripts/:id", "/admin/agreements"], roles: ["admin"] },
   { id: "finance", patterns: ["/finance"], roles: ["admin", "finance"] },
+  // Judge only — NOT admin, unlike the finance rule above. The server refuses an admin at
+  // /api/judge for the same reason: every score has to be attributable to a named judge, and an
+  // admin who could reach the console would produce scores nobody assigned.
+  { id: "judge", patterns: ["/judge"], roles: ["judge"] },
 ]);
 
 export function getDefaultAuthenticatedPath(userOrRole) {
   const role = normalizeRole(typeof userOrRole === "string" ? userOrRole : userOrRole?.role);
   if (role === "finance") return "/finance";
+  // Console-only roles are answered BEFORE the audience switch. `judge` is mapped to READER in
+  // shellPolicy so the role-coverage test stays honest, but a judge has nothing to do at /reader —
+  // falling through would land them on a browsing surface with no route back to their panel.
+  if (role === "judge") return "/judge";
   if (!isKnownRole(role)) return "/profile";
 
   switch (getAudience(role)) {
