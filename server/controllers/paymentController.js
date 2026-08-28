@@ -296,12 +296,12 @@ export const verifyRazorpayPayment = async (req, res) => {
     const currentUser = await User.findById(req.user._id).select("role subscription");
     if (!currentUser) return res.status(404).json({ message: "User not found" });
 
-    // Verify signature
-    const hmac = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET);
-    hmac.update(`${razorpay_order_id}|${razorpay_payment_id}`);
-    const generated_signature = hmac.digest("hex");
-
-    if (generated_signature !== razorpay_signature) {
+    // Verify signature (constant-time; see utils/razorpaySignature.js)
+    if (!verifyRazorpaySignature({
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      signature: razorpay_signature,
+    })) {
       return res.status(400).json({ message: "Payment verification failed: Invalid signature" });
     }
 
@@ -638,12 +638,11 @@ export const verifyWriterRazorpayPayment = async (req, res) => {
       return res.status(400).json({ message: "Missing required payment details" });
     }
 
-    const generatedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest("hex");
-
-    if (generatedSignature !== razorpay_signature) {
+    if (!verifyRazorpaySignature({
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      signature: razorpay_signature,
+    })) {
       return res.status(400).json({ message: "Invalid payment signature" });
     }
 

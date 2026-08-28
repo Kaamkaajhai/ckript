@@ -6352,15 +6352,11 @@ export const verifyScriptPurchase = async (req, res) => {
         });
       }
 
-      const body = razorpay_order_id + "|" + razorpay_payment_id;
-      const expectedSignature = crypto
-        .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-        .update(body.toString())
-        .digest("hex");
-
-      const isAuthentic = expectedSignature === razorpay_signature;
-
-      if (!isAuthentic) {
+      if (!verifyRazorpaySignature({
+        orderId: razorpay_order_id,
+        paymentId: razorpay_payment_id,
+        signature: razorpay_signature,
+      })) {
         console.error("Signature verification failed");
         return res.status(400).json({
           message: "Payment verification failed - Invalid signature",
@@ -7380,12 +7376,11 @@ export const verifyScriptTrailerPayment = async (req, res) => {
       return res.status(500).json({ message: "Payment system not configured" });
     }
 
-    const expectedSignature = crypto
-      .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET)
-      .update(`${razorpay_order_id}|${razorpay_payment_id}`)
-      .digest("hex");
-
-    if (expectedSignature !== razorpay_signature) {
+    if (!verifyRazorpaySignature({
+      orderId: razorpay_order_id,
+      paymentId: razorpay_payment_id,
+      signature: razorpay_signature,
+    })) {
       return res.status(400).json({ message: "Payment verification failed - Invalid signature" });
     }
 

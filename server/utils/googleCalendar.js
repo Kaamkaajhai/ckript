@@ -25,6 +25,53 @@ export class ReconnectRequired extends Error {
 export const isGoogleCalendarConfigured = () =>
   Boolean(process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET && process.env.GOOGLE_CALENDAR_REDIRECT_URI);
 
+/**
+ * Catch the redirect URI pointing at the FRONTEND instead of this API.
+ *
+ * The callback is a route on this server. Point it at the client origin and Google delivers the code
+ * to the single-page app, whose router has no such route — production showed
+ * `No routes matched location "/api/google-calendar/callback?..."` and a blank popup, with nothing
+ * on the server side to look at because the request never arrived here. The two hosts are separate
+ * in production (SPA on the apex domain, API on Cloud Run), so this is easy to get wrong and
+ * invisible once wrong.
+ *
+ * Compared against CLIENT_URL rather than a guess at our own address: a server behind a proxy cannot
+ * reliably know its public origin, but it does know the client's, and the callback must never live
+ * there.
+ *
+ * @returns {string} a warning to log, or "" when the pair looks right.
+ */
+export const getCalendarConfigWarning = () => {
+  const redirect = String(process.env.GOOGLE_CALENDAR_REDIRECT_URI || "").trim();
+  const client = String(process.env.CLIENT_URL || "").trim();
+  if (!redirect || !client) return "";
+
+  let redirectOrigin;
+  let clientOrigin;
+  try {
+    redirectOrigin = new URL(redirect).origin;
+    clientOrigin = new URL(client).origin;
+  } catch {
+    return `GOOGLE_CALENDAR_REDIRECT_URI or CLIENT_URL is not a valid URL (${redirect} / ${client}).`;
+  }
+
+  if (redirectOrigin === clientOrigin) {
+    return (
+      `GOOGLE_CALENDAR_REDIRECT_URI (${redirect}) points at CLIENT_URL's origin. ` +
+      "The callback is a route on THIS server, not on the front end — Google will hand the code to " +
+      "the SPA, which has no such route, and the connection will fail with a blank popup. Set it to " +
+      "this API's public origin + /api/google-calendar/callback, and register that exact URI in the " +
+      "Google Cloud Console."
+    );
+  }
+
+  if (!/\/api\/google-calendar\/callback$/.test(redirect)) {
+    return `GOOGLE_CALENDAR_REDIRECT_URI (${redirect}) does not end in /api/google-calendar/callback, which is the route that handles it.`;
+  }
+
+  return "";
+};
+
 const requireConfig = () => {
   if (!isGoogleCalendarConfigured()) {
     throw new Error(

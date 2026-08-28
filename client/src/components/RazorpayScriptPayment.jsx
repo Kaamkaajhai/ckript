@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { razorpayKeyFromOrder } from "../utils/razorpayKey";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../services/api";
 import { useDarkMode } from "../context/DarkModeContext";
@@ -133,7 +134,7 @@ const RazorpayScriptPayment = ({
       setFellBackToINR(Boolean(orderData.fellBackToINR));
 
       const options = {
-        key: orderData.keyId || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_SWgJpCDuk8M4ap",
+        key: razorpayKeyFromOrder(orderData),
         amount: orderData.amount,
         currency: orderData.currency,
         name: "ckript",
