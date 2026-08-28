@@ -30,10 +30,16 @@ import {
  * Mirror of the `role` enum in server/models/User.js. If someone adds a role to
  * the model and not to the policy, the first test here fails and tells them
  * which one — instead of that user quietly getting a screenwriter's toolbar.
+ *
+ * Being a hand-copied literal, this only works if it is actually kept in step:
+ * a role missing from BOTH files cannot fail a test that has never heard of it.
+ * `finance` is missing here today and has been since it was added to the model —
+ * mapping it means choosing its audience, which buildNav and isAdminAudience
+ * both consume, so it is left alone rather than decided in passing.
  */
 const SERVER_ROLE_ENUM = [
   "creator", "investor", "producer", "director", "actor",
-  "reader", "writer", "industry", "professional", "admin",
+  "reader", "writer", "industry", "professional", "admin", "judge",
 ];
 
 describe("shellPolicy — role coverage", () => {

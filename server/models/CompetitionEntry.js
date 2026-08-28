@@ -109,6 +109,10 @@ const competitionEntrySchema = new mongoose.Schema({
     },
     specialTitle: { type: String, default: "" },
     note: { type: String, default: "" },
+    // The ordering the admin confirmed, which is NOT necessarily the panel's suggestion — the
+    // aggregate ranks, a human decides. Null on every entry that predates the judge panel, and on
+    // any competition judged without one.
+    rank: { type: Number, default: null },
   },
 
   // Append-only ledger; the declare-results grant loop skips any type already present, which is what

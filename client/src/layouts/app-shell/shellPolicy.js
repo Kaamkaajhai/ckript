@@ -80,6 +80,13 @@ const ROLE_AUDIENCE = {
 
   reader: AUDIENCE.READER,
   admin: AUDIENCE.ADMIN,
+
+  // Console-only role: an invited competition judge lives entirely at /judge, which mounts its own
+  // shell outside AppChrome exactly as /admin and /finance do. Mapped to READER anyway — the same
+  // value the fallback would give — so this file stays an honest answer to "what is every role in
+  // the server enum?" rather than quietly relying on the default. A judge cannot reach reader
+  // destinations regardless: every reader-* route rule carries roles:["reader"].
+  judge: AUDIENCE.READER,
 };
 
 /*

@@ -51,7 +51,11 @@ const userSchema = new mongoose.Schema({
   // Google OAuth linkage (writers / creators sign-in with Google).
   googleId: { type: String, index: true, sparse: true },
   authProvider: { type: String, enum: ["password", "google"], default: "password" },
-  role: { type: String, enum: ["creator", "investor", "producer", "director", "actor", "reader", "writer", "industry", "professional", "admin", "finance"], required: true },
+  // "judge", like "admin" and "finance", is GRANTED, never chosen: authController's
+  // PUBLIC_SIGNUP_ROLES allow-list is what keeps a stranger from posting role:"judge" to /auth/join
+  // and reading unpublished competition entries. Adding a privileged role here without adding it
+  // there makes it self-registerable.
+  role: { type: String, enum: ["creator", "investor", "producer", "director", "actor", "reader", "writer", "industry", "professional", "admin", "finance", "judge"], required: true },
   // The role a finance grant replaced, so revoking restores it exactly — roles are load-bearing.
   financeRoleGrantedFrom: { type: String },
   bio: { type: String },
