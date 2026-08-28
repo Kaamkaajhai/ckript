@@ -80,6 +80,18 @@ import {
     adminUploadResource,
 } from "../controllers/competitionAdminController.js";
 import { getAdminAnalytics, getAdminAnalyticsAnonymousDetail, getAdminAnalyticsUserDetail } from "../controllers/analyticsController.js";
+import {
+    adminListJudges,
+    adminCreateJudge,
+    adminResetJudgePassword,
+    adminAssignJudge,
+    adminRevokeJudge,
+    adminGetJudging,
+    adminSaveJudgingConfig,
+    adminUnlockJudging,
+    adminSetRanks,
+    adminPreviewJudgeEntry,
+} from "../controllers/competitionJudgingAdminController.js";
 
 const router = express.Router();
 
@@ -194,6 +206,22 @@ router.post("/competitions/upload-resource", resourceUpload.single("file"), admi
 
 // Referral analytics (?competitionId= scopes it, ?format=csv exports)
 router.get("/referrals/analytics", adminReferralAnalytics);
+
+// ── Judge panel ─────────────────────────────────────────────────────────────
+// Judge ACCOUNTS and the per-competition rubric. The judge-facing API is a separate router
+// (routes/judgeRoutes.js) behind its own role gate; nothing here is reachable by a judge.
+router.get("/judges", adminListJudges);
+router.post("/judges", adminCreateJudge);
+router.post("/judges/:judgeId/reset-password", adminResetJudgePassword);
+
+router.get("/competitions/:id/judging", adminGetJudging);
+router.put("/competitions/:id/judging", adminSaveJudgingConfig);
+router.post("/competitions/:id/judging/unlock", adminUnlockJudging);
+router.put("/competitions/:id/judging/ranks", adminSetRanks);
+router.post("/competitions/:id/judges", adminAssignJudge);
+router.delete("/competitions/:id/judges/:judgeId", adminRevokeJudge);
+// Proves the blind view is blind, by calling the judge's own projection from an admin route.
+router.get("/competitions/:id/entries/:entryId/judge-preview", adminPreviewJudgeEntry);
 
 // Contact Queries
 router.get("/queries", getContactSubmissions);

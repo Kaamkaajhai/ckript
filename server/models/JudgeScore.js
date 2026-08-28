@@ -21,7 +21,14 @@ const judgeScoreSchema = new mongoose.Schema(
     entry: { type: mongoose.Schema.Types.ObjectId, ref: "CompetitionEntry", required: true, index: true },
     judge: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true, index: true },
 
-    /** criterionKey -> 0..100. Keys come from Competition.judging.criteria. */
+    /**
+     * criterionKey -> the RAW mark, 0..Competition.judging.scale. Keys come from
+     * Competition.judging.criteria.
+     *
+     * Stored raw rather than pre-weighted so that changing a criterion's weight is honoured by the
+     * next read instead of being baked into every score at the moment it was cast. The 0..100
+     * weighted figure is derived in utils/judgeAggregate.js and never stored.
+     */
     scores: { type: Map, of: Number, default: () => new Map() },
 
     comment: { type: String, default: "", maxlength: 2000 },
