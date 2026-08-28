@@ -199,6 +199,12 @@ const scheduleMoved = (stored = {}, incoming = {}) =>
 
 // Whitelist of admin-editable fields. Anything missing here is SILENTLY dropped from an update —
 // add new editable fields to this list or the admin will save and see no error and no change.
+//
+// `judging` is missing ON PURPOSE — do not add it. The content editor rebuilds its whole payload
+// from the form it loaded, so routing the rubric through here would let a tab opened before the
+// criteria were written blank them on its next save, after judges had already scored against them.
+// It has its own endpoint, which refuses once judging.lockedAt is set. `judges` below is the
+// unrelated public marketing panel (photos and bios), not the scoring configuration.
 const CONTENT_FIELDS = [
   "name", "shortName", "tagline", "shortDescription", "host", "language", "timezone", 
   "eventType", "competitionCategory", "difficulty", "expectedParticipants", "estimatedReadingTime",

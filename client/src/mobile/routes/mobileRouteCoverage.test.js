@@ -53,6 +53,7 @@ const APP_ROUTE_PATTERNS = [
   "/features/:slug",
   "/film-investment-india",
   "/finance",
+  "/judge",
   "/follow-requests",
   "/for",
   "/for/:slug",

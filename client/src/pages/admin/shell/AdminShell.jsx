@@ -71,6 +71,11 @@ export default function AdminShell({
   headerActions = null,
   brand = "Ckript Admin",
   defaultTheme = "light",       // a surface whose content is tuned dark (the current admin) starts dark
+  // Told the current theme, whenever it changes and once on mount. The shell styles ITSELF from
+  // data-theme, so no existing screen needs this — it exists for content that renders its own
+  // themed surface and has to match, like the screenplay reader in /judge, which takes a `dark`
+  // prop and would otherwise sit as a white page inside a dark console.
+  onThemeChange = null,
   children,
 }) {
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSE_KEY) === "1");
@@ -89,6 +94,13 @@ export default function AdminShell({
     localStorage.setItem(THEME_KEY, next);
     setTheme(next);
   };
+
+  // Fires on mount too, not only on toggle: a console restored from localStorage in dark mode must
+  // tell its children that on the first render, or they paint light once and then correct
+  // themselves.
+  useEffect(() => {
+    onThemeChange?.(theme === "dark");
+  }, [theme, onThemeChange]);
 
   // Ctrl/Cmd+K or "/" focuses search — unless the admin is already typing somewhere.
   useEffect(() => {

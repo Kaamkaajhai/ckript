@@ -17,6 +17,7 @@ import AdminAnalyticsPanel from "../components/AdminAnalyticsPanel";
 import AdminCompetitions from "./admin/AdminCompetitions";
 import AdminReferrals from "./admin/AdminReferrals";
 import ExternalRegistrationsSection from "./admin/sections/ExternalRegistrationsSection";
+import JudgesSection from "./admin/sections/JudgesSection";
 import DirectEmailSection from "./admin/sections/DirectEmailSection";
 import {
     API_BASE_URL,
@@ -2130,6 +2131,9 @@ const AdminDashboard = () => {
 
             case "competitions":
                 return <AdminCompetitions isDark={isDark} />;
+
+            case "judges":
+                return <JudgesSection />;
 
             case "external-registrations":
                 return <ExternalRegistrationsSection />;

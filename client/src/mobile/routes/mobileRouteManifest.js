@@ -838,6 +838,7 @@ export const MOBILE_ROUTE_DISPOSITIONS = Object.freeze([
   migration("admin-script", "/admin/scripts/:id"),
   migration("admin-agreements", "/admin/agreements"),
   migration("finance", "/finance"),
+  migration("judge", "/judge"),
 
   // App.jsx intentionally declares these catch-alls last as well.
   {

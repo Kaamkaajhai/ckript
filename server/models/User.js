@@ -51,9 +51,35 @@ const userSchema = new mongoose.Schema({
   // Google OAuth linkage (writers / creators sign-in with Google).
   googleId: { type: String, index: true, sparse: true },
   authProvider: { type: String, enum: ["password", "google"], default: "password" },
-  role: { type: String, enum: ["creator", "investor", "producer", "director", "actor", "reader", "writer", "industry", "professional", "admin", "finance"], required: true },
+  // "judge", like "admin" and "finance", is GRANTED, never chosen: authController's
+  // PUBLIC_SIGNUP_ROLES allow-list is what keeps a stranger from posting role:"judge" to /auth/join
+  // and reading unpublished competition entries. Adding a privileged role here without adding it
+  // there makes it self-registerable.
+  role: { type: String, enum: ["creator", "investor", "producer", "director", "actor", "reader", "writer", "industry", "professional", "admin", "finance", "judge"], required: true },
   // The role a finance grant replaced, so revoking restores it exactly — roles are load-bearing.
   financeRoleGrantedFrom: { type: String },
+
+  /**
+   * Judge onboarding: the admin creates the ACCOUNT, the judge chooses the SECRET.
+   *
+   * If the admin picked the password, the admin could sign in as that judge and score in their name,
+   * and "every score is attributable to a named judge" would be a convention rather than a fact —
+   * which is the whole reason judges get individual accounts instead of a shared code.
+   *
+   * The HASH is stored, never the token. The raw token exists only in the link handed to the admin
+   * once; a leaked database gives nobody the ability to claim a judge account.
+   *
+   * The existing passwordResetToken fields could NOT be reused: those hold hashOTP(otp) and are
+   * consumed by verifyHashedOTP — a six-digit code flow, not a link flow. Guessing a six-digit code
+   * is a different proposition from guessing 32 random bytes, and this token sets a password on an
+   * account that reads unpublished screenplays.
+   */
+  judgeInvite: {
+    tokenHash: { type: String, default: "" },
+    expiresAt: { type: Date, default: null },
+    acceptedAt: { type: Date, default: null },
+    invitedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
+  },
   bio: { type: String },
   skills: [String],
   profileImage: { type: String },

@@ -17,7 +17,9 @@ import {
 	getSessions,
 	removeSession,
 	removeAllOtherSessions,
-	logout
+	logout,
+	checkJudgeInvite,
+	acceptJudgeInvite,
 } from "../controllers/authController.js";
 import protect from "../middleware/authMiddleware.js";
 
@@ -30,6 +32,12 @@ router.post("/verify-otp", verifyOTP);
 router.post("/resend-otp", resendOTP);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
+
+// Judge onboarding: the admin creates the account, the judge sets the password from a one-time link.
+// Public by necessity (the judge has no session yet) and covered by the authLimiter that server.js
+// applies to this whole router.
+router.get("/judge-invite/:token", checkJudgeInvite);
+router.post("/judge-invite/accept", acceptJudgeInvite);
 router.post("/resend-reset-otp", resendPasswordResetOTP);
 router.post("/validate-address", validateSignupAddress);
 router.get("/validate-referral/:referralInput", validateReferral);

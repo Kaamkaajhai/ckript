@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 import Notification from "../models/Notification.js";
 import mailFrom from "./mailFrom.js";
 import { CONTACTS, signatureHtml, signatureText } from "./companyContacts.js";
+import { escapeHtml } from "./escapeHtml.js";
 
 let cachedTransporter = null;
 
@@ -129,5 +130,54 @@ export const sendInviteEmail = async ({ to, recipientName, scriptTitle, token, r
       <p>This invite expires in 72 hours.</p>
     `,
     text: `Hi ${safeRecipient},\n\nYou've been invited to join "${scriptTitle}" as a ${role} on ckript.\n${message ? `Message: ${message}\n\n` : ""}Accept invitation: ${inviteUrl}\n\nThis invite expires in 72 hours.`,
+  });
+};
+
+/**
+ * The judge's set-password link.
+ *
+ * An email cannot follow a relative path, so this is the one place the invite becomes an absolute
+ * URL. The admin console builds its own from window.location.origin precisely to avoid depending on
+ * these env vars; here there is no browser to ask, so resolveClientBaseUrl's fallback chain is used.
+ *
+ * Names are escaped: they are admin-entered free text landing in an HTML document.
+ */
+export const sendJudgeInviteEmail = async ({ to, name, invitePath, competitionName = "" }) => {
+  const url = `${resolveClientBaseUrl()}${invitePath}`;
+  const safeName = escapeHtml(name || "there");
+  const context = competitionName
+    ? `<p>You have been invited to judge <strong>${escapeHtml(competitionName)}</strong> on Ckript.</p>`
+    : "<p>You have been invited to judge on Ckript.</p>";
+
+  return sendEmailNotification({
+    to,
+    subject: "Your Ckript judging account",
+    html: `
+      <p>Hi ${safeName},</p>
+      ${context}
+      <p>Use the link below to choose your password. <strong>Nobody else sees it</strong> — not even the organiser who invited you.</p>
+      <p><a href="${url}">Set your password</a></p>
+      <p>This link works once and expires in 72 hours. If it has expired, ask the organiser for a new one.</p>
+    `,
+    text: `Hi ${name || "there"},\n\n${competitionName ? `You have been invited to judge "${competitionName}" on Ckript.` : "You have been invited to judge on Ckript."}\n\nChoose your password here (nobody else sees it, not even the organiser):\n${url}\n\nThis link works once and expires in 72 hours.`,
+  });
+};
+
+/** Told they are on a panel. Sent on assignment, separately from the account invite. */
+export const sendJudgeAssignmentEmail = async ({ to, name, competitionName }) => {
+  const url = `${resolveClientBaseUrl()}/judge`;
+  const safeName = escapeHtml(name || "there");
+  const safeCompetition = escapeHtml(competitionName || "a competition");
+
+  return sendEmailNotification({
+    to,
+    subject: `You have been added to the judging panel for ${competitionName || "a competition"}`,
+    html: `
+      <p>Hi ${safeName},</p>
+      <p>You have been added to the judging panel for <strong>${safeCompetition}</strong>.</p>
+      <p>Entries are shown to you anonymously — an entry code, the title and the script, never the writer.</p>
+      <p><a href="${url}">Open your judging console</a></p>
+    `,
+    text: `Hi ${name || "there"},\n\nYou have been added to the judging panel for "${competitionName || "a competition"}".\n\nEntries are shown to you anonymously — an entry code, the title and the script, never the writer.\n\nOpen your judging console: ${url}`,
   });
 };

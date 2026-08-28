@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Save, ArrowLeft, Eye, MoreVertical, UploadCloud, LayoutDashboard, Palette, Clock, CheckSquare, Trophy, Users, Star, MessageSquare, Download, Link2, Bell, Award, Mail, Settings, Activity } from "lucide-react";
+import { Save, ArrowLeft, Eye, MoreVertical, UploadCloud, LayoutDashboard, Palette, Clock, CheckSquare, Trophy, Users, Star, MessageSquare, Download, Link2, Bell, Award, Mail, Settings, Activity, ClipboardCheck } from "lucide-react";
 import { adminApi } from "../../AdminDashboard";
 import OverviewModule from "./modules/OverviewModule";
 import BrandingModule from "./modules/BrandingModule";
@@ -8,6 +8,7 @@ import TimelineModule from "./modules/TimelineModule";
 import ThemeModule from "./modules/ThemeModule";
 import PrizesModule from "./modules/PrizesModule";
 import JudgesModule from "./modules/JudgesModule";
+import JudgingModule from "./modules/JudgingModule";
 import SponsorsModule from "./modules/SponsorsModule";
 import CommunityModule from "./modules/CommunityModule";
 import ResourcesModule from "./modules/ResourcesModule";
@@ -29,7 +30,8 @@ const SIDEBAR_NAV = [
   { id: "theme", label: "Theme & Requirements", icon: CheckSquare },
   { id: "rules", label: "Rules & Eligibility", icon: CheckSquare },
   { id: "prizes", label: "Prizes", icon: Trophy },
-  { id: "judges", label: "Judging Panel", icon: Users },
+  { id: "judges", label: "Panel (public bios)", icon: Users },
+  { id: "judging", label: "Judging & Scoring", icon: ClipboardCheck },
   { id: "sponsors", label: "Sponsors", icon: Star },
   { id: "community", label: "Community", icon: MessageSquare },
   { id: "resources", label: "Resources", icon: Download },
@@ -295,6 +297,12 @@ export default function AdminCompetitionsEditor() {
 
             {activeTab === "judges" && (
               <JudgesModule data={competition} onChange={updateField} />
+            )}
+
+            {/* Takes competitionId, NOT data/onChange: the rubric is saved through its own endpoint
+                because CONTENT_FIELDS deliberately drops `judging` from the editor's global save. */}
+            {activeTab === "judging" && (
+              <JudgingModule competitionId={id} />
             )}
 
             {activeTab === "sponsors" && (

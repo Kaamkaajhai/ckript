@@ -171,6 +171,54 @@ const competitionSchema = new mongoose.Schema({
     days: { type: Number, min: 0, default: 0 },
   }],
 
+  // The judging rubric for THIS competition — what the invited panel scores against.
+  //
+  // Deliberately NOT the same thing as `judges[]` further up. That array is marketing copy (photo,
+  // bio, IMDb link) rendered on the public landing page, with no account behind it. This is
+  // configuration for real judge logins, and the two must not be conflated.
+  //
+  // DELIBERATELY ABSENT FROM competitionAdminController's CONTENT_FIELDS, and it must stay absent.
+  // The admin content editor rebuilds its entire payload from the loaded form on every save, so a
+  // tab opened before the rubric was written would blank it on the next save — after judges had
+  // already scored against it. It is written only through the dedicated judging endpoint, which
+  // refuses once `lockedAt` is set.
+  judging: {
+    // Bumped whenever criteria change after a lock is lifted. Each submitted score records the
+    // version it was cast under, so the admin is told the rubric moved rather than quietly handed a
+    // number that means something different from what the judge was shown.
+    version: { type: Number, default: 1 },
+    // Every criterion is scored 0..scale. 10 is the familiar default; a competition wanting finer
+    // resolution can raise it without touching any score already stored, because scores keep their
+    // raw value and the aggregate normalises.
+    scale: { type: Number, min: 2, max: 100, default: 10 },
+    criteria: [{
+      key: { type: String, trim: true, maxlength: 40 },   // stable slug: "structure", "dialogue"
+      label: { type: String, trim: true, maxlength: 80 },
+      description: { type: String, maxlength: 500, default: "" },
+      // Relative, NOT required to sum to 100 — normalised at read as w/Σw, equal weights when Σw is
+      // 0. An admin typing 3/2/1 gets a sensible rubric instead of a validation argument, the same
+      // shape-don't-reject stance sanitizeReferralTiers already takes.
+      weight: { type: Number, min: 0, default: 0 },
+      order: { type: Number, default: 0 },
+    }],
+    // Named categories a judge can nominate an entry for — "Best Dialogue", "Boldest Premise".
+    // Keyed rather than free text so renaming a label cannot orphan every nomination against it.
+    awards: [{
+      key: { type: String, trim: true, maxlength: 40 },
+      label: { type: String, trim: true, maxlength: 80 },
+      description: { type: String, maxlength: 500, default: "" },
+      order: { type: Number, default: 0 },
+    }],
+    // Optional narrowing INSIDE the derived judging phase, which is otherwise unbounded — it runs
+    // from endsAt until results are declared, giving a panel no deadline. Null means "the whole
+    // phase", so every existing competition behaves exactly as it does today.
+    opensAt: { type: Date, default: null },
+    closesAt: { type: Date, default: null },
+    // Stamped by the first submitted score. Past this point the rubric is frozen: changing a weight
+    // afterwards would silently restate what every judge already decided.
+    lockedAt: { type: Date, default: null },
+  },
+
   createdBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
 }, { timestamps: true });
 

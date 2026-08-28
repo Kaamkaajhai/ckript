@@ -30,7 +30,7 @@ export const ADMIN_NAV_GROUPS = [
   },
   {
     title: "Competitions",
-    keys: ["competitions", "external-registrations", "referrals"],
+    keys: ["competitions", "judges", "external-registrations", "referrals"],
   },
   {
     title: "Communication",

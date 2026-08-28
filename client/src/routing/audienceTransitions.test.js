@@ -23,6 +23,10 @@ describe("audienceTransitions — canonical homes", () => {
     ["reader", "/reader"],
     ["admin", "/admin"],
     ["finance", "/finance"],
+    // A console-only role. shellPolicy maps judge to READER so its role-coverage test stays honest,
+    // which means a judge would fall through to /reader without the explicit case — a browsing
+    // surface with no route back to the panel they signed in to use.
+    ["judge", "/judge"],
     ["unknown", "/profile"],
   ])("maps %s to %s", (role, expected) => {
     expect(getDefaultAuthenticatedPath(role)).toBe(expected);
