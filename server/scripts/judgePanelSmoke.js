@@ -9,11 +9,12 @@
  *     cd server && node scripts/judgePanelSmoke.js
  *
  * It uses MONGO_URI from your .env, exactly like the server does. Every document it creates is
- * prefixed `smoke-judge-` and deleted at the end, pass or fail — including on Ctrl+C. It does NOT
- * touch existing data: no updates, no deletes, outside the documents it made itself.
+ * prefixed `smoke-judge-` and deleted at the end, pass or fail — including on Ctrl+C. It also clears
+ * any `smoke-judge-` documents a previous run left behind before it starts. It does NOT touch
+ * existing data: no updates, no deletes, outside documents carrying that prefix.
  *
  * Add --keep to leave the seeded competition, judge and entries in place so you can click through
- * the UI with them.
+ * the UI with them. The next run clears them, so there is nothing to tidy up by hand.
  */
 
 import "dotenv/config";
@@ -56,6 +57,7 @@ const cleanup = async () => {
     console.log("\n--keep: leaving seeded data in place.");
     console.log(`  Competition: ${created.competitions[0]}`);
     console.log(`  Judge login: ${TAG}judge@example.com`);
+    console.log("  Re-running the script clears this automatically — no need to tidy up by hand.");
     return;
   }
   await Promise.all([
@@ -69,12 +71,41 @@ const cleanup = async () => {
   console.log("\nSeeded data removed.");
 };
 
+/**
+ * Remove anything a PREVIOUS run left behind, matched on the smoke prefix.
+ *
+ * Both `User.email` and `CompetitionEntry.eventId` are unique, so a run left in place by --keep — or
+ * one killed hard enough to skip cleanup — makes the next run fail on a duplicate key, which reads
+ * like a bug in the feature rather than leftover state. Scoped strictly to the `smoke-judge-` prefix,
+ * so it still only ever deletes documents this script created.
+ */
+const removeLeftovers = async () => {
+  const prefix = new RegExp(`^${TAG}`);
+  const staleUsers = await User.find({ email: prefix }).select("_id").lean();
+  const staleCompetitions = await Competition.find({ slug: prefix }).select("_id").lean();
+  const userIds = staleUsers.map((u) => u._id);
+  const competitionIds = staleCompetitions.map((c) => c._id);
+  if (!userIds.length && !competitionIds.length) return;
+
+  await Promise.all([
+    JudgeScore.deleteMany({ $or: [{ judge: { $in: userIds } }, { competition: { $in: competitionIds } }] }),
+    JudgeNomination.deleteMany({ $or: [{ judge: { $in: userIds } }, { competition: { $in: competitionIds } }] }),
+    CompetitionJudge.deleteMany({ $or: [{ judge: { $in: userIds } }, { competition: { $in: competitionIds } }] }),
+    CompetitionEntry.deleteMany({ $or: [{ userId: { $in: userIds } }, { competitionId: { $in: competitionIds } }] }),
+    Competition.deleteMany({ _id: { $in: competitionIds } }),
+    User.deleteMany({ _id: { $in: userIds } }),
+  ]);
+  console.log(`Cleared ${userIds.length} user(s) and ${competitionIds.length} competition(s) from a previous run.\n`);
+};
+
 const run = async () => {
   const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
   if (!uri) throw new Error("MONGO_URI is not set — this script reads the same .env the server does.");
 
   await mongoose.connect(uri);
   console.log(`Connected to ${mongoose.connection.name}\n`);
+
+  await removeLeftovers();
 
   // ── Seed ────────────────────────────────────────────────────────────────
   console.log("Seeding");
@@ -127,11 +158,37 @@ const run = async () => {
   });
   created.competitions.push(secondCompetition._id);
 
-  // An entry carrying every identifying field, plus a TYPED-IN Fountain title page.
-  const entryA = await CompetitionEntry.create({
-    competitionId: competition._id, userId: writer._id, eventId: `${TAG}A1`,
-    status: "submitted", submittedAt: new Date(now - 2 * day),
-    registration: { country: "India", city: "Kochi", portfolioUrl: "https://smoke-writer.example.com" },
+  /*
+   * CompetitionEntry requires more than the judging code ever reads: registration.country,
+   * .language and .experienceLevel, plus both acceptance timestamps. Every stubbed test in this
+   * feature hands plain objects straight to the projection, so none of them ever met the schema —
+   * which is exactly the class of gap this script exists to close. Centralised here so a future
+   * required field is one edit rather than four.
+   *
+   * eventId carries the run timestamp because the field is `unique`: a previous run left behind by
+   * --keep would otherwise collide on the next run with a duplicate-key error.
+   */
+  const makeEntry = (overrides = {}) => ({
+    competitionId: competition._id,
+    userId: writer._id,
+    registration: { country: "India", language: "Malayalam", experienceLevel: "intermediate" },
+    acceptedRulesAt: new Date(now - 6 * day),
+    acceptedCopyrightAt: new Date(now - 6 * day),
+    status: "submitted",
+    submittedAt: new Date(now - 2 * day),
+    ...overrides,
+  });
+
+  const ids = { a: `${TAG}A1-${now}`, b: `${TAG}B2-${now}`, d: `${TAG}D3-${now}`, f: `${TAG}F4-${now}` };
+
+  // Deliberately carries every identifying field the model can hold, plus a TYPED-IN Fountain title
+  // page, so the anonymisation checks below have something real to fail on.
+  const entryA = await CompetitionEntry.create(makeEntry({
+    eventId: ids.a,
+    registration: {
+      country: "India", language: "Malayalam", experienceLevel: "intermediate",
+      portfolioUrl: "https://smoke-writer.example.com",
+    },
     payment: { orderId: "order_SMOKE_LEAK", paymentId: "pay_SMOKE_LEAK", amount: 499 },
     ai: { evaluation: { overall: 91, notes: "AI thinks this is strong" } },
     snapshot: {
@@ -142,22 +199,19 @@ const run = async () => {
       textContent: "INT. FERRY JETTY - DAWN",
       pageCount: 12, wordCount: 2780, sceneCount: 9,
     },
-  });
-  const entryB = await CompetitionEntry.create({
-    competitionId: competition._id, userId: writer._id, eventId: `${TAG}B2`,
-    status: "submitted", submittedAt: new Date(now - 2 * day),
+  }));
+  const entryB = await CompetitionEntry.create(makeEntry({
+    eventId: ids.b,
     snapshot: { title: "Second Script", fountainContent: "INT. KITCHEN - NIGHT", pageCount: 8, wordCount: 1900, sceneCount: 5 },
-  });
-  const draft = await CompetitionEntry.create({
-    competitionId: competition._id, userId: otherJudge._id, eventId: `${TAG}D3`,
-    status: "registered",
+  }));
+  const draft = await CompetitionEntry.create(makeEntry({
+    eventId: ids.d, userId: otherJudge._id, status: "registered", submittedAt: null,
     snapshot: { title: "Not Submitted", fountainContent: "INT. NOWHERE - DAY" },
-  });
-  const foreign = await CompetitionEntry.create({
-    competitionId: secondCompetition._id, userId: writer._id, eventId: `${TAG}F4`,
-    status: "submitted",
+  }));
+  const foreign = await CompetitionEntry.create(makeEntry({
+    eventId: ids.f, competitionId: secondCompetition._id,
     snapshot: { title: "Other Competition", fountainContent: "INT. ELSEWHERE - DAY" },
-  });
+  }));
   created.entries.push(entryA._id, entryB._id, draft._id, foreign._id);
 
   const assignment = await CompetitionJudge.create({
@@ -172,11 +226,13 @@ const run = async () => {
   check("the writer's name never reaches the judge's view", !serialised.includes(writer.name));
   check("the writer's email never reaches the judge's view", !serialised.includes(writer.email));
   check("payment ids never reach the judge's view", !serialised.includes("order_SMOKE_LEAK") && !serialised.includes("pay_SMOKE_LEAK"));
-  check("registration answers never reach the judge's view", !serialised.includes("Kochi"));
+  check("registration answers never reach the judge's view",
+    !serialised.includes("Malayalam") && !serialised.includes("intermediate") && !serialised.includes("smoke-writer.example.com"));
   check("the AI evaluation never reaches the judge's view", !serialised.includes("AI thinks this is strong"));
   check("logline and synopsis are withheld", !("logline" in view) && !("synopsis" in view));
   check("a typed-in Fountain title page is stripped from the body", !view.body.includes(writer.name) && view.body.startsWith("INT. FERRY JETTY"));
-  check("the entry code and title survive, so the judge has something to work with", view.eventId === `${TAG}A1` && view.title === "The Last Monsoon");
+  check("the entry code and title survive, so the judge has something to work with",
+    view.eventId === ids.a && view.title === "The Last Monsoon");
 
   console.log("\nDatabase constraints (what stubs cannot test)");
 
