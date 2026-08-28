@@ -28,9 +28,9 @@ import JudgeScore from "../models/JudgeScore.js";
 import JudgeNomination from "../models/JudgeNomination.js";
 import { toJudgeEntryView } from "../utils/judgeEntryView.js";
 import { buildJudgingLeaderboard, tallyNominations } from "../utils/judgeAggregate.js";
+import { buildFixtures, TAG } from "./judgePanelFixtures.js";
 
 const KEEP = process.argv.includes("--keep");
-const TAG = "smoke-judge-";
 
 let passed = 0;
 let failed = 0;
@@ -110,108 +110,36 @@ const run = async () => {
   // ── Seed ────────────────────────────────────────────────────────────────
   console.log("Seeding");
 
-  const writer = await User.create({
-    name: "Smoke Writer", email: `${TAG}writer@example.com`,
-    password: "Smoke!Pass9", role: "creator", emailVerified: true,
-  });
-  const judge = await User.create({
-    name: "Smoke Judge", email: `${TAG}judge@example.com`,
-    password: "Smoke!Pass9", role: "judge", emailVerified: true,
-  });
-  const otherJudge = await User.create({
-    name: "Smoke Judge Two", email: `${TAG}judge2@example.com`,
-    password: "Smoke!Pass9", role: "judge", emailVerified: true,
-  });
+  // Shapes come from judgePanelFixtures.js so judgePanelFixtures.test.js can validate them against
+  // the schemas offline, in the ordinary suite. Inline literals here would drift from that test and
+  // put us straight back to discovering a missing required field only on a live run.
+  const now = Date.now();
+  const f = buildFixtures(now);
+
+  const writer = await User.create(f.users.writer);
+  const judge = await User.create(f.users.judge);
+  const otherJudge = await User.create(f.users.otherJudge);
   created.users.push(writer._id, judge._id, otherJudge._id);
 
   check("a judge account's password is stored hashed, never in plain text",
-    judge.password !== "Smoke!Pass9" && judge.password.startsWith("$2"),
+    judge.password !== f.users.judge.password && judge.password.startsWith("$2"),
     `stored: ${String(judge.password).slice(0, 12)}…`);
 
-  const now = Date.now();
-  const day = 86_400_000;
-  // Dated so getCompetitionPhase() derives "judging": submissions have closed, results are not out.
-  const competition = await Competition.create({
-    name: `${TAG}Challenge`, slug: `${TAG}challenge-${now}`,
-    dates: {
-      regOpensAt: new Date(now - 10 * day), regClosesAt: new Date(now - 5 * day),
-      startsAt: new Date(now - 4 * day), endsAt: new Date(now - day),
-    },
-    judging: {
-      scale: 10,
-      criteria: [
-        { key: "structure", label: "Structure", weight: 3, order: 0 },
-        { key: "dialogue", label: "Dialogue", weight: 2, order: 1 },
-        { key: "originality", label: "Originality", weight: 1, order: 2 },
-      ],
-      awards: [{ key: "dialogue-award", label: "Best Dialogue", order: 0 }],
-    },
-  });
-  created.competitions.push(competition._id);
+  const competition = await Competition.create(f.competitions.main);
+  const secondCompetition = await Competition.create(f.competitions.other);
+  created.competitions.push(competition._id, secondCompetition._id);
 
-  const secondCompetition = await Competition.create({
-    name: `${TAG}Other`, slug: `${TAG}other-${now}`,
-    dates: {
-      regOpensAt: new Date(now - 10 * day), regClosesAt: new Date(now - 5 * day),
-      startsAt: new Date(now - 4 * day), endsAt: new Date(now - day),
-    },
-  });
-  created.competitions.push(secondCompetition._id);
+  check("the judging rubric survives the round-trip into Mongo",
+    competition.judging?.criteria?.length === 3 && competition.judging?.awards?.length === 1,
+    `criteria: ${competition.judging?.criteria?.length}, awards: ${competition.judging?.awards?.length}`);
 
-  /*
-   * CompetitionEntry requires more than the judging code ever reads: registration.country,
-   * .language and .experienceLevel, plus both acceptance timestamps. Every stubbed test in this
-   * feature hands plain objects straight to the projection, so none of them ever met the schema —
-   * which is exactly the class of gap this script exists to close. Centralised here so a future
-   * required field is one edit rather than four.
-   *
-   * eventId carries the run timestamp because the field is `unique`: a previous run left behind by
-   * --keep would otherwise collide on the next run with a duplicate-key error.
-   */
-  const makeEntry = (overrides = {}) => ({
-    competitionId: competition._id,
-    userId: writer._id,
-    registration: { country: "India", language: "Malayalam", experienceLevel: "intermediate" },
-    acceptedRulesAt: new Date(now - 6 * day),
-    acceptedCopyrightAt: new Date(now - 6 * day),
-    status: "submitted",
-    submittedAt: new Date(now - 2 * day),
-    ...overrides,
-  });
+  const ids = f.eventIds;
+  const owner = { competitionId: competition._id, userId: writer._id };
 
-  const ids = { a: `${TAG}A1-${now}`, b: `${TAG}B2-${now}`, d: `${TAG}D3-${now}`, f: `${TAG}F4-${now}` };
-
-  // Deliberately carries every identifying field the model can hold, plus a TYPED-IN Fountain title
-  // page, so the anonymisation checks below have something real to fail on.
-  const entryA = await CompetitionEntry.create(makeEntry({
-    eventId: ids.a,
-    registration: {
-      country: "India", language: "Malayalam", experienceLevel: "intermediate",
-      portfolioUrl: "https://smoke-writer.example.com",
-    },
-    payment: { orderId: "order_SMOKE_LEAK", paymentId: "pay_SMOKE_LEAK", amount: 499 },
-    ai: { evaluation: { overall: 91, notes: "AI thinks this is strong" } },
-    snapshot: {
-      title: "The Last Monsoon",
-      logline: `A village resurfaces. Written by ${writer.name}.`,
-      synopsis: `Reach me at ${writer.email}.`,
-      fountainContent: `Title: The Last Monsoon\nAuthor: ${writer.name}\nContact: ${writer.email}\n\nINT. FERRY JETTY - DAWN\n\nRain hammers the tin roof.`,
-      textContent: "INT. FERRY JETTY - DAWN",
-      pageCount: 12, wordCount: 2780, sceneCount: 9,
-    },
-  }));
-  const entryB = await CompetitionEntry.create(makeEntry({
-    eventId: ids.b,
-    snapshot: { title: "Second Script", fountainContent: "INT. KITCHEN - NIGHT", pageCount: 8, wordCount: 1900, sceneCount: 5 },
-  }));
-  const draft = await CompetitionEntry.create(makeEntry({
-    eventId: ids.d, userId: otherJudge._id, status: "registered", submittedAt: null,
-    snapshot: { title: "Not Submitted", fountainContent: "INT. NOWHERE - DAY" },
-  }));
-  const foreign = await CompetitionEntry.create(makeEntry({
-    eventId: ids.f, competitionId: secondCompetition._id,
-    snapshot: { title: "Other Competition", fountainContent: "INT. ELSEWHERE - DAY" },
-  }));
+  const entryA = await CompetitionEntry.create({ ...owner, ...f.entries.a(writer.name, writer.email) });
+  const entryB = await CompetitionEntry.create({ ...owner, ...f.entries.b() });
+  const draft = await CompetitionEntry.create({ ...owner, userId: otherJudge._id, ...f.entries.draft() });
+  const foreign = await CompetitionEntry.create({ ...owner, competitionId: secondCompetition._id, ...f.entries.foreign() });
   created.entries.push(entryA._id, entryB._id, draft._id, foreign._id);
 
   const assignment = await CompetitionJudge.create({
@@ -237,9 +165,7 @@ const run = async () => {
   console.log("\nDatabase constraints (what stubs cannot test)");
 
   const score = await JudgeScore.create({
-    competition: competition._id, entry: entryA._id, judge: judge._id,
-    scores: { structure: 10, dialogue: 6, originality: 8 },
-    status: "submitted", submittedAt: new Date(),
+    competition: competition._id, entry: entryA._id, judge: judge._id, ...f.scores.submitted,
   });
   created.scores.push(score._id);
 
@@ -258,8 +184,7 @@ const run = async () => {
   check("a second score for the same (entry, judge) is refused by the unique index", duplicateRejected);
 
   const nomination = await JudgeNomination.create({
-    competition: competition._id, entry: entryA._id, judge: judge._id,
-    awardKey: "dialogue-award", reason: "Every line earns its place",
+    competition: competition._id, entry: entryA._id, judge: judge._id, ...f.nomination,
   });
   created.nominations.push(nomination._id);
 
@@ -267,7 +192,7 @@ const run = async () => {
   try {
     await JudgeNomination.create({
       competition: competition._id, entry: entryB._id, judge: judge._id,
-      awardKey: "dialogue-award", reason: "Second nomination, same category",
+      awardKey: f.nomination.awardKey, reason: "Second nomination, same category",
     });
   } catch (error) {
     dupeNomination = error?.code === 11000;
@@ -306,9 +231,7 @@ const run = async () => {
   console.log("\nAggregation (real documents, not fixtures)");
 
   const secondScore = await JudgeScore.create({
-    competition: competition._id, entry: entryA._id, judge: otherJudge._id,
-    scores: { structure: 6, dialogue: 8, originality: 4 },
-    status: "submitted", submittedAt: new Date(),
+    competition: competition._id, entry: entryA._id, judge: otherJudge._id, ...f.scores.second,
   });
   created.scores.push(secondScore._id);
 
@@ -336,8 +259,7 @@ const run = async () => {
 
   console.log("\nDrafts");
   const draftScore = await JudgeScore.create({
-    competition: competition._id, entry: entryB._id, judge: judge._id,
-    scores: { structure: 9 }, status: "draft",
+    competition: competition._id, entry: entryB._id, judge: judge._id, ...f.scores.draft,
   });
   created.scores.push(draftScore._id);
   const withDraft = buildJudgingLeaderboard(
