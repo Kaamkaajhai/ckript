@@ -1868,6 +1868,11 @@ export const scoreScript = async (req, res) => {
 export const getTrailerRequests = async (req, res) => {
     try {
         const { page = 1, limit = 20 } = req.query;
+        // These were used below but never derived, so this handler threw a ReferenceError and 500'd
+        // on every call — the AI Trailer Approvals list could not load at all. Same coercion the
+        // other paginated admin handlers use, so the bounds behave identically.
+        const pageNumber = Math.max(Number(page) || 1, 1);
+        const pageLimit = Number(limit) === 0 ? 0 : Math.min(Math.max(Number(limit) || 20, 1), 100);
         const filter = getAdminTrailerRequestFilter();
         const total = await Script.countDocuments(filter);
         const scripts = await Script.find(filter)

@@ -72,6 +72,11 @@ import Razorpay from "razorpay";
 import crypto from "crypto";
 import { resolveCurrency, convertInrToCurrency, toSubunits } from "../utils/currencyFx.js";
 import { createOrderWithUsdFallback } from "../utils/razorpayOrder.js";
+// verifyScriptPurchase and verifyScriptTrailerPayment both call this, and it was NEVER imported —
+// so every Razorpay verification in this file threw a ReferenceError and 500'd inside its try/catch.
+// A buyer paid and the purchase was never granted. Neither the build nor the test suite catches a
+// dangling identifier; only eslint's no-undef does, which is why lintUndefined.test.js now runs it.
+import { verifyRazorpaySignature } from "../utils/razorpaySignature.js";
 import multer from "multer";
 import path from "path";
 import { promises as fs } from "fs";
