@@ -3635,6 +3635,20 @@ export const getScriptById = async (req, res) => {
 
     // Deleted projects are hidden from writer/public but remain visible to purchasers and admins.
     if (script.isDeleted && !isAdmin && !isBuyer) {
+      // The OWNER is told it was deleted rather than that it does not exist. Both are 404, but the
+      // editor cannot otherwise tell this apart from "you have no permission", and it was rendering
+      // "the project owner has removed your collaboration permissions" at someone who had simply
+      // deleted their own project — sending them to ask about access instead of about a deletion.
+      //
+      // Scoped to the owner deliberately: for anyone else, a deleted script must stay
+      // indistinguishable from one that never existed, or this becomes an enumeration signal.
+      if (isOwner) {
+        return res.status(404).json({
+          message: "You deleted this project.",
+          reason: "deleted",
+          deletedAt: script.deletedAt || null,
+        });
+      }
       return res.status(404).json({ message: "Script not found" });
     }
 

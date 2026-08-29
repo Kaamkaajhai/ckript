@@ -38,7 +38,9 @@ export const ADMIN_NAV_GROUPS = [
   },
   {
     title: "Archive",
-    keys: ["deleted-writers", "deleted-film-professionals"],
+    // "deleted-scripts" belongs here and was missing, so it fell into the trailing "More" bucket
+    // groupNavItems builds for ungrouped tabs — present, but not where anyone would look for it.
+    keys: ["deleted-writers", "deleted-film-professionals", "deleted-scripts"],
   },
 ];
 

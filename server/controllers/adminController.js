@@ -1750,6 +1750,65 @@ export const rejectScript = async (req, res) => {
     }
 };
 
+/**
+ * PUT /admin/scripts/:id/restore — undo a writer's delete.
+ *
+ * Deleting a project is a SOFT delete (scriptController.deleteScript sets isDeleted + deletedAt and
+ * leaves everything else alone), so the document, its content and any competition entry pointing at
+ * it are all still there. Until now nothing could put it back: there was no restore path anywhere in
+ * the product, so a writer who deleted a project by mistake had lost it for good.
+ *
+ * What the writer sees meanwhile is worth knowing, because it is why this arrives as a support
+ * ticket about ACCESS rather than about a deletion: the editor's loader treats 403 and 404 alike and
+ * says "Access Removed — the project owner has removed your collaboration permissions", which for
+ * someone who deleted their own project is simply untrue.
+ *
+ * Restores exactly the two fields the delete set. Everything else it touched is deliberately left as
+ * it is — deleting RELEASED any purchase-request lock, and re-applying a stale lock would be a
+ * second bug on top of the first.
+ */
+export const restoreScript = async (req, res) => {
+    try {
+        const script = await Script.findById(req.params.id);
+        if (!script) return res.status(404).json({ message: "Script not found" });
+
+        // Not an error worth failing loudly on — two admins clicking the same row is a race with an
+        // obviously correct answer, and the script is in the state the caller wanted either way.
+        if (!script.isDeleted) {
+            return res.json({ message: "This project is not deleted.", script, alreadyRestored: true });
+        }
+
+        script.isDeleted = false;
+        script.deletedAt = null;
+        await script.save();
+
+        // Mirrors the "[AUDIT] Script soft deleted" line, so a restore is as traceable as the delete.
+        console.info("[AUDIT] Script restored", {
+            scriptId: script._id.toString(),
+            scriptSid: script.sid || "",
+            title: script.title || "",
+            writerId: script.creator?.toString?.() || "",
+            restoredBy: req.user?._id?.toString?.() || "",
+            at: new Date().toISOString(),
+        });
+
+        // The writer is told, because from their side the project simply reappears and they would
+        // otherwise have no idea it was deliberate. Best-effort: a failed notification must not undo
+        // a successful restore.
+        await Notification.create({
+            user: script.creator,
+            type: "script_approved",
+            script: script._id,
+            message: `Your project "${script.title}" has been restored and is back in your dashboard.`,
+        }).catch(() => null);
+
+        res.json({ message: "Project restored", script });
+    } catch (error) {
+        console.error("[admin] restoreScript failed:", error?.message || error);
+        res.status(500).json({ message: "Failed to restore the project." });
+    }
+};
+
 // ─── Admin Edit (at approval time or after) ───
 const ADMIN_EDITABLE_TOP_LEVEL_FIELDS = [
     "title",

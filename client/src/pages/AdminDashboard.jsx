@@ -1358,6 +1358,30 @@ const AdminDashboard = () => {
         }
     };
 
+    /**
+     * Undo a writer's delete.
+     *
+     * Deleting a project is a soft delete, so the content and any competition entry are still there
+     * — this clears the flag and the writer gets everything back. It is the only way back: nothing
+     * else in the product can restore a deleted project.
+     */
+    const handleRestoreScript = async (script) => {
+        const hasScriptAccess = await ensureScriptSectionAccess();
+        if (!hasScriptAccess) return;
+
+        const title = script?.title || "this project";
+        if (!window.confirm(`Restore "${title}"? It returns to the writer's dashboard and they are notified.`)) return;
+
+        try {
+            await adminApi.put(`/admin/scripts/${script._id}/restore`);
+            showToast(`"${title}" restored`);
+            fetchData();
+        } catch (err) {
+            console.error(err);
+            showToast(err?.response?.data?.message || "Failed to restore the project", "error");
+        }
+    };
+
     const handleReject = async (id) => {
         const hasScriptAccess = await ensureScriptSectionAccess();
         if (!hasScriptAccess) return;
@@ -2661,6 +2685,7 @@ const AdminDashboard = () => {
         filmBroadcastLink,
         filmBroadcastTitle,
         handleApprove,
+        handleRestoreScript,
         handleDeleteDiscountCode,
         handleDeleteProject,
         handleDeleteUserAccount,
