@@ -72,6 +72,11 @@ import Razorpay from "razorpay";
 import crypto from "crypto";
 import { resolveCurrency, convertInrToCurrency, toSubunits } from "../utils/currencyFx.js";
 import { createOrderWithUsdFallback } from "../utils/razorpayOrder.js";
+// verifyScriptPurchase and verifyScriptTrailerPayment both call this, and it was NEVER imported —
+// so every Razorpay verification in this file threw a ReferenceError and 500'd inside its try/catch.
+// A buyer paid and the purchase was never granted. Neither the build nor the test suite catches a
+// dangling identifier; only eslint's no-undef does, which is why lintUndefined.test.js now runs it.
+import { verifyRazorpaySignature } from "../utils/razorpaySignature.js";
 import multer from "multer";
 import path from "path";
 import { promises as fs } from "fs";
@@ -3630,6 +3635,20 @@ export const getScriptById = async (req, res) => {
 
     // Deleted projects are hidden from writer/public but remain visible to purchasers and admins.
     if (script.isDeleted && !isAdmin && !isBuyer) {
+      // The OWNER is told it was deleted rather than that it does not exist. Both are 404, but the
+      // editor cannot otherwise tell this apart from "you have no permission", and it was rendering
+      // "the project owner has removed your collaboration permissions" at someone who had simply
+      // deleted their own project — sending them to ask about access instead of about a deletion.
+      //
+      // Scoped to the owner deliberately: for anyone else, a deleted script must stay
+      // indistinguishable from one that never existed, or this becomes an enumeration signal.
+      if (isOwner) {
+        return res.status(404).json({
+          message: "You deleted this project.",
+          reason: "deleted",
+          deletedAt: script.deletedAt || null,
+        });
+      }
       return res.status(404).json({ message: "Script not found" });
     }
 

@@ -24,6 +24,11 @@ import { PLAN_PRICES, WRITER_PLAN_KEY } from "../config/pricing.js";
 import { planOrderNotes, readVerifiedPlanOrder, planAmountMinor } from "../utils/planCheckout.js";
 import { recordPayment, recordGrant } from "../utils/ledger.js";
 import { issueInvoice, totalRow, gatewayRow, formatInvoiceMoney } from "../utils/invoiceIssue.js";
+// verifyRazorpayPayment and verifyWriterRazorpayPayment both call this and it was never imported,
+// so every subscription and writer-plan verification threw a ReferenceError and 500'd inside its
+// try/catch — the customer paid and the plan was never granted. See lintUndefined.test.js, which
+// now fails the suite on any dangling identifier rather than leaving it for production to find.
+import { verifyRazorpaySignature } from "../utils/razorpaySignature.js";
 
 const FILM_INDUSTRY_PRO_MODEL = {
   plan: "pro",

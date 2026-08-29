@@ -31,6 +31,7 @@ import {
     getReaderScores,
     getPendingScripts,
     approveScript,
+    restoreScript,
     rejectScript,
     editScriptAsAdmin,
     scoreScript,
@@ -137,6 +138,9 @@ router.get("/scripts/ai-trailers", getAvailableTrailers);
 router.get("/scripts/:id", getScriptDetail);
 router.delete("/scripts/:id", deleteScriptAsAdmin);
 router.put("/scripts/:id/approve", approveScript);
+// Undo a writer's soft delete. The only path back — deleteScript keeps the document, but nothing
+// in the product could clear isDeleted until this existed.
+router.put("/scripts/:id/restore", restoreScript);
 router.put("/scripts/:id/reject", rejectScript);
 router.put("/scripts/:id/edit", editScriptAsAdmin);
 router.put("/scripts/:id/score", scoreScript);
