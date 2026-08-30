@@ -51,6 +51,9 @@ describe("no server file references an undefined identifier", () => {
       cwd: fileURLToPath(new URL("./", import.meta.url)),
       // Judge on ONE rule. overrideConfigFile:true ignores any repo config so this cannot start
       // failing because someone changed a style preference somewhere above us.
+      // An empty or absent directory must not fail the guard — eslint throws on an unmatched glob
+      // by default, which would turn "this folder has no .js files" into a red suite.
+      errorOnUnmatchedPattern: false,
       overrideConfigFile: true,
       overrideConfig: {
         languageOptions: {
@@ -77,6 +80,10 @@ describe("no server file references an undefined identifier", () => {
 
     const results = await eslint.lintFiles([
       "controllers/**/*.js", "routes/**/*.js", "utils/**/*.js", "models/**/*.js", "middleware/**/*.js",
+      // services/ and the rest were NOT scanned originally, which is exactly the sort of gap that
+      // lets the next one through — the AI integrations live in services/, and a guard that skips
+      // them is a guard with a hole in the shape of the thing it exists to catch.
+      "services/**/*.js", "api/**/*.js", "config/**/*.js", "socket/**/*.js", "scripts/**/*.js",
     ]);
 
     const undef = results.flatMap((result) =>

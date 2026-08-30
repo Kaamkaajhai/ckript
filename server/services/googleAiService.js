@@ -1,11 +1,34 @@
 const GOOGLE_API_BASE = "https://generativelanguage.googleapis.com/v1beta";
 
 const getApiKey = () => process.env.GOOGLE_AI_API_KEY || process.env.GEMINI_API_KEY;
-const getModel = () => process.env.GOOGLE_AI_MODEL || "gemini-2.5-pro";
 
-// Fallback model ladder used when the primary model hits quota / rate limits.
-// Each entry is tried in order until one succeeds.
-const FALLBACK_MODELS = ["gemini-2.5-pro", "gemini-1.5-pro", "gemini-2.5-flash"];
+/**
+ * Default to an ALIAS, not a pinned version.
+ *
+ * The previous default was `gemini-2.5-pro`, and every AI feature broke when Google retired it:
+ * "This model is no longer available to new users." The whole ladder beneath it — 2.5-pro,
+ * 1.5-pro, 2.5-flash — had gone the same way, so there was nothing left to fall back to and a
+ * heuristic fallback score was silently substituted instead.
+ *
+ * `gemini-pro-latest` tracks whatever the current pro model is, so a retirement stops being an
+ * outage. The trade is that output can shift under us when Google moves the alias; for scoring and
+ * synopsis work that is much cheaper than the whole feature going dark.
+ *
+ * GOOGLE_AI_MODEL still overrides, for pinning a specific version deliberately.
+ */
+const getModel = () => process.env.GOOGLE_AI_MODEL || "gemini-pro-latest";
+
+/**
+ * Tried in order when the primary cannot serve the request.
+ *
+ * Verified against the live API rather than chosen from the docs — the model LIST is not a reliable
+ * guide, because `gemini-2.5-pro` and `gemini-2.5-flash` are both still listed by ListModels and
+ * both 404 on use. Each entry here was confirmed by an actual generateContent call.
+ *
+ * Ordered quality first, then speed: pro-latest (~2.9s), 3.5-flash (~1.4s, verified), then the
+ * flash alias as a last resort.
+ */
+export const FALLBACK_MODELS = ["gemini-pro-latest", "gemini-3.5-flash", "gemini-flash-latest"];
 
 const extractText = (responseJson) => {
   const parts = responseJson?.candidates?.[0]?.content?.parts || [];
@@ -53,14 +76,39 @@ const fetchWithRetry = async (url, options, { retries = 2, baseDelay = 1500 } = 
   throw lastError || new Error("AI request failed after retries");
 };
 
-const isQuotaError = (statusCode, message = "") => {
+/**
+ * Is this a failure another MODEL might not have?
+ *
+ * Deliberately broader than the quota check it replaces. That one matched only 429/quota, so a
+ * retired model — a 404 "no longer available to new users" — threw immediately and never tried the
+ * next rung. When Google retired the entire ladder at once, that turned a recoverable situation
+ * into every AI feature going dark, because the one thing that could have saved it was skipped.
+ *
+ * Three families qualify:
+ *   429 / quota      this key is throttled here; another model has its own budget
+ *   404 model gone   Google retired it; the next rung may still exist
+ *   503 overloaded   "experiencing high demand" — transient and model-specific, so move along
+ *
+ * Everything else — a malformed prompt, a bad key, a timeout, our own 502 on an empty response —
+ * would fail identically on every model, so retrying the ladder just multiplies the latency before
+ * the same error surfaces.
+ */
+export const shouldTryNextModel = (statusCode, message = "") => {
   const msg = message.toLowerCase();
-  return (
-    statusCode === 429 ||
-    msg.includes("quota") ||
-    msg.includes("rate limit") ||
-    msg.includes("resource exhausted")
-  );
+
+  if (statusCode === 429) return true;
+  if (msg.includes("quota") || msg.includes("rate limit") || msg.includes("resource exhausted")) return true;
+
+  // A retired or unknown model. Matched on the message as well as the status because a 404 can also
+  // mean a genuinely wrong model name — which the next rung fixes just as well.
+  if (statusCode === 404) return true;
+  if (msg.includes("no longer available") || msg.includes("is not found") || msg.includes("not supported")) return true;
+
+  // Google's own capacity problem, not ours.
+  if (statusCode === 503) return true;
+  if (msg.includes("overloaded") || msg.includes("high demand")) return true;
+
+  return false;
 };
 
 // Single attempt against one specific model. Returns { text, raw } or throws.
@@ -126,20 +174,30 @@ export const generateWithGoogleAI = async ({
       return await callModel({ model, apiKey, prompt, temperature, maxOutputTokens, responseMimeType });
     } catch (err) {
       lastError = err;
-      if (isQuotaError(err.statusCode, err.message)) {
-        console.warn(`[GoogleAI] Quota/rate-limit on ${model} — trying next model in fallback ladder`);
+      if (shouldTryNextModel(err.statusCode, err.message)) {
+        console.warn(`[GoogleAI] ${model} unavailable (${err.statusCode}: ${err.message}) — trying next model in the ladder`);
         continue;
       }
-      // Non-quota errors (bad JSON, timeout, 5xx) — don't try other models
+      // Would fail the same way on every model (bad key, bad prompt, timeout) — surface it now.
       throw err;
     }
   }
 
-  // All models exhausted
+  /*
+   * Every rung failed. The message says WHY rather than assuming quota: the ladder now also runs
+   * for retired models and overload, and "all models hit quota limits" sent people to check billing
+   * when in fact Google had retired every model the code knew about.
+   */
   const err = new Error(
-    `All AI models hit quota limits. Please try again in a few minutes. (last: ${lastError?.message || "unknown"})`
+    `No AI model in the fallback ladder could serve this request (${modelsToTry.join(", ")}). `
+    + `Last error: ${lastError?.message || "unknown"}`
   );
-  err.statusCode = 429;
+  // 429 only when it really was throttling; otherwise 503, which is what "upstream cannot serve
+  // this" actually means and stops a retirement being reported to the caller as a rate limit.
+  err.statusCode = shouldTryNextModel(lastError?.statusCode, lastError?.message || "")
+    && (lastError?.statusCode === 429 || /quota|rate limit|resource exhausted/i.test(lastError?.message || ""))
+    ? 429
+    : 503;
   err.aiProvider = "google";
   throw err;
 };
@@ -246,7 +304,12 @@ export const generateJsonWithGoogleAI = async ({
   throw err;
 };
 
-export const isGoogleQuotaError = (error) => {
-  if (!error) return false;
-  return isQuotaError(error.statusCode, error.message);
-};
+/*
+ * `isGoogleQuotaError` used to live here. It was exported, had no callers anywhere in the server,
+ * and called `isQuotaError` — the predicate that became `shouldTryNextModel`. So it was already a
+ * dangling reference, and only stayed quiet because nothing invoked it.
+ *
+ * Removed rather than re-pointed: `shouldTryNextModel` is deliberately broader than "was this a
+ * quota error", and wiring a function called isGoogleQuotaError to it would have made the name lie.
+ * If a caller ever needs a true quota check, write one then, against what it actually needs.
+ */
