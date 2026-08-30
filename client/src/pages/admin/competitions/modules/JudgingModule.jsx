@@ -26,12 +26,30 @@ const blankCriterion = () => ({ key: "", label: "", description: "", weight: 1 }
 const blankAward = () => ({ key: "", label: "", description: "" });
 
 /** Datetime-local wants "YYYY-MM-DDTHH:mm" with no zone; the API speaks ISO. */
+/*
+ * The API speaks ISO UTC; <input type="datetime-local"> speaks local wall-clock time. BOTH
+ * directions have to convert, and only having the first is what made saved times drift.
+ *
+ * The bug: the raw input value ("2026-09-01T10:00", no offset) was posted as-is. A date-time string
+ * with no offset is parsed as local to whoever parses it — and that was the SERVER, running UTC on
+ * Cloud Run. So an admin in IST typing 10:00 stored 10:00 UTC, read it back as 15:30, and saved
+ * again as 21:00. It shifted by the timezone offset on every save, which is why it looked random.
+ *
+ * fromLocalInput parses in the BROWSER, where local time really is the admin's timezone, and hands
+ * the server an unambiguous ISO string. Same pair TimelineModule uses.
+ */
 const toLocalInput = (iso) => {
   if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
   const pad = (n) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
+const fromLocalInput = (value) => {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
 };
 
 function Rows({ title, hint, rows, onChange, withWeight, addLabel, disabled }) {
@@ -168,8 +186,8 @@ export default function JudgingModule({ competitionId }) {
         criteria,
         awards,
         scale: Number(scale) || 10,
-        opensAt: opensAt || null,
-        closesAt: closesAt || null,
+        opensAt: fromLocalInput(opensAt),
+        closesAt: fromLocalInput(closesAt),
       });
       setMessage({ tone: "ok", text: "Judging setup saved." });
       load();
