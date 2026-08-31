@@ -1678,6 +1678,7 @@ export const extractPdfText = async (req, res) => {
 
     let uploadedPdfUrl = "";
     let fileGrant = "";
+    let uploadWarning = "";
     if (docType === "pdf") {
       try {
         const uploadOptions = {
@@ -1699,6 +1700,12 @@ export const extractPdfText = async (req, res) => {
         console.error("File upload to Cloudinary failed:", uploadError?.message || uploadError);
         uploadedPdfUrl = "";
         fileGrant = "";
+        // Told to the writer rather than swallowed. The text still imported, so failing the whole
+        // request would throw away work that succeeded — but answering a bare 200 meant a storage
+        // outage looked identical to a success, and "upload isn't working" was the only signal
+        // anyone got. They can carry on editing; they just should not believe the PDF was kept.
+        uploadWarning = "Your script text imported successfully, but the original PDF could not be stored. "
+          + "You can keep editing — re-upload later if you need the source file attached.";
       }
     }
 
@@ -1719,9 +1726,10 @@ export const extractPdfText = async (req, res) => {
       fileGrant,
       sourceMode: uploadedPdfUrl ? "uploaded-pdf" : "imported-text",
       extractedTextAvailable: true,
-      extractionWarning: docType === "docx"
+      // A storage failure outranks the docx note: it is the one the writer has to act on.
+      extractionWarning: uploadWarning || (docType === "docx"
         ? "Word documents are imported as editable script text. The full script PDF is generated from the editor."
-        : "",
+        : ""),
     });
   } catch (error) {
     console.error("Document Extraction Error:", error);
