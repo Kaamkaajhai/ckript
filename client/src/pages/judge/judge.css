@@ -181,3 +181,30 @@
 
 .ckad .ckjd-noms strong { display: block; font-size: var(--ad-t-body); color: var(--ad-ink); }
 .ckad .ckjd-noms span { display: block; margin-top: 4px; font-size: var(--ad-t-sm); color: var(--ad-ink-3); line-height: 1.5; }
+
+/* ── Account block in the shell header ──────────────────────────────────── */
+/* The console had no account menu and no way out at all: a judge who signed in
+   was stuck. The name sits beside the button because scores are attributed to
+   the account that cast them — a judge on a shared machine has to be able to see
+   whose session they are about to score under, not find out afterwards. */
+.ckad .ckjd-account {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.ckad .ckjd-account-name {
+  font-size: var(--ad-t-sm);
+  color: var(--ad-ink-2);
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Under 560px the name would crowd out the button it exists to label; the button
+   is the part you cannot do without. */
+@media (max-width: 560px) {
+  .ckad .ckjd-account-name { display: none; }
+}

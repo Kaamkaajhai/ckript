@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Trash2, Lock, Save } from "lucide-react";
 import { adminApi } from "../../dashboardShared";
+import JudgeAssignmentMatrix from "./JudgeAssignmentMatrix";
 
 /**
  * Scoring criteria and award categories for the invited judge panel.
@@ -364,6 +365,12 @@ export default function JudgingModule({ competitionId }) {
         addLabel="Add category"
         disabled={false}
       />
+
+      {/* Below the rubric on purpose: criteria decide HOW a script is scored, this decides WHO scores
+          it, and the second only makes sense once the first exists. Own component with its own save,
+          because the grid is large and staging its changes alongside the rubric's would mean one
+          button doing two unrelated things. */}
+      {isNew ? null : <JudgeAssignmentMatrix competitionId={competitionId} />}
     </div>
   );
 }

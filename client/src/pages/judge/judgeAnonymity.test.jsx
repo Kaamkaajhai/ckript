@@ -107,3 +107,26 @@ describe("the entry queue has no writer column", () => {
     }
   });
 });
+
+describe("the judge console has a way out", () => {
+  // Added after a judge reported being stuck: signed in, with no account menu and no sign-out
+  // anywhere on the page. A console you cannot leave is not finished.
+  const home = read("JudgeHome.jsx");
+
+  it("renders a sign-out control", () => {
+    expect(home).toMatch(/Sign out/);
+    expect(home).toMatch(/onSignOut/);
+  });
+
+  it("clears the session without dumping the judge on the marketing homepage", () => {
+    // logout() defaults to redirecting to "/", which is nowhere a judge has business being.
+    // redirect:false re-renders this component straight back to its own sign-in card.
+    expect(home).toMatch(/logout\?\.\(\{ redirect: false \}\)/);
+  });
+
+  it("shows which account is signed in", () => {
+    // Scores are attributed to the account that cast them, so a judge on a shared machine has to see
+    // whose session they are scoring under before they score, not after.
+    expect(home).toMatch(/ckjd-account-name/);
+  });
+});

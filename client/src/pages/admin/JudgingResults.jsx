@@ -24,6 +24,32 @@ export default function JudgingResults({ dark, competitionId, cls, onPrefill, ca
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [open, setOpen] = useState({});
+  // Keyed by entry id: what the admin has typed but not yet committed. Kept apart from `data` so a
+  // half-typed "7" on the way to "75" never looks like a saved score.
+  const [finalDraft, setFinalDraft] = useState({});
+  const [savingFinal, setSavingFinal] = useState("");
+
+  const saveFinalScore = async (entryId) => {
+    const raw = finalDraft[entryId];
+    setSavingFinal(entryId);
+    try {
+      const { data: saved } = await adminApi.put(
+        `/admin/competitions/${competitionId}/entries/${entryId}/final-score`,
+        { finalScore: raw === "" ? null : Number(raw) }
+      );
+      // Patch in place rather than refetching the whole leaderboard: a reload would collapse every
+      // open detail row the admin was reading to make this very decision.
+      setData((prev) => (prev ? {
+        ...prev,
+        leaderboard: prev.leaderboard.map((r) => (r.entryId === entryId ? { ...r, finalScore: saved.finalScore } : r)),
+      } : prev));
+      setFinalDraft((d) => { const next = { ...d }; delete next[entryId]; return next; });
+    } catch (err) {
+      setError(err?.response?.data?.message || "Could not save the final score.");
+    } finally {
+      setSavingFinal("");
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -98,6 +124,10 @@ export default function JudgingResults({ dark, competitionId, cls, onPrefill, ca
                 <th className="py-2 pr-3 text-right">Score</th>
                 <th className="py-2 pr-3 text-right">Judges</th>
                 <th className="py-2 pr-3 text-right">Spread</th>
+                {/* The admin's own number, deliberately beside the panel's rather than replacing it:
+                    the mean is arithmetic over whoever was assigned, this is a judgement, and the two
+                    disagreeing is worth seeing. */}
+                <th className="py-2 pr-3 text-right">Final</th>
                 <th className="py-2" />
               </tr>
             </thead>
@@ -121,6 +151,22 @@ export default function JudgingResults({ dark, competitionId, cls, onPrefill, ca
                         is one person's opinion, and the number alone hides that. */}
                     <td className="py-2 pr-3 text-right tabular-nums">{row.judgeCount}</td>
                     <td className="py-2 pr-3 text-right tabular-nums">{row.spread}</td>
+                    <td className="py-2 pr-3 text-right">
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        aria-label={`Final score for ${row.eventId}`}
+                        // ?? not ||, so a saved 0 shows as 0 rather than an empty box.
+                        value={finalDraft[row.entryId] ?? (row.finalScore ?? "")}
+                        onChange={(e) => setFinalDraft((d) => ({ ...d, [row.entryId]: e.target.value }))}
+                        onBlur={() => { if (finalDraft[row.entryId] !== undefined) saveFinalScore(row.entryId); }}
+                        onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
+                        disabled={savingFinal === row.entryId}
+                        placeholder="—"
+                        className={`w-16 rounded-md border px-2 py-1 text-right text-sm tabular-nums ${dark ? "border-white/15 bg-white/[0.04] text-white" : "border-gray-200 bg-white text-gray-900"}`}
+                      />
+                    </td>
                     <td className="py-2 text-right">
                       <button
                         type="button"
@@ -133,7 +179,7 @@ export default function JudgingResults({ dark, competitionId, cls, onPrefill, ca
                   </tr>
                   {open[row.entryId] ? (
                     <tr className={dark ? "bg-white/[0.02]" : "bg-gray-50"}>
-                      <td colSpan={7} className="px-3 py-3">
+                      <td colSpan={8} className="px-3 py-3">
                         {row.partialScores ? (
                           <p className="mb-2 text-xs text-[#8a5a1c]">
                             At least one judge scored only part of the rubric — their weights were renormalised across what they did mark.

@@ -2,7 +2,7 @@ import { useCallback, useContext, useEffect, useState } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import judgeApi from "../../services/judgeApi";
 import AdminShell from "../admin/shell/AdminShell";
-import { Badge, Button, Card, DataTable, EmptyState, ErrorState, Field, Input, SectionHeader, Spinner, ToastProvider } from "../admin/ui";
+import { Badge, Button, Card, ConfirmDialog, DataTable, EmptyState, ErrorState, Field, Input, SectionHeader, Spinner, ToastProvider } from "../admin/ui";
 import { useJudgeCompetitions, useJudgeQueue } from "./useJudgeData";
 import JudgeScoreSheet from "./JudgeScoreSheet";
 import "./judge.css";
@@ -311,9 +311,10 @@ function CompetitionQueue({ competitionId, dark, onBack }) {
   );
 }
 
-function JudgeWorkspace() {
+function JudgeWorkspace({ user, onSignOut }) {
   const [competitionId, setCompetitionId] = useState(null);
   const [dark, setDark] = useState(false);
+  const [confirmSignOut, setConfirmSignOut] = useState(false);
   // Stable identity, so the shell's theme effect does not re-run on every render of this component.
   const handleTheme = useCallback((isDark) => setDark(isDark), []);
 
@@ -325,7 +326,31 @@ function JudgeWorkspace() {
       onNavigate={() => setCompetitionId(null)}
       crumbs={["Judging"]}
       onThemeChange={handleTheme}
+      /*
+       * Who you are, and the way out. The console had neither: a judge who signed in was stuck with
+       * no account menu and no sign-out anywhere on the page.
+       *
+       * The name matters as much as the button. Scores are attributed to the account that cast them,
+       * so a judge sharing a machine needs to see WHOSE session they are about to score under —
+       * finding out afterwards means the score is on the wrong person.
+       */
+      headerActions={(
+        <div className="ckjd-account">
+          <span className="ckjd-account-name" title={user?.email || ""}>{user?.name || user?.email}</span>
+          <Button variant="ghost" size="sm" onClick={() => setConfirmSignOut(true)}>Sign out</Button>
+        </div>
+      )}
     >
+      <ConfirmDialog
+        open={confirmSignOut}
+        title="Sign out?"
+        // Named because an unsubmitted draft is the one thing worth pausing over: it lives on the
+        // server, so it survives — but a judge mid-script has no way to know that.
+        body="Any score you saved as a draft is kept and will be waiting when you sign back in."
+        confirmLabel="Sign out"
+        onConfirm={onSignOut}
+        onClose={() => setConfirmSignOut(false)}
+      />
       {competitionId
         ? <CompetitionQueue competitionId={competitionId} dark={dark} onBack={() => setCompetitionId(null)} />
         : <CompetitionPicker onOpen={setCompetitionId} />}
@@ -335,7 +360,7 @@ function JudgeWorkspace() {
 
 export default function JudgeHome() {
   const auth = useContext(AuthContext) || {};
-  const { user, adoptSession } = auth;
+  const { user, adoptSession, logout } = auth;
   const role = String(user?.role || "");
 
   // ?invite=<token> is the admin's one-time set-password link. Read once into state rather than kept
@@ -388,7 +413,13 @@ export default function JudgeHome() {
 
   return (
     <ToastProvider>
-      <JudgeWorkspace />
+      <JudgeWorkspace
+        user={user}
+        // redirect:false on purpose. The default sends people to the marketing homepage, which is
+        // nowhere a judge has any business being — clearing the session re-renders this component
+        // straight back to its own sign-in card.
+        onSignOut={() => logout?.({ redirect: false })}
+      />
     </ToastProvider>
   );
 }

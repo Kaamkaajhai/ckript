@@ -1122,7 +1122,7 @@ export const sendAdminMessageEmail = async (
 export const sendAdminBroadcastEmail = async (
   email,
   name,
-  { title = "Platform update", content = "", actionUrl = "", audienceLabel = "community", adminName = "ckript Admin", clientBaseUrl = "", attachments = [] } = {}
+  { title = "Platform update", content = "", actionUrl = "", audienceLabel = "community", adminName = "ckript Admin", clientBaseUrl = "", attachments = [], unsubscribeUrl = "" } = {}
 ) => {
   try {
     validateEmailConfig();
@@ -1200,11 +1200,33 @@ export const sendAdminBroadcastEmail = async (
         </html>
     `;
 
+    /*
+     * RFC 8058 one-click unsubscribe.
+     *
+     * Gmail and Yahoo require this of anyone sending bulk mail, and they render their OWN unsubscribe
+     * control beside the sender when both headers are present. That control is the one recipients
+     * actually use; the alternative they reach for is the spam button, which costs the deliverability
+     * of every message the platform sends rather than just this one.
+     *
+     * List-Unsubscribe-Post is what makes it one-click — without it the client merely opens the URL
+     * and the recipient still has to do something. Both headers, or neither.
+     *
+     * Set for BROADCASTS only. A password reset or a receipt carrying an unsubscribe header invites
+     * someone to switch off mail their own account depends on.
+     */
+    const listHeaders = unsubscribeUrl
+      ? {
+        "List-Unsubscribe": `<${unsubscribeUrl}>, <mailto:${CONTACTS.support}?subject=unsubscribe>`,
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      }
+      : {};
+
     const mailOptions = {
       from: mailFrom(),
       to: email,
       subject: safeTitle,
       html: finalHtml,
+      headers: listHeaders,
       // A plain-text alternative, like every other template here. Without one a broadcast is
       // HTML-only, which reads as spam to filters and renders as nothing in a text-only client — and
       // it is the one message that goes to the whole audience at once.
@@ -1213,7 +1235,11 @@ export const sendAdminBroadcastEmail = async (
       // decodes nothing, so an encoded tag survives into the text part.
       text: `${safeTitle}\n\n${htmlToPlainText(content).trim()}${
         actionUrl ? `\n\n${buttonText}: ${finalUrl}` : ""
-      }\n\nTeam ${CONTACTS.name}${signatureText()}`,
+      }\n\nTeam ${CONTACTS.name}${signatureText()}${
+        // A visible link as well as the header. Plenty of clients render neither the header control
+        // nor HTML, and a recipient who can find no way out is a spam complaint waiting to happen.
+        unsubscribeUrl ? `\n\nDon't want these emails? Unsubscribe: ${unsubscribeUrl}` : ""
+      }`,
       attachments: attachments.map(att => ({
         filename: att.filename,
         content: att.content,
