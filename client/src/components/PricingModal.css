@@ -98,6 +98,13 @@
   gap: 14px;
 }
 
+.pmx-duo {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
 .pmx-tier {
   position: relative;
   display: flex;
@@ -650,7 +657,7 @@
   .pmx-head-aside {
     display: none;
   }
-  .pmx-trio {
+  .pmx-trio, .pmx-duo {
     grid-template-columns: 1fr;
   }
   .pmx-ribbon {
