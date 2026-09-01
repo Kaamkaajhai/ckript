@@ -59,7 +59,7 @@ export default function TermsOfService() {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-600 hover:text-red-900 hover:bg-red-50 transition-all"
           >
             <ChevronRight className="w-4 h-4 rotate-180" />
-            <span className="hidden sm:inline">Back</span>
+            Back
           </button>
         </div>
       </nav>
