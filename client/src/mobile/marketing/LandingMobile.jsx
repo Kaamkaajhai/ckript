@@ -375,7 +375,7 @@ export default function LandingMobile({ user: userProp = undefined }) {
 
         <footer className="ckm-landing__footer">
           <img src={LOGO_FOOTER_SRC} alt="Ckript" width="3600" height="1028" loading="lazy" decoding="async" />
-          <p>From the page to the screen.</p>
+          <p className="ckm-landing__footer-tagline">From the page to the screen.</p>
           <div className="ckm-landing__footer-cols">
             {FOOTER_COLS.map((column) => (
               <section key={column.head} aria-labelledby={`landing-footer-${column.head.toLowerCase()}`}>
@@ -393,13 +393,17 @@ export default function LandingMobile({ user: userProp = undefined }) {
               </section>
             ))}
           </div>
+          <div className="ckm-landing__footer-bottom">
+            <p>{COPYRIGHT_LINE}</p>
+            <p>Made for storytellers.</p>
+          </div>
           <div className="ckm-landing__legal">
             <p>{COMPANY.description}</p>
-            <p><strong>Legal entity:</strong> {COMPANY.legalName}</p>
+            <p className="ckm-landing__legal-head">CORPORATE INFORMATION</p>
+            <p><strong>Legal Entity:</strong> {COMPANY.legalName}</p>
             <p><strong>CIN:</strong> {COMPANY.cin}</p>
-            <p><strong>Registered office:</strong> {COMPANY.registeredOffice}</p>
+            <p><strong>Registered Office:</strong> {COMPANY.registeredOffice}</p>
             <p><strong>Contact:</strong> <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a></p>
-            <p>{COPYRIGHT_LINE}</p>
           </div>
         </footer>
       </article>

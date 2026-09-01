@@ -2,7 +2,7 @@
 .ckl .ckl-footer {
   position: relative;
   width: 100%;
-  background: var(--ck-paper);
+  background: var(--ck-ink);
   padding: clamp(56px, 6vw, 84px) clamp(20px, 5vw, 80px) 40px;
 }
 .ckl .ckl-footer-inner { max-width: 1320px; margin: 0 auto; }
@@ -13,6 +13,7 @@
   gap: 40px;
   flex-wrap: wrap;
   padding-bottom: 42px;
+  border-bottom: 1px solid #211f1a;
 }
 .ckl .ckl-footer-brand { max-width: 380px; }
 .ckl .ckl-footer-logo { height: 44px; width: auto; display: block; }
@@ -22,7 +23,7 @@
   font-style: italic;
   font-size: 23px;
   line-height: 1.3;
-  color: var(--ck-body-ink);
+  color: #c7c2b8;
 }
 .ckl .ckl-footer-hq { margin-top: 36px; }
 .ckl .ckl-footer-hq-head {
@@ -31,7 +32,7 @@
   font-size: 12px;
   letter-spacing: 2px;
   text-transform: uppercase;
-  color: var(--ck-muted);
+  color: #76726a;
   margin-bottom: 12px;
 }
 .ckl .ckl-footer-hq-row { display: flex; gap: 12px; align-items: flex-start; }
@@ -40,7 +41,7 @@
   font-family: var(--ck-sans);
   font-size: 15px;
   line-height: 1.6;
-  color: var(--ck-ink);
+  color: #cfccc5;
 }
 .ckl .ckl-footer-hq-near { color: var(--ck-muted); font-size: 14px; }
 
@@ -52,13 +53,13 @@
   font-size: 12px;
   letter-spacing: 2px;
   text-transform: uppercase;
-  color: var(--ck-muted);
+  color: #76726a;
   margin-bottom: 4px;
 }
 .ckl .ckl-footer-link {
   font-family: var(--ck-sans);
   font-size: 17px;
-  color: var(--ck-ink);
+  color: #cfccc5;
   text-decoration: none;
   background: none;
   border: none;
@@ -75,16 +76,16 @@
   gap: 20px;
   flex-wrap: wrap;
 }
-.ckl .ckl-footer-copy { font-family: var(--ck-sans); font-size: 14px; color: var(--ck-muted); }
+.ckl .ckl-footer-copy { font-family: var(--ck-sans); font-size: 14px; color: #76726a; }
 
 /* Statutory corporate disclosure. Deliberately quieter than the rest of the footer — it's
    compliance text, not navigation, so it reads last without competing with the links above. */
 .ckl .ckl-footer-legal {
   margin-top: 18px;
   padding-top: 18px;
-  border-top: 1px solid var(--ck-border);
+  border-top: 1px solid rgba(118, 114, 106, 0.18);
   font-family: var(--ck-sans);
-  color: var(--ck-muted);
+  color: #8d8981;
   font-size: 12.5px;
   line-height: 1.65;
 }
@@ -95,10 +96,10 @@
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--ck-muted);
+  color: #76726a;
 }
 .ckl .ckl-footer-legal-row { margin: 0; }
-.ckl .ckl-footer-legal-key { color: var(--ck-muted); font-weight: 600; }
+.ckl .ckl-footer-legal-key { color: #76726a; font-weight: 600; }
 .ckl .ckl-footer-legal-sep { margin: 0 8px; opacity: 0.45; }
 .ckl .ckl-footer-legal-mail { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .ckl .ckl-footer-legal-mail:hover { color: var(--ck-red); }

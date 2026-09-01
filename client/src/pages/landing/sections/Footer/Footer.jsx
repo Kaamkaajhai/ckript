@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { useAuthModal } from "../../../../context/AuthModalContext";
-import { LOGO_SRC } from "../../_shared/theme";
+import { LOGO_FOOTER_SRC } from "../../_shared/theme";
 import { COMPANY, COPYRIGHT_LINE } from "../../../../constants/company";
 import { FOOTER_COLS } from "./footer.data";
 import "./Footer.css";
@@ -20,7 +20,7 @@ export default function Footer() {
       <div className="ckl-footer-inner">
         <div className="ckl-footer-top">
           <div className="ckl-footer-brand">
-            <img className="ckl-footer-logo" src={LOGO_SRC} alt="Ckript" />
+            <img className="ckl-footer-logo" src={LOGO_FOOTER_SRC} alt="Ckript" />
             <p className="ckl-footer-tagline">From the page to the screen.</p>
             {/* The address now lives once, in the statutory Registered Office line below. */}
           </div>
