@@ -41,6 +41,7 @@ import adminRoutes from "./routes/adminRoutes.js";
 import scriptPitchRoutes from "./routes/scriptPitchRoutes.js";
 import financeRoutes from "./routes/financeRoutes.js";
 import judgeRoutes from "./routes/judgeRoutes.js";
+import unsubscribeRoutes from "./routes/unsubscribeRoutes.js";
 import invoiceRoutes from "./routes/invoiceRoutes.js";
 import analyticsRoutes from "./routes/analyticsRoutes.js";
 import legalRoutes from "./routes/legalRoutes.js";
@@ -382,6 +383,10 @@ app.use("/api/script-pitches", scriptPitchRoutes);
 app.use("/api/invoices", invoiceRoutes);
 app.use("/api/finance", financeRoutes);
 app.use("/api/judge", judgeRoutes);
+// PUBLIC and unauthenticated, deliberately. Someone clicking unsubscribe is in their inbox with no
+// session, and will not sign in to stop mail they did not want — they will press spam instead, which
+// costs the deliverability of everything the platform sends.
+app.use("/api/unsubscribe", unsubscribeRoutes);
 app.use("/api/legal", legalRoutes);
 app.use("/api/agreements", agreementRoutes);
 app.use("/api/collab", collabRoutes);

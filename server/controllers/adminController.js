@@ -37,6 +37,10 @@ import {
     describeMembershipProofAsset,
     hasMembershipProofAsset,
 } from "../utils/membershipProofAsset.js";
+// Unsubscribe lives in its own controller because its endpoints are PUBLIC and sessionless — someone
+// clicking a link in their inbox has no session and will not sign in to stop mail they did not want.
+import { filterSubscribed } from "./unsubscribeController.js";
+import { buildUnsubscribeUrl } from "../utils/unsubscribeToken.js";
 
 const buildChatId = (idA, idB) => {
     const sorted = [idA.toString(), idB.toString()].sort();
@@ -1141,7 +1145,9 @@ export const sendAudienceBroadcast = async (req, res) => {
                 key: "direct-user",
                 audienceLabel: emailList.length === 1 ? `specific user (${emailList[0]})` : `specific users (${emailList.length})`,
                 getRecipients: async () => {
-                    const users = await User.find({ email: { $in: emailList } }).select("_id name email").lean();
+                    const users = await User.find({ email: { $in: emailList } })
+                        .select("_id name email notificationPrefs.emailPreferences")
+                        .lean();
                     const foundEmails = new Set(users.map(u => u.email));
                     
                     const missingEmails = emailList.filter(e => !foundEmails.has(e));
@@ -1177,7 +1183,10 @@ export const sendAudienceBroadcast = async (req, res) => {
         const recipients = audienceConfig.getRecipients
             ? await audienceConfig.getRecipients()
             : await User.find(audienceConfig.filter)
-                .select("_id name email")
+                // notificationPrefs is not decoration here: without it filterSubscribed reads
+                // undefined for every recipient, treats them all as subscribed, and silently does
+                // nothing. A filter that cannot see the field it filters on is worse than none.
+                .select("_id name email notificationPrefs.emailPreferences")
                 .lean();
 
         if (recipients.length === 0) {
@@ -1186,12 +1195,42 @@ export const sendAudienceBroadcast = async (req, res) => {
 
         // Removed in-app notification creation for admin emails as requested
 
-        const emailRecipients = recipients.filter((recipient) => String(recipient?.email || "").trim());
+        /*
+         * Anyone who unsubscribed is dropped HERE, at the send, not at the audience query.
+         *
+         * Every audience builds its own filter, and adding a preference clause to each one would
+         * mean the next audience someone writes silently mails people who opted out. One choke point
+         * before the sender is the only shape where that cannot happen.
+         *
+         * `!== false` rather than `=== true`: the field defaults to true and predates this feature,
+         * so millions of existing users have no value stored at all. Requiring an explicit true would
+         * read every one of them as unsubscribed and silence the platform.
+         */
+        /*
+         * direct-user is EXEMPT, deliberately.
+         *
+         * An admin addressing one named person is answering them, not marketing at them — and
+         * silently dropping that mail would break support for anyone who ever unsubscribed. They are
+         * still told below, so a deliberate reply stays possible and an accidental one is visible.
+         *
+         * Every other audience is bulk, and bulk is exactly what someone unsubscribing meant.
+         */
+        const isDirect = audience === "direct-user";
+        const subscribed = isDirect ? recipients : filterSubscribed(recipients, "marketing");
+        const suppressed = recipients.length - subscribed.length;
+        const optedOutDirect = isDirect
+            ? recipients.length - filterSubscribed(recipients, "marketing").length
+            : 0;
+
+        const emailRecipients = subscribed.filter((recipient) => String(recipient?.email || "").trim());
         
         // Start email sending in the background to prevent lagging
         Promise.allSettled(
             emailRecipients.map((recipient) =>
                 sendAdminBroadcastEmail(recipient.email, recipient.name, {
+                    // Per recipient, because the token identifies THEM. One shared link would let
+                    // whoever clicked it unsubscribe somebody else.
+                    unsubscribeUrl: buildUnsubscribeUrl(resolveClientOriginFromRequest(req), recipient._id, "marketing"),
                     title,
                     content,
                     actionUrl,
@@ -1210,9 +1249,17 @@ export const sendAudienceBroadcast = async (req, res) => {
         });
 
         return res.json({
-            message: `Broadcast started for ${recipients.length} ${audienceConfig.key}.`,
+            // Counts the people actually being mailed, not the audience size. Saying "started for
+            // 4,000" when 300 unsubscribed would make the send look broken when it was working
+            // exactly as intended.
+            message: `Broadcast started for ${emailRecipients.length} ${audienceConfig.key}.`
+                + (suppressed ? ` ${suppressed} unsubscribed and were skipped.` : "")
+                + (optedOutDirect ? ` Note: ${optedOutDirect} of these recipients unsubscribed from announcements — sent anyway because this is a direct message.` : ""),
             audience: audienceConfig.key,
-            notified: recipients.length,
+            notified: emailRecipients.length,
+            // Surfaced rather than buried: an admin watching their audience shrink over time is
+            // seeing something real, and it should not take a database query to notice.
+            unsubscribed: suppressed,
             emailAttempted: emailRecipients.length,
             emailSent: "pending",
             emailFailed: "pending",
