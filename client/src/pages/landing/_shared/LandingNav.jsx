@@ -113,7 +113,7 @@ export default function LandingNav({ variant = "page", active = "" }) {
           ) : (
             <button
               type="button"
-              onClick={() => openAuthModal()}
+              onClick={() => openPricingModal()}
               className="ckl-hero-nav-login hov-red desktop-only"
             >
               {signInLabel}
@@ -215,7 +215,7 @@ export default function LandingNav({ variant = "page", active = "" }) {
                 className="ckl-hero-mmenu-item ckl-hero-mmenu-login"
                 onClick={() => {
                   setIsMobileMenuOpen(false);
-                  openAuthModal();
+                  openPricingModal();
                 }}
               >
                 {signInLabel}

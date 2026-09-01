@@ -131,7 +131,7 @@ export default function LandingMobile({ user: userProp = undefined }) {
         {user ? (
           <Button to={accountPath} size="sm" variant="tertiary">{labels.account}</Button>
         ) : (
-          <Button size="sm" variant="tertiary" onClick={() => openAuthModal()}>{labels.account}</Button>
+          <Button size="sm" variant="tertiary" onClick={() => openPricingModal()}>{labels.account}</Button>
         )}
         <IconButton icon="menu" label="Open menu" size="sm" onClick={() => setMenuOpen(true)} />
       </div>
@@ -158,7 +158,7 @@ export default function LandingMobile({ user: userProp = undefined }) {
           {user ? (
             <Link className="ckm-landing__menu-account" to={accountPath} onClick={() => setMenuOpen(false)}>{labels.account}</Link>
           ) : (
-            <button className="ckm-landing__menu-account" type="button" onClick={closeMenuThen(() => openAuthModal())}>{labels.account}</button>
+            <button className="ckm-landing__menu-account" type="button" onClick={closeMenuThen(() => openPricingModal())}>{labels.account}</button>
           )}
         </nav>
       </Dialog>
