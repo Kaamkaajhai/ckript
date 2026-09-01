@@ -66,6 +66,6 @@
 }
 
 @media (max-width: 900px) {
-  .ckl .ckl-problem-grid { grid-template-columns: 1fr !important; gap: 16px; margin-top: 32px; }
+  .ckl .ckl-problem-grid { display: flex; flex-direction: column; gap: 16px; margin-top: 32px; }
   .ckl .ckl-problem-cta { width: 100%; }
 }
