@@ -5,6 +5,7 @@ import CompetitionEntry from "../models/CompetitionEntry.js";
 import CompetitionJudge from "../models/CompetitionJudge.js";
 import JudgeScore from "../models/JudgeScore.js";
 import JudgeNomination from "../models/JudgeNomination.js";
+import JudgeEntryAssignment from "../models/JudgeEntryAssignment.js";
 import judgeOnly, { requireJudgeAssignment } from "../middleware/judgeMiddleware.js";
 import { getJudgeEntry } from "./judgeController.js";
 
@@ -13,6 +14,7 @@ const routesSource = fs.readFileSync(new URL("../routes/judgeRoutes.js", import.
 
 const originals = {
   entryFindOne: CompetitionEntry.findOne,
+  assignmentFind: JudgeEntryAssignment.find,
   judgeFindOne: CompetitionJudge.findOne,
   scoreFindOne: JudgeScore.findOne,
   nominationFind: JudgeNomination.find,
@@ -20,6 +22,7 @@ const originals = {
 
 afterEach(() => {
   CompetitionEntry.findOne = originals.entryFindOne;
+  JudgeEntryAssignment.find = originals.assignmentFind;
   CompetitionJudge.findOne = originals.judgeFindOne;
   JudgeScore.findOne = originals.scoreFindOne;
   JudgeNomination.find = originals.nominationFind;
@@ -38,6 +41,16 @@ const response = () => {
 
 /** A thenable stub standing in for a Mongoose query chain ending in .lean(). */
 const leanResult = (value) => ({ lean: () => Promise.resolve(value), select: function () { return this; } });
+
+/*
+ * Entry reads now resolve the judge's per-entry assignments first (see judgeEntryAssignment.test.js
+ * for that gate's own tests). These tests are about IDOR and session scoping, so the lookup is
+ * stubbed to "this entry is assigned" — otherwise the gate short-circuits and the query under test
+ * never runs, which reads as a passing test that checked nothing.
+ */
+const assignAnything = (entryId) => {
+  JudgeEntryAssignment.find = () => leanResult(entryId ? [{ entry: entryId }] : []);
+};
 
 describe("judgeOnly — who reaches the panel at all", () => {
   const call = (user) => {
@@ -142,9 +155,10 @@ describe("requireJudgeAssignment — judging THIS competition", () => {
 describe("entry reads are scoped to the competition (IDOR)", () => {
   test("an entry is queried by BOTH ids, never by _id alone", async () => {
     let filter = null;
+    const validEntry = "507f1f77bcf86cd799439011";
+    assignAnything(validEntry);
     CompetitionEntry.findOne = (f) => { filter = f; return leanResult(null); };
 
-    const validEntry = "507f1f77bcf86cd799439011";
     const validComp = "507f1f77bcf86cd799439012";
     const target = response();
     await getJudgeEntry({ params: { competitionId: validComp, entryId: validEntry }, user: { _id: "j1" } }, target.res);
@@ -157,6 +171,7 @@ describe("entry reads are scoped to the competition (IDOR)", () => {
 
   test("only submitted entries are visible — a draft is not a submission", async () => {
     let filter = null;
+    assignAnything("507f1f77bcf86cd799439011");
     CompetitionEntry.findOne = (f) => { filter = f; return leanResult(null); };
 
     await getJudgeEntry(
@@ -169,6 +184,7 @@ describe("entry reads are scoped to the competition (IDOR)", () => {
 
   test("a malformed entry id is a 404 before Mongo is touched", async () => {
     CompetitionEntry.findOne = () => { throw new Error("must not query"); };
+    JudgeEntryAssignment.find = () => { throw new Error("must not query assignments either"); };
 
     const target = response();
     await getJudgeEntry({ params: { competitionId: "507f1f77bcf86cd799439012", entryId: "not-an-id" }, user: { _id: "j1" } }, target.res);
@@ -178,6 +194,7 @@ describe("entry reads are scoped to the competition (IDOR)", () => {
 
   test("a judge's own score and nominations are read by their session id", async () => {
     const entry = { _id: "e1", eventId: "CGSC-1", snapshot: { title: "T", fountainContent: "INT. X" } };
+    assignAnything("507f1f77bcf86cd799439011");
     CompetitionEntry.findOne = () => leanResult(entry);
     let scoreFilter = null;
     let nominationFilter = null;

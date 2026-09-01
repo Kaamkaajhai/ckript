@@ -92,6 +92,9 @@ import {
     adminUnlockJudging,
     adminSetRanks,
     adminPreviewJudgeEntry,
+    adminGetEntryAssignments,
+    adminSetEntryAssignments,
+    adminSetFinalScore,
 } from "../controllers/competitionJudgingAdminController.js";
 
 const router = express.Router();
@@ -226,6 +229,13 @@ router.post("/competitions/:id/judges", adminAssignJudge);
 router.delete("/competitions/:id/judges/:judgeId", adminRevokeJudge);
 // Proves the blind view is blind, by calling the judge's own projection from an admin route.
 router.get("/competitions/:id/entries/:entryId/judge-preview", adminPreviewJudgeEntry);
+// Which judge reads which script. A judge sees ONLY what is assigned here, so a panel of five is an
+// allocation rather than five people reading everything.
+router.get("/competitions/:id/assignments", adminGetEntryAssignments);
+router.put("/competitions/:id/assignments", adminSetEntryAssignments);
+// The admin's own score, decided after reading what every assigned judge said. Separate from the
+// panel's computed mean, and separate again from declaring an award.
+router.put("/competitions/:id/entries/:entryId/final-score", adminSetFinalScore);
 
 // Contact Queries
 router.get("/queries", getContactSubmissions);
