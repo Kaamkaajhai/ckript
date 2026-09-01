@@ -76,10 +76,10 @@ describe("RoleChooserMobile", () => {
     const el = await open();
     expect(el.textContent).toContain("Writer");
     expect(el.textContent).toContain("Producer or Director");
-    expect(el.textContent).toContain("Industry professional");
+
     // Reader and actor are a recorded follow-up, not an oversight.
     expect(el.textContent).not.toContain("Reader");
-    expect(el.querySelectorAll(".ckm-auth__role")).toHaveLength(3);
+    expect(el.querySelectorAll(".ckm-auth__role")).toHaveLength(2);
   });
 
   it("sends each role to the one stepper with its own ?as=", async () => {
@@ -88,7 +88,6 @@ describe("RoleChooserMobile", () => {
     expect(hrefs).toEqual([
       "/signup?as=writer",
       "/signup?as=producer",
-      "/signup?as=industry",
     ]);
   });
 

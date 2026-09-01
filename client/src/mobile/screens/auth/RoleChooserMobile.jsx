@@ -87,7 +87,7 @@ export default function RoleChooserMobile() {
         {/* A list, because it is one: three alternatives of equal weight. The
             count is worth announcing before someone commits to reading them. */}
         <ul className="ckm-auth__roles">
-          {AUTH_ROLES.map((role) => (
+          {AUTH_ROLES.filter(r => r.key !== 'industry').map((role) => (
             <li key={role.key}>
               <Link className="ckm-auth__role" to={signUpPath(role.key)}>
                 <Icon className="ckm-auth__role-icon" name={ROLE_ICON[role.key]} size={26} />
