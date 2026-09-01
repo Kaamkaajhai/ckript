@@ -1,4 +1,5 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useEffect, useLayoutEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { useMobileScrollDepth } from "../analytics/useMobileScrollDepth";
 import OfflineBanner from "../components/feedback/OfflineBanner";
 import {
@@ -56,10 +57,44 @@ export default function MobileShell({
   const config = resolveShellSlots(resolvedMode, slots);
   const overriddenSlots = changedShellSlots(resolvedMode, slots);
 
+  const location = useLocation();
+
   // The shell always needs its own handle on the scroll surface (analytics).
   // A screen that also needs it passes an `onScrollNode` callback rather than
   // a ref object, so nothing outside the shell can retarget the surface.
   const scrollNodeRef = useRef(null);
+
+  // Restore scroll position synchronously before paint to avoid flash
+  useLayoutEffect(() => {
+    const node = scrollNodeRef.current;
+    if (!node) return;
+    const saved = sessionStorage.getItem(`ckm-scroll-${location.key}`);
+    if (saved) {
+      node.scrollTop = parseInt(saved, 10);
+    }
+  }, [location.key]);
+
+  // Track and save scroll position as the user scrolls
+  useEffect(() => {
+    const node = scrollNodeRef.current;
+    if (!node) return;
+    const restoreKey = `ckm-scroll-${location.key}`;
+    
+    let timeoutId;
+    const handleScroll = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        sessionStorage.setItem(restoreKey, node.scrollTop);
+      }, 100);
+    };
+
+    node.addEventListener("scroll", handleScroll, { passive: true });
+    return () => {
+      node.removeEventListener("scroll", handleScroll);
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [location.key]);
+
   const setScrollNode = useCallback((node) => {
     scrollNodeRef.current = node;
     if (typeof onScrollNode === "function") onScrollNode(node);
