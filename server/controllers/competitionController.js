@@ -1130,7 +1130,7 @@ export const openCompetitionEditor = async (req, res) => {
 
     const script = await Script.create({
       creator: req.user._id,
-      title: `${competition.name} — ${req.user.name || "Entry"}`,
+      title: "",
       status: "draft",
       projectSource: "editor",
       competitionId: competition._id,

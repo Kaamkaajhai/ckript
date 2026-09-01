@@ -62,7 +62,7 @@
 
 .ckm .ckm-editor__bar-exit,
 .ckm .ckm-editor__bar .ckm-icon-button {
-  color: var(--ckm-editor-on-chrome);
+  color: #000;
 }
 
 /* The shared focus ring is terracotta, which all but disappears on ink — the
