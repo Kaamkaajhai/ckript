@@ -5,6 +5,7 @@ import CompetitionEntry from "../models/CompetitionEntry.js";
 import CompetitionJudge from "../models/CompetitionJudge.js";
 import JudgeScore from "../models/JudgeScore.js";
 import JudgeNomination from "../models/JudgeNomination.js";
+import JudgeEntryAssignment from "../models/JudgeEntryAssignment.js";
 import { buildJudgingLeaderboard, tallyNominations } from "../utils/judgeAggregate.js";
 import { toJudgeEntryView, JUDGEABLE_STATUSES } from "../utils/judgeEntryView.js";
 import { asObjectId, asTrimmedString, asInt } from "../utils/requestValue.js";
@@ -477,6 +478,9 @@ export const adminGetJudging = async (req, res) => {
           writer: entry?.userId ? { name: entry.userId.name, email: entry.userId.email } : null,
           currentAward: entry?.result?.award || "none",
           currentRank: entry?.result?.rank ?? null,
+          // ?? not ||, so a deliberate 0 survives instead of collapsing to "not decided yet".
+          finalScore: entry?.result?.finalScore ?? null,
+          finalScoreNote: entry?.result?.finalScoreNote || "",
           judgeBreakdown: (scoresByEntry.get(row.entryId) || []).map((s) => ({
             judgeId: s.judge?._id || s.judge,
             judgeName: s.judge?.name || "(deleted account)",
@@ -559,5 +563,214 @@ export const adminPreviewJudgeEntry = async (req, res) => {
   } catch (error) {
     console.error("[judging] adminPreviewJudgeEntry failed:", error?.message || error);
     return res.status(500).json({ message: "Could not load the preview." });
+  }
+};
+
+/**
+ * GET /api/admin/competitions/:id/assignments
+ *
+ * The allocation matrix: every judgeable entry, every active panel judge, and who is reading what.
+ *
+ * One request rather than a call per entry, because the admin's screen is a grid and needs the whole
+ * thing at once to render a single checkbox correctly.
+ */
+export const adminGetEntryAssignments = async (req, res) => {
+  try {
+    const competitionId = asObjectId(req.params.id);
+    const competition = await Competition.findById(competitionId).select("name").lean();
+    if (!competition) return res.status(404).json({ message: "Competition not found." });
+
+    const [entries, panel, assignments, scores] = await Promise.all([
+      CompetitionEntry.find({ competitionId, status: { $in: JUDGEABLE_STATUSES } })
+        .select("eventId snapshot.title snapshot.pageCount")
+        .sort({ eventId: 1 })
+        .lean(),
+      CompetitionJudge.find({ competition: competitionId, status: "active" })
+        .populate("judge", "name email")
+        .lean(),
+      JudgeEntryAssignment.find({ competition: competitionId }).select("entry judge").lean(),
+      // Which pairs already carry a SUBMITTED score, so the grid can refuse to unassign finished
+      // work rather than silently orphaning it.
+      JudgeScore.find({ competition: competitionId, status: "submitted" }).select("entry judge").lean(),
+    ]);
+
+    const scoredPairs = new Set(scores.map((s) => `${s.entry}:${s.judge}`));
+
+    return res.json({
+      competition: { _id: competition._id, name: competition.name },
+      judges: panel
+        .filter((p) => p.judge)
+        .map((p) => ({ _id: p.judge._id, name: p.judge.name, email: p.judge.email })),
+      entries: entries.map((e) => ({
+        _id: e._id,
+        eventId: e.eventId,
+        title: e.snapshot?.title || "",
+        pageCount: e.snapshot?.pageCount || 0,
+      })),
+      assignments: assignments.map((a) => ({
+        entryId: String(a.entry),
+        judgeId: String(a.judge),
+        scored: scoredPairs.has(`${a.entry}:${a.judge}`),
+      })),
+    });
+  } catch (error) {
+    console.error("[judging] adminGetEntryAssignments failed:", error?.message || error);
+    return res.status(500).json({ message: "Could not load the assignments." });
+  }
+};
+
+/**
+ * PUT /api/admin/competitions/:id/assignments
+ *
+ * Apply a batch of changes: { assign: [{entryId, judgeId}], unassign: [{entryId, judgeId}] }.
+ *
+ * A batch rather than a call per checkbox, because the natural gesture is "give these ten scripts to
+ * these three judges" and thirty sequential requests is thirty chances to end up half applied.
+ */
+export const adminSetEntryAssignments = async (req, res) => {
+  try {
+    const competitionId = asObjectId(req.params.id);
+    if (!competitionId) return res.status(404).json({ message: "Competition not found." });
+
+    const assign = Array.isArray(req.body?.assign) ? req.body.assign : [];
+    const unassign = Array.isArray(req.body?.unassign) ? req.body.unassign : [];
+    if (!assign.length && !unassign.length) return res.status(400).json({ message: "Nothing to change." });
+
+    // Both sides are checked against reality before anything is written: the entry must belong to
+    // THIS competition and be judgeable, and the judge must actually sit on THIS panel. Otherwise a
+    // crafted request could put another competition's script in front of someone.
+    const [validEntries, validJudges] = await Promise.all([
+      CompetitionEntry.find({ competitionId, status: { $in: JUDGEABLE_STATUSES } }).select("_id").lean(),
+      CompetitionJudge.find({ competition: competitionId, status: "active" }).select("judge").lean(),
+    ]);
+    const entryOk = new Set(validEntries.map((e) => String(e._id)));
+    const judgeOk = new Set(validJudges.map((j) => String(j.judge)));
+
+    const pairs = (rows) => rows
+      .map((row) => ({ entryId: asObjectId(row?.entryId), judgeId: asObjectId(row?.judgeId) }))
+      .filter((row) => row.entryId && row.judgeId
+        && entryOk.has(String(row.entryId)) && judgeOk.has(String(row.judgeId)));
+
+    const toAssign = pairs(assign);
+    const toUnassign = pairs(unassign);
+
+    let assigned = 0;
+    if (toAssign.length) {
+      const result = await JudgeEntryAssignment.bulkWrite(
+        toAssign.map(({ entryId, judgeId }) => ({
+          updateOne: {
+            filter: { entry: entryId, judge: judgeId },
+            // Upsert, so re-assigning an existing pair is a no-op rather than a duplicate-key error.
+            // $setOnInsert keeps the ORIGINAL assignedAt when the row already exists — re-saving the
+            // grid should not make every allocation look like it happened just now.
+            update: {
+              $setOnInsert: {
+                competition: competitionId,
+                entry: entryId,
+                judge: judgeId,
+                assignedBy: req.user._id,
+                assignedAt: new Date(),
+              },
+            },
+            upsert: true,
+          },
+        })),
+        { ordered: false }
+      );
+      assigned = result.upsertedCount ?? 0;
+    }
+
+    let removed = 0;
+    let blocked = 0;
+    if (toUnassign.length) {
+      // A submitted score is a judge's finished work. Unassigning would hide the entry from them
+      // while their score kept counting toward the aggregate — so the score has to go first, and the
+      // admin is told rather than discovering it later in the leaderboard.
+      const submitted = await JudgeScore.find({
+        competition: competitionId,
+        status: "submitted",
+        $or: toUnassign.map(({ entryId, judgeId }) => ({ entry: entryId, judge: judgeId })),
+      }).select("entry judge").lean();
+      const submittedPairs = new Set(submitted.map((s) => `${s.entry}:${s.judge}`));
+
+      const removable = toUnassign.filter((p) => !submittedPairs.has(`${p.entryId}:${p.judgeId}`));
+      blocked = toUnassign.length - removable.length;
+
+      if (removable.length) {
+        const result = await JudgeEntryAssignment.deleteMany({
+          competition: competitionId,
+          $or: removable.map(({ entryId, judgeId }) => ({ entry: entryId, judge: judgeId })),
+        });
+        removed = result.deletedCount ?? 0;
+      }
+    }
+
+    return res.json({
+      assigned,
+      removed,
+      blocked,
+      message: blocked
+        ? `${blocked} assignment${blocked === 1 ? " was" : "s were"} kept because that judge has already submitted a score. `
+          + "Void the score first if you need to take the entry back."
+        : "",
+    });
+  } catch (error) {
+    console.error("[judging] adminSetEntryAssignments failed:", error?.message || error);
+    return res.status(500).json({ message: "Could not save the assignments." });
+  }
+};
+
+/**
+ * PUT /api/admin/competitions/:id/entries/:entryId/final-score
+ *
+ * The admin's own score, decided after reading what every assigned judge said.
+ *
+ * Kept apart from the panel's computed mean rather than overwriting it. That mean is arithmetic over
+ * whoever happened to be assigned; this is a judgement. The two disagreeing is information the admin
+ * may want later, not a conflict to settle by discarding one of them.
+ *
+ * Writes ONLY the final-score fields — never `result.award` or `status`. Deciding a score and
+ * declaring a winner stay separate actions, so recording an opinion cannot hand out a prize.
+ */
+export const adminSetFinalScore = async (req, res) => {
+  try {
+    const competitionId = asObjectId(req.params.id);
+    const entryId = asObjectId(req.params.entryId);
+    if (!competitionId || !entryId) return res.status(404).json({ message: "Entry not found." });
+
+    // Null is "not decided yet" and has to stay distinguishable from a genuine 0, so clearing is an
+    // explicit branch rather than something asInt would flatten to its minimum.
+    const raw = req.body?.finalScore;
+    const clearing = raw === null || raw === undefined || raw === "";
+    const finalScore = clearing ? null : asInt(raw, { min: 0, max: 100, fallback: -1 });
+    if (!clearing && finalScore < 0) {
+      return res.status(400).json({ message: "The final score must be a number between 0 and 100." });
+    }
+
+    const entry = await CompetitionEntry.findOneAndUpdate(
+      { _id: entryId, competitionId },
+      {
+        $set: {
+          "result.finalScore": finalScore,
+          "result.finalScoreNote": asTrimmedString(req.body?.note, 2000),
+          "result.finalScoreAt": clearing ? null : new Date(),
+          "result.finalScoreBy": clearing ? null : req.user._id,
+        },
+      },
+      { new: true }
+    ).select("eventId result").lean();
+
+    if (!entry) return res.status(404).json({ message: "Entry not found." });
+
+    return res.json({
+      entryId: String(entry._id),
+      eventId: entry.eventId,
+      finalScore: entry.result?.finalScore ?? null,
+      finalScoreNote: entry.result?.finalScoreNote || "",
+      finalScoreAt: entry.result?.finalScoreAt || null,
+    });
+  } catch (error) {
+    console.error("[judging] adminSetFinalScore failed:", error?.message || error);
+    return res.status(500).json({ message: "Could not save the final score." });
   }
 };

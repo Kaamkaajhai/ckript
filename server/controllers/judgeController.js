@@ -3,6 +3,7 @@ import CompetitionEntry from "../models/CompetitionEntry.js";
 import CompetitionJudge from "../models/CompetitionJudge.js";
 import JudgeScore from "../models/JudgeScore.js";
 import JudgeNomination from "../models/JudgeNomination.js";
+import JudgeEntryAssignment from "../models/JudgeEntryAssignment.js";
 import { toJudgeEntryView, JUDGEABLE_STATUSES } from "../utils/judgeEntryView.js";
 import { getCompetitionPhase } from "../utils/competitionPhase.js";
 import { asObjectId, asTrimmedString, asInt } from "../utils/requestValue.js";
@@ -25,10 +26,30 @@ import { asObjectId, asTrimmedString, asInt } from "../utils/requestValue.js";
  * answers 404 rather than 403 so an assigned judge cannot enumerate competitions they are not on.
  */
 
-/** Entries a judge may see. An entry still being written is not a submission. */
-const judgeableFilter = (competitionId) => ({
+/**
+ * Entries a judge may see: submitted, in this competition, AND assigned to them.
+ *
+ * Async now, because the last of those three is a lookup. Every judge-facing entry query goes
+ * through here, which is what makes assignment a gate rather than a list filter — an entry nobody
+ * gave this judge answers 404 whether they browse to it or paste its id.
+ *
+ * Deliberately strict: no assignments means an EMPTY queue, not the whole competition. A panel of
+ * five each reading all forty entries is the situation this exists to end, so falling back to
+ * "everything" when the admin has not allocated yet would quietly restore it.
+ */
+const assignedEntryIds = async (competitionId, judgeId) => {
+  const rows = await JudgeEntryAssignment.find({ competition: competitionId, judge: judgeId })
+    .select("entry")
+    .lean();
+  return rows.map((row) => row.entry);
+};
+
+const judgeableFilter = async (competitionId, judgeId) => ({
   competitionId,
   status: { $in: JUDGEABLE_STATUSES },
+  // The entry is re-scoped by competitionId as well, so an assignment row pointing at another
+  // competition's entry (stale denormalised field, hand-edited data) still cannot widen this.
+  _id: { $in: await assignedEntryIds(competitionId, judgeId) },
 });
 
 /**
@@ -106,9 +127,12 @@ export const listJudgeCompetitions = async (req, res) => {
       Competition.find({ _id: { $in: competitionIds } })
         .select("name slug dates resultsDeclaredAt judging bannerUrl cardThumbnailUrl")
         .lean(),
-      CompetitionEntry.aggregate([
-        { $match: { competitionId: { $in: competitionIds }, status: { $in: JUDGEABLE_STATUSES } } },
-        { $group: { _id: "$competitionId", count: { $sum: 1 } } },
+      // Counts what is assigned to THIS judge, not what exists. Counting every entry would show a
+      // judge "3 of 40 scored" when they were only ever given three, which reads as being three
+      // weeks behind rather than finished.
+      JudgeEntryAssignment.aggregate([
+        { $match: { competition: { $in: competitionIds }, judge: req.user._id } },
+        { $group: { _id: "$competition", count: { $sum: 1 } } },
       ]),
       JudgeScore.find({ competition: { $in: competitionIds }, judge: req.user._id })
         .select("competition status")
@@ -168,7 +192,7 @@ export const getJudgeCompetition = async (req, res) => {
     if (!competition) return res.status(404).json({ message: "Competition not found." });
 
     const [total, myScores] = await Promise.all([
-      CompetitionEntry.countDocuments(judgeableFilter(competitionId)),
+      CompetitionEntry.countDocuments(await judgeableFilter(competitionId, req.user._id)),
       JudgeScore.find({ competition: competitionId, judge: req.user._id }).select("status").lean(),
     ]);
 
@@ -205,14 +229,14 @@ export const listJudgeEntries = async (req, res) => {
     const limit = asInt(req.query.limit, { min: 1, max: 100, fallback: 50 });
 
     const [entries, total, myScores, myNominations] = await Promise.all([
-      CompetitionEntry.find(judgeableFilter(competitionId))
+      CompetitionEntry.find(await judgeableFilter(competitionId, req.user._id))
         // Sorted by the entry code, NOT by submission time: submission order maps back to the
         // registration list, and reading in a stable arbitrary order is what a blind queue means.
         .sort({ eventId: 1 })
         .skip((page - 1) * limit)
         .limit(limit)
         .lean(),
-      CompetitionEntry.countDocuments(judgeableFilter(competitionId)),
+      CompetitionEntry.countDocuments(await judgeableFilter(competitionId, req.user._id)),
       JudgeScore.find({ competition: competitionId, judge: req.user._id }).lean(),
       JudgeNomination.find({ competition: competitionId, judge: req.user._id }).select("entry awardKey").lean(),
     ]);
@@ -255,7 +279,7 @@ export const getJudgeEntry = async (req, res) => {
 
     // Always queried by BOTH ids. `findById(entryId)` would let a judge on competition A read an
     // entry from competition B by pasting its id — the assignment gate only checked competition A.
-    const entry = await CompetitionEntry.findOne({ _id: entryId, ...judgeableFilter(competitionId) }).lean();
+    const entry = await CompetitionEntry.findOne({ _id: entryId, ...(await judgeableFilter(competitionId, req.user._id)) }).lean();
     if (!entry) return res.status(404).json({ message: "Entry not found." });
 
     const [score, nominations] = await Promise.all([
@@ -290,7 +314,7 @@ export const saveJudgeScore = async (req, res) => {
     const write = judgingWriteState(competition);
     if (!write.open) return res.status(409).json({ message: write.reason });
 
-    const entryExists = await CompetitionEntry.exists({ _id: entryId, ...judgeableFilter(competitionId) });
+    const entryExists = await CompetitionEntry.exists({ _id: entryId, ...(await judgeableFilter(competitionId, req.user._id)) });
     if (!entryExists) return res.status(404).json({ message: "Entry not found." });
 
     const rubric = rubricView(competition);
@@ -370,7 +394,23 @@ export const listJudgeNominations = async (req, res) => {
 
     // Resolve the entries so the judge sees which script they nominated — through the same
     // projection, so a nomination list cannot become the one place a name slips out.
-    const entries = await CompetitionEntry.find({ _id: { $in: nominations.map((n) => n.entry) } }).lean();
+    /*
+     * Through the gate, like every other entry read — not straight to the nominated ids.
+     *
+     * The nominations are already scoped to this judge, so it looks safe: they can only have
+     * nominated something they were given. But assignments can be REVOKED, and a nomination outlives
+     * the assignment that made it possible. Resolving the ids directly would leave an old nomination
+     * as a window onto an entry that is no longer theirs.
+     *
+     * The $in from the gate and the nominated ids intersect, so a withdrawn assignment drops the row
+     * to its id alone and the title simply stops resolving.
+     */
+    const gate = await judgeableFilter(competitionId, req.user._id);
+    const nominatedIds = nominations.map((n) => String(n.entry));
+    const entries = await CompetitionEntry.find({
+      ...gate,
+      _id: { $in: gate._id.$in.filter((id) => nominatedIds.includes(String(id))) },
+    }).lean();
     const entryBy = new Map(entries.map((e) => [String(e._id), toJudgeEntryView(e)]));
 
     return res.json({
@@ -414,7 +454,7 @@ export const saveJudgeNomination = async (req, res) => {
 
     // Re-checked against the competition, so an entry id from a different competition cannot be
     // nominated here even though the judge is legitimately on this panel.
-    const entryExists = await CompetitionEntry.exists({ _id: entryId, ...judgeableFilter(competitionId) });
+    const entryExists = await CompetitionEntry.exists({ _id: entryId, ...(await judgeableFilter(competitionId, req.user._id)) });
     if (!entryExists) return res.status(404).json({ message: "Entry not found." });
 
     const reason = asTrimmedString(req.body?.reason, 500);

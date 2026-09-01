@@ -39,6 +39,18 @@ const uploadToCloudinaryRemote = async (buffer, options = {}) => {
   if (options.type) {
     uploadOptions.type = options.type;
   }
+  /*
+   * `format` was accepted from callers and then silently dropped, so script PDFs were stored as
+   * extensionless raw objects — ".../scriptbridge/scripts/script-123-1788170715913" rather than
+   * "...pdf". Cloudinary serves them either way, but a URL with no extension is one a browser, a
+   * download prompt, or anything sniffing by suffix has to guess at.
+   *
+   * An option a function accepts and ignores is worse than one it rejects: the call site reads as
+   * though it works.
+   */
+  if (options.format) {
+    uploadOptions.format = options.format;
+  }
 
   return new Promise((resolve, reject) => {
     const stream = cloudinary.uploader.upload_stream(uploadOptions, (error, result) => {
@@ -62,6 +74,10 @@ const uploadToCloudinaryChunkedRemote = async (buffer, options = {}) => {
   }
   if (options.type) {
     uploadOptions.type = options.type;
+  }
+  // Same as the non-chunked path above — forwarded rather than quietly dropped.
+  if (options.format) {
+    uploadOptions.format = options.format;
   }
 
   return new Promise((resolve, reject) => {

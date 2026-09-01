@@ -113,6 +113,23 @@ const competitionEntrySchema = new mongoose.Schema({
     // aggregate ranks, a human decides. Null on every entry that predates the judge panel, and on
     // any competition judged without one.
     rank: { type: Number, default: null },
+
+    /**
+     * The score the ADMIN settled on, having read what every assigned judge said.
+     *
+     * Deliberately separate from the panel's computed mean. That mean is arithmetic over whoever
+     * happened to be assigned; this is a judgement, and the two disagreeing is information worth
+     * keeping rather than a conflict to resolve by overwriting one with the other. The admin may
+     * discount a judge who misread the brief, weigh a specialist more heavily, or account for
+     * something no rubric captured.
+     *
+     * Null means "not decided yet", which is why it is nullable rather than defaulting to 0 — a 0
+     * would be indistinguishable from a genuinely terrible script.
+     */
+    finalScore: { type: Number, min: 0, max: 100, default: null },
+    finalScoreNote: { type: String, default: "", maxlength: 2000 },
+    finalScoreAt: { type: Date, default: null },
+    finalScoreBy: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
 
   // Append-only ledger; the declare-results grant loop skips any type already present, which is what
