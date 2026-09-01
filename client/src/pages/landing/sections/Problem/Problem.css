@@ -66,6 +66,11 @@
 }
 
 @media (max-width: 900px) {
-  .ckl .ckl-problem-grid { display: flex; flex-direction: column; gap: 16px; margin-top: 32px; }
-  .ckl .ckl-problem-cta { width: 100%; }
+  .ckl .ckl-problem-grid { 
+    display: flex !important; 
+    flex-direction: column !important; 
+    gap: 16px !important; 
+    margin-top: 32px !important; 
+  }
+  .ckl .ckl-problem-cta { width: 100% !important; }
 }
