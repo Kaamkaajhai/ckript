@@ -450,24 +450,25 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
   // --- Account entry (Phase 8, D59) -------------------------------------
   "ckm-auth": {
     kind: PAGE_FAMILY,
-    owner: "screens/auth/Auth.css",
+    owner: "screens/auth/ios/AuthSurface.css, screens/auth/ios/AuthControls.css, screens/auth/ios/AuthSheet.css",
     family: "auth",
-    note: "The dark account-entry chrome shared by /login, /join and /forgot-password, plus the frame all five auth screens mount in. "
-      + "One prefix and one stylesheet for the three because they are the same surface asking for different fields; the reserved "
-      + "`ckm-forgot-password` is retired unused rather than owning a second copy of every rule (§7.2, 2026-08-26). "
-      + "Its `__otp*` elements belong to `components/OtpInput.jsx`, which is a member of this family and is also mounted by the "
-      + "stepper — so `SignUp.css` re-skins `.ckm-auth__otp-box` for its own ground rather than declaring a second six-box control. "
-      + "That is a family component being reused inside the family, not `ckm-signup` reaching into another prefix.",
+    note: "The account-entry surface and control kit: the sticky bar, the editorial lockup, the docked action, the grouped inset "
+      + "rows, the buttons, the six-box code field and the wheel picker sheet. Shared by /login, /join, /forgot-password AND by the "
+      + "stepper and the invite screen, which add only what is their own — so `ckm-signup` and `ckm-invite` mount this family's "
+      + "components rather than restating them. The reserved `ckm-forgot-password` stays retired for the same reason it was "
+      + "(§7.2, 2026-08-26): recovery is this surface asking for different fields. `.ckm-auth__scroll` is the shell tuning this "
+      + "family asks for through MobileShell's `scrollClassName`, which is why it is declared here and not in MobileShell.css.",
   },
   "ckm-signup": {
     kind: PAGE_FAMILY,
-    owner: "screens/auth/SignUp.css",
+    owner: "screens/auth/SignUpMobile.css",
     family: "auth",
     note: "The role-parameterised sign-up stepper at /signup?as=<role>. Reallocated from the three reserved but never-used prefixes "
       + "`ckm-writer-onboarding`, `ckm-producer-onboarding` and `ckm-industry-onboarding`: mobile implements all three flows as ONE "
       + "screen, so three prefixes would have been three names for one stylesheet. The role is a data attribute on the host, not a "
       + "prefix. Separate from `ckm-auth` for the reason `ckm-editor` is separate from `ckm-create-project` — a flow-shell surface "
-      + "with a step rail, per-step panels and a keyboard-aware docked footer shares nothing but tokens with a sign-in form.",
+      + "with a progress rail, per-step panels, a keyboard-aware docked footer and a finish screen adds those to the shared "
+      + "`ckm-auth` surface rather than being it.",
   },
   "ckm-invite": {
     kind: PAGE_FAMILY,
