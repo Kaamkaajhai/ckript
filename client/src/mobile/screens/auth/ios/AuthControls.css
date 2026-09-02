@@ -764,9 +764,11 @@
 
 /* The one place the desktop sheet's `border-color: ... !important` can still be
    seen, because this control is the only one in the family with a border of its
-   own. Answered in kind rather than left to a colour from another app. */
+   own. Answered in kind, and in ink rather than red: an invalid code already
+   turns these boxes #ba4034, and the box you are typing into must not look like
+   the answer you got wrong. */
 .ckm .ckm-auth__otp-box:focus-visible {
-  border-color: var(--ckma-accent) !important;
+  border-color: var(--ckma-ink) !important;
 }
 
 .ckm .ckm-auth__otp.is-invalid .ckm-auth__otp-box {

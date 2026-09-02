@@ -50,6 +50,22 @@
   --ckma-on-dark: #dd5a42;
   --ckma-dark: #0b0a06;
 
+  /*
+   * FOCUS IS NOT AN ERROR, SO IT MUST NOT BE THE SAME COLOUR AS ONE.
+   *
+   * The app-wide focus ring is the terracotta accent (#d14d37). In every other
+   * family that is unambiguous, because nothing else there draws a coloured
+   * stroke around a control. Here the invalid state does exactly that, in
+   * #ba4034 — and at arm's length on a phone the two are the same red. A field
+   * you had just tapped into looked like a field you had got wrong, and a field
+   * you HAD got wrong looked like the one you were typing in.
+   *
+   * One colour cannot carry two opposite meanings. Red now means only "this is
+   * wrong". Focus is ink: the same near-black as the primary action, so an
+   * active control reads as the thing you are working on rather than a warning.
+   */
+  --ckm-focus-ring: var(--ckma-ink);
+
   --ckma-gutter: 20px;
   --ckma-inset: 16px;
   --ckma-bar-h: 44px;
@@ -149,6 +165,8 @@
 .ckm .ckm-auth--dark {
   background: var(--ckma-dark);
   color: #fff;
+  /* Ink on ink is no ring at all; on this ground the paper is the contrast. */
+  --ckm-focus-ring: #ffffff;
   animation: ckm-auth-fade 450ms ease both;
 }
 
