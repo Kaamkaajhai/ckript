@@ -262,6 +262,31 @@
   outline-offset: calc(var(--ckm-focus-ring-offset) * -1);
 }
 
+/*
+ * AND NOT WHEN A FINGER PUT IT THERE.
+ *
+ * `:focus-visible` matches on ANY focus for a text input — every engine does
+ * this deliberately, because it cannot know whether a keyboard is coming. On a
+ * phone that is the wrong default: tapping a field is simply how you type, and
+ * the screen has already answered "which field am I in?" twice over — the caret
+ * is blinking in it and the keyboard has slid up under it. The ring was a third
+ * answer nobody asked for, and at 2px of ink it was the heaviest mark on the
+ * page.
+ *
+ * So it is spent where it is the only answer: on the person who arrived by Tab,
+ * who placed no caret and raised no keyboard. `useInputModality` publishes
+ * which of the two is driving; `[data-input="pointer"]` is a tap or a click.
+ *
+ * This does not weaken SC 2.4.7 — for a pointer user the caret is the visible
+ * focus indicator, which is the same reasoning every native text field on iOS
+ * and Android relies on. Keyboard users keep the full 2px ring.
+ */
+.ckm .ckm-auth[data-input="pointer"] .ckm-auth__row:has(:focus-visible),
+.ckm .ckm-auth[data-input="pointer"] .ckm-auth__field:has(:focus-visible),
+.ckm .ckm-auth[data-input="pointer"] :focus-visible {
+  outline: none;
+}
+
 /* The surfaces that touch a card's corners take the card's corners. Everything
    a row paints — background, press tint, focus ring — then follows the same
    curve, so none of them needs to be clipped back into shape. */

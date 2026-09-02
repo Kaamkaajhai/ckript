@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import useInputModality from "../../../hooks/useInputModality";
 import MobileShell from "../../../shell/MobileShell";
 import "./AuthSurface.css";
 
@@ -51,6 +52,10 @@ export default function AuthSurface({
   children,
 }) {
   const [scrolled, setScrolled] = useState(false);
+  /* Published on the surface so the stylesheet can spend the focus ring on the
+     person who needs it — see useInputModality and `[data-input]` in
+     AuthControls.css. */
+  const inputModality = useInputModality();
 
   const onScroll = useCallback((event) => {
     const next = event.target.scrollTop > TITLE_REVEAL_AT;
@@ -72,6 +77,7 @@ export default function AuthSurface({
           className={["ckm-auth", tone === "dark" ? "ckm-auth--dark" : "", className]
             .filter(Boolean).join(" ")}
           aria-labelledby={labelledBy || undefined}
+          data-input={inputModality}
         >
           {nav}
           <div
