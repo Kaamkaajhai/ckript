@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run seo:sitemap && cross-env NODE_OPTIONS=--max_old_space_size=2560 vite build && node ./scripts/prerender-seo.mjs && node ./scripts/verify-prerender.mjs",
+    "build": "npm run seo:sitemap && cross-env NODE_OPTIONS=--max_old_space_size=1536 vite build && node ./scripts/prerender-seo.mjs && node ./scripts/verify-prerender.mjs",
     "seo:sitemap": "node ./scripts/generate-sitemap.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
