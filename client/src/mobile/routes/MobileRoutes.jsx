@@ -262,6 +262,7 @@ export default function MobileRoutes({
         <Route path="/challenge/c/:slug" element={<ChallengeDetailMobile user={user} />} />
         <Route path="/challenge/register" element={<ChallengeRegisterMobile user={user} />} />
         <Route path="/challenge/dashboard" element={<ChallengeDashboardMobile user={user} />} />
+        <Route path="/my-competitions" element={<Navigate to="/challenge?tab=mine" replace />} />
         <Route path="/hall-of-fame" element={<HallOfFameMobile user={user} />} />
         <Route path="/hall-of-fame/:slug" element={<HallOfFameMobile user={user} />} />
         <Route path="/share/project/:id" element={<ProjectPublicMobile />} />

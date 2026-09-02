@@ -14,7 +14,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const get = vi.fn();
 const post = vi.fn();
 const put = vi.fn();
-vi.mock("../AdminDashboard", () => ({ adminApi: { get: (...a) => get(...a), post: (...a) => post(...a), put: (...a) => put(...a) } }));
+vi.mock("./dashboardShared", () => ({ adminApi: { get: (...a) => get(...a), post: (...a) => post(...a), put: (...a) => put(...a) } }));
 vi.mock("../../components/ScreenplayReadOnly", () => ({ default: ({ text }) => <pre>{text}</pre> }));
 
 const { default: AdminCompetitions } = await import("./AdminCompetitions");

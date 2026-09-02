@@ -13,6 +13,7 @@ import CookieConsentBanner from "./components/CookieConsentBanner";
 // import PrivacyPolicy from "./pages/PolicyPage";
 // import TermsOfService from "./pages/TermsOfService";
 import AnalyticsBootstrap from "./components/AnalyticsBootstrap";
+import GlobalErrorBoundary from "./components/GlobalErrorBoundary";
 
 import { applyLanguagePreference, getStoredLanguagePreference } from "./utils/languagePreference";
 import useIsMobile from "./mobile/hooks/useIsMobile";
@@ -57,7 +58,7 @@ const ScriptUpload = lazy(() => import("./pages/ScriptUpload"));
 const NewProject = lazy(() => import("./pages/NewProject"));
 const CreateProject = lazy(() => import("./pages/CreateProject"));
 const CompetitionLanding = lazy(() => import("./pages/challenge/CompetitionLanding"));
-const ChallengeHub = lazy(() => import("./pages/challenge/ChallengeHub"));
+const ChallengeHub = lazy(() => import("./pages/challenge/ChallengeHub.jsx"));
 // The landing-register overview of the challenge. Marketing surface, so it is bare like the
 // landing itself — the hub above is what renders inside the app shell.
 const ChallengesPage = lazy(() => import("./pages/landing/ChallengesPage"));
@@ -482,6 +483,7 @@ function App() {
             >
             <AudienceTransitionBoundary>
             <RootExperience>
+            <GlobalErrorBoundary>
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/about" element={<About />} />
@@ -860,6 +862,7 @@ function App() {
               )}
               <Route path="/:id" element={<SingleSegmentProfileOrReferralRoute />} />
             </Routes>
+            </GlobalErrorBoundary>
             </RootExperience>
             </AudienceTransitionBoundary>
             </Suspense>

@@ -1984,6 +1984,9 @@ const ScriptUpload = ({
     if (isContentOnlyEditMode) return;
     // The persistent amber gate already explains why; don't set a generic error (avoids a duplicate banner).
     if (creationBlocked) return;
+    
+    setPdfNotice("");
+
     if (step === 2 && detailStep < 5) {
       if (!validateDetailStep(detailStep)) return;
       setDetailStep((current) => Math.min(5, current + 1));
@@ -2927,12 +2930,14 @@ const ScriptUpload = ({
       },
       onStepSelect: (targetStep) => {
         if (targetStep > step) return;
+        setPdfNotice("");
         setStep(targetStep);
         if (targetStep === 2 && step !== 2) setDetailStep(0);
         clearValidationFeedback();
       },
       onDetailSelect: (targetDetailStep) => {
         if (targetDetailStep > detailStep) return;
+        setPdfNotice("");
         setDetailStep(targetDetailStep);
         clearValidationFeedback();
       },

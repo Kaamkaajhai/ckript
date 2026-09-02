@@ -186,7 +186,7 @@ export default function Editor() {
           type="text"
           className="ckm-editor__bar-title"
           aria-label="Project title"
-          placeholder="Untitled project"
+          placeholder="Write your title here..."
           value={title}
           readOnly={!canEditContent}
           onChange={(event) => { setTitle(event.target.value); setSaved(false); }}

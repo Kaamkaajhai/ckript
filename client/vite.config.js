@@ -5,6 +5,8 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   build: {
+    reportCompressedSize: false,
+    cssMinify: 'esbuild',
     target: 'es2020',
     cssCodeSplit: true,
     assetsInlineLimit: 4096,

@@ -170,7 +170,7 @@ describe("LandingMobile", () => {
     const dialog = dialogNamed("Ckript sample trailer");
     const video = dialog.querySelector('video[aria-label="Ckript sample trailer"]');
     expect(video.hasAttribute("playsinline")).toBe(true);
-    expect(video.getAttribute("src")).toContain("ckript-video.mp4");
+    expect(video.getAttribute("src")).toContain("nexara-trailer.MP4");
     await click(buttonNamed("Close", dialog));
     expect(pause).toHaveBeenCalledTimes(1);
     expect(video.currentTime).toBe(0);

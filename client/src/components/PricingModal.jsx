@@ -722,13 +722,13 @@ function PricingModalInner({ onClose, tab = "all" }) {
                     </>
                   )}
                 </div>
-                <div className="pmx-trio" style={{ marginTop: "40px", justifyContent: "center" }}>
+                <div className="pmx-duo" style={{ marginTop: "40px" }}>
                 {FIP_PLANS.map((plan) => {
                   const isFree = plan.key === "free";
                   const isActivePlan = isFree ? (fip.hasAccess && fip.user?.subscription?.plan === "free") : fipState.active;
 
                   return (
-                    <div className={`pmx-tier${plan.key === "pro" ? " pmx-tier--gold" : ""}`} key={plan.key} style={{ maxWidth: 300, width: "100%" }}>
+                    <div className={`pmx-tier${plan.key === "pro" ? " pmx-tier--gold" : ""}`} key={plan.key} style={{ width: "100%" }}>
                       {plan.key === "pro" && <span className="pmx-tier-bar" />}
                       <div className="pmx-tier-top">
                         <span className="pmx-tier-name">{plan.name}</span>

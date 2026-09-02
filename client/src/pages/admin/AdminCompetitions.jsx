@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { adminApi } from "../AdminDashboard";
+import { adminApi } from "./dashboardShared";
 import JudgingResults from "./JudgingResults";
 import ScreenplayReadOnly from "../../components/ScreenplayReadOnly";
 import TagSelect from "../../components/TagSelect";
