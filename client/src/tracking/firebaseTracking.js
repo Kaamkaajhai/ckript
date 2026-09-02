@@ -20,21 +20,33 @@ const hasFirebaseConfig = Boolean(
 
 let analyticsPromise = null;
 
+const isLocalhost = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
+
 const getAnalyticsInstance = async () => {
+  if (isLocalhost) return null;
   if (!hasFirebaseConfig || typeof window === "undefined") return null;
   if (analyticsPromise) return analyticsPromise;
 
   analyticsPromise = (async () => {
     try {
-      const supported = await isSupported();
+      const supported = await isSupported().catch(() => false);
       if (!supported) return null;
 
       const app = getApps().length ? getApps()[0] : initializeApp(firebaseConfig);
-      return getAnalytics(app);
-    } catch {
+      const analytics = getAnalytics(app);
+      
+      // Force analytics to initialize safely in the background
+      // If it fails (e.g. invalid API key), we catch the unhandled rejection
+      // so it doesn't crash React or Vite's error overlay.
+      return analytics;
+    } catch (error) {
+      console.warn("Firebase tracking initialization failed:", error);
       return null;
     }
   })();
+
+  // Attach a catch handler to the promise itself to prevent unhandled rejections
+  analyticsPromise.catch(() => null);
 
   return analyticsPromise;
 };
