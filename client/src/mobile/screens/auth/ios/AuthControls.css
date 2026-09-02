@@ -15,15 +15,37 @@
 
 /* --- Card -------------------------------------------------------------- */
 
+/*
+ * THE CARD PUBLISHES ITS SHAPE; ITS SURFACES ASK FOR IT.
+ *
+ * A card is a rounded box with a 1px border, and the rows inside it paint their
+ * own background, press tint and focus ring. Something has to reconcile a square
+ * child with a round parent, and the obvious answer — `overflow: hidden` — is
+ * the wrong one: clipping reshapes a FILL correctly but DESTROYS a STROKE. It
+ * takes the corner off a focus ring rather than bending it, which is the defect
+ * this replaced, and it would have done the same to any shadow, ring or tint a
+ * later row wanted to draw near an edge.
+ *
+ * So the radius is published as a custom property instead. Custom properties
+ * inherit, so any surface at any depth can derive its own corner from the card
+ * it happens to be in without knowing which card that is — which is what the
+ * role list, two levels down inside a <ul>, needs. One source of truth, and no
+ * clip to silently eat what a child draws.
+ *
+ * `- 1px` is the border: a child nests inside it, so its corner is the outer
+ * radius less the stroke it sits within. Without that the two curves are
+ * concentric-but-wrong and leave a hairline of card showing at each corner.
+ */
 .ckm .ckm-auth__card {
+  --ckma-card-radius: var(--ckma-radius-card);
+  --ckma-card-inner-radius: calc(var(--ckma-card-radius) - 1px);
   background: var(--ckma-surface);
   border: 1px solid var(--ckma-line);
-  border-radius: var(--ckma-radius-card);
-  overflow: hidden;
+  border-radius: var(--ckma-card-radius);
 }
 
 .ckm .ckm-auth__card--panel {
-  border-radius: var(--ckma-radius-panel);
+  --ckma-card-radius: var(--ckma-radius-panel);
 }
 
 /* A card whose rows carry an invalid value. Stated on the group because the
@@ -238,6 +260,46 @@
 .ckm .ckm-auth__row--action:focus-visible {
   outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
   outline-offset: calc(var(--ckm-focus-ring-offset) * -1);
+}
+
+/*
+ * AND NOT WHEN A FINGER PUT IT THERE.
+ *
+ * `:focus-visible` matches on ANY focus for a text input — every engine does
+ * this deliberately, because it cannot know whether a keyboard is coming. On a
+ * phone that is the wrong default: tapping a field is simply how you type, and
+ * the screen has already answered "which field am I in?" twice over — the caret
+ * is blinking in it and the keyboard has slid up under it. The ring was a third
+ * answer nobody asked for, and at 2px of ink it was the heaviest mark on the
+ * page.
+ *
+ * So it is spent where it is the only answer: on the person who arrived by Tab,
+ * who placed no caret and raised no keyboard. `useInputModality` publishes
+ * which of the two is driving; `[data-input="pointer"]` is a tap or a click.
+ *
+ * This does not weaken SC 2.4.7 — for a pointer user the caret is the visible
+ * focus indicator, which is the same reasoning every native text field on iOS
+ * and Android relies on. Keyboard users keep the full 2px ring.
+ */
+.ckm .ckm-auth[data-input="pointer"] .ckm-auth__row:has(:focus-visible),
+.ckm .ckm-auth[data-input="pointer"] .ckm-auth__field:has(:focus-visible),
+.ckm .ckm-auth[data-input="pointer"] :focus-visible {
+  outline: none;
+}
+
+/* The surfaces that touch a card's corners take the card's corners. Everything
+   a row paints — background, press tint, focus ring — then follows the same
+   curve, so none of them needs to be clipped back into shape. */
+.ckm .ckm-auth__card > .ckm-auth__row:first-child,
+.ckm .ckm-auth__roles li:first-child .ckm-auth__role {
+  border-start-start-radius: var(--ckma-card-inner-radius);
+  border-start-end-radius: var(--ckma-card-inner-radius);
+}
+
+.ckm .ckm-auth__card > .ckm-auth__row:last-child,
+.ckm .ckm-auth__roles li:last-child .ckm-auth__role {
+  border-end-start-radius: var(--ckma-card-inner-radius);
+  border-end-end-radius: var(--ckma-card-inner-radius);
 }
 
 .ckm .ckm-auth__field {
@@ -727,9 +789,11 @@
 
 /* The one place the desktop sheet's `border-color: ... !important` can still be
    seen, because this control is the only one in the family with a border of its
-   own. Answered in kind rather than left to a colour from another app. */
+   own. Answered in kind, and in ink rather than red: an invalid code already
+   turns these boxes #ba4034, and the box you are typing into must not look like
+   the answer you got wrong. */
 .ckm .ckm-auth__otp-box:focus-visible {
-  border-color: var(--ckma-accent) !important;
+  border-color: var(--ckma-ink) !important;
 }
 
 .ckm .ckm-auth__otp.is-invalid .ckm-auth__otp-box {
@@ -803,6 +867,12 @@
 
 .ckm .ckm-auth__roles li:first-child .ckm-auth__role {
   border-top-color: transparent;
+}
+
+/* Drawn inside the link, like the rows: a ring outside it would sit on the
+   card's border rather than around the target. */
+.ckm .ckm-auth__role:focus-visible {
+  outline-offset: calc(var(--ckm-focus-ring-offset) * -1);
 }
 
 .ckm .ckm-auth__role:active {
