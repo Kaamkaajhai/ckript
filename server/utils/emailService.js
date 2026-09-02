@@ -1190,7 +1190,13 @@ export const sendAdminBroadcastEmail = async (
               </p>
               <p style="margin: 0;">
                 <a href="https://ckript.com">Website</a> &nbsp;&middot;&nbsp;
-                <a href="https://ckript.com/privacy-policy">Privacy</a>
+                <a href="https://ckript.com/privacy-policy">Privacy</a>${
+                  // A VISIBLE link, not only the List-Unsubscribe header. Gmail shows its header
+                  // control only for senders with reputation, and Outlook and Apple Mail never show it
+                  // at all — so for most recipients this line is the only way out that exists. A
+                  // recipient who cannot find one presses the spam button instead.
+                  unsubscribeUrl ? ` &nbsp;&middot;&nbsp;\n                <a href="${unsubscribeUrl}">Unsubscribe</a>` : ""
+                }
               </p>
               ${signatureHtml()}
               <p style="margin: 16px 0 0;">&copy; ${new Date().getFullYear()} Ckript. All rights reserved.</p>
@@ -1221,11 +1227,25 @@ export const sendAdminBroadcastEmail = async (
       }
       : {};
 
+    /*
+     * The Email Builder V2 path sends the admin's document VERBATIM — it carries its own wrapper, so
+     * the footer link above never appears in it. Inject one before </body>, the same way notify.js
+     * appends the contact signature. Without this, a broadcast composed in the builder — which is
+     * the path admins actually use — went out with no visible way to unsubscribe at all.
+     */
+    const unsubscribeFooter = unsubscribeUrl
+      ? `\n<p style="margin:24px 0 0;font-size:12px;line-height:1.7;color:#6b7280;text-align:center;">`
+        + `Don't want these emails? <a href="${unsubscribeUrl}" style="color:#6b7280;">Unsubscribe</a></p>`
+      : "";
+    const htmlForSend = isBuilderV2 && unsubscribeFooter
+      ? (finalHtml.includes("</body>") ? finalHtml.replace("</body>", `${unsubscribeFooter}\n</body>`) : finalHtml + unsubscribeFooter)
+      : finalHtml;
+
     const mailOptions = {
       from: mailFrom(),
       to: email,
       subject: safeTitle,
-      html: finalHtml,
+      html: htmlForSend,
       headers: listHeaders,
       // A plain-text alternative, like every other template here. Without one a broadcast is
       // HTML-only, which reads as spam to filters and renders as nothing in a text-only client — and
