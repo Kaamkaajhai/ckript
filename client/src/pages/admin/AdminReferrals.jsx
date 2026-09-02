@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { adminApi } from "../AdminDashboard";
+import { adminApi } from "./dashboardShared";
 
 /**
  * Referral analytics.
