@@ -15,15 +15,37 @@
 
 /* --- Card -------------------------------------------------------------- */
 
+/*
+ * THE CARD PUBLISHES ITS SHAPE; ITS SURFACES ASK FOR IT.
+ *
+ * A card is a rounded box with a 1px border, and the rows inside it paint their
+ * own background, press tint and focus ring. Something has to reconcile a square
+ * child with a round parent, and the obvious answer — `overflow: hidden` — is
+ * the wrong one: clipping reshapes a FILL correctly but DESTROYS a STROKE. It
+ * takes the corner off a focus ring rather than bending it, which is the defect
+ * this replaced, and it would have done the same to any shadow, ring or tint a
+ * later row wanted to draw near an edge.
+ *
+ * So the radius is published as a custom property instead. Custom properties
+ * inherit, so any surface at any depth can derive its own corner from the card
+ * it happens to be in without knowing which card that is — which is what the
+ * role list, two levels down inside a <ul>, needs. One source of truth, and no
+ * clip to silently eat what a child draws.
+ *
+ * `- 1px` is the border: a child nests inside it, so its corner is the outer
+ * radius less the stroke it sits within. Without that the two curves are
+ * concentric-but-wrong and leave a hairline of card showing at each corner.
+ */
 .ckm .ckm-auth__card {
+  --ckma-card-radius: var(--ckma-radius-card);
+  --ckma-card-inner-radius: calc(var(--ckma-card-radius) - 1px);
   background: var(--ckma-surface);
   border: 1px solid var(--ckma-line);
-  border-radius: var(--ckma-radius-card);
-  overflow: hidden;
+  border-radius: var(--ckma-card-radius);
 }
 
 .ckm .ckm-auth__card--panel {
-  border-radius: var(--ckma-radius-panel);
+  --ckma-card-radius: var(--ckma-radius-panel);
 }
 
 /* A card whose rows carry an invalid value. Stated on the group because the
@@ -238,6 +260,21 @@
 .ckm .ckm-auth__row--action:focus-visible {
   outline: var(--ckm-focus-ring-width) solid var(--ckm-focus-ring);
   outline-offset: calc(var(--ckm-focus-ring-offset) * -1);
+}
+
+/* The surfaces that touch a card's corners take the card's corners. Everything
+   a row paints — background, press tint, focus ring — then follows the same
+   curve, so none of them needs to be clipped back into shape. */
+.ckm .ckm-auth__card > .ckm-auth__row:first-child,
+.ckm .ckm-auth__roles li:first-child .ckm-auth__role {
+  border-start-start-radius: var(--ckma-card-inner-radius);
+  border-start-end-radius: var(--ckma-card-inner-radius);
+}
+
+.ckm .ckm-auth__card > .ckm-auth__row:last-child,
+.ckm .ckm-auth__roles li:last-child .ckm-auth__role {
+  border-end-start-radius: var(--ckma-card-inner-radius);
+  border-end-end-radius: var(--ckma-card-inner-radius);
 }
 
 .ckm .ckm-auth__field {
@@ -803,6 +840,12 @@
 
 .ckm .ckm-auth__roles li:first-child .ckm-auth__role {
   border-top-color: transparent;
+}
+
+/* Drawn inside the link, like the rows: a ring outside it would sit on the
+   card's border rather than around the target. */
+.ckm .ckm-auth__role:focus-visible {
+  outline-offset: calc(var(--ckm-focus-ring-offset) * -1);
 }
 
 .ckm .ckm-auth__role:active {
