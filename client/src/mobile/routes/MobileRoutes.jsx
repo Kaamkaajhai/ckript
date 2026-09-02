@@ -25,7 +25,7 @@ const MessagesMobile = lazy(() => import("../screens/messages/MessagesMobile"));
 const ReaderProfileMobile = lazy(() => import("../screens/reader/reader-profile/ReaderProfileMobile"));
 const ReaderHomeMobile = lazy(() => import("../screens/reader/ReaderHomeMobile"));
 const ReaderDiscoverMobile = lazy(() => import("../screens/reader/ReaderDiscoverMobile"));
-const LandingMobile = lazy(() => import("../marketing/LandingMobile"));
+const LandingMobile = lazy(() => import("../marketing/shelf/ShelfLanding"));
 const SignInMobile = lazy(() => import("../screens/auth/SignInMobile"));
 const RoleChooserMobile = lazy(() => import("../screens/auth/RoleChooserMobile"));
 const SignUpMobile = lazy(() => import("../screens/auth/SignUpMobile"));
