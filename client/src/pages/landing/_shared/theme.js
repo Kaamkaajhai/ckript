@@ -24,7 +24,7 @@ export const BODY = "'PT Serif',Georgia,serif";
 
 export const LOGO_SRC = "/ckript-logo-landscape-nobg.png";
 export const LOGO_FOOTER_SRC = "/ckript_logo_no_bg.png";
-export const TRAILER_VIDEO_SRC = "/nexara-trailer.MP4";
+export const TRAILER_VIDEO_SRC = import.meta.env.VITE_TRAILER_VIDEO_URL || "/nexara-trailer.MP4";
 
 /* Destinations carried over from the previous landing page. */
 export const ROUTES = {
