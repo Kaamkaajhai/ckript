@@ -345,3 +345,46 @@ describe("the link is visible, and points at the right server", () => {
     assert.match(body, /html: htmlForSend/, "mailOptions must send the injected html, not the raw finalHtml");
   });
 });
+
+describe("the delivered footer matches the admin preview — Unsubscribe AND Preferences", () => {
+  /*
+   * An admin reported Unsubscribe and Preferences visible in the Email Builder preview but absent
+   * from the actual mail. The preview drew them as decorative spans outside the compiled document;
+   * nothing in the sent path ever rendered "Preferences", and Unsubscribe reached only the header
+   * and text part. The server now injects the same footer the preview shows, with real links.
+   */
+  const start = emailSource.indexOf("export const sendAdminBroadcastEmail");
+  const body = emailSource.slice(start, emailSource.indexOf("export const send", start + 10));
+
+  test("Preferences points at the profile Settings tab, built as a CLIENT link", () => {
+    // Not the API origin: the notification toggles live in the SPA, the unsubscribe endpoint on the API.
+    assert.match(body, /const preferencesUrl = buildClientUrl\("\/profile\?tab=settings", clientBaseUrl\)/);
+  });
+
+  test("the wrapper footer carries both links, gated on unsubscribeUrl", () => {
+    assert.match(body, /href="\$\{unsubscribeUrl\}">Unsubscribe<\/a>/);
+    assert.match(body, /href="\$\{preferencesUrl\}">Preferences<\/a>/);
+    // Both live inside the same `unsubscribeUrl ? … : ""` so a transactional send renders neither.
+    const gate = body.indexOf('unsubscribeUrl ? ` &nbsp;&middot;&nbsp;');
+    assert.ok(gate > -1);
+    assert.ok(body.indexOf('href="${preferencesUrl}">Preferences</a>') > gate);
+  });
+
+  test("the Builder V2 injection is the preview's footer, word for word", () => {
+    assert.match(body, /You are receiving this because you subscribed to our updates\./);
+    const footerStart = body.indexOf("const unsubscribeFooter = unsubscribeUrl");
+    const footer = body.slice(footerStart, footerStart + 1400);
+    assert.match(footer, /href="\$\{unsubscribeUrl\}"[^>]*>Unsubscribe<\/a>/);
+    assert.match(footer, /href="\$\{preferencesUrl\}"[^>]*>Preferences<\/a>/);
+  });
+
+  test("the plain-text part offers preferences too", () => {
+    assert.match(body, /Manage preferences: \$\{preferencesUrl\}/);
+  });
+
+  test("preferencesUrl is defined before the wrapper template that uses it", () => {
+    // It is referenced inside the finalHtml template literal; declared after it, that is a
+    // ReferenceError at send time — the class of bug the no-undef guard exists for.
+    assert.ok(body.indexOf("const preferencesUrl") < body.indexOf("const finalHtml"));
+  });
+});

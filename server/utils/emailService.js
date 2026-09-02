@@ -1133,6 +1133,10 @@ export const sendAdminBroadcastEmail = async (
     const safeAudienceLabel = String(audienceLabel || "community").trim() || "community";
     const safeAdminName = String(adminName || "ckript Admin").trim() || "ckript Admin";
     const dashboardUrl = buildClientUrl("/dashboard", clientBaseUrl);
+    // Where "Preferences" goes: the email-notification toggles on the profile's Settings tab. A
+    // CLIENT link, unlike the unsubscribe one — that endpoint lives on the API, this page lives in
+    // the SPA — so it goes through buildClientUrl like the dashboard link, not the API origin.
+    const preferencesUrl = buildClientUrl("/profile?tab=settings", clientBaseUrl);
     const finalUrl = actionUrl || dashboardUrl;
     const buttonText = actionUrl ? "Open Link" : "Open ckript";
     // No extra replacements needed if content is already HTML, but let's safely allow basic line breaks if it's plain text.
@@ -1195,7 +1199,7 @@ export const sendAdminBroadcastEmail = async (
                   // control only for senders with reputation, and Outlook and Apple Mail never show it
                   // at all — so for most recipients this line is the only way out that exists. A
                   // recipient who cannot find one presses the spam button instead.
-                  unsubscribeUrl ? ` &nbsp;&middot;&nbsp;\n                <a href="${unsubscribeUrl}">Unsubscribe</a>` : ""
+                  unsubscribeUrl ? ` &nbsp;&middot;&nbsp;\n                <a href="${unsubscribeUrl}">Unsubscribe</a> &nbsp;&middot;&nbsp;\n                <a href="${preferencesUrl}">Preferences</a>` : ""
                 }
               </p>
               ${signatureHtml()}
@@ -1233,9 +1237,23 @@ export const sendAdminBroadcastEmail = async (
      * appends the contact signature. Without this, a broadcast composed in the builder — which is
      * the path admins actually use — went out with no visible way to unsubscribe at all.
      */
+    /*
+     * Word for word the footer the admin sees in the Email Builder preview. That preview drew
+     * "Unsubscribe • Preferences" as decorative spans outside the compiled document, so the one
+     * screen whose job is to show what the recipient gets was showing a footer no recipient ever
+     * received. The compiler's own Footer block does not carry these links either — it cannot, since
+     * the unsubscribe URL is signed per recipient and only exists at send time. So the server owns
+     * this footer, and the preview's copy is kept identical to it.
+     */
     const unsubscribeFooter = unsubscribeUrl
-      ? `\n<p style="margin:24px 0 0;font-size:12px;line-height:1.7;color:#6b7280;text-align:center;">`
-        + `Don't want these emails? <a href="${unsubscribeUrl}" style="color:#6b7280;">Unsubscribe</a></p>`
+      ? `\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;">`
+        + `<tr><td align="center" style="padding:24px 16px;border-top:1px solid #f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">`
+        + `<p style="margin:0;font-size:12px;line-height:1.7;color:#9ca3af;">You are receiving this because you subscribed to our updates.</p>`
+        + `<p style="margin:8px 0 0;font-size:12px;line-height:1.7;color:#9ca3af;">`
+        + `<a href="${unsubscribeUrl}" style="color:#6b7280;text-decoration:underline;">Unsubscribe</a>`
+        + ` &nbsp;&bull;&nbsp; `
+        + `<a href="${preferencesUrl}" style="color:#6b7280;text-decoration:underline;">Preferences</a>`
+        + `</p></td></tr></table>`
       : "";
     const htmlForSend = isBuilderV2 && unsubscribeFooter
       ? (finalHtml.includes("</body>") ? finalHtml.replace("</body>", `${unsubscribeFooter}\n</body>`) : finalHtml + unsubscribeFooter)
@@ -1258,7 +1276,7 @@ export const sendAdminBroadcastEmail = async (
       }\n\nTeam ${CONTACTS.name}${signatureText()}${
         // A visible link as well as the header. Plenty of clients render neither the header control
         // nor HTML, and a recipient who can find no way out is a spam complaint waiting to happen.
-        unsubscribeUrl ? `\n\nDon't want these emails? Unsubscribe: ${unsubscribeUrl}` : ""
+        unsubscribeUrl ? `\n\nDon't want these emails? Unsubscribe: ${unsubscribeUrl}\nManage preferences: ${preferencesUrl}` : ""
       }`,
       attachments: attachments.map(att => ({
         filename: att.filename,

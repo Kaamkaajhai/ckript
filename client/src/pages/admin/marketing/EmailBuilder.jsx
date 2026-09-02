@@ -249,16 +249,25 @@ export default function EmailBuilder({ blocks, setBlocks }) {
                 )}
               </div>
               
-              {/* Footer Preview */}
+              {/* Footer Preview.
+                  This footer is NOT part of the compiled document — it is added by the server at send
+                  time, because the Unsubscribe link is signed per recipient and cannot exist until the
+                  recipient is known. It used to be drawn here as decorative spans with nothing behind
+                  them, so the one screen whose job is to show what the recipient gets showed a footer
+                  no recipient ever received. The copy below is kept word for word identical to what
+                  server/utils/emailService.js injects, and the caption says where it comes from. */}
               <div className="bg-gray-50 p-6 text-center border-t border-gray-100">
                 <p className="text-xs text-gray-400">
                   You are receiving this because you subscribed to our updates.
                 </p>
-                <div className="mt-2 text-xs text-gray-400 space-x-3">
-                  <span className="hover:text-gray-600 cursor-pointer">Unsubscribe</span>
+                <div className="mt-2 text-xs text-gray-500 space-x-3">
+                  <a href="#" onClick={(e) => e.preventDefault()} className="underline hover:text-gray-700">Unsubscribe</a>
                   <span>•</span>
-                  <span className="hover:text-gray-600 cursor-pointer">Preferences</span>
+                  <a href="#" onClick={(e) => e.preventDefault()} className="underline hover:text-gray-700">Preferences</a>
                 </div>
+                <p className="mt-3 text-[11px] text-gray-400 italic">
+                  Added automatically to every send — links are personalised per recipient.
+                </p>
               </div>
 
             </div>
