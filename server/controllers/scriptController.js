@@ -2246,20 +2246,22 @@ export const deleteScript = async (req, res) => {
       deletedAt: script.deletedAt.toISOString(),
     });
 
-    await notifyAdminWorkflowEvent({
-      title: "Writer Project Deleted",
-      section: "approvals",
-      actorId: req.user._id,
-      scriptId: script._id,
-      message: `Project "${script.title}" was deleted by the creator (soft-delete).`,
-      metadata: {
+    if (script.status !== "draft") {
+      await notifyAdminWorkflowEvent({
+        title: "Writer Project Deleted",
+        section: "approvals",
+        actorId: req.user._id,
         scriptId: script._id,
-        scriptSid: script.sid || "",
-        writerId: req.user._id,
-        isDeleted: true,
-        purchasedUserCount: purchasedUserIds.size,
-      },
-    }).catch(() => null);
+        message: `Project "${script.title}" was deleted by the creator (soft-delete).`,
+        metadata: {
+          scriptId: script._id,
+          scriptSid: script.sid || "",
+          writerId: req.user._id,
+          isDeleted: true,
+          purchasedUserCount: purchasedUserIds.size,
+        },
+      }).catch(() => null);
+    }
 
     return res.json({
       message: purchasedUserIds.size > 0

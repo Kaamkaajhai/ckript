@@ -36,10 +36,9 @@ export default function Problem() {
               <button
                 type="button"
                 onClick={() => openOnboarding(card.kind)}
-                className="ckl-problem-cta hov-underline"
+                className="ckl-problem-cta"
               >
                 {card.cta}
-                <Icon name="arrow_forward" size={17} />
               </button>
             </div>
           ))}

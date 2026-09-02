@@ -186,9 +186,9 @@ export default function ContactPage() {
               <span className="msi" style={{ fontSize: 18 }}>mail</span>
               <span>{COMPANY.contactEmail}</span>
             </a>
-            <a href="tel:+917986950853" className="ckl-contact-card-row hov-red">
+            <a href="tel:+919183544100" className="ckl-contact-card-row hov-red">
               <span className="msi" style={{ fontSize: 18 }}>call</span>
-              <span>+91 7986950853</span>
+              <span>+91 9183544100</span>
             </a>
             <div className="ckl-contact-card-row ckl-contact-card-row--muted">
               <span className="msi" style={{ fontSize: 18 }}>schedule</span>

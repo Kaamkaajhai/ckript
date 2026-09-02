@@ -141,12 +141,13 @@ const CreateProject = ({
   useEffect(() => {
     if (!user || !isWriter) return;
     const hasSeenPricing = sessionStorage.getItem("createProjectPricingShown");
+    const isCompetition = new URLSearchParams(location.search).get("ctx") === "competition";
 
-    if (!hasGoldAccess && !hasSeenPricing) {
+    if (!hasGoldAccess && !hasSeenPricing && !isCompetition) {
       openPricingModal("writer");
       sessionStorage.setItem("createProjectPricingShown", "true");
     }
-  }, [user, isWriter, hasGoldAccess, openPricingModal]);
+  }, [user, isWriter, hasGoldAccess, openPricingModal, location.search]);
 
   const { draftId } = useParams();
   const shouldStartFresh = !draftId && (

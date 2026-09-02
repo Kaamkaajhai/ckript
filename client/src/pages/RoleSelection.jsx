@@ -29,7 +29,7 @@ const RoleSelection = () => {
           </p>
         </motion.div>
 
-        <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 gap-6 max-w-3xl mx-auto">
           {/* Writer Card */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}

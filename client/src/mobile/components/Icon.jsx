@@ -7,7 +7,7 @@ export default function Icon({ name, size = 20, fill = false, color, className =
   return (
     <span
       className={`material-symbols-outlined${fill ? " is-filled" : ""}${className ? ` ${className}` : ""}`}
-      style={{ fontSize: size, color, ...style }}
+      style={{ fontSize: size, color, textTransform: "none", ...style }}
       aria-hidden="true"
       {...rest}
     >

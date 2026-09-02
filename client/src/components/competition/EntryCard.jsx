@@ -65,7 +65,9 @@ const EntryCard = ({ item, serverNow }) => {
     if (!result.ok) setDownloadError(result.message);
     setDownloading(false);
   };
-  const year = new Date(competition?.dates?.startsAt || entry.createdAt).getFullYear();
+  const year = competition?.dates?.startsAt 
+    ? new Date(competition.dates.startsAt).getFullYear() 
+    : (entry?.createdAt ? new Date(entry.createdAt).getFullYear() : new Date().getFullYear());
   const declared = Boolean(competition?.resultsDeclaredAt);
   const award = entry.result?.award || "none";
   const isHonour = HONOURS.includes(award);
@@ -92,9 +94,9 @@ const EntryCard = ({ item, serverNow }) => {
 
       <dl className="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
         {[
-          ["Registered", new Date(entry.createdAt).toLocaleDateString()],
-          ["Submitted", entry.submittedAt ? new Date(entry.submittedAt).toLocaleDateString() : "—"],
-          ["Pages", entry.snapshot?.pageCount || "—"],
+          ["Registered", entry?.createdAt ? new Date(entry.createdAt).toLocaleDateString() : "—"],
+          ["Submitted", entry?.submittedAt ? new Date(entry.submittedAt).toLocaleDateString() : "—"],
+          ["Pages", entry?.snapshot?.pageCount || "—"],
           ["Words", entry.snapshot?.wordCount || "—"],
         ].map(([label, value]) => (
           <div key={label}>
