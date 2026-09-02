@@ -1119,6 +1119,16 @@ export const sendAdminMessageEmail = async (
   }
 };
 
+/**
+ * The Email Builder's compiled footer carries these two slots, filled here per recipient — the
+ * unsubscribe token is theirs, so the link cannot exist until the recipient is known. Literal for
+ * literal the same as UNSUBSCRIBE_SLOT / PREFERENCES_SLOT in
+ * client/src/pages/admin/marketing/compiler/emailCompiler.js; emailBuilderPreview.test.jsx pins the
+ * two sides to each other across the package boundary.
+ */
+const UNSUBSCRIBE_SLOT = "{{UNSUBSCRIBE_URL}}";
+const PREFERENCES_SLOT = "{{PREFERENCES_URL}}";
+
 export const sendAdminBroadcastEmail = async (
   email,
   name,
@@ -1149,63 +1159,105 @@ export const sendAdminBroadcastEmail = async (
 
     const finalHtml = isBuilderV2 ? htmlContent : `
         <!DOCTYPE html>
-        <html lang="en">
+        <html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:o="urn:schemas-microsoft-com:office:office">
         <head>
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <meta name="x-apple-disable-message-reformatting">
+          <meta name="color-scheme" content="light dark">
+          <meta name="supported-color-schemes" content="light dark">
+          <title>${safeTitle}</title>
+          <!--[if !mso]><!-->
+          <link href="https://fonts.googleapis.com/css2?family=Baskervville:ital@0;1&family=PT+Serif:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet" type="text/css">
+          <!--<![endif]-->
           <style>
-            body { margin: 0; padding: 0; background-color: #F9F9F9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
-            .container { max-width: 640px; margin: 40px auto; background-color: #FFFFFF; border: 1px solid #EEEEEE; border-radius: 12px; overflow: hidden; }
-            .header { padding: 32px 40px 24px; text-align: center; }
-            .header img { height: 24px; width: auto; opacity: 0.9; }
-            .title { color: #111111; font-size: 24px; font-weight: 700; text-align: center; margin: 0 0 32px; letter-spacing: -0.5px; }
-            .body { padding: 0 40px 40px; color: #333333; font-size: 16px; line-height: 1.6; }
-            .action-btn { display: inline-block; background-color: #8B1E1E; color: #FFFFFF; padding: 14px 28px; border-radius: 6px; text-decoration: none; font-size: 16px; font-weight: 600; margin-top: 32px; text-align: center; }
-            .footer { padding: 32px 40px; background-color: #F9F9F9; border-top: 1px solid #EEEEEE; text-align: center; color: #666666; font-size: 13px; line-height: 1.5; }
-            .footer a { color: #666666; text-decoration: underline; }
-            @media only screen and (max-width: 600px) {
-              .container { margin: 0; border-radius: 0; border: none; }
-              .body { padding: 0 24px 32px; }
-              .header { padding: 24px 24px 16px; }
-              .footer { padding: 24px; }
+            /* The same shell the Email Builder compiles (client/src/pages/admin/marketing/compiler/emailCompiler.js):
+               warm paper, ink, one coral accent, serif display type. Palette pinned across packages by
+               emailBuilderPreview.test.jsx — a colour that is not in EMAIL_PALETTE there fails the build. */
+            body { margin: 0; padding: 0; width: 100%; background-color: #fbfaf7; -webkit-text-size-adjust: 100%; }
+            table { border-collapse: collapse; border-spacing: 0; }
+            img { border: 0; display: block; }
+            .card { width: 100%; max-width: 640px; margin: 0 auto; background-color: #ffffff; border: 1px solid #e7e5df; border-radius: 16px; }
+            .masthead { padding: 32px 48px 26px; border-bottom: 1px solid #f2efe9; text-align: center; }
+            .masthead img { width: 280px; max-width: 70%; height: auto; margin: 0 auto; }
+            .title { margin: 0 0 22px; font-family: 'Baskervville', 'Spectral', Georgia, 'Times New Roman', serif; font-size: 32px; font-weight: 400; line-height: 1.2; letter-spacing: -0.3px; color: #0b0a06; text-align: center; }
+            .body { padding: 40px 48px 8px; font-family: 'PT Serif', Georgia, 'Times New Roman', serif; font-size: 16px; line-height: 1.75; color: #57544f; }
+            .body p { margin: 0 0 18px; }
+            .body a { color: #0b0a06; }
+            .cta-cell { padding: 20px 48px 44px; text-align: center; }
+            .action-btn { display: inline-block; background-color: #161513; color: #ffffff; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 15px; font-weight: 600; letter-spacing: 0.2px; line-height: 50px; padding: 0 36px; border-radius: 10px; text-decoration: none; }
+            .footer { padding: 34px 48px 38px; background-color: #f4efe6; border-top: 1px solid #e7e5df; border-radius: 0 0 16px 16px; text-align: center; font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 12px; line-height: 1.8; color: #9a978f; }
+            .footer p { margin: 0; }
+            .footer .tagline { font-family: 'Baskervville', 'Spectral', Georgia, 'Times New Roman', serif; font-style: italic; font-size: 15px; line-height: 1.5; color: #6f6c66; }
+            .footer .notice { margin-top: 20px; }
+            .footer .links { margin-top: 4px; letter-spacing: 0.4px; color: #57544f; }
+            .footer a { color: #57544f; text-decoration: none; }
+            .footer .unsub a { text-decoration: underline; }
+            .footer .legal { margin-top: 18px; font-size: 11px; letter-spacing: 0.3px; line-height: 1.6; }
+            @media (prefers-color-scheme: dark) {
+              body, .outer-table { background-color: #0f0f0f !important; }
+              .card { background-color: #1a1a1a !important; border-color: #242424 !important; }
+              .masthead { background-color: #f4efe6 !important; border-color: #242424 !important; }
+              .title, .body, .body a { color: #d7d7d7 !important; }
+              .footer { background-color: #141414 !important; border-color: #242424 !important; color: #9a9590 !important; }
+              .footer a, .footer .links, .footer .tagline { color: #d7d7d7 !important; }
+              .action-btn { background-color: #f4efe6 !important; color: #0b0a06 !important; }
+            }
+            @media only screen and (max-width: 640px) {
+              .outer { padding: 0 !important; }
+              .card { border-radius: 0 !important; border-left: 0 !important; border-right: 0 !important; }
+              .masthead, .body, .cta-cell, .footer { padding-left: 24px !important; padding-right: 24px !important; }
+              .footer { border-radius: 0 !important; }
+              .title { font-size: 27px !important; }
             }
           </style>
         </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <img src="https://ckript.com/logo-black.png" alt="Ckript" />
-            </div>
-            
-            <div class="body">
-              <h1 class="title">${safeTitle}</h1>
-              
-              <div>
-                ${htmlContent}
-              </div>
-
-              ${actionUrl ? `<div style="text-align: center;"><a href="${finalUrl}" class="action-btn">${buttonText}</a></div>` : ''}
-            </div>
-
-            <div class="footer">
-              <p style="margin: 0 0 16px;">
-                <strong>Ckript Private Limited</strong><br>
-                A minimal platform for storytellers.
-              </p>
-              <p style="margin: 0;">
-                <a href="https://ckript.com">Website</a> &nbsp;&middot;&nbsp;
-                <a href="https://ckript.com/privacy-policy">Privacy</a>${
-                  // A VISIBLE link, not only the List-Unsubscribe header. Gmail shows its header
-                  // control only for senders with reputation, and Outlook and Apple Mail never show it
-                  // at all — so for most recipients this line is the only way out that exists. A
-                  // recipient who cannot find one presses the spam button instead.
-                  unsubscribeUrl ? ` &nbsp;&middot;&nbsp;\n                <a href="${unsubscribeUrl}">Unsubscribe</a> &nbsp;&middot;&nbsp;\n                <a href="${preferencesUrl}">Preferences</a>` : ""
-                }
-              </p>
-              ${signatureHtml()}
-              <p style="margin: 16px 0 0;">&copy; ${new Date().getFullYear()} Ckript. All rights reserved.</p>
-            </div>
-          </div>
+        <body style="margin:0;padding:0;background-color:#fbfaf7;">
+          <table role="presentation" class="outer-table" width="100%" border="0" cellpadding="0" cellspacing="0" style="background-color:#fbfaf7;">
+            <tr>
+              <td class="outer" align="center" style="padding:44px 12px 52px;">
+                <!--[if mso]><table role="presentation" align="center" style="width:640px;"><tr><td><![endif]-->
+                <table role="presentation" class="card" width="100%" border="0" cellpadding="0" cellspacing="0" style="max-width:640px;margin:0 auto;background-color:#ffffff;border:1px solid #e7e5df;border-radius:16px;">
+                  <tr>
+                    <td class="masthead">
+                      <a href="https://ckript.com" style="text-decoration:none;display:inline-block;">
+                        <img src="https://ckript.com/ckript-logo-landscape-nobg.png" alt="Ckript" width="280" />
+                      </a>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="body">
+                      <h1 class="title">${safeTitle}</h1>
+                      ${htmlContent}
+                    </td>
+                  </tr>
+                  ${actionUrl
+                    ? `<tr><td class="cta-cell"><a href="${finalUrl}" class="action-btn">${buttonText}</a></td></tr>`
+                    : `<tr><td style="padding:0 0 30px;font-size:1px;line-height:1px;">&nbsp;</td></tr>`}
+                  <tr>
+                    <td class="footer">
+                      <p class="tagline">A minimal platform for storytellers.</p>
+                      <p class="notice">You are receiving this because you subscribed to our updates.</p>
+                      <p class="links">
+                        <a href="https://ckript.com">Website</a> &nbsp;&middot;&nbsp;
+                        <a href="https://ckript.com/privacy-policy">Privacy</a> &nbsp;&middot;&nbsp;
+                        <a href="https://ckript.com/terms-of-service">Terms</a>${
+                          // A VISIBLE link, not only the List-Unsubscribe header. Gmail shows its header
+                          // control only for senders with reputation, and Outlook and Apple Mail never show it
+                          // at all — so for most recipients this line is the only way out that exists. A
+                          // recipient who cannot find one presses the spam button instead.
+                          unsubscribeUrl ? ` &nbsp;&middot;&nbsp;\n                <span class="unsub"><a href="${unsubscribeUrl}">Unsubscribe</a> &nbsp;&middot;&nbsp;\n                <a href="${preferencesUrl}">Preferences</a></span>` : ""
+                        }
+                      </p>
+                      ${signatureHtml()}
+                      <p class="legal">Ckript Private Limited &nbsp;&middot;&nbsp; &copy; ${new Date().getFullYear()} Ckript. All rights reserved.</p>
+                    </td>
+                  </tr>
+                </table>
+                <!--[if mso]></td></tr></table><![endif]-->
+              </td>
+            </tr>
+          </table>
         </body>
         </html>
     `;
@@ -1232,32 +1284,34 @@ export const sendAdminBroadcastEmail = async (
       : {};
 
     /*
-     * The Email Builder V2 path sends the admin's document VERBATIM — it carries its own wrapper, so
-     * the footer link above never appears in it. Inject one before </body>, the same way notify.js
-     * appends the contact signature. Without this, a broadcast composed in the builder — which is
-     * the path admins actually use — went out with no visible way to unsubscribe at all.
-     */
-    /*
-     * Word for word the footer the admin sees in the Email Builder preview. That preview drew
-     * "Unsubscribe • Preferences" as decorative spans outside the compiled document, so the one
-     * screen whose job is to show what the recipient gets was showing a footer no recipient ever
-     * received. The compiler's own Footer block does not carry these links either — it cannot, since
-     * the unsubscribe URL is signed per recipient and only exists at send time. So the server owns
-     * this footer, and the preview's copy is kept identical to it.
+     * The Email Builder path sends the admin's compiled document, and since the redesign that
+     * document carries its own footer — the same warm band as the wrapper above — with two slots for
+     * the personal links. They are filled HERE, per recipient, because the unsubscribe token is
+     * theirs and only exists at send time.
+     *
+     * A builder document WITHOUT slots (an older build still open in someone's browser, or HTML
+     * pasted from elsewhere) gets the strip below injected before </body>, the way notify.js appends
+     * the contact signature. Either way no bulk mail leaves without a visible way out.
      */
     const unsubscribeFooter = unsubscribeUrl
       ? `\n<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:24px;">`
-        + `<tr><td align="center" style="padding:24px 16px;border-top:1px solid #f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">`
-        + `<p style="margin:0;font-size:12px;line-height:1.7;color:#9ca3af;">You are receiving this because you subscribed to our updates.</p>`
-        + `<p style="margin:8px 0 0;font-size:12px;line-height:1.7;color:#9ca3af;">`
-        + `<a href="${unsubscribeUrl}" style="color:#6b7280;text-decoration:underline;">Unsubscribe</a>`
-        + ` &nbsp;&bull;&nbsp; `
-        + `<a href="${preferencesUrl}" style="color:#6b7280;text-decoration:underline;">Preferences</a>`
+        + `<tr><td align="center" style="padding:24px 16px;border-top:1px solid #e7e5df;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">`
+        + `<p style="margin:0;font-size:12px;line-height:1.8;color:#9a978f;">You are receiving this because you subscribed to our updates.</p>`
+        + `<p style="margin:8px 0 0;font-size:12px;line-height:1.8;color:#9a978f;">`
+        + `<a href="${unsubscribeUrl}" style="color:#57544f;text-decoration:underline;">Unsubscribe</a>`
+        + ` &nbsp;&middot;&nbsp; `
+        + `<a href="${preferencesUrl}" style="color:#57544f;text-decoration:underline;">Preferences</a>`
         + `</p></td></tr></table>`
       : "";
-    const htmlForSend = isBuilderV2 && unsubscribeFooter
-      ? (finalHtml.includes("</body>") ? finalHtml.replace("</body>", `${unsubscribeFooter}\n</body>`) : finalHtml + unsubscribeFooter)
-      : finalHtml;
+    const hasFooterSlots = isBuilderV2 && finalHtml.includes(UNSUBSCRIBE_SLOT);
+    // No signed link for this send (nothing bulk passes one today, but the parameter is optional):
+    // the mailto that already backs the List-Unsubscribe header is the honest fallback.
+    const unsubscribeHref = unsubscribeUrl || `mailto:${CONTACTS.support}?subject=unsubscribe`;
+    const htmlForSend = hasFooterSlots
+      ? finalHtml.split(UNSUBSCRIBE_SLOT).join(unsubscribeHref).split(PREFERENCES_SLOT).join(preferencesUrl)
+      : isBuilderV2 && unsubscribeFooter
+        ? (finalHtml.includes("</body>") ? finalHtml.replace("</body>", `${unsubscribeFooter}\n</body>`) : finalHtml + unsubscribeFooter)
+        : finalHtml;
 
     const mailOptions = {
       from: mailFrom(),
