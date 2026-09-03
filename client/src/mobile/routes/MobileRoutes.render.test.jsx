@@ -53,7 +53,7 @@ vi.mock("../screens/reader/ReaderDiscoverMobile", () => ({
   default: () => <main data-testid="mobile-reader-discover">Reader discover</main>,
 }));
 
-vi.mock("../marketing/LandingMobile", () => ({
+vi.mock("../marketing/shelf/ShelfLanding", () => ({
   default: ({ user }) => (
     <main data-testid="mobile-landing" data-audience={user?.role || "public"}>
       Mobile landing
