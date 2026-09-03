@@ -12,13 +12,23 @@
  * the server does not send simply does not appear.
  */
 
+import { describeProjectStatus } from "../../projects/project-detail/projectDetailModel";
+
 export const DESK_AUDIENCE = Object.freeze({ WRITER: "writer", INDUSTRY: "industry" });
 
 export const DESK_TAB = Object.freeze({
-  WORK: "work",
-  MANDATE: "mandate",
-  ABOUT: "about",
-  ACTIVITY: "activity",
+  WORK: "work",         /* somebody's scripts */
+  MANDATE: "mandate",   /* what an industry account is reading for */
+  ABOUT: "about",       /* the facts */
+  ACTIVITY: "activity", /* somebody else's posts, read-only */
+  INBOX: "inbox",       /* owner only: what is waiting on an answer */
+  SAVED: "saved",       /* owner only: their own collections */
+});
+
+export const DESK_VIEWER = Object.freeze({
+  PUBLIC: "public",     /* signed out, sanitized projection */
+  VISITOR: "visitor",   /* signed in, somebody else's profile */
+  OWNER: "owner",       /* their own */
 });
 
 /* The one primary ask a profile can carry in its docked action. */
@@ -96,12 +106,12 @@ export function deskStatus({ view = {}, profile = {} } = {}) {
  * "Scripts" and "Avg score" cells select their panels. A cell with no tab is
  * not a button.
  */
-export function deskStats(view = {}, { own = false } = {}) {
+export function deskStats(view = {}) {
   const cells = [];
   if (view.writer) {
     cells.push({
       key: "projects",
-      label: own ? "Published" : "Scripts",
+      label: "Scripts",
       value: deskCount(view.projects?.length),
       tab: DESK_TAB.WORK,
     });
@@ -135,22 +145,64 @@ export function deskOwnerStats(view = {}) {
 }
 
 /*
- * The segmented control.
+ * THE INFORMATION ARCHITECTURE, as one table.
  *
- * Order follows the prototype: the role's own work first, then the shared
- * panels. `Activity` is dropped when the screen has no collection endpoint to
- * read — the signed-out public projection is the only such screen, and a tab
- * that can only ever be empty is worse than two tabs.
+ * This used to be `deskTabs({ own })` returning near-identical arrays with
+ * different labels — "Projects" for you, "Scripts" for everybody else. That
+ * encoded a belief the prototype flatly contradicts: that an owner sees the
+ * visitor's screen with an Edit button on it. They do not. A visitor asks "who
+ * is this and what have they written?"; an owner asks "what needs me, and what
+ * am I showing the world?" — different questions, so different tabs.
+ *
+ * Six cells, written out. Adding a tab means choosing a cell rather than
+ * adding a flag, and a wrong answer can no longer look right by inheriting the
+ * other audience's shape.
  */
-export function deskTabs({ view = {}, own = false, collections = true } = {}) {
-  const tabs = [
-    view.writer
-      ? { key: DESK_TAB.WORK, label: own ? "Projects" : "Scripts" }
-      : { key: DESK_TAB.MANDATE, label: "Mandate" },
-    { key: DESK_TAB.ABOUT, label: "About" },
-  ];
-  if (collections) tabs.push({ key: DESK_TAB.ACTIVITY, label: own ? "Collections" : "Activity" });
-  return tabs;
+const DESK_IA = Object.freeze({
+  [`${DESK_VIEWER.PUBLIC}:writer`]: [DESK_TAB.WORK, DESK_TAB.ABOUT],
+  [`${DESK_VIEWER.PUBLIC}:industry`]: [DESK_TAB.MANDATE, DESK_TAB.ABOUT],
+
+  [`${DESK_VIEWER.VISITOR}:writer`]: [DESK_TAB.WORK, DESK_TAB.ABOUT, DESK_TAB.ACTIVITY],
+  [`${DESK_VIEWER.VISITOR}:industry`]: [DESK_TAB.MANDATE, DESK_TAB.ABOUT, DESK_TAB.ACTIVITY],
+
+  /* The owner leads with their own work, then with what is waiting. An
+     industry account has no shelf, so its queue leads instead — which is
+     exactly the order 2c and 2d are drawn in. */
+  [`${DESK_VIEWER.OWNER}:writer`]: [DESK_TAB.WORK, DESK_TAB.INBOX, DESK_TAB.SAVED, DESK_TAB.ABOUT],
+  [`${DESK_VIEWER.OWNER}:industry`]: [DESK_TAB.INBOX, DESK_TAB.MANDATE, DESK_TAB.SAVED, DESK_TAB.ABOUT],
+});
+
+const DESK_TAB_LABEL = Object.freeze({
+  [DESK_VIEWER.OWNER]: {
+    [DESK_TAB.WORK]: "Scripts",
+    [DESK_TAB.MANDATE]: "Mandate",
+    [DESK_TAB.INBOX]: "Requests",
+    [DESK_TAB.SAVED]: "Saved",
+    [DESK_TAB.ABOUT]: "About",
+  },
+  default: {
+    [DESK_TAB.WORK]: "Scripts",
+    [DESK_TAB.MANDATE]: "Mandate",
+    [DESK_TAB.ABOUT]: "About",
+    [DESK_TAB.ACTIVITY]: "Activity",
+  },
+});
+
+/* The industry owner's queue is a submission pile, not a list of asks about
+   their own writing; the prototype calls it "Queue" and so do we. */
+const deskTabLabel = (viewer, audience, key) => {
+  if (viewer === DESK_VIEWER.OWNER && audience === DESK_AUDIENCE.INDUSTRY && key === DESK_TAB.INBOX) return "Queue";
+  return DESK_TAB_LABEL[viewer]?.[key] ?? DESK_TAB_LABEL.default[key] ?? key;
+};
+
+export function deskTabs({ view = {}, viewer = DESK_VIEWER.VISITOR, counts = {} } = {}) {
+  const audience = deskAudienceOf(view);
+  const keys = DESK_IA[`${viewer}:${audience}`] || DESK_IA[`${DESK_VIEWER.VISITOR}:${audience}`];
+  return keys.map((key) => ({
+    key,
+    label: deskTabLabel(viewer, audience, key),
+    count: Number(counts[key]) > 0 ? Number(counts[key]) : 0,
+  }));
 }
 
 export const deskDefaultTab = (tabs = []) => tabs[0]?.key || DESK_TAB.ABOUT;
@@ -164,17 +216,29 @@ export const deskDefaultTab = (tabs = []) => tabs[0]?.key || DESK_TAB.ABOUT;
  * "activity" and "bookmarks" both mean the Activity tab here, and the section
  * control inside the panel keeps owning which of the two is showing.
  */
+/* The collections panel owns `?tab=activity|bookmarks` for its own section
+   control, so both values select whichever collections tab this audience has —
+   `activity` for a visitor reading somebody's posts, `saved` for an owner
+   looking at their own shelf and bookmarks. */
+const COLLECTION_TAB_VALUES = ["activity", "bookmarks", "saved"];
+
 export function readDeskTab(search, tabs = []) {
   const params = search instanceof URLSearchParams ? search : new URLSearchParams(search);
   const raw = String(params.get("tab") || "").trim().toLowerCase();
   const has = (key) => tabs.some((tab) => tab.key === key);
-  if (["activity", "bookmarks", "saved"].includes(raw) && has(DESK_TAB.ACTIVITY)) return DESK_TAB.ACTIVITY;
+  if (COLLECTION_TAB_VALUES.includes(raw)) {
+    if (has(DESK_TAB.SAVED)) return DESK_TAB.SAVED;
+    if (has(DESK_TAB.ACTIVITY)) return DESK_TAB.ACTIVITY;
+  }
   return has(raw) ? raw : deskDefaultTab(tabs);
 }
 
 export function writeDeskTab(search, key) {
   const params = new URLSearchParams(search);
-  params.set("tab", key);
+  /* Selecting the owner's collections tab lands on the half only they have.
+     `profileCollections` reads this same parameter, so writing "saved" would
+     leave it defaulting to activity and the tab would open on the wrong half. */
+  params.set("tab", key === DESK_TAB.SAVED ? "bookmarks" : key);
   params.delete("page");
   return params;
 }
@@ -271,6 +335,12 @@ export function deskProjects(scripts = []) {
     const format = rawFormat ? rawFormat.charAt(0).toUpperCase() + rawFormat.slice(1) : "";
     const pages = int(script?.pageCount);
     const score = scoreOf(script);
+    /* One vocabulary for "what state is this project in", shared with the
+       project page — the owner's row shows all of it, and a visitor's card
+       shows only the part that changes what the project IS. "Published" on a
+       public shelf is noise; "Sold" is the whole story. */
+    const state = describeProjectStatus(script || {});
+    const notable = state.id === "sold" || state.id === "held";
     return {
       id,
       title: clean(script?.title) || "Untitled project",
@@ -278,14 +348,19 @@ export function deskProjects(scripts = []) {
       summary: clean(script?.logline || script?.synopsis),
       cover: clean(script?.coverImage || script?.trailerThumbnail),
       badge: score == null ? "" : String(score),
-      status: clean(script?.dealStatus || script?.status),
+      views: int(script?.views),
+      statusId: state.id,
+      statusLabel: state.label,
+      statusTone: state.tone,
+      statusDetail: state.detail,
+      flag: notable ? state.label : "",
       /* The card sets its meta in the prototype's mono caption, where the score
          is part of the line. A list row shows the score in its own column, so
          repeating it there would read as a mistake — hence two strings, not one
          with a flag. */
       meta: [format, genre, pages ? `${pages} pp` : "", score == null ? "" : `score ${score}`]
         .filter(Boolean).join(" · ").toUpperCase(),
-      metaPlain: [format, genre, pages ? `${pages} pp` : ""].filter(Boolean).join(" · "),
+      metaPlain: [genre, pages ? `${pages} pp` : ""].filter(Boolean).join(" · "),
     };
   }).filter(({ id }) => id);
 }

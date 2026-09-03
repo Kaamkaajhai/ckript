@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DESK_ASK,
   DESK_TAB,
+  DESK_VIEWER,
   deskAbout,
   deskAsk,
   deskCount,
@@ -109,21 +110,47 @@ describe("deskAbout", () => {
   });
 });
 
-describe("deskTabs", () => {
-  it("opens on the role's own work", () => {
-    expect(deskTabs({ view: writerView() })[0]).toMatchObject({ key: DESK_TAB.WORK, label: "Scripts" });
-    expect(deskTabs({ view: industryView() })[0]).toMatchObject({ key: DESK_TAB.MANDATE });
-    expect(deskTabs({ view: writerView(), own: true })[0].label).toBe("Projects");
+describe("deskTabs — the information architecture", () => {
+  const keys = (options) => deskTabs(options).map((tab) => tab.key);
+
+  it("gives the owner a different screen, not the visitor's with an Edit button", () => {
+    expect(keys({ view: writerView(), viewer: DESK_VIEWER.VISITOR }))
+      .toEqual([DESK_TAB.WORK, DESK_TAB.ABOUT, DESK_TAB.ACTIVITY]);
+    expect(keys({ view: writerView(), viewer: DESK_VIEWER.OWNER }))
+      .toEqual([DESK_TAB.WORK, DESK_TAB.INBOX, DESK_TAB.SAVED, DESK_TAB.ABOUT]);
   });
 
-  it("drops Activity when the screen has no collection endpoint", () => {
-    expect(deskTabs({ view: writerView(), collections: false }).map((tab) => tab.key))
+  it("leads an industry account with its queue, because it has no shelf", () => {
+    expect(keys({ view: industryView(), viewer: DESK_VIEWER.OWNER }))
+      .toEqual([DESK_TAB.INBOX, DESK_TAB.MANDATE, DESK_TAB.SAVED, DESK_TAB.ABOUT]);
+    expect(deskTabs({ view: industryView(), viewer: DESK_VIEWER.OWNER })[0].label).toBe("Queue");
+    expect(deskTabs({ view: writerView(), viewer: DESK_VIEWER.OWNER })[1].label).toBe("Requests");
+  });
+
+  it("never offers a signed-out visitor a tab they cannot fill", () => {
+    expect(keys({ view: writerView(), viewer: DESK_VIEWER.PUBLIC }))
       .toEqual([DESK_TAB.WORK, DESK_TAB.ABOUT]);
+    expect(keys({ view: industryView(), viewer: DESK_VIEWER.PUBLIC }))
+      .toEqual([DESK_TAB.MANDATE, DESK_TAB.ABOUT]);
+  });
+
+  it("carries a count only where there is something waiting", () => {
+    const [, requests] = deskTabs({
+      view: writerView(), viewer: DESK_VIEWER.OWNER, counts: { [DESK_TAB.INBOX]: 3 },
+    });
+    expect(requests).toMatchObject({ key: DESK_TAB.INBOX, count: 3 });
+    expect(deskTabs({ view: writerView(), viewer: DESK_VIEWER.OWNER })[1].count).toBe(0);
+  });
+
+  it("falls back to the visitor's shape for an unknown viewer rather than crashing", () => {
+    expect(keys({ view: writerView(), viewer: "nonsense" }))
+      .toEqual([DESK_TAB.WORK, DESK_TAB.ABOUT, DESK_TAB.ACTIVITY]);
   });
 });
 
 describe("readDeskTab / writeDeskTab", () => {
-  const tabs = deskTabs({ view: writerView() });
+  const tabs = deskTabs({ view: writerView(), viewer: DESK_VIEWER.VISITOR });
+  const ownerTabs = deskTabs({ view: writerView(), viewer: DESK_VIEWER.OWNER });
 
   it("falls back to the first tab for an unknown or missing value", () => {
     expect(readDeskTab("", tabs)).toBe(DESK_TAB.WORK);
@@ -134,6 +161,12 @@ describe("readDeskTab / writeDeskTab", () => {
     expect(readDeskTab("?tab=bookmarks&page=3", tabs)).toBe(DESK_TAB.ACTIVITY);
     expect(readDeskTab("?tab=saved", tabs)).toBe(DESK_TAB.ACTIVITY);
     expect(readDeskTab("?tab=activity", tabs)).toBe(DESK_TAB.ACTIVITY);
+  });
+
+  it("sends the owner's collections tab to the half only they have", () => {
+    expect(readDeskTab("?tab=bookmarks", ownerTabs)).toBe(DESK_TAB.SAVED);
+    expect(readDeskTab("?tab=activity", ownerTabs)).toBe(DESK_TAB.SAVED);
+    expect(writeDeskTab("", DESK_TAB.SAVED).toString()).toBe("tab=bookmarks");
   });
 
   it("drops the page when the tab changes, because page 3 of one tab is not page 3 of another", () => {

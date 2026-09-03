@@ -37,6 +37,7 @@ import { DeskComposeSheet, DeskPickList, DeskRevealSheet } from "./ProfileDeskSh
 import {
   DESK_ASK,
   DESK_TAB,
+  DESK_VIEWER,
   deskAsk,
   deskAbout,
   deskAudienceOf,
@@ -144,7 +145,7 @@ export default function VisitorProfileDesk({ user, previewData = null, previewCo
 
   const projects = useMemo(() => deskProjects(profileState.scripts), [profileState.scripts]);
   const about = useMemo(() => deskAbout(view), [view]);
-  const tabs = useMemo(() => deskTabs({ view, own: false, collections: true }), [view]);
+  const tabs = useMemo(() => deskTabs({ view, viewer: DESK_VIEWER.VISITOR }), [view]);
   const tab = readDeskTab(searchParams, tabs);
   const audience = deskAudienceOf(view);
   const ask = useMemo(() => deskAsk({ view, signedIn: true }), [view]);
@@ -480,7 +481,7 @@ export default function VisitorProfileDesk({ user, previewData = null, previewCo
               <DeskLeadProject
                 project={projects[0]}
                 to={`/share/project/${encodeURIComponent(projects[0].id)}`}
-                flag={projects[0].status && projects[0].status !== "published" ? projects[0].status : ""}
+                flag={projects[0].flag}
               />
               {projects.length > 1 ? (
                 <DeskProjectGrid>

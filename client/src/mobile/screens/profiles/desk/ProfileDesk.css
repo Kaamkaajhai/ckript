@@ -739,28 +739,42 @@
 
 /* --- The segmented control ---------------------------------------------- */
 
+/*
+ * Three tabs for a visitor, four for an owner. `flex: 1 0 auto` is the
+ * difference that matters: the tabs fill the bar when there is room and keep
+ * their full label when there is not, scrolling sideways instead of squashing
+ * "Requests" into "Requ…". A truncated tab label is a tab you cannot read.
+ */
 .ckm .ckm-desk__tabs {
   display: flex;
+  overflow-x: auto;
   gap: 2px;
   margin: 18px var(--ckd-gutter) 0;
   padding: 2px;
   border-radius: 10px;
   background: var(--ckd-fill);
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.ckm .ckm-desk__tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .ckm .ckm-desk__tab {
   display: flex;
   height: 32px;
-  min-width: 0;
-  flex: 1;
+  flex: 1 0 auto;
   align-items: center;
   justify-content: center;
   gap: 5px;
+  padding: 0 10px;
   border: 0;
   border-radius: 8px;
   background: transparent;
   color: var(--ckd-muted);
   font: 400 13px/1 var(--ckd-ui);
+  white-space: nowrap;
   transition: background 0.16s ease, color 0.16s ease;
 }
 
@@ -923,6 +937,14 @@
   flex: 1;
   flex-direction: column;
   gap: 3px;
+}
+
+.ckm .ckm-desk__row-title-line {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
 .ckm .ckm-desk__row-title {
@@ -1736,4 +1758,298 @@
   .ckm .ckm-desk__editor-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* --- The owner's script rows ---------------------------------------------
+   Two controls in one row: opening the project, and the overflow that can
+   delete it. A <button> inside an <a> is invalid markup and untappable on
+   iOS, so the row is the container and neither control wraps the other. */
+
+.ckm .ckm-desk__row--split {
+  gap: 0;
+  padding: 0;
+}
+
+.ckm .ckm-desk__row-open {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 4px 14px 16px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: start;
+  text-decoration: none;
+  transition: opacity 0.12s ease;
+}
+
+.ckm .ckm-desk__row-open:active {
+  opacity: 0.6;
+}
+
+.ckm .ckm-desk__row-more {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  margin-right: 6px;
+  border: 0;
+  border-radius: 22px;
+  background: transparent;
+  color: var(--ckd-faint);
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.ckm .ckm-desk__row-more .material-symbols-outlined {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.ckm .ckm-desk__row-more:active {
+  background: var(--ckd-fill-soft);
+  color: var(--ckd-ink);
+}
+
+/* Status tones for the publication pill, borrowed from describeProjectStatus
+   so the owner's row and the project page cannot disagree about a word. */
+.ckm .ckm-desk__row-pill--success {
+  background: var(--ckd-go-tint);
+  color: var(--ckd-go-ink);
+}
+
+.ckm .ckm-desk__row-pill--warning {
+  background: rgba(209, 77, 55, 0.1);
+  color: var(--ckd-accent-ink);
+}
+
+.ckm .ckm-desk__row-pill--danger {
+  background: var(--ckd-stop-tint);
+  color: var(--ckd-stop-ink);
+}
+
+/* --- The owner's inbox ---------------------------------------------------- */
+
+.ckm .ckm-desk__ask {
+  padding: 16px 17px 17px;
+  border-radius: 18px;
+  background: var(--ckd-surface);
+  box-shadow: var(--ckd-shadow);
+}
+
+.ckm .ckm-desk__ask-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.ckm .ckm-desk__ask-avatar,
+.ckm .ckm-desk__ask-glyph {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  width: 42px;
+  height: 42px;
+  flex: none;
+  border-radius: 21px;
+  background: var(--ckd-fill-soft);
+  color: var(--ckd-faint);
+  font: 400 18px/1 var(--ckd-display);
+  place-items: center;
+}
+
+.ckm .ckm-desk__ask-avatar img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ckm .ckm-desk__ask-glyph .material-symbols-outlined {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.ckm .ckm-desk__ask-who {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.ckm .ckm-desk__ask-name,
+.ckm .ckm-desk__ask-name a {
+  color: var(--ckd-ink);
+  font: 400 17px/21px var(--ckd-display);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-desk__ask-detail {
+  color: var(--ckd-faint);
+  font: 400 12.5px/17px var(--ckd-ui);
+  overflow-wrap: anywhere;
+}
+
+.ckm .ckm-desk__ask-when {
+  flex: none;
+  color: var(--ckd-faint);
+  font: 400 11.5px/17px var(--ckd-mono);
+  letter-spacing: 0.04em;
+  text-align: end;
+}
+
+.ckm .ckm-desk__ask-subject {
+  margin: 12px 0 0;
+  color: var(--ckd-ink-2);
+  font: 400 14px/21px var(--ckd-prose);
+  text-wrap: pretty;
+}
+
+.ckm .ckm-desk__ask-message {
+  margin: 8px 0 0;
+  color: var(--ckd-ink-3);
+  font: italic 400 13.5px/20px var(--ckd-prose);
+  text-wrap: pretty;
+}
+
+.ckm .ckm-desk__ask-actions {
+  display: flex;
+  gap: 9px;
+  padding: 14px 0 0;
+}
+
+.ckm .ckm-desk__ask-accept,
+.ckm .ckm-desk__ask-decline {
+  display: flex;
+  height: 42px;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 21px;
+  font: 500 14.5px/1 var(--ckd-ui);
+  transition: opacity 0.12s ease, background 0.16s ease;
+}
+
+.ckm .ckm-desk__ask-accept {
+  flex: 1;
+  background: var(--ckd-ink);
+  color: #ffffff;
+}
+
+.ckm .ckm-desk__ask-decline {
+  flex: none;
+  padding: 0 18px;
+  background: var(--ckd-fill);
+  color: var(--ckd-ink);
+}
+
+.ckm .ckm-desk__ask-accept:active,
+.ckm .ckm-desk__ask-decline:active {
+  opacity: 0.65;
+}
+
+.ckm .ckm-desk__ask-accept[disabled],
+.ckm .ckm-desk__ask-decline[disabled] {
+  opacity: 0.5;
+}
+
+.ckm .ckm-desk__ask-outcome {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 13px 0 0;
+  color: var(--ckd-faint);
+  font: 500 13px/1 var(--ckd-ui);
+}
+
+.ckm .ckm-desk__ask-outcome .material-symbols-outlined {
+  font-size: 17px;
+  line-height: 1;
+}
+
+.ckm .ckm-desk__ask-outcome--go {
+  color: var(--ckd-go-ink);
+}
+
+.ckm .ckm-desk__ask-join {
+  display: flex;
+  height: 30px;
+  align-items: center;
+  margin-left: auto;
+  padding: 0 13px;
+  border-radius: 15px;
+  background: var(--ckd-accent);
+  color: #ffffff;
+  font: 500 12.5px/1 var(--ckd-ui);
+  text-decoration: none;
+}
+
+.ckm .ckm-desk__caught-up {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--ckd-go-tint);
+  color: var(--ckd-go-ink);
+  font: 400 13.5px/19px var(--ckd-ui);
+}
+
+.ckm .ckm-desk__caught-up .material-symbols-outlined {
+  flex: none;
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* --- The bio card --------------------------------------------------------- */
+
+.ckm .ckm-desk__bio {
+  display: flex;
+  width: 100%;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px 16px 17px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--ckd-surface);
+  box-shadow: var(--ckd-shadow);
+  text-align: start;
+  transition: opacity 0.12s ease;
+}
+
+.ckm .ckm-desk__bio:active {
+  opacity: 0.7;
+}
+
+.ckm .ckm-desk__bio-head {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--ckd-faint);
+  font: 600 9.5px/12px var(--ckd-ui);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.ckm .ckm-desk__bio-edit {
+  color: var(--ckd-accent);
+  font: 400 12.5px/1 var(--ckd-ui);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.ckm .ckm-desk__bio-text {
+  color: var(--ckd-ink-2);
+  font: 400 14.5px/23px var(--ckd-prose);
+  text-wrap: pretty;
 }
