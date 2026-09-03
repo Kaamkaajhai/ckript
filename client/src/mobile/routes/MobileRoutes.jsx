@@ -15,9 +15,9 @@ const FeaturedProjectsMobile = lazy(() => import("../screens/discovery/FeaturedP
 const ProjectDetailMobile = lazy(() => import("../screens/projects/project-detail/ProjectDetailMobile"));
 const ProjectCheckoutMobile = lazy(() => import("../screens/projects/checkout/ProjectCheckoutMobile"));
 const ProjectPublicMobile = lazy(() => import("../screens/projects/public-project/ProjectPublicMobile"));
-const PublicProfileMobile = lazy(() => import("../screens/profiles/public-profile/PublicProfileMobile"));
-const ProfileVisitorMobile = lazy(() => import("../screens/profiles/visitor-profile/ProfileVisitorMobile"));
-const ProfileOwnerMobile = lazy(() => import("../screens/profiles/owner-profile/ProfileOwnerMobile"));
+const PublicProfileMobile = lazy(() => import("../screens/profiles/desk/PublicProfileDesk"));
+const ProfileVisitorMobile = lazy(() => import("../screens/profiles/desk/VisitorProfileDesk"));
+const ProfileOwnerMobile = lazy(() => import("../screens/profiles/desk/OwnerProfileDesk"));
 const AccountSettingsMobile = lazy(() => import("../screens/profiles/owner-profile/AccountSettingsMobile"));
 const FollowRequestsMobile = lazy(() => import("../screens/profiles/follow-requests/FollowRequestsMobile"));
 const CollaborationRequestsMobile = lazy(() => import("../screens/collaboration/CollaborationRequestsMobile"));
@@ -48,6 +48,7 @@ const SearchHarness = lazy(() => import("../dev/SearchHarness"));
 const TopScriptsHarness = lazy(() => import("../dev/TopScriptsHarness"));
 const FeaturedHarness = lazy(() => import("../dev/FeaturedHarness"));
 const ProjectDetailHarness = lazy(() => import("../dev/ProjectDetailHarness"));
+const ProfileDeskHarness = lazy(() => import("../dev/ProfileDeskHarness"));
 const CheckoutHarness = lazy(() => import("../dev/CheckoutHarness"));
 const ChallengeHubHarness = lazy(() => import("../dev/ChallengeHubHarness"));
 const ChallengeDetailHarness = lazy(() => import("../dev/ChallengeDetailHarness"));
@@ -153,6 +154,10 @@ export default function MobileRoutes({
 
   if (devScreen === "featured") {
     return <MobileRouteBoundary><FeaturedHarness user={user} /></MobileRouteBoundary>;
+  }
+
+  if (devScreen === "profile-desk") {
+    return <MobileRouteBoundary><ProfileDeskHarness /></MobileRouteBoundary>;
   }
 
   if (devScreen === "project-detail") {

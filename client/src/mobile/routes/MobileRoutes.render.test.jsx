@@ -29,7 +29,7 @@ vi.mock("../screens/discovery/FeaturedProjectsMobile", () => ({
   default: () => <main data-testid="mobile-featured">Mobile featured</main>,
 }));
 
-vi.mock("../screens/profiles/owner-profile/ProfileOwnerMobile", () => ({
+vi.mock("../screens/profiles/desk/OwnerProfileDesk", () => ({
   default: () => <main data-testid="mobile-owner-profile">Owner profile</main>,
 }));
 
@@ -129,7 +129,7 @@ vi.mock("../dev/ReaderWorkspaceHarness", () => ({
   default: () => <main data-testid="mobile-reader-workspace-harness">Reader workspace harness</main>,
 }));
 
-vi.mock("../screens/profiles/visitor-profile/ProfileVisitorMobile", () => ({
+vi.mock("../screens/profiles/desk/VisitorProfileDesk", () => ({
   default: () => <main data-testid="mobile-visitor-profile">Visitor profile</main>,
 }));
 

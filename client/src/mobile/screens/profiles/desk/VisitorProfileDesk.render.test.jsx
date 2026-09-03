@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthContext } from "../../../../context/AuthContext";
 import { AUTHENTICATED_PROFILE_STATUS } from "../../../../pages/profile/authenticatedProfile";
 import { ToastContext } from "../../../components/feedback/toastContext";
-import ProfileVisitorMobile from "./ProfileVisitorMobile";
+import VisitorProfileDesk from "./VisitorProfileDesk";
 
 const mocks = vi.hoisted(() => ({
   state: null,
@@ -52,6 +52,7 @@ const readyState = () => ({
   pending: { follow: false, block: false, message: false, contact: false, pitch: false },
   actionError: "",
   reload: vi.fn(),
+  clearActionError: vi.fn(),
   follow: vi.fn().mockResolvedValue(true),
   toggleBlock: vi.fn().mockResolvedValue(true),
   sendMessage: vi.fn().mockResolvedValue(true),
@@ -62,6 +63,19 @@ const readyState = () => ({
 
 let container;
 let root;
+
+/* An icon font renders its glyph name as text, and every glyph here is
+   aria-hidden, so the accessible name is right and only `textContent` is
+   polluted. Read the label the way assistive technology does. */
+const labelOf = (element) => [...element.childNodes]
+  .filter((node) => !(node.nodeType === 1 && node.classList?.contains("material-symbols-outlined")))
+  .map((node) => node.textContent)
+  .join("")
+  .trim();
+const buttonWith = (text) => [...container.querySelectorAll("button")]
+  .find((button) => labelOf(button) === text);
+const tabWith = (text) => [...container.querySelectorAll('[role="tab"]')]
+  .find((tab) => tab.textContent.trim() === text);
 
 beforeEach(() => {
   mocks.state = readyState();
@@ -94,7 +108,7 @@ async function render() {
           <MemoryRouter initialEntries={["/share/profile/mira"]}>
             <div className="ckm">
               <Routes>
-                <Route path="/share/profile/:id" element={<ProfileVisitorMobile user={viewer} />} />
+                <Route path="/share/profile/:id" element={<VisitorProfileDesk user={viewer} />} />
               </Routes>
             </div>
           </MemoryRouter>
@@ -104,24 +118,52 @@ async function render() {
   });
 }
 
-describe("ProfileVisitorMobile", () => {
-  it("renders identity, visitor actions and projected projects without raw contact", async () => {
+describe("VisitorProfileDesk", () => {
+  it("names the person in the screen's one heading and shows the shelf first", async () => {
     await render();
 
-    expect(container.querySelectorAll("h1")).toHaveLength(1);
-    expect(container.textContent).toContain("Mira Sen");
-    expect(container.textContent).toContain("Follow");
-    expect(container.textContent).toContain("Message");
-    expect(container.textContent).toContain("Reveal contact · uses 1");
+    const headings = container.querySelectorAll("h1");
+    expect(headings).toHaveLength(1);
+    expect(headings[0].textContent).toBe("Mira Sen");
     expect(container.querySelector('a[href="/share/project/project%2F1"]')).toBeTruthy();
+    expect(tabWith("Scripts")?.getAttribute("aria-selected")).toBe("true");
+  });
+
+  it("keeps the cheap actions in the row and the metered one in the dock", async () => {
+    await render();
+
+    expect(buttonWith("Follow")).toBeTruthy();
+    expect(buttonWith("Message")).toBeTruthy();
+    expect(buttonWith("Reveal contact")).toBeTruthy();
+
+    await act(async () => buttonWith("Follow").click());
+    expect(mocks.state.follow).toHaveBeenCalledTimes(1);
+  });
+
+  it("never renders the writer's raw contact before it has been revealed", async () => {
+    await render();
     expect(container.textContent).not.toContain("must-not-render@example.com");
     expect(container.textContent).not.toContain("+91 00000 00000");
+  });
+
+  it("states what a reveal costs before spending it", async () => {
+    await render();
+    await act(async () => buttonWith("Reveal contact").click());
+
+    expect(container.textContent).toContain("Contact reveals used");
+    expect(container.textContent).toContain("0 / 10");
+
+    await act(async () => buttonWith("Reveal contact · uses 1").click());
+    expect(mocks.state.revealContact).toHaveBeenCalledTimes(1);
+  });
+
+  it("moves the activity feed behind its own tab and leaves the owner-only sections out", async () => {
+    await render();
+    expect(container.textContent).not.toContain("Public update");
+
+    await act(async () => tabWith("Activity").click());
     expect(container.textContent).toContain("Public update");
     expect(container.querySelector('input[value="bookmarks"]')).toBeNull();
-
-    const follow = [...container.querySelectorAll("button")].find((button) => button.textContent === "Follow");
-    await act(async () => follow.click());
-    expect(mocks.state.follow).toHaveBeenCalledTimes(1);
   });
 
   it("keeps a private profile useful through the server-resolved follow target", async () => {
@@ -136,9 +178,21 @@ describe("ProfileVisitorMobile", () => {
     await render();
 
     expect(container.textContent).toContain("This profile is private");
-    const action = [...container.querySelectorAll("button")]
-      .find((button) => button.textContent === "Cancel follow request");
-    await act(async () => action.click());
+    await act(async () => buttonWith("Cancel follow request").click());
     expect(mocks.state.follow).toHaveBeenCalledTimes(1);
+  });
+
+  it("sends a restricted viewer to the plans rather than a dead profile", async () => {
+    mocks.state = {
+      ...readyState(),
+      status: AUTHENTICATED_PROFILE_STATUS.RESTRICTED,
+      profile: null,
+      scripts: [],
+      failure: { message: "Industry access is required." },
+    };
+    await render();
+
+    expect(container.textContent).toContain("Profile access is restricted");
+    expect(container.querySelector('a[href="/pricing"]')).toBeTruthy();
   });
 });
