@@ -1,5 +1,7 @@
 import { useSearchParams } from "react-router-dom";
 import { AUTHENTICATED_PROFILE_STATUS } from "../../pages/profile/authenticatedProfile";
+import { buildIncomingFollowRequestList, buildOwnerInbox } from "../../pages/profile/ownerInbox";
+import { OWNER_INBOX_STATUS } from "../../pages/profile/useOwnerInbox";
 import OwnerProfileDesk from "../screens/profiles/desk/OwnerProfileDesk";
 import PublicProfileDesk from "../screens/profiles/desk/PublicProfileDesk";
 import VisitorProfileDesk from "../screens/profiles/desk/VisitorProfileDesk";
@@ -18,7 +20,7 @@ import VisitorProfileDesk from "../screens/profiles/desk/VisitorProfileDesk";
  *   ?screen=2c  a writer's own profile            (prototype 2c)
  *   ?screen=2d  an industry account's own profile (prototype 2d)
  *   ?screen=2p  the signed-out share
- *   ?state=     default | loading | empty | error | limit | hidden
+ *   ?state=     default | loading | empty | error | limit | hidden | private
  *
  * Dev-only: App.jsx mounts it behind `import.meta.env.DEV`, so none of this
  * reaches a production bundle.
@@ -96,21 +98,23 @@ const INDUSTRY = {
 const SCRIPTS = [
   {
     _id: "script-1", title: "Salt of the Deccan", primaryGenre: "Drama", contentType: "feature",
-    pageCount: 112, coverImage: IMG("trailer-cinema"),
-    platformScore: { overall: 8.9 }, status: "optioned",
+    pageCount: 112, coverImage: IMG("trailer-cinema"), views: 412,
+    platformScore: { overall: 8.9 }, status: "published", holdStatus: "on_hold",
     logline: "A claims adjuster on the Konkan coast finds her brother's name on a drowning she is paid to close.",
   },
   {
     _id: "script-2", title: "Night Shift at Rohini", primaryGenre: "Thriller", contentType: "feature",
     pageCount: 104, coverImage: IMG("format-film"), platformScore: { overall: 8.4 },
+    views: 288, status: "published",
   },
   {
     _id: "script-3", title: "The Tiffin Route", primaryGenre: "Comedy", contentType: "feature",
     pageCount: 58, coverImage: IMG("format-series"), platformScore: { overall: 7.8 },
+    views: 96, status: "pending_approval",
   },
   {
     _id: "script-4", title: "Ashes of Panipat", primaryGenre: "Historical", contentType: "limited_series",
-    pageCount: 126, coverImage: IMG("format-television"),
+    pageCount: 126, coverImage: IMG("format-television"), status: "draft",
   },
 ];
 
@@ -146,6 +150,53 @@ const COLLECTION = {
   removeSaved: async () => ({ ok: true }),
   clearActionError: () => {},
 };
+
+/* The inbox is fed through the real `buildOwnerInbox`, so the fixture exercises
+   the derivation rather than a hand-written result that could disagree with it. */
+const MEETINGS = [
+  {
+    _id: "meet-1", title: "Ckript meeting: Salt of the Deccan",
+    producer: "producer-1", writer: "writer-1",
+    producer_name: "Devan Iyer", writer_name: "Maya Iyer", script_name: "Salt of the Deccan",
+    startAt: new Date(Date.now() + 3 * 86400000).toISOString(), duration: 30,
+    message: "Read it twice. The third act earns its silence — can we talk Thursday?",
+    status: "pending",
+  },
+  {
+    _id: "meet-2", title: "Ckript meeting: Night Shift at Rohini",
+    producer: "producer-2", writer: "writer-1",
+    producer_name: "Sadhana Kulkarni", writer_name: "Maya Iyer", script_name: "Night Shift at Rohini",
+    startAt: new Date(Date.now() + 6 * 86400000).toISOString(), duration: 45,
+    status: "accepted", meetingLink: "https://meet.example/ckript-0412",
+  },
+  {
+    _id: "meet-3", title: "Ckript meeting: The Tiffin Route",
+    producer: "producer-3", writer: "writer-1",
+    producer_name: "Farhan Sheikh", writer_name: "Maya Iyer", script_name: "The Tiffin Route",
+    startAt: new Date(Date.now() - 4 * 86400000).toISOString(), duration: 30,
+    status: "rejected",
+  },
+];
+
+const FOLLOW_REQUESTS = buildIncomingFollowRequestList([
+  {
+    _id: "fr-1", createdAt: new Date(Date.now() - 2 * 86400000).toISOString(),
+    from: { _id: "user-9", name: "Rehan Qureshi", role: "writer", profileImage: IMG("avatar-james"), writerProfile: { username: "rehanq" } },
+  },
+]);
+
+const inboxFixture = (viewerId, { empty = false, status = OWNER_INBOX_STATUS.READY } = {}) => ({
+  ...buildOwnerInbox({
+    meetings: empty ? [] : MEETINGS,
+    followRequests: empty ? [] : FOLLOW_REQUESTS,
+    viewerId,
+  }),
+  status,
+  error: "",
+  actingKey: "",
+  reload: () => {},
+  decide: async () => ({ ok: true }),
+});
 
 const NO_OP = {
   pending: { follow: false, block: false, message: false, contact: false, pitch: false },
@@ -219,6 +270,10 @@ export default function ProfileDeskHarness() {
         user={WRITER}
         previewData={ownerState(WRITER, SCRIPTS, state)}
         previewCollection={COLLECTION}
+        previewInbox={inboxFixture(WRITER._id, {
+          empty: state === "empty",
+          status: state === "loading" ? OWNER_INBOX_STATUS.LOADING : OWNER_INBOX_STATUS.READY,
+        })}
       />
     );
   }
@@ -229,6 +284,10 @@ export default function ProfileDeskHarness() {
         user={INDUSTRY}
         previewData={ownerState(INDUSTRY, [], state)}
         previewCollection={COLLECTION}
+        previewInbox={inboxFixture(INDUSTRY._id, {
+          empty: state === "empty",
+          status: state === "loading" ? OWNER_INBOX_STATUS.LOADING : OWNER_INBOX_STATUS.READY,
+        })}
       />
     );
   }

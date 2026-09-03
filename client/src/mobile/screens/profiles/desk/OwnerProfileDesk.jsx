@@ -3,6 +3,8 @@ import { useLocation, useNavigate, useParams, useSearchParams } from "react-rout
 import { AuthContext } from "../../../../context/AuthContext";
 import { AUTHENTICATED_PROFILE_STATUS } from "../../../../pages/profile/authenticatedProfile";
 import { updateAccountSettings } from "../../../../pages/profile/accountSecurity";
+import { deleteOwnProject } from "../../../../pages/profile/ownerInbox";
+import { OWNER_INBOX_STATUS, useOwnerInbox } from "../../../../pages/profile/useOwnerInbox";
 import {
   mergeOwnProfileUpdate,
   saveOwnProfile,
@@ -16,6 +18,8 @@ import {
 } from "../../../../pages/profile/profileCollections";
 import { useProfileCollections } from "../../../../pages/profile/useProfileCollections";
 import { useToast } from "../../../components/feedback/toastContext";
+import ActionSheet from "../../../components/overlays/ActionSheet";
+import ConfirmDialog from "../../../components/overlays/ConfirmDialog";
 import NavBar from "../../../components/navigation/NavBar";
 import MobileShell from "../../../shell/MobileShell";
 import { MOBILE_SHELL_MODE } from "../../../shell/mobileShellModes";
@@ -24,6 +28,7 @@ import ProfileCollectionsMobile from "../profile-collections/ProfileCollectionsM
 import ProfileDesk, { DeskBanner, DeskBar, DeskCta, DeskState } from "./ProfileDesk";
 import ProfileEditorDialog from "./ProfileEditorDialog";
 import {
+  DeskCaughtUp,
   DeskChips,
   DeskEmpty,
   DeskFactRow,
@@ -33,6 +38,7 @@ import {
   DeskLoading,
   DeskPanel,
   DeskProgress,
+  DeskRequestCard,
   DeskStackRow,
   DeskStats,
   DeskSwitchRow,
@@ -40,6 +46,8 @@ import {
 } from "./ProfileDeskParts";
 import {
   DESK_TAB,
+  DESK_VIEWER,
+  deskAbout,
   deskAudienceOf,
   deskOwnerStats,
   deskProjects,
@@ -51,32 +59,44 @@ import {
 import "./ProfileDesk.css";
 
 /*
- * OwnerProfileDesk — your own profile.
+ * OwnerProfileDesk — your own profile. Prototype 2c ("My profile") and 2d
+ * ("My desk").
  *
- * The prototype's 2c ("My profile") and 2d ("My desk"). Unlike the visitor
- * screen this is a tab root, and the prototype says so: its bar has no back
- * chevron, its title sits against the leading edge, and its one trailing
- * control is "Edit". So it keeps the shell's STANDARD mode and the bottom tab
- * bar, and the docked action sits above them.
+ * IT IS NOT THE VISITOR SCREEN WITH AN EDIT BUTTON, and that was the mistake
+ * this file was rewritten to correct. The two screens share a frame — bar,
+ * identity, stat strip, segmented control, dock — and share nothing below it,
+ * because they answer different questions. A visitor asks "who is this and what
+ * have they written?". An owner asks "what is waiting on me, and what am I
+ * showing the world?". So the panels are:
  *
- * TWO SWITCHES, ONE MUTATION. The prototype's "Open to work" toggle is not
- * decoration — it is the thing that decides whether anyone can find you. Ours
- * are the two real settings behind that: `isPrivate` (both roles) and, for a
- * writer, `allowIndustryContact`. Both write through the same
- * `updateAccountSettings` the Account & security screen uses, so the two
- * screens can never hold different opinions about the same field.
+ *   Scripts / Queue — your work, with the controls only you get: status,
+ *                     views, and the overflow that can delete it.
+ *   Requests        — the inbox. Meeting requests and follow requests are the
+ *                     same event and are answered in the same card.
+ *   Saved           — your collections, which no visitor can see.
+ *   About           — the facts, every row an entry point to the editor.
+ *
+ * The tab set itself lives in `DESK_IA` rather than in an `own` flag, so the
+ * two audiences can never quietly collapse into one again.
+ *
+ * TWO SWITCHES, ONE MUTATION. 2c's "Open to work" toggle is what decides
+ * whether anybody can find you. Ours are the two real settings behind it —
+ * `isPrivate` and, for a writer, `allowIndustryContact` — both written through
+ * the same `updateAccountSettings` that Account & security calls.
  */
-
-const EDIT_HINT = "Edit anything on this page from the editor.";
 
 /*
- * `previewData` / `previewCollection` are the same fixture seam ProjectDetail
- * already uses (mobile/dev/ProjectDetailHarness.jsx): this screen is
- * personalized end to end, so the only way to look at the same pixels twice is
- * to hand it the payload instead of the network. They are never passed in
- * production — MobileRoutes mounts the screen without them.
+ * `previewData` / `previewCollection` / `previewInbox` are the fixture seam
+ * ProjectDetail already uses. This screen is personalized end to end, so the
+ * only way to look at the same pixels twice is to hand it the payload instead
+ * of the network. MobileRoutes mounts it without them.
  */
-export default function OwnerProfileDesk({ user, previewData = null, previewCollection = null }) {
+export default function OwnerProfileDesk({
+  user,
+  previewData = null,
+  previewCollection = null,
+  previewInbox = null,
+}) {
   const { id } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -89,6 +109,11 @@ export default function OwnerProfileDesk({ user, previewData = null, previewColl
   const [uploading, setUploading] = useState(false);
   const [editorError, setEditorError] = useState("");
   const [settingBusy, setSettingBusy] = useState("");
+  const [scriptSheet, setScriptSheet] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [deletedIds, setDeletedIds] = useState([]);
   const profileKey = id || user?._id;
 
   const canonicalize = useCallback((path) => {
@@ -102,6 +127,7 @@ export default function OwnerProfileDesk({ user, previewData = null, previewColl
   });
   const profileState = previewData ? { ...liveState, ...previewData } : liveState;
   const ready = profileState.status === AUTHENTICATED_PROFILE_STATUS.READY;
+
   const collectionLocation = readProfileCollectionLocation(searchParams, { own: true });
   const liveCollection = useProfileCollections({
     profileId: profileState.profile?._id,
@@ -111,6 +137,9 @@ export default function OwnerProfileDesk({ user, previewData = null, previewColl
   });
   const collectionState = previewCollection ? { ...liveCollection, ...previewCollection } : liveCollection;
 
+  const liveInbox = useOwnerInbox({ viewerId: user?._id, enabled: ready && !previewInbox });
+  const inbox = previewInbox ? { ...liveInbox, ...previewInbox } : liveInbox;
+
   const view = useMemo(() => buildOwnerProfileView({
     profile: profileState.profile || {},
     scripts: profileState.scripts,
@@ -119,10 +148,27 @@ export default function OwnerProfileDesk({ user, previewData = null, previewColl
     collectionCounts: collectionState.data?.counts,
   }), [collectionState.data?.counts, profileState.bookmarkedScripts, profileState.profile, profileState.purchasedScripts, profileState.scripts]);
 
-  const projects = useMemo(() => deskProjects(profileState.scripts), [profileState.scripts]);
-  const tabs = useMemo(() => deskTabs({ view, own: true, collections: true }), [view]);
-  const tab = readDeskTab(searchParams, tabs);
+  /* A deleted project is soft-deleted: the server keeps it and Account &
+     security still lists it, but it must leave this shelf immediately or the
+     row the owner just deleted sits there until the next fetch. */
+  const projects = useMemo(
+    () => deskProjects(profileState.scripts).filter((project) => !deletedIds.includes(project.id)),
+    [deletedIds, profileState.scripts],
+  );
+  const about = useMemo(() => deskAbout(view), [view]);
   const audience = deskAudienceOf(view);
+  /* The queue is the source of truth for the badge once it has loaded. Until
+     then — and if it fails — the profile payload's own pending-follow count is
+     the weaker but still true answer, so a badge is never wrong by omission
+     just because one of two endpoints was slow. */
+  const waiting = inbox.status === OWNER_INBOX_STATUS.READY
+    ? inbox.pending
+    : view.pendingFollowRequests;
+  const tabs = useMemo(
+    () => deskTabs({ view, viewer: DESK_VIEWER.OWNER, counts: { [DESK_TAB.INBOX]: waiting } }),
+    [view, waiting],
+  );
+  const tab = readDeskTab(searchParams, tabs);
 
   const selectTab = useCallback((key) => {
     setSearchParams(writeDeskTab(searchParams, key), { replace: true });
@@ -145,48 +191,42 @@ export default function OwnerProfileDesk({ user, previewData = null, previewColl
 
   const reloadProfile = profileState.reload;
   const reloadCollections = collectionState.reload;
+  const reloadInbox = inbox.reload;
   const reloadAll = useCallback(() => {
     reloadProfile();
     reloadCollections();
-  }, [reloadCollections, reloadProfile]);
+    reloadInbox();
+  }, [reloadCollections, reloadInbox, reloadProfile]);
 
   /* --- Loading and failure ---------------------------------------------- */
 
+  const bareShell = (children) => (
+    <MobileShell
+      mode={MOBILE_SHELL_MODE.STANDARD}
+      screenId="profile-owner"
+      scrollClassName="ckm-desk__scroll"
+      bottomNav={<NavBar user={user} />}
+    >
+      <div className="ckm-desk">
+        <DeskBar own title="My profile" />
+        {children}
+      </div>
+    </MobileShell>
+  );
+
   if (profileState.status === AUTHENTICATED_PROFILE_STATUS.LOADING) {
-    return (
-      <MobileShell
-        mode={MOBILE_SHELL_MODE.STANDARD}
-        screenId="profile-owner"
-        scrollClassName="ckm-desk__scroll"
-        bottomNav={<NavBar user={user} />}
-      >
-        <div className="ckm-desk">
-          <DeskBar own title="My profile" />
-          <DeskLoading shape="rows" label="Loading your profile…" />
-        </div>
-      </MobileShell>
-    );
+    return bareShell(<DeskLoading shape="rows" label="Loading your profile…" />);
   }
 
   if (!ready) {
-    return (
-      <MobileShell
-        mode={MOBILE_SHELL_MODE.STANDARD}
-        screenId="profile-owner"
-        scrollClassName="ckm-desk__scroll"
-        bottomNav={<NavBar user={user} />}
+    return bareShell(
+      <DeskState
+        icon="cloud_off"
+        title="Could not load your profile"
+        body={profileState.failure?.message || "Check your connection and try again."}
       >
-        <div className="ckm-desk">
-          <DeskBar own title="My profile" />
-          <DeskState
-            icon="cloud_off"
-            title="Could not load your profile"
-            body={profileState.failure?.message || "Check your connection and try again."}
-          >
-            <DeskCta label="Try again" onClick={profileState.reload} />
-          </DeskState>
-        </div>
-      </MobileShell>
+        <DeskCta label="Try again" onClick={profileState.reload} />
+      </DeskState>,
     );
   }
 
@@ -253,6 +293,43 @@ export default function OwnerProfileDesk({ user, previewData = null, previewColl
     }
   };
 
+  const decideAsk = async (item, accept) => {
+    const result = await inbox.decide(item, accept);
+    if (!result.ok) {
+      toast.error("That did not go through", result.message);
+      return;
+    }
+    if (item.kind === "follow") {
+      toast.success(accept ? `${item.name} can now follow you` : "Request removed");
+      /* The banner and the manage row both count pending follow requests from
+         the profile payload, which has not changed — keep them honest. */
+      profileState.applyProfileUpdate({
+        pendingFollowRequestCount: Math.max(0, view.pendingFollowRequests - 1),
+      });
+      return;
+    }
+    toast.success(accept ? "Meeting accepted" : "Meeting declined");
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteTarget || deleting) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const result = await deleteOwnProject(deleteTarget.id);
+      if (!result.ok) {
+        setDeleteError(result.message);
+        return;
+      }
+      setDeletedIds((current) => [...current, deleteTarget.id]);
+      setDeleteTarget(null);
+      toast.success(`“${deleteTarget.title}” was deleted`, "It stays in Account & security until you clear it.");
+      window.dispatchEvent(new CustomEvent("scriptDeleted", { detail: { id: deleteTarget.id } }));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   const removeSaved = async (projectId) => {
     const result = await collectionState.removeSaved(projectId);
     if (!result.ok) return;
@@ -276,7 +353,6 @@ export default function OwnerProfileDesk({ user, previewData = null, previewColl
   const openToContact = profile.allowIndustryContact !== false;
   /* The dot belongs to the switch below, not to the name — see DeskIdentity. */
   const status = { meta: deskStatus({ view, profile }).meta };
-  const statCells = deskOwnerStats(view);
   const openEditor = () => { setEditorError(""); setEditorOpen(true); };
   const baseId = "ckm-desk-owner";
 
@@ -292,18 +368,52 @@ export default function OwnerProfileDesk({ user, previewData = null, previewColl
     ? <DeskCta label="Add a project" icon="add" to="/create-project" />
     : <DeskCta label="Post a mandate" icon="add" to="/mandates" />;
 
-  const overlays = editorOpen ? (
-    <ProfileEditorDialog
-      open={editorOpen}
-      profile={profileState.profile}
-      pending={saving}
-      uploadPending={uploading}
-      error={editorError}
-      onClose={() => { setEditorOpen(false); setEditorError(""); }}
-      onSave={save}
-      onUpload={upload}
-    />
-  ) : null;
+  const overlays = (
+    <>
+      {editorOpen ? (
+        <ProfileEditorDialog
+          open={editorOpen}
+          profile={profileState.profile}
+          pending={saving}
+          uploadPending={uploading}
+          error={editorError}
+          onClose={() => { setEditorOpen(false); setEditorError(""); }}
+          onSave={save}
+          onUpload={upload}
+        />
+      ) : null}
+
+      <ActionSheet
+        open={Boolean(scriptSheet)}
+        onClose={() => setScriptSheet(null)}
+        title={scriptSheet?.title}
+        description={scriptSheet?.statusDetail}
+        items={scriptSheet ? [
+          { id: "open", label: "Open the project", icon: "open_in_new", to: `/script/${encodeURIComponent(scriptSheet.id)}` },
+          { id: "manage", label: "Edit in your dashboard", icon: "edit", to: "/dashboard" },
+          {
+            id: "delete",
+            label: "Delete the project",
+            icon: "delete",
+            destructive: true,
+            onSelect: () => { setScriptSheet(null); setDeleteError(""); setDeleteTarget(scriptSheet); },
+          },
+        ] : []}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={confirmDelete}
+        title={`Delete “${deleteTarget?.title || ""}”?`}
+        message="It comes off your profile and out of search straight away. Account & security keeps a record, and only our team can restore it."
+        confirmLabel="Delete project"
+        destructive
+        pending={deleting}
+        error={deleteError}
+      />
+    </>
+  );
 
   return (
     <ProfileDesk
@@ -327,16 +437,6 @@ export default function OwnerProfileDesk({ user, previewData = null, previewColl
             pending: settingBusy === "privacy",
             onClick: () => changeSetting("privacy", { isPrivate: false }, "You are discoverable again"),
           }}
-        />
-      ) : null}
-
-      {view.pendingFollowRequests ? (
-        <DeskBanner
-          tone="accent"
-          icon="person_add"
-          title={`${view.pendingFollowRequests} follow request${view.pendingFollowRequests === 1 ? "" : "s"} waiting`}
-          body="Approve or decline them so your follower list stays yours."
-          action={{ label: "Review", to: "/follow-requests" }}
         />
       ) : null}
 
@@ -391,10 +491,11 @@ export default function OwnerProfileDesk({ user, previewData = null, previewColl
         />
       ) : null}
 
-      <DeskStats cells={statCells} onSelect={selectTab} label="Your totals" />
+      <DeskStats cells={deskOwnerStats(view)} onSelect={selectTab} label="Your totals" />
 
       <DeskTabList tabs={tabs} value={tab} onChange={selectTab} baseId={baseId} label="Your profile sections" />
 
+      {/* --- Your work ---------------------------------------------------- */}
       {tab === DESK_TAB.WORK ? (
         <DeskPanel tabKey={tab} baseId={baseId}>
           {projects.length ? (
@@ -404,26 +505,24 @@ export default function OwnerProfileDesk({ user, previewData = null, previewColl
                   <DeskStackRow
                     key={project.id}
                     title={project.title}
-                    meta={project.metaPlain}
+                    meta={[project.metaPlain, project.views ? `${project.views.toLocaleString("en-US")} views` : ""]
+                      .filter(Boolean).join(" · ")}
                     score={project.badge}
+                    pill={{ label: project.statusLabel, tone: project.statusTone }}
                     to={`/script/${encodeURIComponent(project.id)}`}
-                    chevron
+                    onMore={() => setScriptSheet(project)}
+                    moreLabel={`Options for ${project.title}`}
                   />
                 ))}
               </DeskList>
-              <DeskLabel>Manage</DeskLabel>
-              <DeskList>
-                <DeskFactRow label="All projects and drafts" value="Dashboard" to="/dashboard" chevron />
-                <DeskFactRow label="Add a project" value="Upload" to="/create-project" chevron />
-              </DeskList>
               <p className="ckm-desk__footnote">
-                Only published projects appear here. Drafts stay in your dashboard until you publish them.
+                Drafts and projects in review are visible only to you. Deleting one is not reversible from here.
               </p>
             </>
           ) : (
             <DeskEmpty
               icon="note_add"
-              title="No published projects yet"
+              title="No projects yet"
               body="Upload a script and Ckript builds its title page, page count and scene index for you."
               action={{ label: "Add a project", to: "/create-project" }}
             />
@@ -431,12 +530,55 @@ export default function OwnerProfileDesk({ user, previewData = null, previewColl
         </DeskPanel>
       ) : null}
 
+      {/* --- What is waiting on you --------------------------------------- */}
+      {tab === DESK_TAB.INBOX ? (
+        <DeskPanel tabKey={tab} baseId={baseId} rows>
+          {inbox.status === OWNER_INBOX_STATUS.LOADING ? (
+            <DeskLoading shape="cards" label="Loading what needs you…" />
+          ) : inbox.status === OWNER_INBOX_STATUS.FAILED ? (
+            <DeskEmpty
+              icon="cloud_off"
+              title="Could not load your requests"
+              body={inbox.error || "Check your connection and try again."}
+              action={{ label: "Try again", onClick: inbox.reload, quiet: true }}
+            />
+          ) : inbox.items.length ? (
+            <>
+              {inbox.items.map((item) => (
+                <DeskRequestCard
+                  key={item.key}
+                  item={item}
+                  pending={inbox.actingKey === item.key}
+                  disabled={Boolean(inbox.actingKey) && inbox.actingKey !== item.key}
+                  onDecide={decideAsk}
+                />
+              ))}
+              {inbox.pending === 0 ? <DeskCaughtUp>All caught up — nothing waiting on you.</DeskCaughtUp> : null}
+              {inbox.error ? <p className="ckm-desk__footnote">{inbox.error}</p> : null}
+              <p className="ckm-desk__footnote">
+                Declining is quiet — the other person only sees that you did not accept.
+              </p>
+            </>
+          ) : (
+            <DeskEmpty
+              icon="mark_email_unread"
+              title="Nothing waiting on you"
+              body={view.writer
+                ? "Meeting requests from producers and follow requests land here."
+                : "Follow requests and the meetings writers accept land here."}
+              action={{ label: "Share your profile", to: "/profile?tab=about", quiet: true }}
+            />
+          )}
+        </DeskPanel>
+      ) : null}
+
+      {/* --- What you are reading for (industry) --------------------------- */}
       {tab === DESK_TAB.MANDATE ? (
         <DeskPanel tabKey={tab} baseId={baseId}>
-          {view.facts.length || view.mandates?.genres?.length || view.mandates?.formats?.length ? (
+          {about.length || view.mandates?.genres?.length || view.mandates?.formats?.length ? (
             <>
               <DeskList tall>
-                {view.facts.map(([label, value]) => (
+                {about.map(([label, value]) => (
                   <DeskFactRow key={label} label={label} value={value} onClick={openEditor} chevron />
                 ))}
               </DeskList>
@@ -448,7 +590,6 @@ export default function OwnerProfileDesk({ user, previewData = null, previewColl
               {view.mandates?.formats?.length
                 ? <DeskChips values={view.mandates.formats} />
                 : <p className="ckm-desk__footnote">No formats set yet.</p>}
-              <p className="ckm-desk__footnote">{EDIT_HINT}</p>
             </>
           ) : (
             <DeskEmpty
@@ -461,20 +602,51 @@ export default function OwnerProfileDesk({ user, previewData = null, previewColl
         </DeskPanel>
       ) : null}
 
+      {/* --- Yours alone --------------------------------------------------- */}
+      {tab === DESK_TAB.SAVED ? (
+        <DeskPanel tabKey={tab} baseId={baseId}>
+          <ProfileCollectionsMobile
+            state={collectionState}
+            section={collectionLocation.section}
+            page={collectionLocation.page}
+            own
+            onLocationChange={updateCollectionLocation}
+            onRemoveSaved={removeSaved}
+          />
+          {view.stats.length ? (
+            <>
+              <DeskLabel>Your numbers</DeskLabel>
+              <DeskList>
+                {view.stats.map((stat) => (
+                  <DeskFactRow key={stat.key} label={stat.label} value={String(stat.value)} />
+                ))}
+                <DeskFactRow label="Followers" value={String(view.followers)} />
+                <DeskFactRow label="Following" value={String(view.following)} />
+              </DeskList>
+            </>
+          ) : null}
+        </DeskPanel>
+      ) : null}
+
+      {/* --- What the world sees ------------------------------------------- */}
       {tab === DESK_TAB.ABOUT ? (
         <DeskPanel tabKey={tab} baseId={baseId}>
-          <p className="ckm-desk__prose">{view.bio}</p>
+          <button type="button" className="ckm-desk__bio" onClick={openEditor}>
+            <span className="ckm-desk__bio-head">
+              Bio
+              <span className="ckm-desk__bio-edit">Edit</span>
+            </span>
+            <span className="ckm-desk__bio-text">{view.bio}</span>
+          </button>
 
+          <DeskLabel>Details</DeskLabel>
           <DeskList>
             {view.username ? <DeskFactRow label="Username" value={`@${view.username}`} onClick={openEditor} chevron /> : null}
             {view.email ? <DeskFactRow label="Email" value={view.email} to="/profile?tab=settings" chevron /> : null}
             {view.phone ? <DeskFactRow label="Phone" value={view.phone} onClick={openEditor} chevron /> : null}
-            {view.location ? <DeskFactRow label="Location" value={view.location} onClick={openEditor} chevron /> : null}
-            {view.writer
-              ? view.facts.map(([label, value]) => (
-                <DeskFactRow key={label} label={label} value={value} onClick={openEditor} chevron />
-              ))
-              : null}
+            {about.map(([label, value]) => (
+              <DeskFactRow key={label} label={label} value={value} onClick={openEditor} chevron />
+            ))}
           </DeskList>
 
           {view.skills.length ? (<><DeskLabel>Skills</DeskLabel><DeskChips values={view.skills} /></>) : null}
@@ -495,41 +667,16 @@ export default function OwnerProfileDesk({ user, previewData = null, previewColl
             </>
           ) : null}
 
-          <DeskLabel>Your numbers</DeskLabel>
-          <DeskList>
-            {view.stats.map((stat) => <DeskFactRow key={stat.key} label={stat.label} value={String(stat.value)} />)}
-            <DeskFactRow label="Followers" value={String(view.followers)} />
-            <DeskFactRow label="Following" value={String(view.following)} />
-          </DeskList>
-
           <DeskLabel>Manage</DeskLabel>
           <DeskList>
             <DeskFactRow label="Account &amp; security" value="Open" to="/profile?tab=settings" chevron />
-            <DeskFactRow
-              label="Follow requests"
-              value={view.pendingFollowRequests ? String(view.pendingFollowRequests) : "None"}
-              to="/follow-requests"
-              chevron
-            />
             {view.writer
               ? <DeskFactRow label="Collaboration requests" value="Open" to="/collaborations" chevron />
               : null}
+            <DeskFactRow label="Follow requests" value="Open" to="/follow-requests" chevron />
           </DeskList>
 
-          <p className="ckm-desk__footnote">{EDIT_HINT}</p>
-        </DeskPanel>
-      ) : null}
-
-      {tab === DESK_TAB.ACTIVITY ? (
-        <DeskPanel tabKey={tab} baseId={baseId}>
-          <ProfileCollectionsMobile
-            state={collectionState}
-            section={collectionLocation.section}
-            page={collectionLocation.page}
-            own
-            onLocationChange={updateCollectionLocation}
-            onRemoveSaved={removeSaved}
-          />
+          <p className="ckm-desk__footnote">Tap any row to edit it. This is what a visitor sees.</p>
         </DeskPanel>
       ) : null}
     </ProfileDesk>

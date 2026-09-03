@@ -354,23 +354,158 @@ export function DeskFactRow({ label, value, pill = null, to = null, href = null,
 }
 
 /* A stacked row: title over caption, with an optional trailing pill. */
-export function DeskStackRow({ title, meta = "", score = "", pill = null, to = null, onClick = null, chevron = false }) {
+export function DeskStackRow({
+  title,
+  meta = "",
+  score = "",
+  pill = null,
+  to = null,
+  onClick = null,
+  chevron = false,
+  /* The owner's rows carry a second control. A button inside a link is invalid
+     and untappable on iOS, so when `onMore` is present the row becomes a flex
+     container holding two separate controls rather than one wrapping the other. */
+  onMore = null,
+  moreLabel = "Options",
+}) {
   const body = (
     <>
       <span className="ckm-desk__row-main">
-        <span className="ckm-desk__row-title">{title}</span>
+        <span className="ckm-desk__row-title-line">
+          <span className="ckm-desk__row-title">{title}</span>
+          {pill ? (
+            <span className={`ckm-desk__row-pill${pill.tone ? ` ckm-desk__row-pill--${pill.tone}` : ""}`}>
+              {pill.label}
+            </span>
+          ) : null}
+        </span>
         {meta ? <span className="ckm-desk__row-meta">{meta}</span> : null}
       </span>
       {score ? <span className="ckm-desk__row-score">{score}</span> : null}
-      {pill ? <span className={`ckm-desk__row-pill${pill.tone ? ` ckm-desk__row-pill--${pill.tone}` : ""}`}>{pill.label}</span> : null}
       {chevron ? <span className="material-symbols-outlined ckm-desk__chevron" aria-hidden="true">chevron_right</span> : null}
     </>
   );
+
+  if (onMore) {
+    return (
+      <div className="ckm-desk__row ckm-desk__row--split">
+        {to
+          ? <Link className="ckm-desk__row-open" to={to}>{body}</Link>
+          : <button type="button" className="ckm-desk__row-open" onClick={onClick}>{body}</button>}
+        <button type="button" className="ckm-desk__row-more" onClick={onMore} aria-label={moreLabel}>
+          <span className="material-symbols-outlined" aria-hidden="true">more_horiz</span>
+        </button>
+      </div>
+    );
+  }
 
   if (to) return <Link className="ckm-desk__row ckm-desk__row--tappable" to={to}>{body}</Link>;
   if (onClick) return <button type="button" className="ckm-desk__row ckm-desk__row--tappable" onClick={onClick}>{body}</button>;
   return <div className="ckm-desk__row">{body}</div>;
 }
+
+/* --- The owner's inbox --------------------------------------------------- */
+
+/*
+ * One card for every kind of ask.
+ *
+ * A meeting request and a follow request are the same event — somebody asked,
+ * you answer, the answer is final — so they are one card rather than two lists
+ * the owner has to learn separately. What differs is only what the ask is
+ * about, and that is a line of text.
+ *
+ * A settled ask keeps its place with its outcome on it. Removing it the moment
+ * it is answered is the version where a mis-tap is silent and unrecoverable.
+ */
+export function DeskRequestCard({ item, pending = false, disabled = false, onDecide }) {
+  const settled = !item.canDecide;
+  return (
+    <article className="ckm-desk__ask">
+      <div className="ckm-desk__ask-head">
+        {item.image || item.kind === "follow" ? (
+          <span className="ckm-desk__ask-avatar" aria-hidden="true">
+            {item.image
+              ? <img src={resolveMediaUrl(item.image)} alt="" loading="lazy" />
+              : <span>{item.name.charAt(0)}</span>}
+          </span>
+        ) : (
+          <span className="ckm-desk__ask-glyph" aria-hidden="true">
+            <span className="material-symbols-outlined">videocam</span>
+          </span>
+        )}
+        <span className="ckm-desk__ask-who">
+          <span className="ckm-desk__ask-name">
+            {item.profilePath ? <Link to={item.profilePath}>{item.name}</Link> : item.name}
+          </span>
+          {item.detail ? <span className="ckm-desk__ask-detail">{item.detail}</span> : null}
+        </span>
+        {item.when ? <span className="ckm-desk__ask-when">{item.when}</span> : null}
+      </div>
+
+      {item.subject ? <p className="ckm-desk__ask-subject">{item.subject}</p> : null}
+      {item.message ? <p className="ckm-desk__ask-message">&ldquo;{item.message}&rdquo;</p> : null}
+
+      {settled ? (
+        <DeskAskOutcome item={item} />
+      ) : (
+        <div className="ckm-desk__ask-actions">
+          <button
+            type="button"
+            className="ckm-desk__ask-accept"
+            disabled={disabled || pending}
+            aria-busy={pending || undefined}
+            onClick={() => onDecide(item, true)}
+          >
+            {pending ? "…" : item.kind === "follow" ? "Accept" : "Accept meeting"}
+          </button>
+          <button
+            type="button"
+            className="ckm-desk__ask-decline"
+            disabled={disabled || pending}
+            onClick={() => onDecide(item, false)}
+          >
+            Decline
+          </button>
+        </div>
+      )}
+    </article>
+  );
+}
+
+function DeskAskOutcome({ item }) {
+  if (item.state === "accepted") {
+    return (
+      <span className="ckm-desk__ask-outcome ckm-desk__ask-outcome--go">
+        <span className="material-symbols-outlined is-filled" aria-hidden="true">check_circle</span>
+        Accepted
+        {item.joinUrl ? (
+          <a className="ckm-desk__ask-join" href={item.joinUrl} target="_blank" rel="noreferrer">Join</a>
+        ) : null}
+      </span>
+    );
+  }
+  if (item.state === "declined") {
+    return (
+      <span className="ckm-desk__ask-outcome">
+        <span className="material-symbols-outlined is-filled" aria-hidden="true">cancel</span>
+        Declined
+      </span>
+    );
+  }
+  return (
+    <span className="ckm-desk__ask-outcome">
+      <span className="material-symbols-outlined is-filled" aria-hidden="true">schedule</span>
+      Waiting on them
+    </span>
+  );
+}
+
+export const DeskCaughtUp = ({ children }) => (
+  <p className="ckm-desk__caught-up">
+    <span className="material-symbols-outlined is-filled" aria-hidden="true">done_all</span>
+    {children}
+  </p>
+);
 
 export const DeskChips = ({ values = [] }) => (values.length ? (
   <div className="ckm-desk__chips">

@@ -23,6 +23,7 @@ import {
 } from "./ProfileDeskParts";
 import {
   DESK_TAB,
+  DESK_VIEWER,
   deskAbout,
   deskAudienceOf,
   deskProjects,
@@ -60,7 +61,7 @@ export default function PublicProfileDesk({ previewData = undefined }) {
   const view = useMemo(() => buildPublicProfileView(profile || {}, scripts), [profile, scripts]);
   const projects = useMemo(() => deskProjects(scripts), [scripts]);
   const about = useMemo(() => deskAbout(view), [view]);
-  const tabs = useMemo(() => deskTabs({ view, own: false, collections: false }), [view]);
+  const tabs = useMemo(() => deskTabs({ view, viewer: DESK_VIEWER.PUBLIC }), [view]);
   const tab = readDeskTab(searchParams, tabs);
   const signIn = `/login?next=${encodeURIComponent(`${location.pathname}${location.search}`)}`;
   const baseId = "ckm-desk-public";

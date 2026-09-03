@@ -14,6 +14,9 @@ const mocks = vi.hoisted(() => ({
   save: vi.fn(),
   upload: vi.fn(),
   settings: vi.fn(),
+  deleteProject: vi.fn(),
+  decide: vi.fn(),
+  inbox: null,
   toast: { success: vi.fn(), error: vi.fn(), info: vi.fn(), warning: vi.fn() },
 }));
 
@@ -36,6 +39,16 @@ vi.mock("../../../../pages/profile/accountSecurity", async (importOriginal) => (
   updateAccountSettings: mocks.settings,
 }));
 
+vi.mock("../../../../pages/profile/useOwnerInbox", async (importOriginal) => ({
+  ...(await importOriginal()),
+  useOwnerInbox: () => mocks.inbox,
+}));
+
+vi.mock("../../../../pages/profile/ownerInbox", async (importOriginal) => ({
+  ...(await importOriginal()),
+  deleteOwnProject: mocks.deleteProject,
+}));
+
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const viewer = { _id: "writer-1", role: "writer", name: "Mira Sen", writerProfile: { username: "mira" } };
@@ -54,7 +67,10 @@ const readyState = () => ({
     profileCompletion: { percentage: 73, completedFields: 8, totalFields: 11, isComplete: false },
     writerProfile: { username: "mira", genres: ["Drama"], specializedTags: ["Raw"] },
   },
-  scripts: [{ _id: "project-1", title: "The Archive", genre: "Drama", logline: "An archivist races a flood." }],
+  scripts: [{
+    _id: "project-1", title: "The Archive", primaryGenre: "Drama", contentType: "feature",
+    pageCount: 112, views: 412, status: "published", logline: "An archivist races a flood.",
+  }],
   purchasedScripts: [],
   bookmarkedScripts: [],
   relationship: {},
@@ -91,6 +107,28 @@ beforeEach(() => {
     removeSaved: vi.fn(),
   };
   mocks.save.mockResolvedValue({ ok: true, data: { name: "Mira Sen", profileCompletion: { percentage: 73 } } });
+  mocks.deleteProject.mockResolvedValue({ ok: true, data: { projectId: "project-1" } });
+  mocks.decide.mockResolvedValue({ ok: true });
+  mocks.inbox = {
+    items: [
+      {
+        key: "meeting:m1", kind: "meeting", id: "m1", name: "Devan Iyer",
+        detail: "Ckript meeting", subject: "About The Archive", when: "Thu 10 Sep · 30 min",
+        message: "Can we talk Thursday?", state: "pending", canDecide: true, joinUrl: "", profilePath: "",
+      },
+      {
+        key: "follow:u9", kind: "follow", id: "u9", name: "Rehan Qureshi",
+        detail: "Writer", subject: "Wants to follow you", when: "2 days ago",
+        message: "", state: "pending", canDecide: true, joinUrl: "", profilePath: "/profile/rehanq",
+      },
+    ],
+    pending: 2,
+    status: "ready",
+    error: "",
+    actingKey: "",
+    reload: vi.fn(),
+    decide: mocks.decide,
+  };
   mocks.settings.mockResolvedValue({ ok: true, data: { user: { isPrivate: true } } });
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -128,8 +166,9 @@ describe("OwnerProfileDesk", () => {
     expect(headings).toHaveLength(1);
     expect(headings[0].textContent).toBe("Mira Sen");
     expect(container.textContent).toContain("Profile 73% complete");
-    expect(container.textContent).toContain("2 follow requests waiting");
-    expect(container.querySelector('a[href="/follow-requests"]')).toBeTruthy();
+    /* The count lives on the tab, which is where the prototype puts it — a
+       banner saying the same thing is noise on a screen you open every day. */
+    expect(tabWith("Requests2")).toBeTruthy();
     expect(container.querySelector('a[href="/script/project-1"]')).toBeTruthy();
     expect(container.querySelector('a[href="/create-project"]')).toBeTruthy();
   });
@@ -197,9 +236,81 @@ describe("OwnerProfileDesk", () => {
     await render();
     expect(container.textContent).not.toContain("Production update");
 
-    await act(async () => tabWith("Collections").click());
-    expect(container.textContent).toContain("Production update");
+    /* Selecting it lands on the half only an owner has — bookmarks — with the
+       activity feed one tap away in the section control. */
+    await act(async () => tabWith("Saved").click());
+    expect(container.textContent).toContain("Your saved projects");
     expect(container.querySelectorAll('input[name="profile-collection"]')).toHaveLength(2);
-    expect(container.textContent).toContain("Saved");
+    expect(container.querySelector('input[value="bookmarks"]')?.checked).toBe(true);
+  });
+
+  it("gives the owner a workspace, not the visitor's screen with an Edit button", async () => {
+    await render();
+    const labels = [...container.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent.trim());
+    expect(labels).toEqual(["Scripts", "Requests2", "Saved", "About"]);
+  });
+
+  it("shows what is waiting and answers it in place", async () => {
+    await render();
+    await act(async () => tabWith("Requests2").click());
+
+    expect(container.textContent).toContain("Devan Iyer");
+    expect(container.textContent).toContain("About The Archive");
+    expect(container.textContent).toContain("Rehan Qureshi");
+    expect(container.textContent).toContain("Wants to follow you");
+
+    const accept = buttonWith("Accept meeting");
+    await act(async () => accept.click());
+    expect(mocks.decide).toHaveBeenCalledWith(expect.objectContaining({ kind: "meeting" }), true);
+  });
+
+  it("does not offer a decision on a settled request, but does offer the link", async () => {
+    mocks.inbox = {
+      ...mocks.inbox,
+      pending: 0,
+      items: [{
+        key: "meeting:m2", kind: "meeting", id: "m2", name: "Sadhana Kulkarni",
+        detail: "Ckript meeting", subject: "About The Archive", when: "Fri 11 Sep",
+        message: "", state: "accepted", canDecide: false, joinUrl: "https://meet.example/x", profilePath: "",
+      }],
+    };
+    await render();
+    await act(async () => tabWith("Requests").click());
+
+    expect(buttonWith("Accept meeting")).toBeUndefined();
+    expect(container.querySelector('a[href="https://meet.example/x"]')).toBeTruthy();
+    expect(container.textContent).toContain("All caught up");
+  });
+
+  it("gives each project the owner-only controls and confirms before deleting one", async () => {
+    await render();
+
+    expect(container.textContent).toContain("Published");
+    expect(container.textContent).toContain("412 views");
+
+    const more = container.querySelector('[aria-label="Options for The Archive"]');
+    await act(async () => more.click());
+    expect(container.textContent).toContain("Delete the project");
+
+    await act(async () => buttonWith("Delete the project").click());
+    expect(container.querySelector('[role="alertdialog"]')).toBeTruthy();
+    expect(mocks.deleteProject).not.toHaveBeenCalled();
+
+    await act(async () => buttonWith("Delete project").click());
+    expect(mocks.deleteProject).toHaveBeenCalledWith("project-1");
+    expect(container.querySelector('[role="tabpanel"]').textContent).toContain("No projects yet");
+  });
+
+  it("leads an industry desk with its queue", async () => {
+    const producer = { _id: "producer-1", role: "producer", name: "Dev Rao" };
+    mocks.state = {
+      ...readyState(),
+      profile: { ...readyState().profile, ...producer, writerProfile: undefined, industryProfile: { company: "North Star" } },
+      scripts: [],
+    };
+    await render({ user: producer });
+
+    const labels = [...container.querySelectorAll('[role="tab"]')].map((tab) => tab.textContent.trim());
+    expect(labels).toEqual(["Queue2", "Mandate", "Saved", "About"]);
   });
 });
