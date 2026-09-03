@@ -303,7 +303,7 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
   // --- Public marketing (Phase 8, D57) ---------------------------------
   "ckm-landing": {
     kind: PAGE_FAMILY,
-    owner: "marketing/LandingMobile.css",
+    owner: "marketing/shelf/ShelfLanding.css",
     family: "marketing",
     note: "The native public homepage at `/`: one scroll surface containing every canonical landing beat plus its menu, trailer, and partner dialogs.",
   },
@@ -344,26 +344,17 @@ export const MOBILE_CSS_PREFIXES = Object.freeze({
     note: "The unauthenticated project share at /share/project/:id. It consumes only the server's public projection and never derives signed-in marketplace capabilities.",
   },
 
-  // --- Public profile (Phase 5, D34) -----------------------------------
-  "ckm-public-profile": {
+  // --- The profile desk (Phase 5, D34-D37) ------------------------------
+  // ckm-public-profile / ckm-visitor-profile / ckm-owner-profile were retired
+  // on 2026-09-03 and replaced by ONE prefix. The three screens had drifted into
+  // three stylesheets describing the same page — the same hero, the same fact
+  // list, the same chip row, three times — and the iOS prototype settles the
+  // argument: 2a, 2b, 2c and 2d are one screen with four fillings.
+  "ckm-desk": {
     kind: PAGE_FAMILY,
-    owner: "screens/profiles/public-profile/PublicProfileMobile.css",
+    owner: "screens/profiles/desk/ProfileDesk.css",
     family: "profiles",
-    note: "The signed-out public profile at /share/profile/:id: identity, public professional facts, safe links and published-project summaries over the sanitized public endpoint.",
-  },
-
-  "ckm-visitor-profile": {
-    kind: PAGE_FAMILY,
-    owner: "screens/profiles/visitor-profile/ProfileVisitorMobile.css",
-    family: "profiles",
-    note: "The authenticated visitor profile across id, share and canonical username routes, including relationship, messaging, pitch, block and metered contact actions.",
-  },
-
-  "ckm-owner-profile": {
-    kind: PAGE_FAMILY,
-    owner: "screens/profiles/owner-profile/ProfileOwnerMobile.css",
-    family: "profiles",
-    note: "The authenticated account's native identity and professional overview, including the shared profile editor.",
+    note: "Every profile surface: the signed-out share at /share/profile/:id, the authenticated visitor profile across id/share/canonical routes, and the account owner's own profile — one glass bar, identity block, stat strip, segmented control, docked ask, plus the full profile editor dialog.",
   },
 
   "ckm-profile-collection": {
