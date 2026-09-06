@@ -73,6 +73,43 @@ function isQueryExcluded(route, search) {
   return Object.entries(route.excludeQuery).every(([key, value]) => params.get(key) === value);
 }
 
+/*
+ * Whether this route's answer can still change once the session is known.
+ *
+ * `authLoading` exists so the app does not resolve a route against a viewer it
+ * has not finished restoring. That is right for every route below whose branch
+ * reads `user` — and it is pointless for one whose answer is the same for
+ * everybody.
+ *
+ * For the account-entry family it was worse than pointless, and that is the
+ * reason this predicate exists. While the mobile branch waited, RootExperience
+ * rendered the DESKTOP tree, where App.jsx answers /login, /join and /signup
+ * with `<Navigate to="/" replace />`. That redirect commits on the first frame
+ * and rewrites the URL, so by the time the session resolved there was no route
+ * left to mount: every native account-entry screen was unreachable by direct
+ * link, bookmark, refresh or share — the exact property D59 built them as
+ * routes to have. An in-app tap still worked, because a client-side navigation
+ * happens long after `loading` has settled, which is why this survived both the
+ * unit suite and a walk through the app.
+ *
+ * The original guard carried the note "deciding here would flash a sign-in
+ * screen at someone who is signed in". That cost is real but small and now
+ * paid where it belongs: each screen holds its own `!loading && user` redirect,
+ * so a signed-in viewer who opens /login is sent on — honouring `?redirect=`,
+ * which the desktop `<Navigate to="/">` never could.
+ */
+function dependsOnViewer(route) {
+  return Boolean(
+    route.protection === "authenticated"
+    || route.signedOutOnly
+    || route.visitorOnly
+    || route.authenticatedScreenId
+    || route.ownScreenId
+    || route.audiences?.length
+    || route.roles?.length,
+  );
+}
+
 export function resolveMobileExperience({
   isMobile = false,
   authLoading = false,
@@ -85,7 +122,8 @@ export function resolveMobileExperience({
 
   if (!route) return desktopDecision(null, "unregistered-route", null);
   if (!isMobile) return desktopDecision(route, "viewport");
-  if (authLoading) return desktopDecision(route, "auth-loading");
+  // Only wait for the session where the session can change the answer.
+  if (authLoading && dependsOnViewer(route)) return desktopDecision(route, "auth-loading");
 
   if (route.disposition === MOBILE_ROUTE_DISPOSITION.DEV_ONLY) {
     // Development fixtures are ordinary App.jsx routes that mount MobileApp

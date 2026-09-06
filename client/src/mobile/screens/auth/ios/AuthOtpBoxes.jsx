@@ -1,12 +1,13 @@
 import { useId } from "react";
+import "./AuthControls.css";
 
 /*
- * OtpInput — six boxes for a six-digit code.
+ * AuthOtpBoxes — six boxes for a six-digit code.
  *
  * Why six inputs rather than one: on a phone this is the control that decides
  * whether verification feels like a step or a chore. Separate boxes give an
- * unambiguous target per digit at 44px, show progress without a counter, and
- * let a wrong digit be fixed without retyping the rest.
+ * unambiguous 58px target per digit, show progress without a counter, and let
+ * a wrong digit be fixed without retyping the rest.
  *
  * What that shape usually costs, and what is paid here:
  *
@@ -16,17 +17,16 @@ import { useId } from "react";
  *   the layout.
  *
  *   AUTOFILL. `autoComplete="one-time-code"` on the FIRST box only. Browsers
- *   fill the field they are given and iOS offers the keyboard suggestion from
+ *   fill the field they are given and iOS offers its keyboard suggestion from
  *   it; repeating it on all six invites six separate fills of the same code.
  *
  *   PASTE. Bound to every box, because pasting into the fourth means the same
  *   thing as pasting into the first — see useMobileOtp.handlePaste.
  *
  * `inputMode="numeric"` rather than `type="number"`: a spinner is a poor phone
- * control, and type="number" silently drops values it dislikes. The same
- * reasoning the shared TextField documents for its `number` purpose.
+ * control, and type="number" silently drops values it dislikes.
  */
-export default function OtpInput({
+export default function AuthOtpBoxes({
   digits,
   onDigit,
   onKeyDown,
@@ -44,12 +44,7 @@ export default function OtpInput({
 
   return (
     <div className={["ckm-auth__otp", error ? "is-invalid" : ""].filter(Boolean).join(" ")}>
-      <div
-        role="group"
-        aria-label={label}
-        aria-describedby={describedBy}
-        className="ckm-auth__otp-boxes"
-      >
+      <div className="ckm-auth__otp-boxes" role="group" aria-label={label} aria-describedby={describedBy}>
         {digits.map((digit, index) => (
           <input
             // Index is the identity here: these are six fixed positions, not a
@@ -75,11 +70,14 @@ export default function OtpInput({
         ))}
       </div>
 
-      {/* The error replaces the hint rather than stacking below it — the same
-          rule the shared Field primitive follows, so the two read alike. */}
-      {error
-        ? <p className="ckm-auth__otp-error" id={errorId} role="alert">{error}</p>
-        : hint && <p className="ckm-auth__otp-hint" id={hintId}>{hint}</p>}
+      {/* The error replaces the hint rather than stacking below it, so the
+          space under the boxes says one thing at a time. */}
+      {error ? (
+        <p className="ckm-auth__otp-error" id={errorId} role="alert">
+          <span className="material-symbols-outlined" aria-hidden="true">error</span>
+          <span>{error}</span>
+        </p>
+      ) : hint && <p className="ckm-auth__otp-hint" id={hintId}>{hint}</p>}
     </div>
   );
 }

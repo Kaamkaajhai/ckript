@@ -20,6 +20,7 @@ import SelectField from "../../../components/forms/SelectField";
 import TextArea from "../../../components/forms/TextArea";
 import TextField from "../../../components/forms/TextField";
 import Dialog from "../../../components/overlays/Dialog";
+import "./ProfileDesk.css";
 
 const representationOptions = [
   { value: "unrepresented", label: "Unrepresented" },
@@ -36,7 +37,7 @@ const genderOptions = [
   { value: "self_described", label: "Self-described" },
 ];
 
-export default function OwnerProfileEditor({
+export default function ProfileEditorDialog({
   open,
   profile,
   pending = false,
@@ -115,20 +116,20 @@ export default function OwnerProfileEditor({
       onClose={pending || uploadPending ? null : onClose}
       title="Edit your profile"
       description="Identity and professional details shown across Ckript."
-      className="ckm-owner-profile__editor"
+      className="ckm-desk__editor"
       footer={(
-        <Button type="submit" form="ckm-owner-profile-form" fullWidth pending={pending} disabled={uploadPending}>
+        <Button type="submit" form="ckm-desk-editor-form" fullWidth pending={pending} disabled={uploadPending}>
           Save profile
         </Button>
       )}
     >
-      <form id="ckm-owner-profile-form" className="ckm-owner-profile__form" onSubmit={submit}>
+      <form id="ckm-desk-editor-form" className="ckm-desk__editor-form" onSubmit={submit}>
         {error ? <InlineMessage tone="error">{error}</InlineMessage> : null}
 
         <section>
           <h3>Identity</h3>
-          <div className="ckm-owner-profile__photo-row">
-            <div className="ckm-owner-profile__photo">
+          <div className="ckm-desk__editor-photo-row">
+            <div className="ckm-desk__editor-photo">
               {draft.profileImage ? <img src={resolveMediaUrl(draft.profileImage)} alt="Profile preview" /> : <span aria-hidden="true">{String(draft.name || "C").charAt(0)}</span>}
             </div>
             <div>
@@ -167,7 +168,7 @@ export default function OwnerProfileEditor({
         <section>
           <h3>Location</h3>
           <TextField label="Street" value={draft.addressStreet} optional autoComplete="street-address" onChange={set("addressStreet")} />
-          <div className="ckm-owner-profile__field-grid">
+          <div className="ckm-desk__editor-grid">
             <TextField label="City" value={draft.addressCity} optional autoComplete="address-level2" onChange={set("addressCity")} />
             <TextField label="State" value={draft.addressState} optional autoComplete="address-level1" onChange={set("addressState")} />
             <TextField label="Postal code" value={draft.addressZipCode} optional autoComplete="postal-code" onChange={set("addressZipCode")} />
