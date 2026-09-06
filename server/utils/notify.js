@@ -92,6 +92,9 @@ export const sendEmailNotification = async ({
   subject,
   html,
   text,
+  // Optional nodemailer attachments ({ filename, content, contentType }). The competition results
+  // mail carries the entrant's certificate this way.
+  attachments = [],
 }) => {
   const transporter = getTransporter();
   if (!transporter || !to) {
@@ -103,6 +106,7 @@ export const sendEmailNotification = async ({
       from: mailFrom(),
       to,
       subject,
+      attachments: Array.isArray(attachments) && attachments.length ? attachments : undefined,
       html: withSignature(html, `\n<hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;" />\n<div style="color:#6b7280;font-size:12px;line-height:1.7;">\n              <p style="margin:0 0 8px 0;">Regards,<br/><strong>Team ${CONTACTS.name}</strong></p>${signatureHtml()}\n</div>`),
       text: withSignature(text, `\n\nRegards,\nTeam ${CONTACTS.name}${signatureText()}`),
     });

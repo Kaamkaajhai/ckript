@@ -32,6 +32,20 @@ export const challengeAwardLabel = (entry = {}) => (
   entry?.result?.specialTitle || AWARD_LABELS[entry?.result?.award || "none"] || "Participated"
 );
 
+// The competition's own artwork for an entrant's badge: a special award's own image first, then
+// the image for its kind. Mirrors badgeImageFor on the server. "" means a text chip.
+const BADGE_KIND = Object.freeze({ winner: "winner", runner_up: "runnerUp", second_runner_up: "secondRunnerUp", special: "special", participant: "participant" });
+export const badgeImageForEntry = (competition = {}, entry = {}) => {
+  const award = entry?.result?.award;
+  if (award === "special" && entry?.result?.specialTitle) {
+    const wanted = String(entry.result.specialTitle).trim().toLowerCase();
+    const row = (Array.isArray(competition?.prizes?.special) ? competition.prizes.special : []).find((s) => String(s?.title || "").trim().toLowerCase() === wanted);
+    if (row?.badgeUrl) return row.badgeUrl;
+  }
+  const kind = BADGE_KIND[award];
+  return kind ? String(competition?.badgeImages?.[kind] || "") : "";
+};
+
 export function challengeYear(competition = {}, entry = {}) {
   const value = competition?.dates?.startsAt || entry?.createdAt;
   const year = value ? new Date(value).getFullYear() : NaN;

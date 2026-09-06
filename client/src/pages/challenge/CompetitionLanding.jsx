@@ -99,6 +99,9 @@ const WinnerCard = ({ label, person }) => {
       >
         {label}
       </p>
+      {person.badgeImage ? (
+        <img src={person.badgeImage} alt="" style={{ width: 56, height: 56, objectFit: "contain", marginTop: 14 }} />
+      ) : null}
       <p className="ckc-title" style={{ marginTop: 16, fontSize: "1.1875rem" }}>{person.name}</p>
       {person.scriptTitle ? (
         <p style={{ marginTop: 6, fontFamily: "var(--ckc-display)", fontStyle: "italic", fontSize: "1.0625rem", color: "var(--ckc-ink)" }}>

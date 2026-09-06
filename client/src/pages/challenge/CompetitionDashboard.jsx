@@ -201,6 +201,18 @@ const CompetitionDashboard = () => {
     special: entry.result?.specialTitle || "Special Award",
     participant: "Participant",
   }[entry.result?.award];
+  // The competition's own artwork for this badge, when the admin uploaded one: a special award's
+  // own image first, then the image for its kind. Mirrors badgeImageFor on the server.
+  const badgeImage = (() => {
+    const award = entry.result?.award;
+    if (award === "special" && entry.result?.specialTitle) {
+      const wanted = String(entry.result.specialTitle).trim().toLowerCase();
+      const row = (competition.prizes?.special || []).find((s) => String(s?.title || "").trim().toLowerCase() === wanted);
+      if (row?.badgeUrl) return row.badgeUrl;
+    }
+    const kind = { winner: "winner", runner_up: "runnerUp", second_runner_up: "secondRunnerUp", special: "special", participant: "participant" }[award];
+    return kind ? String(competition.badgeImages?.[kind] || "") : "";
+  })();
 
   const renderHome = () => (
     <div className="ckc-stack">
@@ -262,6 +274,9 @@ const CompetitionDashboard = () => {
             <Trophy className="h-5 w-5" style={{ color: "var(--ckc-muted)" }} aria-hidden="true" />
             <h2 className="ckc-title ckc-h2">Results are in</h2>
           </div>
+          {badgeImage && entry.result.award !== "none" ? (
+            <img src={badgeImage} alt="" style={{ width: 96, height: 96, objectFit: "contain", marginTop: 16 }} />
+          ) : null}
           {awardLabel && entry.result.award !== "none" ? (
             <p className="ckc-title ckc-h3" style={{ marginTop: 14 }}>{awardLabel}</p>
           ) : null}

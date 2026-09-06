@@ -78,6 +78,32 @@ describe("PrizesModule", () => {
     expect(prizes.grants.winner.cashCurrency).toBe("INR");
   });
 
+  it("offers a badge image slot per badge kind, with the third only when that tier is on", async () => {
+    let { el } = await mount({ prizes: {} });
+    expect(Array.from(el.querySelectorAll("[data-badge-slot]")).map((n) => n.getAttribute("data-badge-slot")))
+      .toEqual(["badge-winner", "badge-runnerUp", "badge-special", "badge-participant"]);
+    act(() => root.unmount());
+    container.remove();
+    ({ el } = await mount({ prizes: { grants: { secondRunnerUp: { enabled: true } } } }));
+    expect(el.querySelector('[data-badge-slot="badge-secondRunnerUp"]')).toBeTruthy();
+  });
+
+  it("shows a stored badge image and removes it through onChange", async () => {
+    const { el, onChange } = await mount({ prizes: {}, badgeImages: { winner: "https://cdn.example.com/winner.png" } });
+    const slot = el.querySelector('[data-badge-slot="badge-winner"]');
+    expect(slot.querySelector("img").getAttribute("src")).toBe("https://cdn.example.com/winner.png");
+    const remove = Array.from(slot.querySelectorAll("button")).find((b) => b.textContent === "Remove");
+    await act(async () => remove.click());
+    expect(onChange).toHaveBeenCalledWith("badgeImages", { winner: "" });
+  });
+
+  it("each special award can carry its own badge image", async () => {
+    const { el } = await mount({ prizes: { special: [{ title: "Best Dialogue", badgeUrl: "https://cdn.example.com/dialogue.png" }] } });
+    const slot = el.querySelector('[data-badge-slot="special-badge-0"]');
+    expect(slot).toBeTruthy();
+    expect(slot.querySelector("img").getAttribute("src")).toBe("https://cdn.example.com/dialogue.png");
+  });
+
   it("shows a stored configuration and its extras in the preview, grants first", async () => {
     const { el } = await mount({
       prizes: {

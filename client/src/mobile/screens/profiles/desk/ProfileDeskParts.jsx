@@ -507,9 +507,18 @@ export const DeskCaughtUp = ({ children }) => (
   </p>
 );
 
+// A chip is a string, or `{ label, imageUrl }` for a badge that carries the competition's artwork.
 export const DeskChips = ({ values = [] }) => (values.length ? (
   <div className="ckm-desk__chips">
-    {values.map((value) => <span className="ckm-desk__chip" key={value}>{value}</span>)}
+    {values.map((value) => {
+      const item = typeof value === "string" ? { label: value } : value || {};
+      return (
+        <span className="ckm-desk__chip" key={item.label}>
+          {item.imageUrl ? <img src={item.imageUrl} alt="" style={{ width: 18, height: 18, objectFit: "contain", verticalAlign: "middle", marginRight: 6 }} /> : null}
+          {item.label}
+        </span>
+      );
+    })}
   </div>
 ) : null);
 

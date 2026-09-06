@@ -42,6 +42,10 @@ const WinnerBlock = ({ person, label, icon, prominent = false }) => {
         {icon}
         {person.specialTitle || label}
       </p>
+      {/* The competition's own artwork for this badge, when the admin uploaded one. */}
+      {person.badgeImage ? (
+        <img src={person.badgeImage} alt="" style={{ width: 64, height: 64, objectFit: "contain", marginTop: 14 }} />
+      ) : null}
 
       <div className={`mt-4 flex items-start gap-4 ${prominent ? "sm:gap-5" : ""}`}>
         <Avatar src={person.profileImage} name={person.name} size={prominent ? 72 : 52} />

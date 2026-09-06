@@ -42,6 +42,7 @@ function Person({ person, award }) {
     <Card className={award === "winner" ? "ckm-hall__person--winner" : ""}>
       <CardBody>
         <Badge tone={award === "winner" ? "accent" : award === "runner_up" ? "info" : "neutral"}>{person.specialTitle || (award === "winner" ? "Winner" : award === "runner_up" ? "Runner-Up" : award === "second_runner_up" ? "Second Runner-Up" : "Special award")}</Badge>
+        {person.badgeImage ? <img src={person.badgeImage} alt="" style={{ width: 56, height: 56, objectFit: "contain", marginTop: 10 }} /> : null}
         <div className="ckm-hall__person">
           <span>{person.profileImage ? <img src={resolveMediaUrl(person.profileImage)} alt="" /> : <span aria-hidden="true">{String(person.name || "W").charAt(0)}</span>}</span>
           <div><CardTitle as="h3" to={profile || null}>{person.name || "Writer"}</CardTitle>{person.scriptTitle ? <p>{person.scriptTitle}</p> : null}</div>

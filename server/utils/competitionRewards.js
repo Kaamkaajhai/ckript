@@ -10,6 +10,7 @@
  *   - `resolveGrants(competition)`      what each placing gets — plan, days, featured, trailer, cash
  *   - `specialGrantFor(competition, t)` what a named special award carries beyond its badge
  *   - `composePrizeLines(competition)`  the sentences the public pages and the declare dialog show
+ *   - `badgeImageFor(competition, …)`   the admin's own artwork for a badge, if they uploaded any
  *
  * Badges are not configurable: a placing IS its badge. Cash is configurable but never paid by the
  * platform — it is recorded in the finance ledger as owed and worded on every surface as paid by
@@ -66,6 +67,26 @@ export const LEGACY_SEEDED_LINES = Object.freeze(new Set([
   "Honorable Mention Badge",
 ]));
 
+/**
+ * A typed line that describes something the PLATFORM delivers — a plan, a trailer, a badge, a
+ * featured placement, or a bare cash amount. Those belong in the grants, where declaring results
+ * actually applies them; printed as an extra beside the grant they would appear twice ("Gold plan
+ * for 60 days" and "Gold Subscription (60 days)"). Extras are for what the platform cannot do —
+ * a producer meeting, a masterclass — so a line like these is never one. The editor's preview
+ * shows exactly what survives, so nothing is dropped out of sight.
+ */
+const PLATFORM_LINE_PATTERNS = Object.freeze([
+  /\b(subscription|membership|plan)\b/i,
+  /\btrailer\b/i,
+  /\bbadge\b/i,
+  /featured placement/i,
+  /^(?:cash prize|(?:inr|usd|rs\.?|₹|\$)\s?[\d,]+(?:\.\d+)?(?:\s*(?:cash(?:\s*prize)?|prize))?)$/i,
+]);
+export const isPlatformDeliverableLine = (line) => {
+  const text = String(line || "").trim();
+  return Boolean(text) && (LEGACY_SEEDED_LINES.has(text) || PLATFORM_LINE_PATTERNS.some((re) => re.test(text)));
+};
+
 const clampDays = (value, fallback) => {
   const n = Math.round(Number(value));
   if (!Number.isFinite(n)) return fallback;
@@ -83,6 +104,12 @@ const toCurrency = (value, fallback = "INR") => {
 };
 
 const toBool = (value, fallback) => (typeof value === "boolean" ? value : fallback);
+
+/** An image the pages may load: http(s) only, else nothing. */
+const toHttpUrl = (value) => {
+  const url = String(value || "").trim();
+  return /^https?:\/\//i.test(url) ? url : "";
+};
 
 /** One placing's grant, every field valid, unknown or missing fields taking the fallback's value. */
 export const sanitizeGrant = (raw = {}, fallback = DEFAULT_GRANTS.winner) => {
@@ -104,7 +131,7 @@ export const sanitizeGrants = (raw = {}) =>
 /**
  * The special-award rows from the editor. A row keeps its title and description (the editor adds a
  * blank row on "Add award", and blanks are the admin's to finish or remove) and gains the optional
- * grant fields, each made valid.
+ * grant fields and its own badge artwork, each made valid.
  */
 export const sanitizeSpecialAwards = (rows) =>
   (Array.isArray(rows) ? rows : [])
@@ -117,6 +144,7 @@ export const sanitizeSpecialAwards = (rows) =>
       featured: toBool(row.featured, DEFAULT_SPECIAL_GRANT.featured),
       cashMinor: toMinor(row.cashMinor, DEFAULT_SPECIAL_GRANT.cashMinor),
       cashCurrency: toCurrency(row.cashCurrency, DEFAULT_SPECIAL_GRANT.cashCurrency),
+      badgeUrl: toHttpUrl(row.badgeUrl),
     }));
 
 /** What each placing gets for this competition. Absent config → the historical grants. */
@@ -135,6 +163,39 @@ export const specialGrantFor = (competition, title) => {
     ? { plan: match.plan, planDays: match.planDays, featured: match.featured, cashMinor: match.cashMinor, cashCurrency: match.cashCurrency }
     : { ...DEFAULT_SPECIAL_GRANT };
 };
+
+// ─── Badge artwork ────────────────────────────────────────────────────────────
+
+/** One image per badge kind; a special award may override the shared "special" image with its own. */
+export const BADGE_KINDS = Object.freeze(["winner", "runnerUp", "secondRunnerUp", "special", "participant"]);
+
+const AWARD_TO_BADGE_KIND = Object.freeze({
+  winner: "winner",
+  runner_up: "runnerUp",
+  second_runner_up: "secondRunnerUp",
+  special: "special",
+  participant: "participant",
+});
+
+export const sanitizeBadgeImages = (raw = {}) =>
+  Object.fromEntries(BADGE_KINDS.map((kind) => [kind, toHttpUrl(raw?.[kind])]));
+
+/**
+ * The admin's own artwork for a badge — the image stamped onto the badge when it is awarded and
+ * shown wherever the badge appears. A special award's own image wins over the shared one; a kind
+ * with no image returns "" and the badge stays a text chip.
+ */
+export const badgeImageFor = (competition, award, specialTitle = "") => {
+  if (award === "special" && specialTitle) {
+    const wanted = String(specialTitle).trim().toLowerCase();
+    const row = sanitizeSpecialAwards(competition?.prizes?.special).find((r) => r.title.toLowerCase() === wanted);
+    if (row?.badgeUrl) return row.badgeUrl;
+  }
+  const kind = AWARD_TO_BADGE_KIND[award];
+  return kind ? sanitizeBadgeImages(competition?.badgeImages)[kind] : "";
+};
+
+// ─── Wording ──────────────────────────────────────────────────────────────────
 
 export const formatCash = (minor, currency = "INR") => {
   const amount = toMinor(minor) / 100;
@@ -168,6 +229,12 @@ export const grantLines = (grant, { badgeLabel = "" } = {}) => {
   return lines;
 };
 
+/** The admin's free-text extras that are really extras — trimmed, and never a platform-delivered item. */
+export const extraLines = (list) =>
+  (Array.isArray(list) ? list : [])
+    .map((s) => String(s || "").trim())
+    .filter((s) => s && !isPlatformDeliverableLine(s));
+
 /**
  * Everything the public pages print, per placing and per special award: the platform's grants
  * first, then whatever the admin typed as extras (producer meetings, a masterclass — things the
@@ -177,13 +244,9 @@ export const grantLines = (grant, { badgeLabel = "" } = {}) => {
 export const composePrizeLines = (competition) => {
   const grants = resolveGrants(competition);
   const extras = competition?.prizes || {};
-  const extraLines = (placing) =>
-    (Array.isArray(extras[placing]) ? extras[placing] : [])
-      .map((s) => String(s || "").trim())
-      .filter((s) => s && !LEGACY_SEEDED_LINES.has(s));
   const lines = (placing) =>
     (placing !== "secondRunnerUp" || grants[placing].enabled)
-      ? [...grantLines(grants[placing], { badgeLabel: PLACING_LABEL[placing] }), ...extraLines(placing)]
+      ? [...grantLines(grants[placing], { badgeLabel: PLACING_LABEL[placing] }), ...extraLines(extras[placing])]
       : [];
   return {
     winner: lines("winner"),
@@ -191,7 +254,9 @@ export const composePrizeLines = (competition) => {
     secondRunnerUp: lines("secondRunnerUp"),
     special: sanitizeSpecialAwards(extras.special).map((row) => ({
       title: row.title,
-      description: row.description,
+      // A description that merely names a platform item ("INR 1,500") is the grant, not a description.
+      description: isPlatformDeliverableLine(row.description) ? "" : row.description,
+      badgeUrl: row.badgeUrl,
       lines: grantLines(row, { badgeLabel: row.title || "Special award" }),
     })),
   };

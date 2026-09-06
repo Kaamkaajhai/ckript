@@ -27,7 +27,7 @@ import {
   buildTimeline,
   canSubmitNow,
 } from "../utils/competitionPhase.js";
-import { composePrizeLines } from "../utils/competitionRewards.js";
+import { badgeImageFor, composePrizeLines } from "../utils/competitionRewards.js";
 import {
   COMPETITION_ENTRY_SUMMARY_FIELDS,
   competitionEntrySummary,
@@ -95,6 +95,7 @@ const publicPrizes = (competition) => {
     special: composed.special.map((row) => ({
       title: row.title,
       description: [row.description, ...row.lines.filter((line) => !line.endsWith(" badge"))].filter(Boolean).join(" · "),
+      badgeUrl: row.badgeUrl || "",
     })),
   };
 };
@@ -212,6 +213,8 @@ const buildPublicResults = async (competitionId) => {
 
   // A writer who has since gone private or deleted their account is omitted entirely — the same rule
   // getCompetitionHistory applies. Their placing is not re-assigned to anyone else.
+  // For the badge artwork: the images live on the competition, the award on the entry.
+  const competition = await Competition.findById(competitionId).select("badgeImages prizes.special").lean();
   const visible = entries.filter((e) => e.userId && !e.userId.isPrivate && !e.userId.isDeactivated);
 
   // NOTE: deliberately no scriptId. Competition entries stay private drafts; the Hall of Fame links
@@ -231,6 +234,7 @@ const buildPublicResults = async (competitionId) => {
     synopsis: entry.snapshot?.synopsis || "",
     specialTitle: entry.result?.specialTitle || "",
     rewards: (entry.rewardsGranted || []).map((r) => r.type),
+    badgeImage: badgeImageFor(competition, entry.result?.award, entry.result?.specialTitle),
   });
 
   return {
@@ -460,6 +464,7 @@ export const getHallOfFameEntry = async (req, res) => {
         dates: competition.dates,
         resultsDeclaredAt: competition.resultsDeclaredAt,
         prizes: publicPrizes(competition),
+        badgeImages: competition.badgeImages || {},
         judges: competition.judges || [],
         sponsors: competition.sponsors || [],
       },

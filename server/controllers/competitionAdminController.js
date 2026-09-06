@@ -8,7 +8,10 @@ import {
   sanitizeGrants,
   sanitizeSpecialAwards,
   specialGrantFor,
+  badgeImageFor,
+  sanitizeBadgeImages,
 } from "../utils/competitionRewards.js";
+import { tryCertificateAttachment } from "../utils/competitionCertificateMail.js";
 import CompetitionEntry from "../models/CompetitionEntry.js";
 import Script from "../models/Script.js";
 import User from "../models/User.js";
@@ -223,7 +226,7 @@ const CONTENT_FIELDS = [
   "theme", "overview", "eligibility", "format", "prizes", "detailedPrizes", "rules",
   "faq", "judges", "sponsors", "communityLinks", "resources",
   "bannerUrl", "mobileBannerUrl", "cardThumbnailUrl", "ogImageUrl", "logoUrl", "backgroundImageUrl", "gallery",
-  "cardConfig", "prizePool", "entryFee", "visibility", "referralTiers",
+  "cardConfig", "prizePool", "entryFee", "visibility", "referralTiers", "badgeImages",
 ];
 
 /**
@@ -267,6 +270,7 @@ const sanitizePrizes = (raw = {}) => {
 const normalizeContent = (payload) => {
   if (payload.referralTiers !== undefined) payload.referralTiers = sanitizeReferralTiers(payload.referralTiers);
   if (payload.prizes !== undefined) payload.prizes = sanitizePrizes(payload.prizes);
+  if (payload.badgeImages !== undefined) payload.badgeImages = sanitizeBadgeImages(payload.badgeImages);
   return payload;
 };
 
@@ -617,18 +621,31 @@ const featureScript = async (scriptId, extra = {}) => {
   await Script.updateOne({ _id: scriptId }, { $set: { isFeatured: true, ...extra } });
 };
 
-const notifyEntry = async (entry, competitionName, message, subject) => {
+const CERTIFICATE_NOTE = "Your certificate is attached, and stays available in your challenge dashboard.";
+
+/**
+ * The in-app notification and the email for one entrant's result.
+ *
+ * With `certificate`, the email carries the entrant's certificate PDF — built by the same generator
+ * as the dashboard download, so the two never differ. Best-effort at every step: a certificate that
+ * fails to render sends the mail without it, and a mail that fails to send never stops the declare.
+ */
+const notifyEntry = async (entry, competitionName, message, subject, { certificate = null } = {}) => {
   const user = await User.findById(entry.userId).select("name email");
   if (!user) return;
   await createNotification({ userId: entry.userId, type: "competition", message });
+  const attachment = certificate
+    ? await tryCertificateAttachment({ competition: certificate.competition, entry, writerName: user.name, declaredAt: certificate.declaredAt })
+    : null;
   await sendEmailNotification({
     to: user.email,
     subject,
     // Both halves are free text somebody typed — the writer's display name, and a message carrying
     // the competition name and the admin's special-award title — so neither can go into HTML raw.
     // Subject and text are not HTML; escaping those would just show the entities to the reader.
-    html: `<p>Hi ${escapeHtml(user.name || "there")},</p><p>${escapeHtml(message)}</p>`,
-    text: message,
+    html: `<p>Hi ${escapeHtml(user.name || "there")},</p><p>${escapeHtml(message)}</p>${attachment ? `<p>${escapeHtml(CERTIFICATE_NOTE)}</p>` : ""}`,
+    text: attachment ? `${message}\n\n${CERTIFICATE_NOTE}` : message,
+    attachments: attachment ? [attachment] : [],
   }).catch(() => { /* email is best-effort */ });
 };
 
@@ -749,38 +766,40 @@ export const adminDeclareResults = async (req, res) => {
         counts.cashOwedMinor += grant.cashMinor;
       }
     };
+    // The competition's own artwork rides on the badge itself, so the profile keeps it for good.
+    const withBadgeImage = (badge, imageUrl) => (imageUrl ? { ...badge, imageUrl } : badge);
     const cashSentence = (grant) => (grant.cashMinor > 0
       ? ` The ${formatCash(grant.cashMinor, grant.cashCurrency)} cash prize will be paid to you directly by Ckript.`
       : "");
 
     // Winner ────────────────────────────────────────────────────────────────
     winner.result.award = "winner";
-    await applyGrant(winner, grants.winner, { badgeKey: "badge_winner", badge: BADGES.winner, placing: "winner", cashLabel: "Winner" });
+    await applyGrant(winner, grants.winner, { badgeKey: "badge_winner", badge: withBadgeImage(BADGES.winner, badgeImageFor(competition, "winner")), placing: "winner", cashLabel: "Winner" });
     winner.status = "judged";
     await winner.save();
     counts.winners = 1;
-    await grantOnce(winner, "notified", () => notifyEntry(winner, name, `🏆 You won the ${name}! Your rewards have been added to your account.${cashSentence(grants.winner)}`, `🏆 You won the ${name}`));
+    await grantOnce(winner, "notified", () => notifyEntry(winner, name, `🏆 You won the ${name}! Your rewards have been added to your account.${cashSentence(grants.winner)}`, `🏆 You won the ${name}`, { certificate: { competition, declaredAt: now } }));
     await winner.save();
 
     // Runner-up ─────────────────────────────────────────────────────────────
     if (runnerUp) {
       runnerUp.result.award = "runner_up";
-      await applyGrant(runnerUp, grants.runnerUp, { badgeKey: "badge_runner_up", badge: BADGES.runner_up, placing: "runner_up", cashLabel: "Runner-Up" });
+      await applyGrant(runnerUp, grants.runnerUp, { badgeKey: "badge_runner_up", badge: withBadgeImage(BADGES.runner_up, badgeImageFor(competition, "runner_up")), placing: "runner_up", cashLabel: "Runner-Up" });
       runnerUp.status = "judged";
       await runnerUp.save();
       counts.runnerUp = 1;
-      await grantOnce(runnerUp, "notified", () => notifyEntry(runnerUp, name, `You placed Runner-Up in the ${name}! Your rewards have been added to your account.${cashSentence(grants.runnerUp)}`, `Runner-Up — ${name}`));
+      await grantOnce(runnerUp, "notified", () => notifyEntry(runnerUp, name, `You placed Runner-Up in the ${name}! Your rewards have been added to your account.${cashSentence(grants.runnerUp)}`, `Runner-Up — ${name}`, { certificate: { competition, declaredAt: now } }));
       await runnerUp.save();
     }
 
     // Second runner-up ──────────────────────────────────────────────────────
     if (secondRunnerUp) {
       secondRunnerUp.result.award = "second_runner_up";
-      await applyGrant(secondRunnerUp, grants.secondRunnerUp, { badgeKey: "badge_second_runner_up", badge: BADGES.second_runner_up, placing: "second_runner_up", cashLabel: "Second Runner-Up" });
+      await applyGrant(secondRunnerUp, grants.secondRunnerUp, { badgeKey: "badge_second_runner_up", badge: withBadgeImage(BADGES.second_runner_up, badgeImageFor(competition, "second_runner_up")), placing: "second_runner_up", cashLabel: "Second Runner-Up" });
       secondRunnerUp.status = "judged";
       await secondRunnerUp.save();
       counts.secondRunnerUp = 1;
-      await grantOnce(secondRunnerUp, "notified", () => notifyEntry(secondRunnerUp, name, `You placed Second Runner-Up in the ${name}! Your rewards have been added to your account.${cashSentence(grants.secondRunnerUp)}`, `Second Runner-Up — ${name}`));
+      await grantOnce(secondRunnerUp, "notified", () => notifyEntry(secondRunnerUp, name, `You placed Second Runner-Up in the ${name}! Your rewards have been added to your account.${cashSentence(grants.secondRunnerUp)}`, `Second Runner-Up — ${name}`, { certificate: { competition, declaredAt: now } }));
       await secondRunnerUp.save();
     }
 
@@ -795,14 +814,14 @@ export const adminDeclareResults = async (req, res) => {
       const special = specialGrantFor(competition, title);
       await applyGrant(entry, { ...special, aiTrailer: false }, {
         badgeKey: "badge_special",
-        badge: { ...BADGES.special, label: title || BADGES.special.label },
+        badge: withBadgeImage({ ...BADGES.special, label: title || BADGES.special.label }, badgeImageFor(competition, "special", title)),
         placing: "special",
         cashLabel: title,
       });
       entry.status = "judged";
       await entry.save();
       counts.special += 1;
-      await grantOnce(entry, "notified", () => notifyEntry(entry, name, `You received the "${title}" award in the ${name}!${cashSentence(special)}`, `${title} — ${name}`));
+      await grantOnce(entry, "notified", () => notifyEntry(entry, name, `You received the "${title}" award in the ${name}!${cashSentence(special)}`, `${title} — ${name}`, { certificate: { competition, declaredAt: now } }));
       await entry.save();
     }
 
@@ -823,11 +842,11 @@ export const adminDeclareResults = async (req, res) => {
       if (!hasSubmitted(entry)) continue;
 
       entry.result.award = "participant";
-      await grantOnce(entry, "badge_participant", () => awardBadge(entry.userId, BADGES.participant, competition._id));
+      await grantOnce(entry, "badge_participant", () => awardBadge(entry.userId, withBadgeImage(BADGES.participant, badgeImageFor(competition, "participant")), competition._id));
       entry.status = "judged";
       await entry.save();
       counts.participants += 1;
-      await grantOnce(entry, "notified", () => notifyEntry(entry, name, completion, `${name} — results are in`));
+      await grantOnce(entry, "notified", () => notifyEntry(entry, name, completion, `${name} — results are in`, { certificate: { competition, declaredAt: now } }));
       await entry.save();
     }
 
