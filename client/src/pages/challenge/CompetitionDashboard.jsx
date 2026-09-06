@@ -197,6 +197,7 @@ const CompetitionDashboard = () => {
   const awardLabel = {
     winner: "Winner",
     runner_up: "Runner-Up",
+    second_runner_up: "Second Runner-Up",
     special: entry.result?.specialTitle || "Special Award",
     participant: "Participant",
   }[entry.result?.award];
@@ -264,7 +265,7 @@ const CompetitionDashboard = () => {
           {awardLabel && entry.result.award !== "none" ? (
             <p className="ckc-title ckc-h3" style={{ marginTop: 14 }}>{awardLabel}</p>
           ) : null}
-          {["winner", "runner_up", "special"].includes(entry.result?.award) ? (
+          {["winner", "runner_up", "second_runner_up", "special"].includes(entry.result?.award) ? (
             <p className="ckc-prose" style={{ marginTop: 8 }}>
               Congratulations — your rewards have been added to your account.
             </p>
@@ -282,7 +283,7 @@ const CompetitionDashboard = () => {
             >
               Your script is unlocked — you'll find it in{" "}
               <Link to="/dashboard" className="ckc-link">your drafts</Link>.
-              {["winner", "runner_up"].includes(entry.result?.award)
+              {entry.rewardsGranted?.some((r) => r.type === "featured_script")
                 ? " Publish it to claim your featured placement."
                 : " It's yours to edit, publish or co-write as you like."}
             </p>
@@ -382,6 +383,7 @@ const CompetitionDashboard = () => {
       {[
         { title: "Winner", items: competition.prizes?.winner || [] },
         { title: "Runner-Up", items: competition.prizes?.runnerUp || [] },
+        ...(competition.prizes?.secondRunnerUp?.length ? [{ title: "Second Runner-Up", items: competition.prizes.secondRunnerUp }] : []),
         { title: "Special Awards", items: (competition.prizes?.special || []).map((s) => (s.description ? `${s.title} — ${s.description}` : s.title)) },
       ].map((group) => (
         <Card key={group.title}>

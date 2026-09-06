@@ -18,12 +18,13 @@ const STATUS_LABELS = Object.freeze({
 const AWARD_LABELS = Object.freeze({
   winner: "Winner",
   runner_up: "Runner-Up",
+  second_runner_up: "Second Runner-Up",
   special: "Special Award",
   participant: "Participated",
   none: "Did not submit",
 });
 
-export const HONOUR_AWARDS = Object.freeze(new Set(["winner", "runner_up", "special"]));
+export const HONOUR_AWARDS = Object.freeze(new Set(["winner", "runner_up", "second_runner_up", "special"]));
 
 export const challengePhaseLabel = (phase) => PHASE_LABELS[phase] || String(phase || "Challenge").replace(/_/g, " ");
 export const challengeStatusLabel = (status) => STATUS_LABELS[status] || String(status || "Registered").replace(/_/g, " ");

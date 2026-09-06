@@ -16,10 +16,11 @@ import { Avatar } from "./ui";
 const AWARD_ACCENT = {
   winner: "var(--ckc-accent-text)",
   runner_up: "var(--ckc-faint)",
+  second_runner_up: "var(--ckc-faint)",
   special: "var(--ckc-faint)",
 };
 
-const AWARD_LABEL = { winner: "Winner", runner_up: "Runner-Up", special: "Special Award" };
+const AWARD_LABEL = { winner: "Winner", runner_up: "Runner-Up", second_runner_up: "Second Runner-Up", special: "Special Award" };
 
 const WinnerCard = ({ person, award, competitionName, year }) => {
   if (!person) return null;
