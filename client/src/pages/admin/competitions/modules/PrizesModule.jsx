@@ -36,6 +36,18 @@ const PLACINGS = [
   { key: "secondRunnerUp", title: "Second Runner-Up", hint: "An optional third placing. Nothing is promised or granted unless it is switched on here." },
 ];
 
+// Mirrors isPlatformDeliverableLine on the server: a typed line that names a plan, a trailer, a
+// badge, a featured placement or a bare amount is the grant's job and is not printed beside it.
+const PLATFORM_LINE = [
+  /\b(subscription|membership|plan)\b/i,
+  /\btrailer\b/i,
+  /\bbadge\b/i,
+  /featured placement/i,
+  /^(?:cash prize|(?:inr|usd|rs\.?|₹|\$)\s?[\d,]+(?:\.\d+)?(?:\s*(?:cash(?:\s*prize)?|prize))?)$/i,
+];
+const isPlatformLine = (line) => PLATFORM_LINE.some((re) => re.test(String(line || "").trim()));
+const extrasToPrint = (items) => items.map((s) => String(s || "").trim()).filter((s) => s && !isPlatformLine(s));
+
 const SYMBOL = { INR: "₹", USD: "$" };
 const formatCash = (minor, currency) =>
   `${SYMBOL[currency] || `${currency} `}${(Number(minor || 0) / 100).toLocaleString(currency === "INR" ? "en-IN" : "en-US", { maximumFractionDigits: 2 })}`;
@@ -226,7 +238,7 @@ export default function PrizesModule({ data, onChange }) {
                   <p className="text-xs text-[#888] mb-2">Producer meetings, a masterclass, a screening — anything the platform cannot grant on its own.</p>
                   <ExtraLines items={extras} onChange={(v) => setPrizes({ [key]: v })} placeholder='e.g. "A producer meeting with North Star Films"' />
                 </div>
-                <Preview lines={[...describeGrant(grant, title), ...extras.map((s) => String(s || "").trim()).filter(Boolean)]} />
+                <Preview lines={[...describeGrant(grant, title), ...extrasToPrint(extras)]} />
               </>
             ) : (
               <Preview lines={[]} />

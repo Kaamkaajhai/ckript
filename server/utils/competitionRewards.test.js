@@ -121,6 +121,39 @@ describe("one wording for every surface", () => {
     assert.deepEqual(composed.special, [{ title: "Best Dialogue", description: "Jury citation", lines: ["Silver plan for 30 days", "Best Dialogue badge"] }]);
   });
 
+  test("typed lines that describe platform items are not printed twice beside the grant", () => {
+    // The Final Draft's real lists: amounts, subscriptions with their own day counts, trailers with a
+    // length, badges — all of which the grants now express — plus one genuine extra.
+    const composed = composePrizeLines({
+      prizes: {
+        winner: ["INR 9,000", "Featured placement when you publish your script", "Gold Subscription (60 days)", "AI Trailer (60 sec)", "Winner Badge", "Priority Producer Showcase"],
+        runnerUp: ["INR 5,000", "Ai trailer(30sec)", "Silver Subscription (30 days)", "Runner-Up Badge"],
+        grants: {
+          winner: { plan: "gold", planDays: 60, featured: true, aiTrailer: true, cashMinor: 900000, cashCurrency: "INR" },
+          runnerUp: { plan: "silver", planDays: 30, featured: true, aiTrailer: true, cashMinor: 500000, cashCurrency: "INR" },
+        },
+        special: [{ title: "Best Dialogues", description: "INR 1,000", cashMinor: 100000 }],
+      },
+    });
+    assert.deepEqual(composed.winner, [
+      "₹9,000 cash prize, paid directly by Ckript",
+      "Gold plan for 60 days",
+      "Featured placement when you publish your script",
+      "AI trailer for your script",
+      "Winner badge",
+      "Priority Producer Showcase",
+    ]);
+    assert.deepEqual(composed.runnerUp, [
+      "₹5,000 cash prize, paid directly by Ckript",
+      "Silver plan for 30 days",
+      "Featured placement when you publish your script",
+      "AI trailer for your script",
+      "Runner-Up badge",
+    ]);
+    // A description that is only an amount is the grant, not a description.
+    assert.deepEqual(composed.special, [{ title: "Best Dialogues", description: "", lines: ["₹1,000 cash prize, paid directly by Ckript", "Best Dialogues badge"] }]);
+  });
+
   test("a second runner-up tier prints nothing until it is enabled", () => {
     assert.deepEqual(composePrizeLines({ prizes: {} }).secondRunnerUp, []);
     const enabled = composePrizeLines({ prizes: { grants: { secondRunnerUp: { enabled: true } } } });

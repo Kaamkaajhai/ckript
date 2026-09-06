@@ -66,6 +66,26 @@ export const LEGACY_SEEDED_LINES = Object.freeze(new Set([
   "Honorable Mention Badge",
 ]));
 
+/**
+ * A typed line that describes something the PLATFORM delivers — a plan, a trailer, a badge, a
+ * featured placement, or a bare cash amount. Those belong in the grants, where declaring results
+ * actually applies them; printed as an extra beside the grant they would appear twice ("Gold plan
+ * for 60 days" and "Gold Subscription (60 days)"). Extras are for what the platform cannot do —
+ * a producer meeting, a masterclass — so a line like these is never one. The editor's preview
+ * shows exactly what survives, so nothing is dropped out of sight.
+ */
+const PLATFORM_LINE_PATTERNS = Object.freeze([
+  /\b(subscription|membership|plan)\b/i,
+  /\btrailer\b/i,
+  /\bbadge\b/i,
+  /featured placement/i,
+  /^(?:cash prize|(?:inr|usd|rs\.?|₹|\$)\s?[\d,]+(?:\.\d+)?(?:\s*(?:cash(?:\s*prize)?|prize))?)$/i,
+]);
+export const isPlatformDeliverableLine = (line) => {
+  const text = String(line || "").trim();
+  return Boolean(text) && (LEGACY_SEEDED_LINES.has(text) || PLATFORM_LINE_PATTERNS.some((re) => re.test(text)));
+};
+
 const clampDays = (value, fallback) => {
   const n = Math.round(Number(value));
   if (!Number.isFinite(n)) return fallback;
@@ -168,6 +188,12 @@ export const grantLines = (grant, { badgeLabel = "" } = {}) => {
   return lines;
 };
 
+/** The admin's free-text extras that are really extras — trimmed, and never a platform-delivered item. */
+export const extraLines = (list) =>
+  (Array.isArray(list) ? list : [])
+    .map((s) => String(s || "").trim())
+    .filter((s) => s && !isPlatformDeliverableLine(s));
+
 /**
  * Everything the public pages print, per placing and per special award: the platform's grants
  * first, then whatever the admin typed as extras (producer meetings, a masterclass — things the
@@ -177,13 +203,9 @@ export const grantLines = (grant, { badgeLabel = "" } = {}) => {
 export const composePrizeLines = (competition) => {
   const grants = resolveGrants(competition);
   const extras = competition?.prizes || {};
-  const extraLines = (placing) =>
-    (Array.isArray(extras[placing]) ? extras[placing] : [])
-      .map((s) => String(s || "").trim())
-      .filter((s) => s && !LEGACY_SEEDED_LINES.has(s));
   const lines = (placing) =>
     (placing !== "secondRunnerUp" || grants[placing].enabled)
-      ? [...grantLines(grants[placing], { badgeLabel: PLACING_LABEL[placing] }), ...extraLines(placing)]
+      ? [...grantLines(grants[placing], { badgeLabel: PLACING_LABEL[placing] }), ...extraLines(extras[placing])]
       : [];
   return {
     winner: lines("winner"),
@@ -191,7 +213,8 @@ export const composePrizeLines = (competition) => {
     secondRunnerUp: lines("secondRunnerUp"),
     special: sanitizeSpecialAwards(extras.special).map((row) => ({
       title: row.title,
-      description: row.description,
+      // A description that merely names a platform item ("INR 1,500") is the grant, not a description.
+      description: isPlatformDeliverableLine(row.description) ? "" : row.description,
       lines: grantLines(row, { badgeLabel: row.title || "Special award" }),
     })),
   };
