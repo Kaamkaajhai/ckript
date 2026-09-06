@@ -35,6 +35,10 @@ const WinnerCard = ({ person, award, competitionName, year }) => {
       >
         {person.specialTitle || AWARD_LABEL[award] || "Award"}
       </p>
+      {/* The competition's own artwork for this badge, when the admin uploaded one. */}
+      {person.badgeImage ? (
+        <img src={person.badgeImage} alt="" style={{ width: 56, height: 56, objectFit: "contain", marginTop: 14 }} />
+      ) : null}
 
       <div className="flex items-center gap-3" style={{ marginTop: 16 }}>
         <Avatar src={person.profileImage} name={person.name} size={44} />

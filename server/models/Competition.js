@@ -119,6 +119,8 @@ const competitionSchema = new mongoose.Schema({
       featured: { type: Boolean, default: false },
       cashMinor: { type: Number, min: 0, default: 0 },
       cashCurrency: { type: String, enum: ["INR", "USD"], default: "INR" },
+      // This award's own badge artwork; falls back to badgeImages.special when empty.
+      badgeUrl: { type: String, default: "" },
     }],
     // What declaring results GRANTS to each placing. Absent on competitions saved before this
     // existed; resolveGrants() then applies DEFAULT_GRANTS, which reproduce the old fixed behaviour.
@@ -157,6 +159,17 @@ const competitionSchema = new mongoose.Schema({
     },
   },
   
+  // The admin's own artwork for each badge kind (image URLs, uploaded through the editor). A
+  // badge awarded while an image is set carries that image on the writer's profile, in the Hall
+  // of Fame and on the results page; an empty kind stays a text chip.
+  badgeImages: {
+    winner: { type: String, default: "" },
+    runnerUp: { type: String, default: "" },
+    secondRunnerUp: { type: String, default: "" },
+    special: { type: String, default: "" },
+    participant: { type: String, default: "" },
+  },
+
   // Advanced Dynamic Prizes 
   detailedPrizes: [{
     title: String,

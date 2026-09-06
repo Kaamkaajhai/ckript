@@ -8,6 +8,8 @@ import {
   sanitizeGrants,
   sanitizeSpecialAwards,
   specialGrantFor,
+  badgeImageFor,
+  sanitizeBadgeImages,
 } from "../utils/competitionRewards.js";
 import { tryCertificateAttachment } from "../utils/competitionCertificateMail.js";
 import CompetitionEntry from "../models/CompetitionEntry.js";
@@ -224,7 +226,7 @@ const CONTENT_FIELDS = [
   "theme", "overview", "eligibility", "format", "prizes", "detailedPrizes", "rules",
   "faq", "judges", "sponsors", "communityLinks", "resources",
   "bannerUrl", "mobileBannerUrl", "cardThumbnailUrl", "ogImageUrl", "logoUrl", "backgroundImageUrl", "gallery",
-  "cardConfig", "prizePool", "entryFee", "visibility", "referralTiers",
+  "cardConfig", "prizePool", "entryFee", "visibility", "referralTiers", "badgeImages",
 ];
 
 /**
@@ -268,6 +270,7 @@ const sanitizePrizes = (raw = {}) => {
 const normalizeContent = (payload) => {
   if (payload.referralTiers !== undefined) payload.referralTiers = sanitizeReferralTiers(payload.referralTiers);
   if (payload.prizes !== undefined) payload.prizes = sanitizePrizes(payload.prizes);
+  if (payload.badgeImages !== undefined) payload.badgeImages = sanitizeBadgeImages(payload.badgeImages);
   return payload;
 };
 
@@ -763,13 +766,15 @@ export const adminDeclareResults = async (req, res) => {
         counts.cashOwedMinor += grant.cashMinor;
       }
     };
+    // The competition's own artwork rides on the badge itself, so the profile keeps it for good.
+    const withBadgeImage = (badge, imageUrl) => (imageUrl ? { ...badge, imageUrl } : badge);
     const cashSentence = (grant) => (grant.cashMinor > 0
       ? ` The ${formatCash(grant.cashMinor, grant.cashCurrency)} cash prize will be paid to you directly by Ckript.`
       : "");
 
     // Winner ────────────────────────────────────────────────────────────────
     winner.result.award = "winner";
-    await applyGrant(winner, grants.winner, { badgeKey: "badge_winner", badge: BADGES.winner, placing: "winner", cashLabel: "Winner" });
+    await applyGrant(winner, grants.winner, { badgeKey: "badge_winner", badge: withBadgeImage(BADGES.winner, badgeImageFor(competition, "winner")), placing: "winner", cashLabel: "Winner" });
     winner.status = "judged";
     await winner.save();
     counts.winners = 1;
@@ -779,7 +784,7 @@ export const adminDeclareResults = async (req, res) => {
     // Runner-up ─────────────────────────────────────────────────────────────
     if (runnerUp) {
       runnerUp.result.award = "runner_up";
-      await applyGrant(runnerUp, grants.runnerUp, { badgeKey: "badge_runner_up", badge: BADGES.runner_up, placing: "runner_up", cashLabel: "Runner-Up" });
+      await applyGrant(runnerUp, grants.runnerUp, { badgeKey: "badge_runner_up", badge: withBadgeImage(BADGES.runner_up, badgeImageFor(competition, "runner_up")), placing: "runner_up", cashLabel: "Runner-Up" });
       runnerUp.status = "judged";
       await runnerUp.save();
       counts.runnerUp = 1;
@@ -790,7 +795,7 @@ export const adminDeclareResults = async (req, res) => {
     // Second runner-up ──────────────────────────────────────────────────────
     if (secondRunnerUp) {
       secondRunnerUp.result.award = "second_runner_up";
-      await applyGrant(secondRunnerUp, grants.secondRunnerUp, { badgeKey: "badge_second_runner_up", badge: BADGES.second_runner_up, placing: "second_runner_up", cashLabel: "Second Runner-Up" });
+      await applyGrant(secondRunnerUp, grants.secondRunnerUp, { badgeKey: "badge_second_runner_up", badge: withBadgeImage(BADGES.second_runner_up, badgeImageFor(competition, "second_runner_up")), placing: "second_runner_up", cashLabel: "Second Runner-Up" });
       secondRunnerUp.status = "judged";
       await secondRunnerUp.save();
       counts.secondRunnerUp = 1;
@@ -809,7 +814,7 @@ export const adminDeclareResults = async (req, res) => {
       const special = specialGrantFor(competition, title);
       await applyGrant(entry, { ...special, aiTrailer: false }, {
         badgeKey: "badge_special",
-        badge: { ...BADGES.special, label: title || BADGES.special.label },
+        badge: withBadgeImage({ ...BADGES.special, label: title || BADGES.special.label }, badgeImageFor(competition, "special", title)),
         placing: "special",
         cashLabel: title,
       });
@@ -837,7 +842,7 @@ export const adminDeclareResults = async (req, res) => {
       if (!hasSubmitted(entry)) continue;
 
       entry.result.award = "participant";
-      await grantOnce(entry, "badge_participant", () => awardBadge(entry.userId, BADGES.participant, competition._id));
+      await grantOnce(entry, "badge_participant", () => awardBadge(entry.userId, withBadgeImage(BADGES.participant, badgeImageFor(competition, "participant")), competition._id));
       entry.status = "judged";
       await entry.save();
       counts.participants += 1;

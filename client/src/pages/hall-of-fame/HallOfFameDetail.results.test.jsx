@@ -90,6 +90,13 @@ describe("HallOfFameDetail — the record is the Results section", () => {
     expect(text).toContain("Mira Sen, Dev Kapoor, Tomás Vega and Ana Ruiz now hold a permanent place");
   });
 
+  it("shows the competition's badge artwork on a laureate who was awarded it", async () => {
+    const el = await mount({ winner: { ...winner, badgeImage: "https://cdn.example.com/winner.png" }, runnerUp, special: [] });
+    const images = Array.from(el.querySelectorAll("img")).map((img) => img.getAttribute("src"));
+    expect(images).toContain("https://cdn.example.com/winner.png");
+    expect(images.filter((src) => src === "https://cdn.example.com/winner.png")).toHaveLength(1);
+  });
+
   it("handles a single honouree and a record with special awards only", async () => {
     const el = await mount({ winner: null, runnerUp: null, special: [special] });
     const text = el.textContent;

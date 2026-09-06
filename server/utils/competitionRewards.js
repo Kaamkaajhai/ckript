@@ -10,6 +10,7 @@
  *   - `resolveGrants(competition)`      what each placing gets — plan, days, featured, trailer, cash
  *   - `specialGrantFor(competition, t)` what a named special award carries beyond its badge
  *   - `composePrizeLines(competition)`  the sentences the public pages and the declare dialog show
+ *   - `badgeImageFor(competition, …)`   the admin's own artwork for a badge, if they uploaded any
  *
  * Badges are not configurable: a placing IS its badge. Cash is configurable but never paid by the
  * platform — it is recorded in the finance ledger as owed and worded on every surface as paid by
@@ -104,6 +105,12 @@ const toCurrency = (value, fallback = "INR") => {
 
 const toBool = (value, fallback) => (typeof value === "boolean" ? value : fallback);
 
+/** An image the pages may load: http(s) only, else nothing. */
+const toHttpUrl = (value) => {
+  const url = String(value || "").trim();
+  return /^https?:\/\//i.test(url) ? url : "";
+};
+
 /** One placing's grant, every field valid, unknown or missing fields taking the fallback's value. */
 export const sanitizeGrant = (raw = {}, fallback = DEFAULT_GRANTS.winner) => {
   const source = raw && typeof raw === "object" ? raw : {};
@@ -124,7 +131,7 @@ export const sanitizeGrants = (raw = {}) =>
 /**
  * The special-award rows from the editor. A row keeps its title and description (the editor adds a
  * blank row on "Add award", and blanks are the admin's to finish or remove) and gains the optional
- * grant fields, each made valid.
+ * grant fields and its own badge artwork, each made valid.
  */
 export const sanitizeSpecialAwards = (rows) =>
   (Array.isArray(rows) ? rows : [])
@@ -137,6 +144,7 @@ export const sanitizeSpecialAwards = (rows) =>
       featured: toBool(row.featured, DEFAULT_SPECIAL_GRANT.featured),
       cashMinor: toMinor(row.cashMinor, DEFAULT_SPECIAL_GRANT.cashMinor),
       cashCurrency: toCurrency(row.cashCurrency, DEFAULT_SPECIAL_GRANT.cashCurrency),
+      badgeUrl: toHttpUrl(row.badgeUrl),
     }));
 
 /** What each placing gets for this competition. Absent config → the historical grants. */
@@ -155,6 +163,39 @@ export const specialGrantFor = (competition, title) => {
     ? { plan: match.plan, planDays: match.planDays, featured: match.featured, cashMinor: match.cashMinor, cashCurrency: match.cashCurrency }
     : { ...DEFAULT_SPECIAL_GRANT };
 };
+
+// ─── Badge artwork ────────────────────────────────────────────────────────────
+
+/** One image per badge kind; a special award may override the shared "special" image with its own. */
+export const BADGE_KINDS = Object.freeze(["winner", "runnerUp", "secondRunnerUp", "special", "participant"]);
+
+const AWARD_TO_BADGE_KIND = Object.freeze({
+  winner: "winner",
+  runner_up: "runnerUp",
+  second_runner_up: "secondRunnerUp",
+  special: "special",
+  participant: "participant",
+});
+
+export const sanitizeBadgeImages = (raw = {}) =>
+  Object.fromEntries(BADGE_KINDS.map((kind) => [kind, toHttpUrl(raw?.[kind])]));
+
+/**
+ * The admin's own artwork for a badge — the image stamped onto the badge when it is awarded and
+ * shown wherever the badge appears. A special award's own image wins over the shared one; a kind
+ * with no image returns "" and the badge stays a text chip.
+ */
+export const badgeImageFor = (competition, award, specialTitle = "") => {
+  if (award === "special" && specialTitle) {
+    const wanted = String(specialTitle).trim().toLowerCase();
+    const row = sanitizeSpecialAwards(competition?.prizes?.special).find((r) => r.title.toLowerCase() === wanted);
+    if (row?.badgeUrl) return row.badgeUrl;
+  }
+  const kind = AWARD_TO_BADGE_KIND[award];
+  return kind ? sanitizeBadgeImages(competition?.badgeImages)[kind] : "";
+};
+
+// ─── Wording ──────────────────────────────────────────────────────────────────
 
 export const formatCash = (minor, currency = "INR") => {
   const amount = toMinor(minor) / 100;
@@ -215,6 +256,7 @@ export const composePrizeLines = (competition) => {
       title: row.title,
       // A description that merely names a platform item ("INR 1,500") is the grant, not a description.
       description: isPlatformDeliverableLine(row.description) ? "" : row.description,
+      badgeUrl: row.badgeUrl,
       lines: grantLines(row, { badgeLabel: row.title || "Special award" }),
     })),
   };

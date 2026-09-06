@@ -653,7 +653,7 @@ export default function OwnerProfileDesk({
           {view.genres.length ? (<><DeskLabel>Genres</DeskLabel><DeskChips values={view.genres} /></>) : null}
           {view.tags.length ? (<><DeskLabel>Specialized tags</DeskLabel><DeskChips values={view.tags} /></>) : null}
           {view.badges.length ? (
-            <><DeskLabel>Achievements</DeskLabel><DeskChips values={view.badges.map((badge) => badge.label)} /></>
+            <><DeskLabel>Achievements</DeskLabel><DeskChips values={view.badges.map((badge) => ({ label: badge.label, imageUrl: badge.imageUrl }))} /></>
           ) : null}
 
           {view.links.length ? (

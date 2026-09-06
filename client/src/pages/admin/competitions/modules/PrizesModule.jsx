@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
+import { adminApi } from "../../dashboardShared";
 
 /**
  * Prizes — what the platform GRANTS when results are declared, and what the pages promise.
@@ -17,6 +18,9 @@ import { Plus, Trash2 } from "lucide-react";
  * here reads the same. Cash is never paid by the platform: it is recorded in Finance as owed and
  * worded everywhere as paid by Ckript directly.
  *
+ * Badges are automatic, but their ARTWORK is the admin's: one image per badge kind, and optionally
+ * one per special award, stamped onto the badge when it is awarded.
+ *
  * `prizes.special` titles double as the declare-results suggestions, so a declared "Best Dialogue"
  * is spelled the way it was advertised — and carries whatever was configured under that title.
  */
@@ -28,7 +32,7 @@ const DEFAULT_GRANTS = {
   runnerUp: { enabled: true, plan: "silver", planDays: 30, featured: true, aiTrailer: false, cashMinor: 0, cashCurrency: "INR" },
   secondRunnerUp: { enabled: false, plan: "silver", planDays: 14, featured: false, aiTrailer: false, cashMinor: 0, cashCurrency: "INR" },
 };
-const DEFAULT_SPECIAL = { plan: "none", planDays: 30, featured: false, cashMinor: 0, cashCurrency: "INR" };
+const DEFAULT_SPECIAL = { plan: "none", planDays: 30, featured: false, cashMinor: 0, cashCurrency: "INR", badgeUrl: "" };
 
 const PLACINGS = [
   { key: "winner", title: "Winner", hint: "Granted to the winner the moment results are declared." },
@@ -65,6 +69,58 @@ const describeGrant = (grant, badgeLabel) => {
 
 const field = "px-3 py-2 bg-[#fbfbfa] border border-[#e4e2e0] rounded-lg text-sm focus:outline-none focus:border-[#111]";
 const label = "block text-xs font-semibold uppercase tracking-wider text-[#666] mb-1";
+
+// The same upload every other editor module uses for its images.
+const uploadImage = async (file) => {
+  const formData = new FormData();
+  formData.append("image", file);
+  const { data } = await adminApi.post("/admin/competitions/upload", formData, { headers: { "Content-Type": "multipart/form-data" } });
+  return data.url;
+};
+
+/** One badge's artwork: preview, upload or paste, remove. */
+function BadgeSlot({ title, hint, value, onChange, idPrefix }) {
+  const inputRef = useRef(null);
+  const [busy, setBusy] = useState(false);
+  const pick = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    try {
+      setBusy(true);
+      onChange(await uploadImage(file));
+    } catch {
+      alert("Failed to upload the badge image.");
+    } finally {
+      setBusy(false);
+      event.target.value = "";
+    }
+  };
+  return (
+    <div className="flex items-center gap-4 rounded-xl border border-[#eee9e2] p-3" data-badge-slot={idPrefix}>
+      <div className="h-16 w-16 shrink-0 overflow-hidden rounded-full border border-[#eee9e2] bg-[#fbfaf7] flex items-center justify-center">
+        {value ? <img src={value} alt="" className="h-full w-full object-contain" /> : <span className="text-[10px] uppercase tracking-wider text-[#a39d92]">none</span>}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold text-[#111]">{title}</p>
+        {hint ? <p className="text-xs text-[#888]">{hint}</p> : null}
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={pick} />
+          <button type="button" disabled={busy} onClick={() => inputRef.current?.click()} className="px-3 py-1.5 text-xs font-semibold text-[#111] border border-[#e4e2e0] rounded-lg hover:bg-[#f4f2ef] transition-colors disabled:opacity-50">
+            {busy ? "Uploading…" : value ? "Replace image" : "Upload image"}
+          </button>
+          <input
+            value={value || ""}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder="or paste an image URL"
+            aria-label={`${title} image URL`}
+            className={`${field} flex-1 min-w-[180px] text-xs`}
+          />
+          {value ? <button type="button" onClick={() => onChange("")} className="text-xs text-[#999] hover:text-red-600 transition-colors">Remove</button> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 /** The controls for one grant: plan + days, placements, cash. Shared by placings and special awards. */
 function GrantFields({ grant, onChange, allowTrailer = true, idPrefix }) {
@@ -169,6 +225,8 @@ export default function PrizesModule({ data, onChange }) {
   const prizes = data.prizes || {};
   const grants = { ...DEFAULT_GRANTS, ...(prizes.grants || {}) };
   const special = prizes.special || [];
+  const badgeImages = data.badgeImages || {};
+  const secondRunnerUpOn = Boolean({ ...DEFAULT_GRANTS.secondRunnerUp, ...(grants.secondRunnerUp || {}) }.enabled);
 
   const setPrizes = (patch) => onChange("prizes", { ...prizes, ...patch });
   const setGrant = (placing, grant) => setPrizes({ grants: { ...grants, [placing]: grant } });
@@ -177,6 +235,7 @@ export default function PrizesModule({ data, onChange }) {
     next[index] = { ...DEFAULT_SPECIAL, ...next[index], ...patch };
     setPrizes({ special: next });
   };
+  const setBadge = (kind, url) => onChange("badgeImages", { ...badgeImages, [kind]: url });
 
   const tiers = data.referralTiers || [];
   const setTierField = (index, key, value) => {
@@ -297,10 +356,38 @@ export default function PrizesModule({ data, onChange }) {
                   </button>
                 </div>
                 <GrantFields grant={row} onChange={(next) => setSpecial(i, next)} allowTrailer={false} idPrefix={`special-${i}`} />
+                <BadgeSlot
+                  title="Badge image for this award"
+                  hint="Optional. Without one, the shared special-award image below is used."
+                  value={row.badgeUrl}
+                  onChange={(v) => setSpecial(i, { badgeUrl: v })}
+                  idPrefix={`special-badge-${i}`}
+                />
                 <Preview lines={describeGrant(row, row.title || "Special award")} />
               </div>
             );
           })}
+        </div>
+      </div>
+
+      {/* Badge artwork. The badges themselves are automatic — a placing is its badge — but the image
+          each one carries is the admin's: uploaded here, stamped onto the badge when it is awarded,
+          shown on the writer's profile, in the Hall of Fame and on the results page. */}
+      <div className="bg-white rounded-2xl p-8 border border-[#eaeaea] shadow-sm">
+        <div className="mb-5">
+          <h2 className="text-xl font-serif font-bold text-[#111]">Badge Images</h2>
+          <p className="text-sm text-[#666] mt-1">
+            Your own artwork for each badge. A badge with no image is shown as a text chip. Square images look best.
+          </p>
+        </div>
+        <div className="space-y-3">
+          <BadgeSlot title="Winner badge" value={badgeImages.winner} onChange={(v) => setBadge("winner", v)} idPrefix="badge-winner" />
+          <BadgeSlot title="Runner-Up badge" value={badgeImages.runnerUp} onChange={(v) => setBadge("runnerUp", v)} idPrefix="badge-runnerUp" />
+          {secondRunnerUpOn ? (
+            <BadgeSlot title="Second Runner-Up badge" value={badgeImages.secondRunnerUp} onChange={(v) => setBadge("secondRunnerUp", v)} idPrefix="badge-secondRunnerUp" />
+          ) : null}
+          <BadgeSlot title="Special award badge" hint="Used by any special award that has no image of its own." value={badgeImages.special} onChange={(v) => setBadge("special", v)} idPrefix="badge-special" />
+          <BadgeSlot title="Participant badge" hint="Everyone who submitted a script." value={badgeImages.participant} onChange={(v) => setBadge("participant", v)} idPrefix="badge-participant" />
         </div>
       </div>
 

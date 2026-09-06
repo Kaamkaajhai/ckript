@@ -5,7 +5,9 @@ import {
   DEFAULT_SPECIAL_GRANT,
   MAX_PLAN_DAYS,
   PLACING_AWARD,
+  badgeImageFor,
   composePrizeLines,
+  sanitizeBadgeImages,
   formatCash,
   grantLines,
   resolveGrants,
@@ -66,8 +68,33 @@ describe("sanitising keeps every field valid", () => {
       "junk",
     ]);
     assert.equal(rows.length, 2);
-    assert.deepEqual(rows[0], { title: "Best Dialogue", description: "Jury citation", plan: "gold", planDays: MAX_PLAN_DAYS, featured: false, cashMinor: 250000, cashCurrency: "INR" });
-    assert.deepEqual(rows[1], { title: "", description: "", ...DEFAULT_SPECIAL_GRANT });
+    assert.deepEqual(rows[0], { title: "Best Dialogue", description: "Jury citation", plan: "gold", planDays: MAX_PLAN_DAYS, featured: false, cashMinor: 250000, cashCurrency: "INR", badgeUrl: "" });
+    assert.deepEqual(rows[1], { title: "", description: "", ...DEFAULT_SPECIAL_GRANT, badgeUrl: "" });
+  });
+});
+
+describe("badge artwork", () => {
+  const competition = {
+    badgeImages: { winner: "https://cdn.example.com/winner.png", special: "https://cdn.example.com/special.png", participant: "javascript:alert(1)" },
+    prizes: { special: [{ title: "Best Dialogue", badgeUrl: "https://cdn.example.com/dialogue.png" }, { title: "Best Theme", badgeUrl: "" }] },
+  };
+
+  test("only http(s) images survive sanitising; every kind is always present", () => {
+    assert.deepEqual(sanitizeBadgeImages(competition.badgeImages), {
+      winner: "https://cdn.example.com/winner.png", runnerUp: "", secondRunnerUp: "", special: "https://cdn.example.com/special.png", participant: "",
+    });
+    assert.deepEqual(sanitizeBadgeImages(undefined), { winner: "", runnerUp: "", secondRunnerUp: "", special: "", participant: "" });
+  });
+
+  test("a placing takes its kind's image, a special award its own before the shared one", () => {
+    assert.equal(badgeImageFor(competition, "winner"), "https://cdn.example.com/winner.png");
+    assert.equal(badgeImageFor(competition, "runner_up"), "");
+    assert.equal(badgeImageFor(competition, "participant"), "", "a javascript: URL is not an image");
+    assert.equal(badgeImageFor(competition, "special", "best dialogue"), "https://cdn.example.com/dialogue.png");
+    assert.equal(badgeImageFor(competition, "special", "Best Theme"), "https://cdn.example.com/special.png");
+    assert.equal(badgeImageFor(competition, "special", "Typed fresh"), "https://cdn.example.com/special.png");
+    assert.equal(badgeImageFor({}, "winner"), "");
+    assert.equal(badgeImageFor(competition, "none"), "");
   });
 });
 
@@ -118,7 +145,7 @@ describe("one wording for every surface", () => {
     assert.deepEqual(composed.winner, ["₹1,00,000 cash prize, paid directly by Ckript", "Winner badge", "Producer meetings"]);
     // Runner-up was not configured, so the historical default stands; its seeded extra is dropped.
     assert.deepEqual(composed.runnerUp, ["Silver plan for 30 days", "Featured placement when you publish your script", "Runner-Up badge"]);
-    assert.deepEqual(composed.special, [{ title: "Best Dialogue", description: "Jury citation", lines: ["Silver plan for 30 days", "Best Dialogue badge"] }]);
+    assert.deepEqual(composed.special, [{ title: "Best Dialogue", description: "Jury citation", badgeUrl: "", lines: ["Silver plan for 30 days", "Best Dialogue badge"] }]);
   });
 
   test("typed lines that describe platform items are not printed twice beside the grant", () => {
@@ -151,7 +178,7 @@ describe("one wording for every surface", () => {
       "Runner-Up badge",
     ]);
     // A description that is only an amount is the grant, not a description.
-    assert.deepEqual(composed.special, [{ title: "Best Dialogues", description: "", lines: ["₹1,000 cash prize, paid directly by Ckript", "Best Dialogues badge"] }]);
+    assert.deepEqual(composed.special, [{ title: "Best Dialogues", description: "", badgeUrl: "", lines: ["₹1,000 cash prize, paid directly by Ckript", "Best Dialogues badge"] }]);
   });
 
   test("a second runner-up tier prints nothing until it is enabled", () => {
