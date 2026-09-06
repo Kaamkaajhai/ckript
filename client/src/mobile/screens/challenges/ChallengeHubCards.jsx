@@ -92,7 +92,7 @@ const awardTone = (award) => (award === "winner" ? "accent" : award === "runner_
 export function LaureateCardMobile({ person, award }) {
   if (!person) return null;
   const profileKey = person.username || person.userId;
-  const awardName = person.specialTitle || (award === "winner" ? "Winner" : award === "runner_up" ? "Runner-Up" : "Special Award");
+  const awardName = person.specialTitle || (award === "winner" ? "Winner" : award === "runner_up" ? "Runner-Up" : award === "second_runner_up" ? "Second Runner-Up" : "Special Award");
   return (
     <Card className="ckm-challenge-hub__laureate">
       <CardBody>

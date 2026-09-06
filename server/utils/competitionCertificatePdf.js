@@ -32,6 +32,7 @@ const MUTED = "#6b6b6b";
 const AWARD_TITLES = {
   winner: "Winner",
   runner_up: "Runner-Up",
+  second_runner_up: "Second Runner-Up",
   special: "Special Award",
   participant: "Certificate of Participation",
   none: "Certificate of Participation",

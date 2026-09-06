@@ -16,6 +16,7 @@ import { yearSuffix } from "./labels";
 const AWARD_STYLES = {
   winner: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300",
   runner_up: "bg-slate-100 text-slate-700 dark:bg-slate-700/60 dark:text-slate-200",
+  second_runner_up: "bg-stone-100 text-stone-700 dark:bg-stone-700/60 dark:text-stone-200",
   special: "bg-[#D14D37]/10 text-[#D14D37]",
   participant: "bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200",
 };
